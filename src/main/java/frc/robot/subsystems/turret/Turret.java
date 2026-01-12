@@ -1,6 +1,9 @@
 package frc.robot.subsystems.turret;
 
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Turret extends SubsystemBase {
@@ -114,6 +117,12 @@ public class Turret extends SubsystemBase {
    */
   public void resetEncoder(double angleDegrees) {
     io.resetEncoder(angleDegrees);
+  }
+
+  /** Returns the current odometry pose. */
+  @AutoLogOutput(key = "Odometry/Turret")
+  public Pose3d getPose() {
+    return new Pose3d(0, 0, 0, new Rotation3d(0.0, 0.0, 0.0));
   }
 
   /**
