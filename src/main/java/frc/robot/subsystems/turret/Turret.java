@@ -1,0 +1,127 @@
+package frc.robot.subsystems.turret;
+
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import org.littletonrobotics.junction.Logger;
+
+public class Turret extends SubsystemBase {
+  private final TurretIO io;
+  private final TurretIOInputsAutoLogged inputs = new TurretIOInputsAutoLogged();
+
+  /**
+   * Creates a new Turret subsystem.
+   *
+   * @param io The IO implementation to use (real hardware or simulation)
+   */
+  public Turret(TurretIO io) {
+    this.io = io;
+  }
+
+  @Override
+  public void periodic() {
+    io.updateInputs(inputs);
+    Logger.processInputs("Turret", inputs);
+  }
+
+  /**
+   * Set the turret to point at a specific angle relative to the robot's front.
+   *
+   * @param angleDegrees Angle in degrees (-180 to 180, positive = counter-clockwise)
+   */
+  public void setAngle(double angleDegrees) {
+    io.setTargetAngle(angleDegrees);
+  }
+
+  /**
+   * Calculate and set the turret angle to point at a field position.
+   *
+   * @param robotX Robot's X position on field (meters)
+   * @param robotY Robot's Y position on field (meters)
+   * @param robotOmega Robot's heading in degrees (0-360)
+   * @param targetX Target X position on field (meters)
+   * @param targetY Target Y position on field (meters)
+   */
+  public void aimAtFieldPosition(
+      double robotX, double robotY, double robotOmega, double targetX, double targetY) {
+    double turretAngle = calculateTurretAngle(robotX, robotY, robotOmega, targetX, targetY);
+    setAngle(turretAngle);
+  }
+
+  /** Calculate the turret angle needed to point at a target location on the field. */
+  private double calculateTurretAngle(
+      double robotX, double robotY, double robotOmega, double targetX, double targetY) {
+    // Calculate vector from robot to target
+    double deltaX = targetX - robotX;
+    double deltaY = targetY - robotY;
+
+    // Calculate absolute angle to target from field coordinates
+    double absoluteAngle = Math.toDegrees(Math.atan2(deltaY, deltaX));
+
+    // Normalize to 0-360 range
+    if (absoluteAngle < 0) {
+      absoluteAngle += 360;
+    }
+
+    // Calculate relative angle (turret angle relative to robot heading)
+    double relativeAngle = absoluteAngle - robotOmega;
+
+    // Normalize to -180 to +180 range for shortest rotation
+    if (relativeAngle > 180) {
+      relativeAngle -= 360;
+    } else if (relativeAngle < -180) {
+      relativeAngle += 360;
+    }
+
+    return relativeAngle;
+  }
+
+  /** Stop the turret motor. */
+  public void stop() {
+    io.stop();
+  }
+
+  /**
+   * Get the current turret angle.
+   *
+   * @return Current angle in degrees (-180 to 180)
+   */
+  public double getCurrentAngle() {
+    return inputs.currentAngleDegrees;
+  }
+
+  /**
+   * Get the target turret angle.
+   *
+   * @return Target angle in degrees
+   */
+  public double getTargetAngle() {
+    return inputs.targetAngleDegrees;
+  }
+
+  /**
+   * Check if the turret is at the target angle within tolerance.
+   *
+   * @return True if at target
+   */
+  public boolean atTarget() {
+    return Math.abs(inputs.currentAngleDegrees - inputs.targetAngleDegrees)
+        <= TurretConstants.ANGLE_TOLERANCE_DEGREES;
+  }
+
+  /**
+   * Reset the turret encoder to a known position.
+   *
+   * @param angleDegrees The angle to set the encoder to
+   */
+  public void resetEncoder(double angleDegrees) {
+    io.resetEncoder(angleDegrees);
+  }
+
+  /**
+   * Set the turret to brake or coast mode.
+   *
+   * @param enable True for brake mode, false for coast mode
+   */
+  public void setBrakeMode(boolean enable) {
+    io.setBrakeMode(enable);
+  }
+}
