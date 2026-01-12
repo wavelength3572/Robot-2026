@@ -18,6 +18,24 @@ public final class Constants {
   public static final Mode simMode = Mode.SIM;
   public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
 
+  public static final RobotType currentRobot = RobotType.MAINBOT;
+
+  private static RobotConfig robotConfig = null;
+
+  public static RobotConfig getRobotConfig() {
+    if (robotConfig == null) {
+      switch (currentRobot) {
+        case MAINBOT:
+          robotConfig = new MainBotConfig();
+          break;
+        case MINIBOT:
+          robotConfig = new MiniBotConfig();
+          break;
+      }
+    }
+    return robotConfig;
+  }
+
   public static enum Mode {
     /** Running on a real robot. */
     REAL,
@@ -27,5 +45,13 @@ public final class Constants {
 
     /** Replaying from a log file. */
     REPLAY
+  }
+
+  public static enum RobotType {
+    /** MainBot2026 - 21.25" chassis with NEO drive motors */
+    MAINBOT,
+
+    /** MiniBot2026 - 14" chassis with NEO Vortex drive motors */
+    MINIBOT
   }
 }

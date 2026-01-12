@@ -20,6 +20,9 @@ import frc.robot.subsystems.drive.GyroIOPigeon2;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
+import frc.robot.subsystems.turret.Turret;
+import frc.robot.subsystems.turret.TurretIO;
+import frc.robot.subsystems.turret.TurretIOSparkMaxSim;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -31,6 +34,7 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   // Subsystems
   private final Drive drive;
+  private final Turret turret; // Only instantiated for MainBot, null for MiniBot
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs
@@ -71,6 +75,29 @@ public class RobotContainer {
                 new ModuleIO() {},
                 new ModuleIO() {});
         break;
+    }
+
+    // Instantiate turret only for MainBot (not present on MiniBot)
+    if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+      switch (Constants.currentMode) {
+        case REAL:
+          // Real MainBot - instantiate turret hardware (TurretIO implementation needed)
+          turret = new Turret(new TurretIO() {}); // TODO: Replace with real hardware IO
+          break;
+
+        case SIM:
+          // Sim MainBot - instantiate turret simulation
+          turret = new Turret(new TurretIOSparkMaxSim());
+          break;
+
+        default:
+          // Replay mode - disable turret IO
+          turret = new Turret(new TurretIO() {});
+          break;
+      }
+    } else {
+      // MiniBot does not have a turret
+      turret = null;
     }
 
     // Set up auto routines
@@ -119,5 +146,23 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     return autoChooser.get();
+  }
+
+  /**
+   * Get the turret subsystem if it exists (MainBot only).
+   *
+   * @return Turret subsystem or null if not present
+   */
+  public Turret getTurret() {
+    return turret;
+  }
+
+  /**
+   * Check if the turret subsystem is present on this robot.
+   *
+   * @return true if turret exists
+   */
+  public boolean hasTurret() {
+    return turret != null;
   }
 }

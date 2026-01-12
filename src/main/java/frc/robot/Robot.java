@@ -42,6 +42,7 @@ public class Robot extends LoggedRobot {
           case 1 -> "Uncommitted changes";
           default -> "Unknown";
         });
+    Logger.recordMetadata("RobotType", Constants.currentRobot.toString());
 
     // Set up data receivers & replay source
     switch (Constants.currentMode) {
