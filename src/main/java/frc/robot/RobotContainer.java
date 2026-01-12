@@ -20,6 +20,9 @@ import frc.robot.subsystems.drive.GyroIOPigeon2;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
+import frc.robot.subsystems.turret.Turret;
+import frc.robot.subsystems.turret.TurretIO;
+import frc.robot.subsystems.turret.TurretIOSparkMaxSim;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -31,6 +34,7 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   // Subsystems
   private final Drive drive;
+  private final Turret turret;
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs
@@ -41,35 +45,41 @@ public class RobotContainer {
     switch (Constants.currentMode) {
       case REAL:
         // Real robot, instantiate hardware IO implementations
+        turret = new Turret(new TurretIOSparkMaxSim());
         drive =
             new Drive(
                 new GyroIOPigeon2(),
                 new ModuleIOSpark(0),
                 new ModuleIOSpark(1),
                 new ModuleIOSpark(2),
-                new ModuleIOSpark(3));
+                new ModuleIOSpark(3),
+                turret);
         break;
 
       case SIM:
         // Sim robot, instantiate physics sim IO implementations
+        turret = new Turret(new TurretIOSparkMaxSim());
         drive =
             new Drive(
                 new GyroIO() {},
                 new ModuleIOSim(),
                 new ModuleIOSim(),
                 new ModuleIOSim(),
-                new ModuleIOSim());
+                new ModuleIOSim(),
+                turret);
         break;
 
       default:
         // Replayed robot, disable IO implementations
+        turret = new Turret(new TurretIO() {});
         drive =
             new Drive(
                 new GyroIO() {},
                 new ModuleIO() {},
                 new ModuleIO() {},
                 new ModuleIO() {},
-                new ModuleIO() {});
+                new ModuleIO() {},
+                turret);
         break;
     }
 

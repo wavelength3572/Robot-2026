@@ -38,6 +38,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.Constants.Mode;
+import frc.robot.subsystems.turret.Turret;
 import frc.robot.util.LocalADStarAK;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -49,6 +50,7 @@ public class Drive extends SubsystemBase {
   private final GyroIO gyroIO;
   private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
   private final Module[] modules = new Module[4]; // FL, FR, BL, BR
+  private final Turret turret;
   private final SysIdRoutine sysId;
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
@@ -70,8 +72,10 @@ public class Drive extends SubsystemBase {
       ModuleIO flModuleIO,
       ModuleIO frModuleIO,
       ModuleIO blModuleIO,
-      ModuleIO brModuleIO) {
+      ModuleIO brModuleIO,
+      Turret turret) {
     this.gyroIO = gyroIO;
+    this.turret = turret;
     modules[0] = new Module(flModuleIO, 0);
     modules[1] = new Module(frModuleIO, 1);
     modules[2] = new Module(blModuleIO, 2);
@@ -169,6 +173,29 @@ public class Drive extends SubsystemBase {
 
       // Apply update
       poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
+    }
+
+    // Update turret to aim at speaker based on latest pose
+    if (turret != null) {
+      Pose2d currentPose = getPose();
+
+      // Get speaker coordinates based on alliance
+      Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+      double speakerX =
+          (alliance == Alliance.Blue)
+              ? Constants.FieldPositions.BLUE_SPEAKER_X
+              : Constants.FieldPositions.RED_SPEAKER_X;
+      double speakerY =
+          (alliance == Alliance.Blue)
+              ? Constants.FieldPositions.BLUE_SPEAKER_Y
+              : Constants.FieldPositions.RED_SPEAKER_Y;
+
+      turret.aimAtFieldPosition(
+          currentPose.getX(),
+          currentPose.getY(),
+          currentPose.getRotation().getDegrees(),
+          speakerX,
+          speakerY);
     }
 
     // Update gyro alert

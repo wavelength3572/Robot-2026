@@ -28,4 +28,17 @@ public final class Constants {
     /** Replaying from a log file. */
     REPLAY
   }
+
+  /** Field positions for targeting (in meters). */
+  public static final class FieldPositions {
+    /** Blue alliance speaker position. */
+    public static final double BLUE_SPEAKER_X = 0.0; // TODO: Update with actual field coordinates
+
+    public static final double BLUE_SPEAKER_Y = 5.5; // TODO: Update with actual field coordinates
+
+    /** Red alliance speaker position. */
+    public static final double RED_SPEAKER_X = 16.54; // TODO: Update with actual field coordinates
+
+    public static final double RED_SPEAKER_Y = 5.5; // TODO: Update with actual field coordinates
+  }
 }
