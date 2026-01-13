@@ -189,7 +189,58 @@ the robot is in the neutral zone vs the opponent's alliance zone. When in the
 opponent's zone, aim for our alliance trench area instead of deep in our zone.
 ```
 
-### Challenge C: Operator Targeting Mode (Advanced)
+### Challenge C: Manual Override Button
+
+**Scenario:** What if our auto-targeting code fails mid-match? The turret is
+pointing somewhere wrong and we need to take manual control immediately.
+
+**Discussion prompt:**
+"Our auto-aim is broken during a match. What's the simplest way to let the
+driver/operator take over and manually aim the turret?"
+
+```
+Add a manual override mode where:
+1. Holding a button (e.g., operator's trigger) disables auto-aim
+2. While held, operator joystick X-axis directly controls turret rotation
+3. Releasing the button returns to auto-aim mode
+4. Log "Turret/ManualOverride" so we can see when it's active
+```
+
+**Why this matters:**
+- Redundancy is critical in competition
+- Simple hold-to-override is intuitive under pressure
+- Teaches defensive programming mindset
+
+---
+
+### Challenge D: Operator Trim/Calibration Control
+
+**Scenario:** During a match, you notice the turret is consistently 1-2 degrees
+off to the left. You can't fix the code mid-match, but what if the operator
+could add a small correction?
+
+**Discussion prompt:**
+"The turret is always slightly off. How could we let the operator fine-tune
+the aim without taking full manual control?"
+
+```
+Add a trim adjustment system where:
+1. Use the operator's dial/knob to add a small offset (-5 to +5 degrees)
+2. This offset is ADDED to whatever the auto-aim calculates
+3. Display the current trim value on the dashboard
+4. (Optional) Add buttons to quickly zero the trim
+```
+
+**Example:** Auto-aim says "aim at 45°", trim is set to +2°, turret aims at 47°.
+
+**Why this matters:**
+- Real robots have mechanical imperfections
+- Allows mid-match corrections without code changes
+- Common pattern in competition robotics (think hood angle trim, shooter speed trim)
+
+---
+
+### Challenge E: Operator Targeting Mode (Advanced)
 
 **Concept:** Let the operator use a second InterLink controller to manually
 aim at a specific field location for direct robot-to-robot passing.
