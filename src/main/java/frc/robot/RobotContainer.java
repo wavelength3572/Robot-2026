@@ -23,6 +23,12 @@ import frc.robot.subsystems.drive.ModuleIOSpark;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
 import frc.robot.subsystems.turret.TurretIOSim;
+import frc.robot.subsystems.vision.Vision;
+import frc.robot.subsystems.vision.VisionConstants;
+import frc.robot.subsystems.vision.VisionIO;
+import frc.robot.subsystems.vision.VisionIOPhotonVision;
+import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
+import frc.robot.util.RobotStatus;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -35,6 +41,7 @@ public class RobotContainer {
   // Subsystems
   private final Drive drive;
   private final Turret turret; // Only instantiated for MainBot, null for MiniBot
+  private final Vision vision; // Only instantiated for MainBot, null for MiniBot
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs
@@ -65,7 +72,7 @@ public class RobotContainer {
       turret = null;
     }
 
-    // Instantiate drive subsystem
+    // Instantiate drive and vision subsystems
     switch (Constants.currentMode) {
       case REAL:
         // Real robot, instantiate hardware IO implementations
@@ -77,6 +84,23 @@ public class RobotContainer {
                 new ModuleIOSpark(2),
                 new ModuleIOSpark(3),
                 turret);
+        // Vision only for MainBot
+        if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+          vision =
+              new Vision(
+                  drive::addVisionMeasurement,
+                  drive::addVisionMeasurement,
+                  new VisionIOPhotonVision(
+                      VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam),
+                  new VisionIOPhotonVision(
+                      VisionConstants.backRightCam, VisionConstants.robotToBackRightCam),
+                  new VisionIOPhotonVision(
+                      VisionConstants.frontLeftCam, VisionConstants.robotToFrontLeftCam),
+                  new VisionIOPhotonVision(
+                      VisionConstants.elevatorBackCam, VisionConstants.robotToElevatorBackCam));
+        } else {
+          vision = null;
+        }
         break;
 
       case SIM:
@@ -89,6 +113,31 @@ public class RobotContainer {
                 new ModuleIOSim(),
                 new ModuleIOSim(),
                 turret);
+        // Vision only for MainBot
+        if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+          vision =
+              new Vision(
+                  drive::addVisionMeasurement,
+                  drive::addVisionMeasurement,
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.frontRightCam,
+                      VisionConstants.robotToFrontRightCam,
+                      RobotStatus::getRobotPose),
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.backRightCam,
+                      VisionConstants.robotToBackRightCam,
+                      RobotStatus::getRobotPose),
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.frontLeftCam,
+                      VisionConstants.robotToFrontLeftCam,
+                      RobotStatus::getRobotPose),
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.elevatorBackCam,
+                      VisionConstants.robotToElevatorBackCam,
+                      RobotStatus::getRobotPose));
+        } else {
+          vision = null;
+        }
         break;
 
       default:
@@ -101,8 +150,24 @@ public class RobotContainer {
                 new ModuleIO() {},
                 new ModuleIO() {},
                 turret);
+        // Vision only for MainBot (replay mode)
+        if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+          vision =
+              new Vision(
+                  (pose, time, stdDevs) -> {},
+                  (pose, time, stdDevs) -> {},
+                  new VisionIO() {},
+                  new VisionIO() {},
+                  new VisionIO() {},
+                  new VisionIO() {});
+        } else {
+          vision = null;
+        }
         break;
     }
+
+    // Initialize RobotStatus with subsystem references (vision may be null for MiniBot)
+    RobotStatus.initialize(drive, vision);
 
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
@@ -168,5 +233,23 @@ public class RobotContainer {
    */
   public boolean hasTurret() {
     return turret != null;
+  }
+
+  /**
+   * Get the vision subsystem if it exists (MainBot only).
+   *
+   * @return Vision subsystem or null if not present
+   */
+  public Vision getVision() {
+    return vision;
+  }
+
+  /**
+   * Check if the vision subsystem is present on this robot.
+   *
+   * @return true if vision exists
+   */
+  public boolean hasVision() {
+    return vision != null;
   }
 }
