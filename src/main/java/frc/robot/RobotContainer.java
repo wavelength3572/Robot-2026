@@ -22,7 +22,7 @@ import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
-import frc.robot.subsystems.turret.TurretIOSparkMaxSim;
+import frc.robot.subsystems.turret.TurretIOSim;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -45,7 +45,7 @@ public class RobotContainer {
     switch (Constants.currentMode) {
       case REAL:
         // Real robot, instantiate hardware IO implementations
-        turret = new Turret(new TurretIOSparkMaxSim());
+        turret = new Turret(new TurretIOSim());
         drive =
             new Drive(
                 new GyroIOPigeon2(),
@@ -58,7 +58,7 @@ public class RobotContainer {
 
       case SIM:
         // Sim robot, instantiate physics sim IO implementations
-        turret = new Turret(new TurretIOSparkMaxSim());
+        turret = new Turret(new TurretIOSim());
         drive =
             new Drive(
                 new GyroIO() {},

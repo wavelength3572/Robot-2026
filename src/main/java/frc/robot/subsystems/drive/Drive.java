@@ -181,21 +181,21 @@ public class Drive extends SubsystemBase {
 
       // Get speaker coordinates based on alliance
       Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
-      double speakerX =
+      double hubX =
           (alliance == Alliance.Blue)
-              ? Constants.FieldPositions.BLUE_SPEAKER_X
-              : Constants.FieldPositions.RED_SPEAKER_X;
-      double speakerY =
+              ? Constants.FieldPositions.BLUE_HUB_X
+              : Constants.FieldPositions.RED_HUB_X;
+      double hubY =
           (alliance == Alliance.Blue)
-              ? Constants.FieldPositions.BLUE_SPEAKER_Y
-              : Constants.FieldPositions.RED_SPEAKER_Y;
+              ? Constants.FieldPositions.BLUE_HUB_Y
+              : Constants.FieldPositions.RED_HUB_Y;
 
       turret.aimAtFieldPosition(
           currentPose.getX(),
           currentPose.getY(),
           currentPose.getRotation().getDegrees(),
-          speakerX,
-          speakerY);
+          hubX,
+          hubY);
     }
 
     // Update gyro alert
