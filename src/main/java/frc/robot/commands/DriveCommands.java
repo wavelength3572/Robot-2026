@@ -80,6 +80,9 @@ public class DriveCommands {
           omega = Math.copySign(omega * omega, omega);
 
           // Convert to field relative speeds & send command
+          // Field-relative: "forward" on stick = toward opponent's alliance wall
+          // Blue alliance: +X is toward Red wall, no flip needed
+          // Red alliance: +X is toward Blue wall (opponent), need to flip 180°
           ChassisSpeeds speeds =
               new ChassisSpeeds(
                   linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec(),

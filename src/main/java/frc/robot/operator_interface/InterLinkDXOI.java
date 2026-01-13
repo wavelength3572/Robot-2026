@@ -27,12 +27,12 @@ public class InterLinkDXOI implements OperatorInterface {
 
   @Override
   public double getTranslateX() {
-    return -interLinkJoystick.getRawAxis(1);
+    return interLinkJoystick.getRawAxis(1);
   }
 
   @Override
   public double getTranslateY() {
-    return interLinkJoystick.getRawAxis(0);
+    return -interLinkJoystick.getRawAxis(0);
   }
 
   @Override
