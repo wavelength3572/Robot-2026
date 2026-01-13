@@ -40,6 +40,7 @@ import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.util.LocalADStarAK;
+import frc.robot.util.TurretAimingHelper;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -175,27 +176,26 @@ public class Drive extends SubsystemBase {
       poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
     }
 
-    // Update turret to aim at speaker based on latest pose
+    // Update turret to aim based on robot position and alliance
     if (turret != null) {
       Pose2d currentPose = getPose();
-
-      // Get speaker coordinates based on alliance
       Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
-      double hubX =
-          (alliance == Alliance.Blue)
-              ? Constants.FieldPositions.BLUE_HUB_X
-              : Constants.FieldPositions.RED_HUB_X;
-      double hubY =
-          (alliance == Alliance.Blue)
-              ? Constants.FieldPositions.BLUE_HUB_Y
-              : Constants.FieldPositions.RED_HUB_Y;
+
+      // Get target based on zone (shoot at hub vs pass)
+      TurretAimingHelper.AimTarget target =
+          TurretAimingHelper.getTargetForPosition(currentPose.getX(), currentPose.getY(), alliance);
 
       turret.aimAtFieldPosition(
           currentPose.getX(),
           currentPose.getY(),
           currentPose.getRotation().getDegrees(),
-          hubX,
-          hubY);
+          target.x(),
+          target.y());
+
+      // Log aim mode for debugging
+      Logger.recordOutput("Turret/AimMode", target.mode().toString());
+      Logger.recordOutput("Turret/TargetX", target.x());
+      Logger.recordOutput("Turret/TargetY", target.y());
     }
 
     // Update gyro alert

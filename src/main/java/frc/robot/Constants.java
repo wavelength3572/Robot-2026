@@ -109,16 +109,30 @@ public final class Constants {
     MINIBOT
   }
 
-  /** Field positions for targeting (in meters). */
+  /** Field positions for targeting (in meters) - 2026 Rebuilt game. */
   public static final class FieldPositions {
-    /** Blue alliance speaker position. */
-    public static final double BLUE_HUB_X = 4.6; // TODO: Update with actual field coordinates
+    // Field dimensions
+    public static final double FIELD_LENGTH = 16.54; // meters
+    public static final double FIELD_WIDTH = 8.23; // meters
 
-    public static final double BLUE_HUB_Y = 4.0; // TODO: Update with actual field coordinates
+    // Hub positions (2026 Rebuilt - 158.6" = 4.03m from alliance wall, centered on field width)
+    public static final double BLUE_HUB_X = 4.03; // 158.6 inches from Blue wall
+    public static final double BLUE_HUB_Y = 4.115; // Centered on field width
+    public static final double RED_HUB_X = 12.51; // 16.54 - 4.03 = 12.51m from Blue wall
+    public static final double RED_HUB_Y = 4.115; // Centered on field width
 
-    /** Red alliance speaker position. */
-    public static final double RED_HUB_X = 4.6; // TODO: Update with actual field coordinates
+    // Zone boundaries for shoot vs pass logic
+    public static final double BLUE_SHOOTING_ZONE_MAX_X = 5.5; // Blue can shoot when X < this
+    public static final double RED_SHOOTING_ZONE_MIN_X = 11.0; // Red can shoot when X > this
 
-    public static final double RED_HUB_Y = 4.0; // TODO: Update with actual field coordinates
+    // Passing target X positions (aim back into own alliance zone)
+    // Alliance zone is 158.6" (4.03m) deep, so target ~2m into zone
+    public static final double BLUE_PASS_TARGET_X = 2.0; // ~2m from Blue wall (inside Blue zone)
+    public static final double RED_PASS_TARGET_X = 14.54; // ~2m from Red wall (inside Red zone)
+
+    // Passing target Y positions (1/3 distance from wall to center, to avoid hub net structure)
+    public static final double LEFT_HALF_PASS_Y = FIELD_WIDTH / 6.0; // ~1.37m from left wall
+    public static final double RIGHT_HALF_PASS_Y =
+        FIELD_WIDTH * 5.0 / 6.0; // ~6.86m (1.37m from right wall)
   }
 }
