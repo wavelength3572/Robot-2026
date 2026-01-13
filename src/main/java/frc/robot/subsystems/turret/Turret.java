@@ -27,15 +27,6 @@ public class Turret extends SubsystemBase {
   }
 
   /**
-   * Set the turret to point at a specific angle relative to the robot's front.
-   *
-   * @param angleDegrees Angle in degrees (-180 to 180, positive = counter-clockwise)
-   */
-  public void setAngle(double angleDegrees) {
-    io.setTargetAngle(new Rotation2d(Rotation2d.fromDegrees(angleDegrees).getRadians()));
-  }
-
-  /**
    * Calculate and set the turret angle to point at a field position.
    *
    * @param robotX Robot's X position on field (meters)
@@ -76,6 +67,15 @@ public class Turret extends SubsystemBase {
     }
 
     return relativeAngle;
+  }
+
+  /**
+   * Set the turret to point at a specific angle relative to the robot's front.
+   *
+   * @param angleDegrees Angle in degrees (-180 to 180, positive = counter-clockwise)
+   */
+  public void setAngle(double angleDegrees) {
+    io.setTargetAngle(new Rotation2d(Rotation2d.fromDegrees(angleDegrees).getRadians()));
   }
 
   /**
