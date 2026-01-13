@@ -131,6 +131,11 @@ public class Robot extends LoggedRobot {
     if (autonomousCommand != null) {
       autonomousCommand.cancel();
     }
+
+    // Force OI rebind on teleop init to ensure controls are bound
+    // This fixes the issue where going directly to teleop without
+    // being disabled first would leave controls unbound
+    robotContainer.normalModeOI();
   }
 
   /** This function is called periodically during operator control. */
