@@ -168,17 +168,51 @@ Add hysteresis to prevent rapid switching between SHOOT and PASS modes when
 the robot is right at the zone boundary.
 ```
 
-### Challenge B: Distance-based Passing
+**Hint:** Consider adding a small buffer zone (e.g., 0.5m) so the mode only
+switches when you've moved clearly into the new zone, not when hovering at
+the boundary.
+
+### Challenge B: Zone-Specific Passing Strategy
+
+**Discussion prompt for students:**
+"Right now we pass the same way whether we're in the neutral zone or deep in
+the opponent's alliance zone. Should we pass differently based on WHERE we are?"
+
+Consider:
+- From neutral zone: Pass to teammates near our hub (current behavior)
+- From opponent's alliance zone: We can't shoot the full field length, so
+  maybe pass to our alliance TRENCH instead? (shorter, safer pass)
+
 ```
-Instead of a fixed pass target, calculate a pass target that's a certain
-distance away from the robot in the direction of our alliance zone.
+Update the TurretAimingHelper to have different pass targets based on whether
+the robot is in the neutral zone vs the opponent's alliance zone. When in the
+opponent's zone, aim for our alliance trench area instead of deep in our zone.
 ```
 
-### Challenge C: Dashboard Control
+### Challenge C: Operator Targeting Mode (Advanced)
+
+**Concept:** Let the operator use a second InterLink controller to manually
+aim at a specific field location for direct robot-to-robot passing.
+
+Requirements:
+1. Operator uses joystick to move a targeting reticle on a field visualization
+2. The turret aims at the reticle location
+3. (Advanced) Calculate the launch velocity needed to land fuel at that spot
+
 ```
-Add a dashboard toggle that lets the driver force SHOOT mode even when in
-the neutral zone (for when we know we can make the shot).
+Create an operator targeting system where:
+1. Add a "manual targeting" mode that the operator can enable
+2. Use the operator's joystick X/Y to control a target position on the field
+3. Display the target position in AdvantageScope as a visual reticle
+4. Have the turret aim at that operator-selected position
+5. (Bonus) Calculate and display the required launch velocity based on distance
 ```
+
+**Why this is valuable:**
+- Real game scenario: Direct passes to a specific teammate
+- Teaches operator interface design
+- Introduces trajectory/physics calculations
+- Shows how to visualize targeting in AdvantageScope
 
 ---
 
