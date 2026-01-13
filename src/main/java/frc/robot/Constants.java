@@ -7,6 +7,8 @@
 
 package frc.robot;
 
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkMax;
 import edu.wpi.first.wpilibj.RobotBase;
 
 /**
@@ -18,9 +20,61 @@ public final class Constants {
   public static final Mode simMode = Mode.SIM;
   public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
 
-  public static final RobotType currentRobot = RobotType.MAINBOT;
+  /**
+   * Robot type for simulation mode. Change this to test different configurations. On real hardware,
+   * this is ignored and auto-detection is used.
+   */
+  public static final RobotType simRobotType = RobotType.MAINBOT;
+
+  /** The detected or configured robot type. */
+  public static final RobotType currentRobot = detectRobotType();
 
   private static RobotConfig robotConfig = null;
+
+  /**
+   * Detects the robot type based on connected CAN hardware. In simulation mode, uses the configured
+   * simRobotType instead.
+   *
+   * <p>Detection strategy: MainBot uses drive motors on CAN IDs 3, 5, 6, 8. MiniBot uses drive
+   * motors on CAN IDs 11, 21, 31, 41. We check for a MainBot-specific CAN ID (5) and if it
+   * responds, we're on MainBot.
+   */
+  private static RobotType detectRobotType() {
+    // In simulation, use the configured type
+    if (!RobotBase.isReal()) {
+      System.out.println(
+          "[RobotConfig] Simulation mode - using configured robot type: " + simRobotType);
+      return simRobotType;
+    }
+
+    // On real hardware, auto-detect based on CAN devices
+    try {
+      // Try to create a SparkMax at MainBot's front-left drive CAN ID (5)
+      // If this device exists and responds, we're on MainBot
+      SparkMax testMotor = new SparkMax(5, MotorType.kBrushless);
+
+      // Check if the device is actually connected by reading firmware version
+      // A disconnected device will have firmware version 0
+      int firmwareVersion = testMotor.getFirmwareVersion();
+      testMotor.close();
+
+      if (firmwareVersion != 0) {
+        System.out.println(
+            "[RobotConfig] Detected MainBot (CAN ID 5 responded with firmware "
+                + firmwareVersion
+                + ")");
+        return RobotType.MAINBOT;
+      } else {
+        System.out.println("[RobotConfig] CAN ID 5 not responding - assuming MiniBot");
+        return RobotType.MINIBOT;
+      }
+    } catch (Exception e) {
+      // If any error occurs during detection, default to MainBot
+      System.out.println(
+          "[RobotConfig] Error during detection, defaulting to MainBot: " + e.getMessage());
+      return RobotType.MAINBOT;
+    }
+  }
 
   public static RobotConfig getRobotConfig() {
     if (robotConfig == null) {
