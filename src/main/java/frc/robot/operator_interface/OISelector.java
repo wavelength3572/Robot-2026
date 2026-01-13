@@ -74,6 +74,7 @@ public class OISelector {
       } else if (DriverStation.getJoystickName(port).toLowerCase().contains("xbox")
           || DriverStation.getJoystickName(port).toLowerCase().contains("game for windows")
           || DriverStation.getJoystickName(port).toLowerCase().contains("ultimate wireless")
+          || DriverStation.getJoystickName(port).toLowerCase().contains("wireless controller")
           || DriverStation.getJoystickName(port).toLowerCase().contains("logitech dual action")) {
         if (xBoxPort == null) {
           xBoxPort = port;

@@ -1,6 +1,10 @@
 package frc.robot.subsystems.turret;
 
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Turret extends SubsystemBase {
@@ -28,7 +32,7 @@ public class Turret extends SubsystemBase {
    * @param angleDegrees Angle in degrees (-180 to 180, positive = counter-clockwise)
    */
   public void setAngle(double angleDegrees) {
-    io.setTargetAngle(angleDegrees);
+    io.setTargetAngle(new Rotation2d(Rotation2d.fromDegrees(angleDegrees).getRadians()));
   }
 
   /**
@@ -74,11 +78,6 @@ public class Turret extends SubsystemBase {
     return relativeAngle;
   }
 
-  /** Stop the turret motor. */
-  public void stop() {
-    io.stop();
-  }
-
   /**
    * Get the current turret angle.
    *
@@ -107,21 +106,13 @@ public class Turret extends SubsystemBase {
         <= TurretConstants.ANGLE_TOLERANCE_DEGREES;
   }
 
-  /**
-   * Reset the turret encoder to a known position.
-   *
-   * @param angleDegrees The angle to set the encoder to
-   */
-  public void resetEncoder(double angleDegrees) {
-    io.resetEncoder(angleDegrees);
-  }
-
-  /**
-   * Set the turret to brake or coast mode.
-   *
-   * @param enable True for brake mode, false for coast mode
-   */
-  public void setBrakeMode(boolean enable) {
-    io.setBrakeMode(enable);
+  /** Returns the current odometry pose. */
+  @AutoLogOutput(key = "Odometry/Turret")
+  public Pose3d getPose() {
+    return new Pose3d(
+        0,
+        0,
+        0.127,
+        new Rotation3d(0.0, 0.0, Rotation2d.fromDegrees(getCurrentAngle()).getRadians()));
   }
 }

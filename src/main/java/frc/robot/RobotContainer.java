@@ -22,7 +22,7 @@ import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
-import frc.robot.subsystems.turret.TurretIOSparkMaxSim;
+import frc.robot.subsystems.turret.TurretIOSim;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -42,52 +42,17 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
-    switch (Constants.currentMode) {
-      case REAL:
-        // Real robot, instantiate hardware IO implementations
-        drive =
-            new Drive(
-                new GyroIOPigeon2(),
-                new ModuleIOSpark(0),
-                new ModuleIOSpark(1),
-                new ModuleIOSpark(2),
-                new ModuleIOSpark(3));
-        break;
-
-      case SIM:
-        // Sim robot, instantiate physics sim IO implementations
-        drive =
-            new Drive(
-                new GyroIO() {},
-                new ModuleIOSim(),
-                new ModuleIOSim(),
-                new ModuleIOSim(),
-                new ModuleIOSim());
-        break;
-
-      default:
-        // Replayed robot, disable IO implementations
-        drive =
-            new Drive(
-                new GyroIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {});
-        break;
-    }
-
     // Instantiate turret only for MainBot (not present on MiniBot)
     if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
       switch (Constants.currentMode) {
         case REAL:
-          // Real MainBot - instantiate turret hardware (TurretIO implementation needed)
-          turret = new Turret(new TurretIO() {}); // TODO: Replace with real hardware IO
+          // Real MainBot - instantiate turret hardware
+          turret = new Turret(new TurretIOSim()); // TODO: Replace with real hardware IO when ready
           break;
 
         case SIM:
           // Sim MainBot - instantiate turret simulation
-          turret = new Turret(new TurretIOSparkMaxSim());
+          turret = new Turret(new TurretIOSim());
           break;
 
         default:
@@ -98,6 +63,45 @@ public class RobotContainer {
     } else {
       // MiniBot does not have a turret
       turret = null;
+    }
+
+    // Instantiate drive subsystem
+    switch (Constants.currentMode) {
+      case REAL:
+        // Real robot, instantiate hardware IO implementations
+        drive =
+            new Drive(
+                new GyroIOPigeon2(),
+                new ModuleIOSpark(0),
+                new ModuleIOSpark(1),
+                new ModuleIOSpark(2),
+                new ModuleIOSpark(3),
+                turret);
+        break;
+
+      case SIM:
+        // Sim robot, instantiate physics sim IO implementations
+        drive =
+            new Drive(
+                new GyroIO() {},
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                turret);
+        break;
+
+      default:
+        // Replayed robot, disable IO implementations
+        drive =
+            new Drive(
+                new GyroIO() {},
+                new ModuleIO() {},
+                new ModuleIO() {},
+                new ModuleIO() {},
+                new ModuleIO() {},
+                turret);
+        break;
     }
 
     // Set up auto routines

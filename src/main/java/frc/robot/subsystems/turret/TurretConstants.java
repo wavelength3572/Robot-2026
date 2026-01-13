@@ -10,8 +10,7 @@ public final class TurretConstants {
   public static final double MAX_ANGLE_DEGREES = 180.0; // Maximum turret angle
 
   // PID Constants (tune these for your robot)
-  public static final double kP = 0.1;
-  public static final double kI = 0.0;
+  public static final double kP = 15.0;
   public static final double kD = 0.0;
   public static final double kFF = 0.0;
 
