@@ -95,6 +95,11 @@ public class Vision extends SubsystemBase {
   public void periodic() {
     Logger.recordOutput("Vision/isVisionOn", isVisionOn);
 
+    // Skip all vision processing if vision is disabled
+    if (!isVisionOn) {
+      return;
+    }
+
     // Existing pipeline for consumer
     updateMainPipeline(); // your existing code
 
