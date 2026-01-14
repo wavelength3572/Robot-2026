@@ -27,8 +27,6 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,11 +37,21 @@ public class Vision extends SubsystemBase {
   private final VisionIO[] io;
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
-  private Boolean isVisionOn = true;
 
   private final Map<Integer, Double> aprilTagTimestamps = new ConcurrentHashMap<>();
-  private static double lastLogTime = 0;
-  private static final double LOG_INTERVAL_SECONDS = 10.0; // Log every 10 seconds
+
+  // Pre-allocated lists to reduce GC pressure (cleared each cycle)
+  private final List<Pose3d> allTagPoses = new ArrayList<>(32);
+  private final List<Pose3d> allRobotPoses = new ArrayList<>(16);
+  private final List<Pose3d> allRobotPosesAccepted = new ArrayList<>(16);
+  private final List<Pose3d> allRobotPosesRejected = new ArrayList<>(16);
+  private final List<Pose3d> tagPosesAccepted = new ArrayList<>(32);
+  private final List<Pose3d> tagPosesRejected = new ArrayList<>(32);
+  private final List<List<Pose3d>> perCameraTagPoses;
+  private final List<List<Pose3d>> perCameraRobotPoses;
+  private final List<List<Pose3d>> perCameraRobotPosesAccepted;
+  private final List<List<Pose3d>> perCameraRobotPosesRejected;
+  private final List<List<Pose3d>> perCameraContributingTags;
 
   public Vision(VisionConsumer consumer, VisionIO... io) {
     this.consumer = consumer;
@@ -62,6 +70,20 @@ public class Vision extends SubsystemBase {
           new Alert(
               "Vision camera " + Integer.toString(i) + " is disconnected.", AlertType.kWarning);
     }
+
+    // Initialize per-camera lists
+    perCameraTagPoses = new ArrayList<>(io.length);
+    perCameraRobotPoses = new ArrayList<>(io.length);
+    perCameraRobotPosesAccepted = new ArrayList<>(io.length);
+    perCameraRobotPosesRejected = new ArrayList<>(io.length);
+    perCameraContributingTags = new ArrayList<>(io.length);
+    for (int i = 0; i < io.length; i++) {
+      perCameraTagPoses.add(new ArrayList<>(8));
+      perCameraRobotPoses.add(new ArrayList<>(4));
+      perCameraRobotPosesAccepted.add(new ArrayList<>(4));
+      perCameraRobotPosesRejected.add(new ArrayList<>(4));
+      perCameraContributingTags.add(new ArrayList<>(8));
+    }
   }
 
   /**
@@ -75,13 +97,6 @@ public class Vision extends SubsystemBase {
 
   @Override
   public void periodic() {
-    Logger.recordOutput("Vision/isVisionOn", isVisionOn);
-
-    // Skip all vision processing if vision is disabled
-    if (!isVisionOn) {
-      return;
-    }
-
     // Main pipeline using MegaTag 2 pose estimation - best for multi-tag scenarios
     updateMainPipeline();
   }
@@ -95,31 +110,32 @@ public class Vision extends SubsystemBase {
 
     for (int i = 0; i < io.length; i++) {
       io[i].updateInputs(inputs[i]);
-      Logger.processInputs("Vision/Camera" + Integer.toString(i), inputs[i]);
+      Logger.processInputs("Vision/Camera" + i, inputs[i]);
     }
 
-    // Initialize logging values
-    List<Pose3d> allTagPoses = new LinkedList<>();
-    List<Pose3d> allRobotPoses = new LinkedList<>();
-    List<Pose3d> allRobotPosesAccepted = new LinkedList<>();
-    List<Pose3d> allRobotPosesRejected = new LinkedList<>();
-
-    List<Pose3d> tagPosesAccepted = new LinkedList<>();
-    List<Pose3d> tagPosesRejected = new LinkedList<>();
-
-    // Track tag contributions per camera
-    Map<Integer, List<Pose3d>> tagContributionsByCamera = new HashMap<>();
+    // Clear pre-allocated lists for this cycle
+    allTagPoses.clear();
+    allRobotPoses.clear();
+    allRobotPosesAccepted.clear();
+    allRobotPosesRejected.clear();
+    tagPosesAccepted.clear();
+    tagPosesRejected.clear();
 
     // Loop over cameras
     for (int cameraIndex = 0; cameraIndex < io.length; cameraIndex++) {
       disconnectedAlerts[cameraIndex].set(!inputs[cameraIndex].connected);
 
-      List<Pose3d> tagPoses = new LinkedList<>();
-      List<Pose3d> robotPoses = new LinkedList<>();
-      List<Pose3d> robotPosesAccepted = new LinkedList<>();
-      List<Pose3d> robotPosesRejected = new LinkedList<>();
-
-      List<Pose3d> contributingTagsForCamera = new LinkedList<>();
+      // Get pre-allocated per-camera lists and clear them
+      List<Pose3d> tagPoses = perCameraTagPoses.get(cameraIndex);
+      List<Pose3d> robotPoses = perCameraRobotPoses.get(cameraIndex);
+      List<Pose3d> robotPosesAccepted = perCameraRobotPosesAccepted.get(cameraIndex);
+      List<Pose3d> robotPosesRejected = perCameraRobotPosesRejected.get(cameraIndex);
+      List<Pose3d> contributingTagsForCamera = perCameraContributingTags.get(cameraIndex);
+      tagPoses.clear();
+      robotPoses.clear();
+      robotPosesAccepted.clear();
+      robotPosesRejected.clear();
+      contributingTagsForCamera.clear();
 
       // Add tag poses
       for (int tagId : inputs[cameraIndex].tagIds) {
@@ -135,75 +151,41 @@ public class Vision extends SubsystemBase {
 
       // Loop over pose observations
       for (var observation : inputs[cameraIndex].poseObservations) {
-        boolean rejectPose = false;
-        String rejectReason = null;
-
         // Rejection conditions
-        if (observation.tagCount() == 0) {
-          rejectReason = "No tags detected";
-        } else if (observation.tagCount() == 1 && observation.ambiguity() > maxAmbiguity) {
-          rejectReason = "Single tag with high ambiguity: " + observation.ambiguity();
-        } else if (Math.abs(observation.pose().getZ()) > maxZError) {
-          rejectReason = "Pose Z out of bounds: " + observation.pose().getZ();
-        } else if (observation.pose().getX() < 0.0) {
-          rejectReason = "Pose X is negative: " + observation.pose().getX();
-        } else if (observation.pose().getX() > aprilTagLayout.getFieldLength()) {
-          rejectReason = "Pose X exceeds field length: " + observation.pose().getX();
-        } else if (observation.pose().getY() < 0.0) {
-          rejectReason = "Pose Y is negative: " + observation.pose().getY();
-        } else if (observation.pose().getY() > aprilTagLayout.getFieldWidth()) {
-          rejectReason = "Pose Y exceeds field width: " + observation.pose().getY();
-        } else if (observation.closestTagDistance() > MAX_TAG_DISTANCE) {
-          rejectReason = "Closest tag distance too high: " + observation.closestTagDistance();
-        }
-
-        // Aggregate rejections per cycle
-        List<String> rejectionReasons = new ArrayList<>();
-
-        if (rejectReason != null) {
-          rejectionReasons.add(rejectReason);
-          rejectPose = true;
-        }
-
-        // Log summary once per cycle
-        // if (shouldLogSummary()) {
-        //   Logger.recordOutput(
-        //       "Vision/RejectSummary",
-        //       "Cycle Rejections: "
-        //           + rejectionReasons.size()
-        //           + " | Unique Reasons: "
-        //           + new HashSet<>(rejectionReasons));
-        //   rejectionReasons.clear();
-        // }
-
-        // Track which tags contributed to this observation
-        List<Pose3d> contributingTags = new LinkedList<>();
-        for (int tagId : inputs[cameraIndex].tagIds) {
-          var tagPose = aprilTagLayout.getTagPose(tagId);
-          if (tagPose.isPresent()) {
-            contributingTags.add(tagPose.get());
-          }
-        }
+        boolean rejectPose =
+            observation.tagCount() == 0
+                || (observation.tagCount() == 1 && observation.ambiguity() > maxAmbiguity)
+                || Math.abs(observation.pose().getZ()) > maxZError
+                || observation.pose().getX() < 0.0
+                || observation.pose().getX() > aprilTagLayout.getFieldLength()
+                || observation.pose().getY() < 0.0
+                || observation.pose().getY() > aprilTagLayout.getFieldWidth()
+                || observation.closestTagDistance() > MAX_TAG_DISTANCE;
 
         // Add pose to log
         robotPoses.add(observation.pose());
         if (rejectPose) {
           robotPosesRejected.add(observation.pose());
-          tagPosesRejected.addAll(contributingTags);
-        } else {
-          robotPosesAccepted.add(observation.pose());
-          tagPosesAccepted.addAll(contributingTags);
-          contributingTagsForCamera.addAll(contributingTags); // Add to per-camera tracker
-          // ✅ Log AprilTag timestamps ONLY if the pose was ACCEPTED
+          // Add contributing tags to rejected list
           for (int tagId : inputs[cameraIndex].tagIds) {
-            logAprilTagDetection(tagId);
+            var tagPose = aprilTagLayout.getTagPose(tagId);
+            if (tagPose.isPresent()) {
+              tagPosesRejected.add(tagPose.get());
+            }
           }
-        }
-
-        // Skip if rejected
-        if (rejectPose) {
           continue;
         }
+
+        // Accepted pose - add contributing tags
+        for (int tagId : inputs[cameraIndex].tagIds) {
+          var tagPose = aprilTagLayout.getTagPose(tagId);
+          if (tagPose.isPresent()) {
+            tagPosesAccepted.add(tagPose.get());
+            contributingTagsForCamera.add(tagPose.get());
+          }
+          logAprilTagDetection(tagId);
+        }
+        robotPosesAccepted.add(observation.pose());
 
         // Calculate standard deviations
         double stdDevFactor =
@@ -224,9 +206,6 @@ public class Vision extends SubsystemBase {
             observation.timestamp(),
             VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev));
       }
-
-      // Save contributing tags per camera
-      tagContributionsByCamera.put(cameraIndex, contributingTagsForCamera);
 
       // Log camera data
       Logger.recordOutput(
@@ -254,13 +233,11 @@ public class Vision extends SubsystemBase {
     Logger.recordOutput(
         "Vision/Summary/RobotPosesRejected", allRobotPosesRejected.toArray(new Pose3d[0]));
 
-    // New logging: Summary of contributing tags per camera
-    for (var entry : tagContributionsByCamera.entrySet()) {
-      int cameraIndex = entry.getKey();
-      List<Pose3d> contributingTags = entry.getValue();
+    // Log contributing tags per camera
+    for (int i = 0; i < io.length; i++) {
       Logger.recordOutput(
-          "Vision/Summary/Camera" + cameraIndex + "/ContributingTags",
-          contributingTags.toArray(new Pose3d[0]));
+          "Vision/Summary/Camera" + i + "/ContributingTags",
+          perCameraContributingTags.get(i).toArray(new Pose3d[0]));
     }
 
     // New logging: Tags used for accepted/rejected poses
@@ -274,22 +251,6 @@ public class Vision extends SubsystemBase {
         Pose2d visionRobotPoseMeters,
         double timestampSeconds,
         Matrix<N3, N1> visionMeasurementStdDevs);
-  }
-
-  public boolean isVisionOn() {
-    return isVisionOn;
-  }
-
-  public void setVisionOn() {
-    isVisionOn = true;
-  }
-
-  public void setVisionOff() {
-    isVisionOn = false;
-  }
-
-  public void toggleVision() {
-    isVisionOn = !isVisionOn;
   }
 
   /**
@@ -306,14 +267,5 @@ public class Vision extends SubsystemBase {
       return false;
     }
     return (Timer.getFPGATimestamp() - lastSeenTime) <= maxAgeSeconds;
-  }
-
-  private static boolean shouldLogSummary() {
-    double currentTime = Timer.getFPGATimestamp();
-    if (currentTime - lastLogTime >= LOG_INTERVAL_SECONDS) {
-      lastLogTime = currentTime;
-      return true;
-    }
-    return false;
   }
 }

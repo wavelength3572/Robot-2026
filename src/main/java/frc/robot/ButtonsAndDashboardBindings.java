@@ -1,6 +1,5 @@
 package frc.robot;
 
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveCommands;
 import frc.robot.operator_interface.OperatorInterface;
@@ -42,27 +41,7 @@ public class ButtonsAndDashboardBindings {
   /****************************** */
 
   private static void configureDashboardBindings() {
-    // Vision toggle - default to OFF in simulation to reduce loop overruns
-    if (vision != null) {
-      // Start with vision OFF in simulation mode
-      if (Constants.currentMode == Constants.Mode.SIM) {
-        vision.setVisionOff();
-      }
-
-      // Add dashboard toggle
-      SmartDashboard.putBoolean("Vision/Enable", vision.isVisionOn());
-      SmartDashboard.putData(
-          "Vision/Toggle",
-          Commands.runOnce(
-                  () -> {
-                    vision.toggleVision();
-                    SmartDashboard.putBoolean("Vision/Enable", vision.isVisionOn());
-                    System.out.println(
-                        "[Vision] Vision is now: " + (vision.isVisionOn() ? "ON" : "OFF"));
-                  })
-              .ignoringDisable(true)
-              .withName("Toggle Vision"));
-    }
+    // Dashboard bindings can be added here as needed
   }
 
   /****************************** */
@@ -75,20 +54,6 @@ public class ButtonsAndDashboardBindings {
     // Gyro Reset
     oi.getResetGyroButton()
         .onTrue(Commands.runOnce(drive::zeroGyroscope, drive).ignoringDisable(true));
-
-    // Vision toggle on Button H (if available)
-    if (vision != null) {
-      oi.getButtonH()
-          .onTrue(
-              Commands.runOnce(
-                      () -> {
-                        vision.toggleVision();
-                        SmartDashboard.putBoolean("Vision/Enable", vision.isVisionOn());
-                        System.out.println(
-                            "[Vision] Vision toggled: " + (vision.isVisionOn() ? "ON" : "OFF"));
-                      })
-                  .ignoringDisable(true));
-    }
   }
 
   /****************************** */

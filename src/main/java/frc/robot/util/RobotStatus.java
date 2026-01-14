@@ -28,14 +28,6 @@ public class RobotStatus {
     return driveSystem.getPose();
   }
 
-  /** Returns whether vision is currently enabled. */
-  public static boolean isVisionOn() {
-    if (visionSystem == null) {
-      return false;
-    }
-    return visionSystem.isVisionOn();
-  }
-
   /** Returns the Drive subsystem instance. */
   public static Drive getDrive() {
     return driveSystem;

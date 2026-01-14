@@ -90,10 +90,7 @@ public class VisionIOPhotonVision implements VisionIO {
                 multitagResult.estimatedPose.ambiguity, // Ambiguity
                 multitagResult.fiducialIDsUsed.size(), // Tag count
                 closestTagDistance, // closest tag distance
-                PoseObservationType.PHOTONVISION, // Observation type
-                multitagResult.fiducialIDsUsed.stream()
-                    .mapToInt(Short::intValue)
-                    .toArray())); // list of tagIDs used for this observation
+                PoseObservationType.PHOTONVISION)); // Observation type
 
       } else if (!result.targets.isEmpty()) { // Single tag result
         var target = result.targets.get(0);
@@ -120,9 +117,7 @@ public class VisionIOPhotonVision implements VisionIO {
                   target.poseAmbiguity, // Ambiguity
                   1, // Tag count
                   cameraToTarget.getTranslation().getNorm(), // Average tag distance
-                  PoseObservationType.PHOTONVISION,
-                  new int[] {target.fiducialId} // ✅ Store single detected tag ID
-                  )); // Observation type
+                  PoseObservationType.PHOTONVISION)); // Observation type
         }
       }
     }
