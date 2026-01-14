@@ -20,14 +20,12 @@ import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.util.RobotStatus;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -35,13 +33,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.littletonrobotics.junction.Logger;
-import org.photonvision.EstimatedRobotPose;
-import org.photonvision.PhotonPoseEstimator;
-import org.photonvision.PhotonPoseEstimator.PoseStrategy;
 
 public class Vision extends SubsystemBase {
   private final VisionConsumer consumer;
-  private final VisionConsumer consumer2;
   private final VisionIO[] io;
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
@@ -51,12 +45,8 @@ public class Vision extends SubsystemBase {
   private static double lastLogTime = 0;
   private static final double LOG_INTERVAL_SECONDS = 10.0; // Log every 10 seconds
 
-  // An array of PhotonPoseEstimators, one per camera
-  private final PhotonPoseEstimator[] photonEstimators;
-
-  public Vision(VisionConsumer consumer, VisionConsumer consumer2, VisionIO... io) {
+  public Vision(VisionConsumer consumer, VisionIO... io) {
     this.consumer = consumer;
-    this.consumer2 = consumer2;
     this.io = io;
 
     // Initialize inputs
@@ -71,14 +61,6 @@ public class Vision extends SubsystemBase {
       disconnectedAlerts[i] =
           new Alert(
               "Vision camera " + Integer.toString(i) + " is disconnected.", AlertType.kWarning);
-    }
-
-    // ----------------------------------------------------------------
-    // 1) Create PhotonPoseEstimators, one per camera
-    // ----------------------------------------------------------------
-    photonEstimators = new PhotonPoseEstimator[io.length];
-    for (int i = 0; i < io.length; i++) {
-      photonEstimators[i] = createPhotonEstimatorForCamera(i);
     }
   }
 
@@ -100,14 +82,17 @@ public class Vision extends SubsystemBase {
       return;
     }
 
-    // Existing pipeline for consumer
-    updateMainPipeline(); // your existing code
-
-    // Separate pipeline for consumer2
-    updatePhotonVisionEstimates();
+    // Main pipeline using MegaTag 2 pose estimation - best for multi-tag scenarios
+    updateMainPipeline();
   }
 
   private void updateMainPipeline() {
+    // In simulation, update the vision sim ONCE before processing any cameras
+    // (VisionSystemSim.update() simulates ALL cameras at once)
+    if (frc.robot.Constants.currentMode == frc.robot.Constants.Mode.SIM) {
+      VisionIOPhotonVisionSim.updateSim();
+    }
+
     for (int i = 0; i < io.length; i++) {
       io[i].updateInputs(inputs[i]);
       Logger.processInputs("Vision/Camera" + Integer.toString(i), inputs[i]);
@@ -283,95 +268,6 @@ public class Vision extends SubsystemBase {
     Logger.recordOutput("Vision/Summary/TagPosesRejected", tagPosesRejected.toArray(new Pose3d[0]));
   }
 
-  private void updatePhotonVisionEstimates() {
-
-    // Example logging structures
-    List<Pose3d> allPhotonRobotPoses = new LinkedList<>();
-    List<Pose3d> allPhotonRobotPosesAccepted = new LinkedList<>();
-    List<Pose3d> allPhotonRobotPosesRejected = new LinkedList<>();
-
-    for (int cameraIndex = 0; cameraIndex < io.length; cameraIndex++) {
-      // We only get pipeline results if the IO is actually a VisionIOPhotonVision
-      if (!(io[cameraIndex] instanceof VisionIOPhotonVision)) {
-        continue;
-      }
-      VisionIOPhotonVision photonVisionIO = (VisionIOPhotonVision) io[cameraIndex];
-
-      // Now fetch any new pipeline results
-      var unreadResults = photonVisionIO.camera.getAllUnreadResults();
-
-      // If we have a valid PhotonPoseEstimator
-      PhotonPoseEstimator estimator = photonEstimators[cameraIndex];
-
-      if (estimator == null) {
-        continue;
-      }
-
-      // Process each pipeline result
-      for (var result : unreadResults) {
-        Rotation2d gyroAngle = RobotStatus.getRobotPose().getRotation();
-        estimator.addHeadingData(result.getTimestampSeconds(), gyroAngle);
-        // Let PhotonPoseEstimator produce a pose estimate
-        var maybeEstimatedRobotPose = estimator.update(result);
-        if (maybeEstimatedRobotPose.isEmpty()) {
-          // No valid pose was found (no targets, or something else)
-          continue;
-        }
-
-        // We have an estimated pose
-        var estimatedRobotPose = maybeEstimatedRobotPose.get();
-        Pose3d pose3d = estimatedRobotPose.estimatedPose;
-        double timestamp = estimatedRobotPose.timestampSeconds;
-
-        // *** Acceptance Logic (very similar to your main pipeline) ***
-        int tagCount = estimatedRobotPose.targetsUsed.size();
-        double averageTagDistance = computeAverageTagDistance(pose3d, estimatedRobotPose);
-
-        boolean rejectPose =
-            (tagCount == 0)
-                || (tagCount == 1 && /* e.g. an ambiguity check, if you want */ false)
-                || Math.abs(pose3d.getZ()) > maxZError
-                || pose3d.getX() < 0.0
-                || pose3d.getX() > aprilTagLayout.getFieldLength()
-                || pose3d.getY() < 0.0
-                || pose3d.getY() > aprilTagLayout.getFieldWidth();
-
-        allPhotonRobotPoses.add(pose3d);
-
-        if (rejectPose) {
-          allPhotonRobotPosesRejected.add(pose3d);
-        } else {
-          allPhotonRobotPosesAccepted.add(pose3d);
-
-          // Optionally compute standard deviations the same way you do in your main
-          // pipeline
-          double stdDevFactor = Math.pow(averageTagDistance, 2.0) / Math.max(tagCount, 1);
-          double linearStdDev = linearStdDevBaseline * stdDevFactor;
-          double angularStdDev = angularStdDevBaseline * stdDevFactor;
-          if (cameraIndex < cameraStdDevFactors.length) {
-            linearStdDev *= cameraStdDevFactors[cameraIndex];
-            angularStdDev *= cameraStdDevFactors[cameraIndex];
-          }
-
-          Matrix<N3, N1> stdDevs = VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev);
-
-          // Forward accepted pose to consumer2
-          consumer2.accept(pose3d.toPose2d(), timestamp, stdDevs);
-        }
-      }
-    }
-
-    // (Optional) Log summary
-    Logger.recordOutput(
-        "Vision/PhotonEstimator/Summary/RobotPoses", allPhotonRobotPoses.toArray(new Pose3d[0]));
-    Logger.recordOutput(
-        "Vision/PhotonEstimator/Summary/RobotPosesAccepted",
-        allPhotonRobotPosesAccepted.toArray(new Pose3d[0]));
-    Logger.recordOutput(
-        "Vision/PhotonEstimator/Summary/RobotPosesRejected",
-        allPhotonRobotPosesRejected.toArray(new Pose3d[0]));
-  }
-
   @FunctionalInterface
   public static interface VisionConsumer {
     public void accept(
@@ -394,66 +290,6 @@ public class Vision extends SubsystemBase {
 
   public void toggleVision() {
     isVisionOn = !isVisionOn;
-  }
-
-  // Create an estimator for each camera using the names and transforms from
-  // VisionConstants
-  private PhotonPoseEstimator createPhotonEstimatorForCamera(int cameraIndex) {
-    String cameraName;
-    Transform3d cameraTransform;
-
-    // Map index -> camera name & transform
-    switch (cameraIndex) {
-      case 0:
-        cameraName = VisionConstants.frontRightCam;
-        cameraTransform = VisionConstants.robotToFrontRightCam;
-        break;
-      case 1:
-        cameraName = VisionConstants.backRightCam;
-        cameraTransform = VisionConstants.robotToBackRightCam;
-        break;
-      case 2:
-        cameraName = VisionConstants.frontLeftCam;
-        cameraTransform = VisionConstants.robotToFrontLeftCam;
-        break;
-      case 3:
-        cameraName = VisionConstants.elevatorBackCam;
-        cameraTransform = VisionConstants.robotToElevatorBackCam;
-        break;
-      default:
-        cameraName = "UnknownCamera";
-        cameraTransform = new Transform3d();
-        break;
-    }
-
-    PhotonPoseEstimator estimator =
-        new PhotonPoseEstimator(
-            VisionConstants.aprilTagLayout, PoseStrategy.PNP_DISTANCE_TRIG_SOLVE, cameraTransform);
-
-    return estimator;
-  }
-
-  /**
-   * Example helper: compute average distance from the robot to each recognized AprilTag. Because
-   * the official EstimatedRobotPose doesn't store 'averageTagDistance' directly, we can
-   * re-calculate it or skip it if you don't need it.
-   */
-  private double computeAverageTagDistance(
-      Pose3d robotPose, EstimatedRobotPose estimatedRobotPose) {
-    if (estimatedRobotPose.targetsUsed.isEmpty()) {
-      return 9999.0;
-    }
-    double sum = 0.0;
-    for (var t : estimatedRobotPose.targetsUsed) {
-      // If we want the distance from the robot to the actual field tag:
-      var fieldTagPoseOpt = aprilTagLayout.getTagPose(t.getFiducialId());
-      if (fieldTagPoseOpt.isPresent()) {
-        Pose3d fieldTagPose = fieldTagPoseOpt.get();
-        double dist = robotPose.getTranslation().getDistance(fieldTagPose.getTranslation());
-        sum += dist;
-      }
-    }
-    return sum / estimatedRobotPose.targetsUsed.size();
   }
 
   /**

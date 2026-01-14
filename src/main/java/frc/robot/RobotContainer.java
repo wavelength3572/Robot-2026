@@ -88,19 +88,19 @@ public class RobotContainer {
                 new ModuleIOSpark(3),
                 turret);
         // Vision only for MainBot
+        // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
         if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
           vision =
               new Vision(
                   drive::addVisionMeasurement,
-                  drive::addVisionMeasurement,
-                  new VisionIOPhotonVision(
-                      VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam),
-                  new VisionIOPhotonVision(
-                      VisionConstants.backRightCam, VisionConstants.robotToBackRightCam),
                   new VisionIOPhotonVision(
                       VisionConstants.frontLeftCam, VisionConstants.robotToFrontLeftCam),
                   new VisionIOPhotonVision(
-                      VisionConstants.elevatorBackCam, VisionConstants.robotToElevatorBackCam));
+                      VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam),
+                  new VisionIOPhotonVision(
+                      VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
+                  new VisionIOPhotonVision(
+                      VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
         } else {
           vision = null;
         }
@@ -117,26 +117,27 @@ public class RobotContainer {
                 new ModuleIOSim(),
                 turret);
         // Vision only for MainBot
+        // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
+        // This order determines PhotonVision sim ports: A=1182, B=1183, C=1184, D=1185
         if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
           vision =
               new Vision(
                   drive::addVisionMeasurement,
-                  drive::addVisionMeasurement,
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.frontRightCam,
-                      VisionConstants.robotToFrontRightCam,
-                      RobotStatus::getRobotPose),
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.backRightCam,
-                      VisionConstants.robotToBackRightCam,
-                      RobotStatus::getRobotPose),
                   new VisionIOPhotonVisionSim(
                       VisionConstants.frontLeftCam,
                       VisionConstants.robotToFrontLeftCam,
                       RobotStatus::getRobotPose),
                   new VisionIOPhotonVisionSim(
-                      VisionConstants.elevatorBackCam,
-                      VisionConstants.robotToElevatorBackCam,
+                      VisionConstants.frontRightCam,
+                      VisionConstants.robotToFrontRightCam,
+                      RobotStatus::getRobotPose),
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.backLeftCam,
+                      VisionConstants.robotToBackLeftCam,
+                      RobotStatus::getRobotPose),
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.backRightCam,
+                      VisionConstants.robotToBackRightCam,
                       RobotStatus::getRobotPose));
         } else {
           vision = null;
@@ -157,7 +158,6 @@ public class RobotContainer {
         if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
           vision =
               new Vision(
-                  (pose, time, stdDevs) -> {},
                   (pose, time, stdDevs) -> {},
                   new VisionIO() {},
                   new VisionIO() {},
@@ -287,7 +287,10 @@ public class RobotContainer {
       lastSelectedAutoName = selectedAutoName;
       lastAlliance = currentAlliance;
 
-      if (selectedAutoName == null) {
+      // Skip if no auto selected or "None" is selected
+      if (selectedAutoName == null
+          || selectedAutoName.isEmpty()
+          || selectedAutoName.equals("None")) {
         return;
       }
 
@@ -306,8 +309,8 @@ public class RobotContainer {
           drive.setPose(startingPose);
         }
       } catch (Exception e) {
-        // Auto doesn't have a valid starting pose (shouldn't happen if SysId is hidden)
-        System.err.println("Could not get starting pose for auto: " + selectedAutoName);
+        // Auto doesn't have a valid starting pose - silently ignore
+        // This can happen for non-PathPlanner autos or invalid selections
       }
     }
   }

@@ -25,8 +25,8 @@ import org.photonvision.simulation.VisionSystemSim;
 /** IO implementation for physics sim using PhotonVision simulator. */
 public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
   private static VisionSystemSim visionSim;
+  private static Supplier<Pose2d> sharedPoseSupplier;
 
-  private final Supplier<Pose2d> poseSupplier;
   private final PhotonCameraSim cameraSim;
 
   /**
@@ -38,12 +38,12 @@ public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
   public VisionIOPhotonVisionSim(
       String name, Transform3d robotToCamera, Supplier<Pose2d> poseSupplier) {
     super(name, robotToCamera);
-    this.poseSupplier = poseSupplier;
 
-    // Initialize vision sim
+    // Initialize vision sim (only once, shared across all cameras)
     if (visionSim == null) {
       visionSim = new VisionSystemSim("main");
       visionSim.addAprilTags(aprilTagLayout);
+      sharedPoseSupplier = poseSupplier;
     }
 
     // Add sim camera
@@ -54,9 +54,20 @@ public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
     visionSim.addCamera(cameraSim, robotToCamera);
   }
 
+  /**
+   * Updates the vision simulation. Call this ONCE per cycle before calling updateInputs on any
+   * camera. VisionSystemSim.update() simulates ALL cameras at once, so calling it multiple times
+   * per cycle is wasteful.
+   */
+  public static void updateSim() {
+    if (visionSim != null && sharedPoseSupplier != null) {
+      visionSim.update(sharedPoseSupplier.get());
+    }
+  }
+
   @Override
   public void updateInputs(VisionIOInputs inputs) {
-    visionSim.update(poseSupplier.get());
+    // Note: visionSim.update() is now called once via updateSim() before any camera's updateInputs
     super.updateInputs(inputs);
   }
 }

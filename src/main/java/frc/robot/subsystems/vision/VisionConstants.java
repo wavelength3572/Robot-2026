@@ -48,16 +48,34 @@ public final class VisionConstants {
   public static String frontRightCam = "CAMERA_B";
   public static String backRightCam = "CAMERA_D";
   public static String frontLeftCam = "CAMERA_A";
-  public static String elevatorBackCam = "CAMERA_C";
+  public static String backLeftCam = "CAMERA_C";
 
   // Robot to camera transforms
-  // TODO: Calibrate these transforms for your 2026 robot - these are placeholders from 2025
+  // TODO: Calibrate these transforms for your 2026 robot - these are placeholders
+  // All cameras are mounted near swerve pods at the four corners of the robot
+  public static Transform3d robotToFrontLeftCam =
+      new Transform3d(
+          0.26985,
+          0.26981,
+          0.22155,
+          new Rotation3d(0.0, Rotation2d.fromDegrees(-15).getRadians(), 0.0));
+
   public static Transform3d robotToFrontRightCam =
       new Transform3d(
           0.26985,
           -0.26981,
           0.22155,
           new Rotation3d(0.0, Rotation2d.fromDegrees(-15).getRadians(), 0.0));
+
+  public static Transform3d robotToBackLeftCam =
+      new Transform3d(
+          -0.26985,
+          0.26981,
+          0.22155,
+          new Rotation3d(
+              0.0,
+              Rotation2d.fromDegrees(-15).getRadians(),
+              Rotation2d.fromDegrees(180).getRadians()));
 
   public static Transform3d robotToBackRightCam =
       new Transform3d(
@@ -68,20 +86,6 @@ public final class VisionConstants {
               0.0,
               Rotation2d.fromDegrees(-15).getRadians(),
               Rotation2d.fromDegrees(180).getRadians()));
-
-  public static Transform3d robotToFrontLeftCam =
-      new Transform3d(
-          0.26985,
-          0.26981,
-          0.22155,
-          new Rotation3d(0.0, Rotation2d.fromDegrees(-15).getRadians(), 0.0));
-
-  public static Transform3d robotToElevatorBackCam =
-      new Transform3d(
-          -0.273075,
-          -0.088951,
-          0.74201,
-          new Rotation3d(0.0, Math.toRadians(-38), Math.toRadians(180)));
 
   // Basic filtering thresholds
   public static double maxAmbiguity = 0.3;
@@ -94,12 +98,13 @@ public final class VisionConstants {
 
   // Standard deviation multipliers for each camera
   // (Adjust to trust some cameras more than others)
+  // Order matches camera instantiation: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
   public static double[] cameraStdDevFactors =
       new double[] {
-        1.0, // FrontRight
-        1.0, // BackRight
-        1.0, // FrontLeft
-        1.0 // ElevatorBack
+        1.0, // FrontLeft (CAMERA_A)
+        1.0, // FrontRight (CAMERA_B)
+        1.0, // BackLeft (CAMERA_C)
+        1.0 // BackRight (CAMERA_D)
       };
 
   // Multipliers to apply for MegaTag 2 observations
