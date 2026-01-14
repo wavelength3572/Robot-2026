@@ -119,6 +119,7 @@ public class RobotContainer {
         // Vision only for MainBot
         // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
         // This order determines PhotonVision sim ports: A=1182, B=1183, C=1184, D=1185
+        // Each camera has both current and recommended transforms for toggle comparison
         if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
           vision =
               new Vision(
@@ -126,18 +127,22 @@ public class RobotContainer {
                   new VisionIOPhotonVisionSim(
                       VisionConstants.frontLeftCam,
                       VisionConstants.robotToFrontLeftCam,
+                      VisionConstants.recommendedFrontLeftCam,
                       RobotStatus::getRobotPose),
                   new VisionIOPhotonVisionSim(
                       VisionConstants.frontRightCam,
                       VisionConstants.robotToFrontRightCam,
+                      VisionConstants.recommendedFrontRightCam,
                       RobotStatus::getRobotPose),
                   new VisionIOPhotonVisionSim(
                       VisionConstants.backLeftCam,
                       VisionConstants.robotToBackLeftCam,
+                      VisionConstants.recommendedBackLeftCam,
                       RobotStatus::getRobotPose),
                   new VisionIOPhotonVisionSim(
                       VisionConstants.backRightCam,
                       VisionConstants.robotToBackRightCam,
+                      VisionConstants.recommendedBackRightCam,
                       RobotStatus::getRobotPose));
         } else {
           vision = null;

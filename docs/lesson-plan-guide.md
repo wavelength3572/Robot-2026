@@ -81,6 +81,7 @@ git push -u origin StudentFeatureName
 ### High Priority (Create Soon)
 | Topic | Complexity | Time | Notes |
 |-------|------------|------|-------|
+| Turret Limit Handling | Medium | 45-60 min | Soft limits, robot rotation coordination |
 | Autonomous Paths | Medium-High | 60-90 min | PathPlanner basics, 4 paths |
 | Shooter Characterization | Medium | 45-60 min | PID tuning, distance tables |
 | Hopper/Indexer State Machine | Medium | 45-60 min | Fuel counting, feed sequence |
@@ -106,6 +107,28 @@ git push -u origin StudentFeatureName
 ---
 
 ## Detailed Topic Descriptions
+
+### Turret Limit Handling
+**Context:** Our turret likely won't have full 360° rotation capability. Current code assumes unlimited rotation.
+
+**Code issues to address:**
+- `TurretConstants`: MIN/MAX angles assume ±180°
+- `TurretIOSim`: Uses `enableContinuousInput()` which assumes wraparound
+- `calculateTurretAngle()`: Always picks shortest path, even if blocked by limits
+- No soft limit enforcement in `setAngle()`
+
+**Features to implement:**
+- Soft limits to prevent exceeding physical range (e.g., ±135°)
+- "Target reachable" detection method
+- Robot rotation coordination when turret can't reach target
+- Dashboard/LED indicator for turret state (in range, at limit, target unreachable)
+
+**Prompts to develop:**
+- "What happens if we command a turret angle outside its physical limits?"
+- "Add soft limits to prevent the turret from exceeding ±135 degrees"
+- "The turret uses continuous input wrapping - why is this a problem with limited rotation?"
+- "Create a method `isTargetReachable(targetAngle)` that returns false if outside limits"
+- "When the turret can't reach a target, how should we coordinate robot rotation to compensate?"
 
 ### Autonomous Paths
 **4 paths to implement:**

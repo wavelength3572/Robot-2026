@@ -26,6 +26,7 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.util.RobotStatus;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -243,6 +244,38 @@ public class Vision extends SubsystemBase {
     // New logging: Tags used for accepted/rejected poses
     Logger.recordOutput("Vision/Summary/TagPosesAccepted", tagPosesAccepted.toArray(new Pose3d[0]));
     Logger.recordOutput("Vision/Summary/TagPosesRejected", tagPosesRejected.toArray(new Pose3d[0]));
+
+    // Get robot pose for camera visualization (transforms cameras to world coordinates)
+    Pose3d robotPose3d = new Pose3d(RobotStatus.getRobotPose());
+
+    // Check if using proposed positions (in sim mode)
+    boolean usingProposed =
+        frc.robot.Constants.currentMode == frc.robot.Constants.Mode.SIM
+            && VisionIOPhotonVisionSim.isUsingRecommendedPositions();
+    Logger.recordOutput("Vision/CameraViz/UsingProposedPositions", usingProposed);
+
+    // Log camera transforms for the CURRENT physical positions (always visible for comparison)
+    Logger.recordOutput(
+        "Vision/CameraViz/PhysicalCameras",
+        new Pose3d[] {
+          robotPose3d.transformBy(robotToFrontLeftCam),
+          robotPose3d.transformBy(robotToFrontRightCam),
+          robotPose3d.transformBy(robotToBackLeftCam),
+          robotPose3d.transformBy(robotToBackRightCam)
+        });
+
+    // In sim mode, log the initial recommended positions for reference
+    // (Actual editable values are in SmartDashboard under Vision/CameraEditor)
+    if (frc.robot.Constants.currentMode == frc.robot.Constants.Mode.SIM) {
+      Logger.recordOutput(
+          "Vision/CameraViz/InitialProposedCameras",
+          new Pose3d[] {
+            robotPose3d.transformBy(recommendedFrontLeftCam),
+            robotPose3d.transformBy(recommendedFrontRightCam),
+            robotPose3d.transformBy(recommendedBackLeftCam),
+            robotPose3d.transformBy(recommendedBackRightCam)
+          });
+    }
   }
 
   @FunctionalInterface

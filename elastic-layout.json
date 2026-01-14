@@ -1,0 +1,381 @@
+{
+  "version": 1.0,
+  "grid_size": 64,
+  "tabs": [
+    {
+      "name": "Vision Camera Editor",
+      "grid_layout": {
+        "layouts": [
+          {
+            "title": "Camera A - Front Left",
+            "x": 0.0,
+            "y": 64.0,
+            "width": 448.0,
+            "height": 192.0,
+            "type": "List Layout",
+            "properties": {
+              "label_position": "TOP"
+            },
+            "children": [
+              {
+                "title": "X (m)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_A/ProposedX",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Y (m)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_A/ProposedY",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Z (m)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_A/ProposedZ",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Pitch (deg)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_A/ProposedPitch",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Yaw (deg)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_A/ProposedYaw",
+                  "period": 0.06
+                }
+              }
+            ]
+          },
+          {
+            "title": "Camera B - Front Right",
+            "x": 448.0,
+            "y": 64.0,
+            "width": 448.0,
+            "height": 192.0,
+            "type": "List Layout",
+            "properties": {
+              "label_position": "TOP"
+            },
+            "children": [
+              {
+                "title": "X (m)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_B/ProposedX",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Y (m)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_B/ProposedY",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Z (m)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_B/ProposedZ",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Pitch (deg)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_B/ProposedPitch",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Yaw (deg)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_B/ProposedYaw",
+                  "period": 0.06
+                }
+              }
+            ]
+          },
+          {
+            "title": "Camera C - Back Left",
+            "x": 0.0,
+            "y": 256.0,
+            "width": 448.0,
+            "height": 192.0,
+            "type": "List Layout",
+            "properties": {
+              "label_position": "TOP"
+            },
+            "children": [
+              {
+                "title": "X (m)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_C/ProposedX",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Y (m)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_C/ProposedY",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Z (m)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_C/ProposedZ",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Pitch (deg)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_C/ProposedPitch",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Yaw (deg)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_C/ProposedYaw",
+                  "period": 0.06
+                }
+              }
+            ]
+          },
+          {
+            "title": "Camera D - Back Right",
+            "x": 448.0,
+            "y": 256.0,
+            "width": 448.0,
+            "height": 192.0,
+            "type": "List Layout",
+            "properties": {
+              "label_position": "TOP"
+            },
+            "children": [
+              {
+                "title": "X (m)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_D/ProposedX",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Y (m)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_D/ProposedY",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Z (m)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_D/ProposedZ",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Pitch (deg)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_D/ProposedPitch",
+                  "period": 0.06
+                }
+              },
+              {
+                "title": "Yaw (deg)",
+                "x": 0.0,
+                "y": 0.0,
+                "width": 128.0,
+                "height": 64.0,
+                "type": "Text Display",
+                "properties": {
+                  "topic": "/Vision/CameraEditor/CAMERA_D/ProposedYaw",
+                  "period": 0.06
+                }
+              }
+            ]
+          }
+        ],
+        "containers": [
+          {
+            "title": "Enable Proposed Cameras",
+            "x": 0.0,
+            "y": 0.0,
+            "width": 256.0,
+            "height": 64.0,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/SmartDashboard/Vision/UseProposedCameras",
+              "period": 0.06
+            }
+          },
+          {
+            "title": "Status",
+            "x": 256.0,
+            "y": 0.0,
+            "width": 192.0,
+            "height": 64.0,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/Vision/CameraViz/UsingProposedPositions",
+              "color_when_true": "#00FF00",
+              "color_when_false": "#FF0000",
+              "period": 0.06
+            }
+          },
+          {
+            "title": "Camera A Stream",
+            "x": 896.0,
+            "y": 0.0,
+            "width": 320.0,
+            "height": 240.0,
+            "type": "Camera Stream",
+            "properties": {
+              "topic": "/CameraPublisher/CAMERA_A-processed",
+              "period": 0.06
+            }
+          },
+          {
+            "title": "Camera B Stream",
+            "x": 1216.0,
+            "y": 0.0,
+            "width": 320.0,
+            "height": 240.0,
+            "type": "Camera Stream",
+            "properties": {
+              "topic": "/CameraPublisher/CAMERA_B-processed",
+              "period": 0.06
+            }
+          },
+          {
+            "title": "Camera C Stream",
+            "x": 896.0,
+            "y": 240.0,
+            "width": 320.0,
+            "height": 240.0,
+            "type": "Camera Stream",
+            "properties": {
+              "topic": "/CameraPublisher/CAMERA_C-processed",
+              "period": 0.06
+            }
+          },
+          {
+            "title": "Camera D Stream",
+            "x": 1216.0,
+            "y": 240.0,
+            "width": 320.0,
+            "height": 240.0,
+            "type": "Camera Stream",
+            "properties": {
+              "topic": "/CameraPublisher/CAMERA_D-processed",
+              "period": 0.06
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

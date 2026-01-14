@@ -52,6 +52,15 @@
             background: #444;
             color: #fff;
         }
+        .info-text {
+            font-size: 11px;
+            color: #888;
+            max-width: 300px;
+            text-align: center;
+        }
+        .info-text a {
+            color: #4a9eff;
+        }
         .grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -95,57 +104,63 @@
     <div class="header">
         <h1>PhotonVision Sim Dashboard</h1>
         <div class="toggle-container">
-            <button class="toggle-btn active" id="btn-processed" onclick="setMode('processed')">Processed</button>
-            <button class="toggle-btn" id="btn-raw" onclick="setMode('raw')">Raw</button>
+            <button class="toggle-btn active" id="btn-processed" onclick="setStreamMode('processed')">Processed</button>
+            <button class="toggle-btn" id="btn-raw" onclick="setStreamMode('raw')">Raw</button>
         </div>
+        <span class="info-text">
+            Toggle camera positions in <b>SmartDashboard</b>: Vision/UseProposedCameras<br>
+            Edit pitch/yaw in Vision/CameraEditor/*
+        </span>
     </div>
     <div class="grid">
-        <div class="camera">
+        <div class="camera" id="camera-a">
             <div class="camera-label">
                 <div class="camera-name" id="label-a">CAMERA_A - Front Left (port 1182)</div>
-                <div class="camera-pose">Pos: (0.27, 0.27, 0.22)m | Roll: 0° Pitch: -15° Yaw: 0°</div>
+                <div class="camera-pose" id="pose-a">Physical: Pitch -15° Yaw 0° | Proposed: Pitch -10° Yaw 30°</div>
             </div>
             <img id="cam-a" src="http://localhost:1182/stream.mjpg" alt="Camera A">
         </div>
-        <div class="camera">
+        <div class="camera" id="camera-b">
             <div class="camera-label">
                 <div class="camera-name" id="label-b">CAMERA_B - Front Right (port 1184)</div>
-                <div class="camera-pose">Pos: (0.27, -0.27, 0.22)m | Roll: 0° Pitch: -15° Yaw: 0°</div>
+                <div class="camera-pose" id="pose-b">Physical: Pitch -15° Yaw 0° | Proposed: Pitch -10° Yaw -30°</div>
             </div>
             <img id="cam-b" src="http://localhost:1184/stream.mjpg" alt="Camera B">
         </div>
-        <div class="camera">
+        <div class="camera" id="camera-c">
             <div class="camera-label">
                 <div class="camera-name" id="label-c">CAMERA_C - Back Left (port 1186)</div>
-                <div class="camera-pose">Pos: (-0.27, 0.27, 0.22)m | Roll: 0° Pitch: -15° Yaw: 180°</div>
+                <div class="camera-pose" id="pose-c">Physical: Pitch -15° Yaw 180° | Proposed: Pitch 10° Yaw 150°</div>
             </div>
             <img id="cam-c" src="http://localhost:1186/stream.mjpg" alt="Camera C">
         </div>
-        <div class="camera">
+        <div class="camera" id="camera-d">
             <div class="camera-label">
                 <div class="camera-name" id="label-d">CAMERA_D - Back Right (port 1188)</div>
-                <div class="camera-pose">Pos: (-0.27, -0.27, 0.22)m | Roll: 0° Pitch: -15° Yaw: 180°</div>
+                <div class="camera-pose" id="pose-d">Physical: Pitch -15° Yaw 180° | Proposed: Pitch 10° Yaw -150°</div>
             </div>
             <img id="cam-d" src="http://localhost:1188/stream.mjpg" alt="Camera D">
         </div>
     </div>
 
     <script>
+        // Camera configurations
         const cameras = [
-            { img: 'cam-a', label: 'label-a', name: 'CAMERA_A - Front Left', rawPort: 1181, processedPort: 1182 },
-            { img: 'cam-b', label: 'label-b', name: 'CAMERA_B - Front Right', rawPort: 1183, processedPort: 1184 },
-            { img: 'cam-c', label: 'label-c', name: 'CAMERA_C - Back Left', rawPort: 1185, processedPort: 1186 },
-            { img: 'cam-d', label: 'label-d', name: 'CAMERA_D - Back Right', rawPort: 1187, processedPort: 1188 }
+            { id: 'a', img: 'cam-a', label: 'label-a', name: 'CAMERA_A - Front Left', rawPort: 1181, processedPort: 1182 },
+            { id: 'b', img: 'cam-b', label: 'label-b', name: 'CAMERA_B - Front Right', rawPort: 1183, processedPort: 1184 },
+            { id: 'c', img: 'cam-c', label: 'label-c', name: 'CAMERA_C - Back Left', rawPort: 1185, processedPort: 1186 },
+            { id: 'd', img: 'cam-d', label: 'label-d', name: 'CAMERA_D - Back Right', rawPort: 1187, processedPort: 1188 }
         ];
 
-        function setMode(mode) {
+        let currentStreamMode = 'processed';
+
+        function setStreamMode(mode) {
+            currentStreamMode = mode;
             const isProcessed = mode === 'processed';
 
-            // Update toggle buttons
             document.getElementById('btn-processed').classList.toggle('active', isProcessed);
             document.getElementById('btn-raw').classList.toggle('active', !isProcessed);
 
-            // Update camera streams
             cameras.forEach(cam => {
                 const port = isProcessed ? cam.processedPort : cam.rawPort;
                 document.getElementById(cam.img).src = `http://localhost:${port}/stream.mjpg`;

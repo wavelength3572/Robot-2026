@@ -112,5 +112,53 @@ public final class VisionConstants {
   public static double angularStdDevMegatag2Factor =
       Double.POSITIVE_INFINITY; // No rotation data available
 
+  // _________________________________________________________________________________________________
+  // RECOMMENDED camera transforms for 2026 Rebuilt field (for visualization/comparison)
+  // These are positioned to maximize AprilTag visibility across the field:
+  // - Front cameras: pitched UP (+10°) to see HUB tags at 1.12m height
+  // - Rear cameras: pitched DOWN (-10°) to see OUTPOST/TOWER tags at 0.55m height
+  // - All cameras angled outward for ~360° coverage
+
+  public static Transform3d recommendedFrontLeftCam =
+      new Transform3d(
+          0.26985,
+          0.26981,
+          0.22155,
+          new Rotation3d(
+              0.0,
+              Rotation2d.fromDegrees(-10).getRadians(), // Pitch UP 10° (negative pitch = look up)
+              Rotation2d.fromDegrees(30).getRadians())); // Yaw left 30°
+
+  public static Transform3d recommendedFrontRightCam =
+      new Transform3d(
+          0.26985,
+          -0.26981,
+          0.22155,
+          new Rotation3d(
+              0.0,
+              Rotation2d.fromDegrees(-10).getRadians(), // Pitch UP 10°
+              Rotation2d.fromDegrees(-30).getRadians())); // Yaw right 30°
+
+  public static Transform3d recommendedBackLeftCam =
+      new Transform3d(
+          -0.26985,
+          0.26981,
+          0.22155,
+          new Rotation3d(
+              0.0,
+              Rotation2d.fromDegrees(10)
+                  .getRadians(), // Pitch DOWN 10° (positive pitch = look down)
+              Rotation2d.fromDegrees(150).getRadians())); // Yaw back-left 150°
+
+  public static Transform3d recommendedBackRightCam =
+      new Transform3d(
+          -0.26985,
+          -0.26981,
+          0.22155,
+          new Rotation3d(
+              0.0,
+              Rotation2d.fromDegrees(10).getRadians(), // Pitch DOWN 10°
+              Rotation2d.fromDegrees(-150).getRadians())); // Yaw back-right 150°
+
   private VisionConstants() {}
 }
