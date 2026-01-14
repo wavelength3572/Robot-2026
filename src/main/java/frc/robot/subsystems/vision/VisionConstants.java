@@ -22,7 +22,7 @@ import java.nio.file.Path;
 
 public final class VisionConstants {
 
-  public static double MAX_TAG_DISTANCE = 1.5; // Only accept tags within 1.5 meters
+  public static double MAX_TAG_DISTANCE = 5.0; // Only accept tags within 5 meters
 
   // AprilTag layout for 2026 Rebuilt field
   // TODO: Once WPILib releases the official 2026 field, replace with:

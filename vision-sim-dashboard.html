@@ -15,17 +15,48 @@
             color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             padding: 10px;
+            overflow: hidden;
+        }
+        .header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            padding: 5px;
         }
         h1 {
-            text-align: center;
-            padding: 10px;
             color: #4a9eff;
+            font-size: 18px;
+        }
+        .toggle-container {
+            display: flex;
+            background: #333;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .toggle-btn {
+            padding: 8px 16px;
+            border: none;
+            background: #333;
+            color: #888;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .toggle-btn.active {
+            background: #4a9eff;
+            color: #fff;
+        }
+        .toggle-btn:hover:not(.active) {
+            background: #444;
+            color: #fff;
         }
         .grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
-            height: calc(100vh - 60px);
+            height: calc(100vh - 70px);
         }
         .camera {
             background: #2a2a2a;
@@ -33,47 +64,94 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            border-bottom: 2px solid #4a9eff;
         }
         .camera-label {
             background: #333;
-            padding: 8px 12px;
-            font-weight: bold;
-            font-size: 14px;
+            padding: 4px 10px;
             border-bottom: 2px solid #4a9eff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .camera iframe {
+        .camera-name {
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .camera-pose {
+            font-size: 11px;
+            color: #aaa;
+        }
+        .camera img {
             flex: 1;
             width: 100%;
-            border: none;
-        }
-        .note {
-            text-align: center;
-            padding: 5px;
-            font-size: 12px;
-            color: #888;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
         }
     </style>
 </head>
 <body>
-    <h1>PhotonVision Sim Dashboard</h1>
-    <p class="note">Make sure vision is enabled in sim (toggle Vision/Toggle in SmartDashboard)</p>
-    <div class="grid">
-        <div class="camera">
-            <div class="camera-label">CAMERA_A - Front Left (port 1182)</div>
-            <iframe src="http://localhost:1182"></iframe>
-        </div>
-        <div class="camera">
-            <div class="camera-label">CAMERA_B - Front Right (port 1183)</div>
-            <iframe src="http://localhost:1183"></iframe>
-        </div>
-        <div class="camera">
-            <div class="camera-label">CAMERA_C - Back Left (port 1184)</div>
-            <iframe src="http://localhost:1184"></iframe>
-        </div>
-        <div class="camera">
-            <div class="camera-label">CAMERA_D - Back Right (port 1185)</div>
-            <iframe src="http://localhost:1185"></iframe>
+    <div class="header">
+        <h1>PhotonVision Sim Dashboard</h1>
+        <div class="toggle-container">
+            <button class="toggle-btn active" id="btn-processed" onclick="setMode('processed')">Processed</button>
+            <button class="toggle-btn" id="btn-raw" onclick="setMode('raw')">Raw</button>
         </div>
     </div>
+    <div class="grid">
+        <div class="camera">
+            <div class="camera-label">
+                <div class="camera-name" id="label-a">CAMERA_A - Front Left (port 1182)</div>
+                <div class="camera-pose">Pos: (0.27, 0.27, 0.22)m | Roll: 0° Pitch: -15° Yaw: 0°</div>
+            </div>
+            <img id="cam-a" src="http://localhost:1182/stream.mjpg" alt="Camera A">
+        </div>
+        <div class="camera">
+            <div class="camera-label">
+                <div class="camera-name" id="label-b">CAMERA_B - Front Right (port 1184)</div>
+                <div class="camera-pose">Pos: (0.27, -0.27, 0.22)m | Roll: 0° Pitch: -15° Yaw: 0°</div>
+            </div>
+            <img id="cam-b" src="http://localhost:1184/stream.mjpg" alt="Camera B">
+        </div>
+        <div class="camera">
+            <div class="camera-label">
+                <div class="camera-name" id="label-c">CAMERA_C - Back Left (port 1186)</div>
+                <div class="camera-pose">Pos: (-0.27, 0.27, 0.22)m | Roll: 0° Pitch: -15° Yaw: 180°</div>
+            </div>
+            <img id="cam-c" src="http://localhost:1186/stream.mjpg" alt="Camera C">
+        </div>
+        <div class="camera">
+            <div class="camera-label">
+                <div class="camera-name" id="label-d">CAMERA_D - Back Right (port 1188)</div>
+                <div class="camera-pose">Pos: (-0.27, -0.27, 0.22)m | Roll: 0° Pitch: -15° Yaw: 180°</div>
+            </div>
+            <img id="cam-d" src="http://localhost:1188/stream.mjpg" alt="Camera D">
+        </div>
+    </div>
+
+    <script>
+        const cameras = [
+            { img: 'cam-a', label: 'label-a', name: 'CAMERA_A - Front Left', rawPort: 1181, processedPort: 1182 },
+            { img: 'cam-b', label: 'label-b', name: 'CAMERA_B - Front Right', rawPort: 1183, processedPort: 1184 },
+            { img: 'cam-c', label: 'label-c', name: 'CAMERA_C - Back Left', rawPort: 1185, processedPort: 1186 },
+            { img: 'cam-d', label: 'label-d', name: 'CAMERA_D - Back Right', rawPort: 1187, processedPort: 1188 }
+        ];
+
+        function setMode(mode) {
+            const isProcessed = mode === 'processed';
+
+            // Update toggle buttons
+            document.getElementById('btn-processed').classList.toggle('active', isProcessed);
+            document.getElementById('btn-raw').classList.toggle('active', !isProcessed);
+
+            // Update camera streams
+            cameras.forEach(cam => {
+                const port = isProcessed ? cam.processedPort : cam.rawPort;
+                document.getElementById(cam.img).src = `http://localhost:${port}/stream.mjpg`;
+                document.getElementById(cam.label).textContent = `${cam.name} (port ${port})`;
+            });
+        }
+    </script>
 </body>
 </html>
