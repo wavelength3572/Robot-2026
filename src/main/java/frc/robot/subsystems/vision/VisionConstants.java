@@ -22,7 +22,7 @@ import java.nio.file.Path;
 
 public final class VisionConstants {
 
-  public static double MAX_TAG_DISTANCE = 5.0; // Only accept tags within 5 meters
+  public static double MAX_TAG_DISTANCE = 1.5; // Only accept tags within 1.5 meters
 
   // AprilTag layout for 2026 Rebuilt field
   // TODO: Once WPILib releases the official 2026 field, replace with:
@@ -123,42 +123,42 @@ public final class VisionConstants {
       new Transform3d(
           0.26985,
           0.26981,
-          0.22155,
+          0.43,
           new Rotation3d(
               0.0,
               Rotation2d.fromDegrees(-10).getRadians(), // Pitch UP 10° (negative pitch = look up)
-              Rotation2d.fromDegrees(30).getRadians())); // Yaw left 30°
+              Rotation2d.fromDegrees(120).getRadians())); // Yaw left 30°
 
   public static Transform3d recommendedFrontRightCam =
       new Transform3d(
           0.26985,
           -0.26981,
-          0.22155,
+          0.43,
           new Rotation3d(
               0.0,
               Rotation2d.fromDegrees(-10).getRadians(), // Pitch UP 10°
-              Rotation2d.fromDegrees(-30).getRadians())); // Yaw right 30°
+              Rotation2d.fromDegrees(-120).getRadians())); // Yaw right 30°
 
   public static Transform3d recommendedBackLeftCam =
       new Transform3d(
           -0.26985,
           0.26981,
-          0.22155,
+          0.43,
           new Rotation3d(
               0.0,
-              Rotation2d.fromDegrees(10)
+              Rotation2d.fromDegrees(-10)
                   .getRadians(), // Pitch DOWN 10° (positive pitch = look down)
-              Rotation2d.fromDegrees(150).getRadians())); // Yaw back-left 150°
+              Rotation2d.fromDegrees(60).getRadians())); // Yaw back-left 150°
 
   public static Transform3d recommendedBackRightCam =
       new Transform3d(
           -0.26985,
           -0.26981,
-          0.22155,
+          0.43,
           new Rotation3d(
               0.0,
-              Rotation2d.fromDegrees(10).getRadians(), // Pitch DOWN 10°
-              Rotation2d.fromDegrees(-150).getRadians())); // Yaw back-right 150°
+              Rotation2d.fromDegrees(-10).getRadians(), // Pitch DOWN 10°
+              Rotation2d.fromDegrees(-60).getRadians())); // Yaw back-right 150°
 
   private VisionConstants() {}
 }

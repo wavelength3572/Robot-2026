@@ -39,6 +39,8 @@ public class Vision extends SubsystemBase {
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
 
+  private boolean isVisionOn = true;
+
   private final Map<Integer, Double> aprilTagTimestamps = new ConcurrentHashMap<>();
 
   // Pre-allocated lists to reduce GC pressure (cleared each cycle)
@@ -98,8 +100,35 @@ public class Vision extends SubsystemBase {
 
   @Override
   public void periodic() {
+    Logger.recordOutput("Vision/isVisionOn", isVisionOn);
+
+    // Skip all vision processing if vision is disabled
+    if (!isVisionOn) {
+      return;
+    }
+
     // Main pipeline using MegaTag 2 pose estimation - best for multi-tag scenarios
     updateMainPipeline();
+  }
+
+  /** Returns whether vision processing is currently enabled. */
+  public boolean isVisionOn() {
+    return isVisionOn;
+  }
+
+  /** Toggles vision processing on/off. */
+  public void toggleVision() {
+    isVisionOn = !isVisionOn;
+  }
+
+  /** Enables vision processing. */
+  public void setVisionOn() {
+    isVisionOn = true;
+  }
+
+  /** Disables vision processing. */
+  public void setVisionOff() {
+    isVisionOn = false;
   }
 
   private void updateMainPipeline() {

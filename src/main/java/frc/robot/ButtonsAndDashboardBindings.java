@@ -1,5 +1,6 @@
 package frc.robot;
 
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveCommands;
 import frc.robot.operator_interface.OperatorInterface;
@@ -41,7 +42,23 @@ public class ButtonsAndDashboardBindings {
   /****************************** */
 
   private static void configureDashboardBindings() {
-    // Dashboard bindings can be added here as needed
+    // Vision toggle on dashboard
+    if (vision != null) {
+      // Default vision OFF in simulation for performance
+      if (Constants.currentMode == Constants.Mode.SIM) {
+        vision.setVisionOff();
+      }
+      SmartDashboard.putBoolean("Vision/Enable", vision.isVisionOn());
+      SmartDashboard.putData(
+          "Vision/Toggle",
+          Commands.runOnce(
+                  () -> {
+                    vision.toggleVision();
+                    SmartDashboard.putBoolean("Vision/Enable", vision.isVisionOn());
+                  })
+              .ignoringDisable(true)
+              .withName("Toggle Vision"));
+    }
   }
 
   /****************************** */
@@ -54,6 +71,18 @@ public class ButtonsAndDashboardBindings {
     // Gyro Reset
     oi.getResetGyroButton()
         .onTrue(Commands.runOnce(drive::zeroGyroscope, drive).ignoringDisable(true));
+
+    // Vision toggle on Button H
+    if (vision != null) {
+      oi.getButtonH()
+          .onTrue(
+              Commands.runOnce(
+                      () -> {
+                        vision.toggleVision();
+                        SmartDashboard.putBoolean("Vision/Enable", vision.isVisionOn());
+                      })
+                  .ignoringDisable(true));
+    }
   }
 
   /****************************** */

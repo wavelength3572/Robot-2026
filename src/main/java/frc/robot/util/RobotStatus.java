@@ -37,4 +37,12 @@ public class RobotStatus {
   public static Vision getVision() {
     return visionSystem;
   }
+
+  /** Returns whether vision is currently enabled. */
+  public static boolean isVisionOn() {
+    if (visionSystem == null) {
+      return false;
+    }
+    return visionSystem.isVisionOn();
+  }
 }
