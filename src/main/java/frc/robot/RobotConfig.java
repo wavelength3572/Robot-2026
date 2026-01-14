@@ -54,6 +54,15 @@ public interface RobotConfig {
 
   int getBackRightTurnCanId();
 
+  // CANCoder CAN IDs (for MainBot external absolute encoders)
+  int getFrontLeftCANCoderCanId();
+
+  int getFrontRightCANCoderCanId();
+
+  int getBackLeftCANCoderCanId();
+
+  int getBackRightCANCoderCanId();
+
   // Drive motor configuration
   int getDriveMotorCurrentLimit();
 

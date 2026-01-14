@@ -199,6 +199,26 @@ public class MiniBotConfig implements RobotConfig {
   }
 
   @Override
+  public int getFrontLeftCANCoderCanId() {
+    return 0; // MiniBot doesn't use CANCoders
+  }
+
+  @Override
+  public int getFrontRightCANCoderCanId() {
+    return 0; // MiniBot doesn't use CANCoders
+  }
+
+  @Override
+  public int getBackLeftCANCoderCanId() {
+    return 0; // MiniBot doesn't use CANCoders
+  }
+
+  @Override
+  public int getBackRightCANCoderCanId() {
+    return 0; // MiniBot doesn't use CANCoders
+  }
+
+  @Override
   public int getDriveMotorCurrentLimit() {
     return driveMotorCurrentLimit;
   }

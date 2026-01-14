@@ -187,4 +187,5 @@ compile_commands.json
 src/main/java/frc/robot/BuildConstants.java
 
 # Claude Code local settings
+tmpclaude-*
 .claude/
