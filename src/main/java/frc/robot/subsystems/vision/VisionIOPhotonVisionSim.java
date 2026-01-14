@@ -24,6 +24,7 @@ import edu.wpi.first.networktables.BooleanEntry;
 import edu.wpi.first.networktables.DoubleEntry;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.StringPublisher;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +41,8 @@ public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
   // Camera position toggle system
   private static final List<EditableCameraConfig> cameraConfigs = new ArrayList<>();
   private static BooleanEntry useProposedEntry;
+  private static BooleanEntry exportTriggerEntry;
+  private static StringPublisher advantageScopeJsonPublisher;
   private static boolean lastUseProposed = false;
   private static boolean initialized = false;
 
@@ -196,8 +199,15 @@ public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
       useProposedEntry = table.getBooleanTopic("UseProposedPositions").getEntry(false);
       useProposedEntry.set(false);
 
+      // Set up export trigger and JSON output
+      exportTriggerEntry = table.getBooleanTopic("ExportToAdvantageScope").getEntry(false);
+      exportTriggerEntry.set(false);
+      advantageScopeJsonPublisher = table.getStringTopic("AdvantageScopeJson").publish();
+      advantageScopeJsonPublisher.set("");
+
       // Also publish to SmartDashboard for easy toggle button
       SmartDashboard.putBoolean("Vision/UseProposedCameras", false);
+      SmartDashboard.putBoolean("Vision/ExportCamerasToAdvantageScope", false);
 
       initialized = true;
     }
@@ -260,7 +270,20 @@ public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
         }
       }
 
-      // Step 4: Update the simulation
+      // Step 4: Check for export trigger
+      boolean shouldExport =
+          SmartDashboard.getBoolean("Vision/ExportCamerasToAdvantageScope", false);
+      if (shouldExport) {
+        SmartDashboard.putBoolean("Vision/ExportCamerasToAdvantageScope", false);
+        exportTriggerEntry.set(false);
+        String json = generateAdvantageScopeJson();
+        advantageScopeJsonPublisher.set(json);
+        System.out.println("\n========== AdvantageScope Camera Config ==========");
+        System.out.println(json);
+        System.out.println("==================================================\n");
+      }
+
+      // Step 5: Update the simulation
       visionSim.update(sharedPoseSupplier.get());
     }
   }
@@ -301,5 +324,69 @@ public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
   private static double roundTo(double value, int decimalPlaces) {
     double scale = Math.pow(10, decimalPlaces);
     return Math.round(value * scale) / scale;
+  }
+
+  /**
+   * Generates AdvantageScope-compatible JSON for the current proposed camera positions. This can be
+   * copied directly into an AdvantageScope robot config file (rename to config.json).
+   */
+  private static String generateAdvantageScopeJson() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("{\n");
+    sb.append("  \"name\": \"2026BaseBot\",\n");
+    sb.append(
+        "  \"rotations\": [{\"axis\": \"x\", \"degrees\": 90}, {\"axis\": \"z\", \"degrees\": 0}],\n");
+    sb.append("  \"position\": [0, 0, 0],\n");
+    sb.append("  \"cameras\": [\n");
+
+    // Camera name mapping from code names to display names
+    String[] displayNames = {"Front Left", "Front Right", "Back Left", "Back Right"};
+
+    for (int i = 0; i < cameraConfigs.size(); i++) {
+      EditableCameraConfig config = cameraConfigs.get(i);
+      String displayName = i < displayNames.length ? displayNames[i] : config.name;
+
+      sb.append("    {\n");
+      sb.append("      \"name\": \"").append(displayName).append("\",\n");
+      sb.append("      \"fov\": 70,\n");
+      sb.append("      \"resolution\": [800, 600],\n");
+      sb.append("      \"position\": [")
+          .append(roundTo(config.cachedX, 5))
+          .append(", ")
+          .append(roundTo(config.cachedY, 5))
+          .append(", ")
+          .append(roundTo(config.cachedZ, 5))
+          .append("],\n");
+      sb.append("      \"rotations\": [{\"axis\": \"y\", \"degrees\": ")
+          .append(roundTo(config.cachedPitch, 1))
+          .append("}, {\"axis\": \"z\", \"degrees\": ")
+          .append(roundTo(config.cachedYaw, 1))
+          .append("}]\n");
+      sb.append("    }");
+      if (i < cameraConfigs.size() - 1) {
+        sb.append(",");
+      }
+      sb.append("\n");
+    }
+
+    sb.append("  ],\n");
+    sb.append("  \"components\": [\n");
+    sb.append("    {\n");
+    sb.append(
+        "      \"zeroedRotations\": [{\"axis\": \"x\", \"degrees\": 90.0}, {\"axis\": \"y\", \"degrees\": 0.0}, {\"axis\": \"z\", \"degrees\": 0.0}],\n");
+    sb.append("      \"zeroedPosition\": [0.0, 0.0, 0.0]\n");
+    sb.append("    }\n");
+    sb.append("  ]\n");
+    sb.append("}");
+
+    return sb.toString();
+  }
+
+  /**
+   * Manually triggers export of current proposed camera positions to AdvantageScope JSON format.
+   * The JSON will be printed to console and published to NetworkTables.
+   */
+  public static void exportToAdvantageScope() {
+    SmartDashboard.putBoolean("Vision/ExportCamerasToAdvantageScope", true);
   }
 }
