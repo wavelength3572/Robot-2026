@@ -14,20 +14,32 @@
 package frc.robot.subsystems.vision;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
+import java.io.IOException;
+import java.nio.file.Path;
 
 public final class VisionConstants {
 
   public static double MAX_TAG_DISTANCE = 1.5; // Only accept tags within 1.5 meters
 
-  // AprilTag layout - Load from WPILib for 2026 season
-  // Using k2025ReefscapeWelded (default for 2026) until 2026 field layout is released
-  // TODO: Update to k2026 field layout when 2026 game is announced
-  public static AprilTagFieldLayout aprilTagLayout =
-      AprilTagFieldLayout.loadField(AprilTagFields.k2025ReefscapeWelded);
+  // AprilTag layout for 2026 Rebuilt field
+  // TODO: Once WPILib releases the official 2026 field, replace with:
+  //   public static AprilTagFieldLayout aprilTagLayout =
+  //       AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
+  public static AprilTagFieldLayout aprilTagLayout = load2026FieldLayout();
+
+  private static AprilTagFieldLayout load2026FieldLayout() {
+    try {
+      return new AprilTagFieldLayout(
+          Path.of(
+              edu.wpi.first.wpilibj.Filesystem.getDeployDirectory().getPath(),
+              "2026-rebuilt-welded.json"));
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to load 2026 AprilTag field layout", e);
+    }
+  }
 
   // _________________________________________________________________________________________________
 
