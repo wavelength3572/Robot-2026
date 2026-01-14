@@ -24,7 +24,7 @@ public final class Constants {
    * Robot type for simulation mode. Change this to test different configurations. On real hardware,
    * this is ignored and auto-detection is used.
    */
-  public static final RobotType simRobotType = RobotType.MINIBOT;
+  public static final RobotType simRobotType = RobotType.MAINBOT;
 
   /** The detected or configured robot type. */
   public static final RobotType currentRobot = detectRobotType();

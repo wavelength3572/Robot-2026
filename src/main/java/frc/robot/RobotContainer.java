@@ -47,6 +47,9 @@ public class RobotContainer {
   // Dashboard inputs
   private final LoggedDashboardChooser<Command> autoChooser;
 
+  // Simulation: track last selected auto for pose updates
+  private String lastSelectedAutoName = null;
+
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
     // Instantiate turret only for MainBot (not present on MiniBot)
@@ -172,21 +175,24 @@ public class RobotContainer {
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
 
-    // Set up SysId routines
-    autoChooser.addOption(
-        "Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
-    autoChooser.addOption(
-        "Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
-    autoChooser.addOption(
-        "Drive SysId (Quasistatic Forward)",
-        drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
-    autoChooser.addOption(
-        "Drive SysId (Quasistatic Reverse)",
-        drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
-    autoChooser.addOption(
-        "Drive SysId (Dynamic Forward)", drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
-    autoChooser.addOption(
-        "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+    // Add SysId routines only on real robot (not in simulation)
+    // In sim, we only want PathPlanner autos so we can set starting poses
+    if (Constants.currentMode != Constants.Mode.SIM) {
+      autoChooser.addOption(
+          "Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
+      autoChooser.addOption(
+          "Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
+      autoChooser.addOption(
+          "Drive SysId (Quasistatic Forward)",
+          drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+      autoChooser.addOption(
+          "Drive SysId (Quasistatic Reverse)",
+          drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+      autoChooser.addOption(
+          "Drive SysId (Dynamic Forward)", drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
+      autoChooser.addOption(
+          "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+    }
 
     updateOI();
   }
@@ -251,5 +257,58 @@ public class RobotContainer {
    */
   public boolean hasVision() {
     return vision != null;
+  }
+
+  // Track last alliance to detect changes
+  private edu.wpi.first.wpilibj.DriverStation.Alliance lastAlliance = null;
+
+  /**
+   * Updates the robot's simulation pose based on the currently selected auto. Call this from
+   * disabledPeriodic() to automatically position the robot at the auto's starting location when the
+   * auto selection changes or when the alliance changes.
+   */
+  public void updateSimulationPoseFromAuto() {
+    if (Constants.currentMode != Constants.Mode.SIM) {
+      return;
+    }
+
+    // Get the currently selected auto name and alliance
+    String selectedAutoName = autoChooser.getSendableChooser().getSelected();
+    edu.wpi.first.wpilibj.DriverStation.Alliance currentAlliance =
+        edu.wpi.first.wpilibj.DriverStation.getAlliance()
+            .orElse(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue);
+
+    // Update if either the auto selection or alliance changed
+    boolean autoChanged =
+        selectedAutoName != null && !selectedAutoName.equals(lastSelectedAutoName);
+    boolean allianceChanged = currentAlliance != lastAlliance;
+
+    if (autoChanged || allianceChanged) {
+      lastSelectedAutoName = selectedAutoName;
+      lastAlliance = currentAlliance;
+
+      if (selectedAutoName == null) {
+        return;
+      }
+
+      try {
+        // Get the starting pose from the PathPlanner auto
+        // PathPlannerAuto.getStartingPose() returns the pose relative to blue alliance origin
+        com.pathplanner.lib.commands.PathPlannerAuto auto =
+            new com.pathplanner.lib.commands.PathPlannerAuto(selectedAutoName);
+        edu.wpi.first.math.geometry.Pose2d startingPose = auto.getStartingPose();
+
+        if (startingPose != null) {
+          // Flip pose if on red alliance (same logic as AutoBuilder uses)
+          if (currentAlliance == edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
+            startingPose = com.pathplanner.lib.util.FlippingUtil.flipFieldPose(startingPose);
+          }
+          drive.setPose(startingPose);
+        }
+      } catch (Exception e) {
+        // Auto doesn't have a valid starting pose (shouldn't happen if SysId is hidden)
+        System.err.println("Could not get starting pose for auto: " + selectedAutoName);
+      }
+    }
   }
 }

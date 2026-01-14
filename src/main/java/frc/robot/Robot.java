@@ -29,6 +29,7 @@ public class Robot extends LoggedRobot {
   private RobotContainer robotContainer;
 
   public Robot() {
+    super(Constants.currentMode == Constants.Mode.SIM ? 0.08 : 0.02); // 80ms in sim, 20ms on real
     // Record metadata
     Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
     Logger.recordMetadata("BuildDate", BuildConstants.BUILD_DATE);
@@ -104,6 +105,7 @@ public class Robot extends LoggedRobot {
   @Override
   public void disabledPeriodic() {
     robotContainer.updateOI(); // This only matters when the joysticks change
+    robotContainer.updateSimulationPoseFromAuto(); // Update sim pose when auto selection changes
   }
 
   /** This autonomous runs the autonomous command selected by your {@link RobotContainer} class. */
