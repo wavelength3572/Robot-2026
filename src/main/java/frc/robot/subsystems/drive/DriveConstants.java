@@ -47,6 +47,12 @@ public class DriveConstants {
   public static final int frontRightTurnCanId = config.getFrontRightTurnCanId();
   public static final int backRightTurnCanId = config.getBackRightTurnCanId();
 
+  // CANCoder CAN IDs
+  public static final int frontLeftCANCoderCanId = config.getFrontLeftCANCoderCanId();
+  public static final int frontRightCANCoderCanId = config.getFrontRightCANCoderCanId();
+  public static final int backLeftCANCoderCanId = config.getBackLeftCANCoderCanId();
+  public static final int backRightCANCoderCanId = config.getBackRightCANCoderCanId();
+
   // Drive motor configuration
   public static final int driveMotorCurrentLimit = config.getDriveMotorCurrentLimit();
   public static final double wheelRadiusMeters = config.getWheelRadiusMeters();

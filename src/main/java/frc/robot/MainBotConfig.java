@@ -48,6 +48,12 @@ public class MainBotConfig implements RobotConfig {
   private static final int frontRightTurnCanId = 7;
   private static final int backRightTurnCanId = 2;
 
+  // CANCoder CAN IDs
+  private static final int frontLeftCANCoderCanId = 13;
+  private static final int frontRightCANCoderCanId = 11;
+  private static final int backLeftCANCoderCanId = 12;
+  private static final int backRightCANCoderCanId = 10;
+
   // Drive motor configuration
   private static final int driveMotorCurrentLimit = 35;
   private static final double wheelRadiusMeters = Units.inchesToMeters(1.9695);
@@ -196,6 +202,26 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public int getBackRightTurnCanId() {
     return backRightTurnCanId;
+  }
+
+  @Override
+  public int getFrontLeftCANCoderCanId() {
+    return frontLeftCANCoderCanId;
+  }
+
+  @Override
+  public int getFrontRightCANCoderCanId() {
+    return frontRightCANCoderCanId;
+  }
+
+  @Override
+  public int getBackLeftCANCoderCanId() {
+    return backLeftCANCoderCanId;
+  }
+
+  @Override
+  public int getBackRightCANCoderCanId() {
+    return backRightCANCoderCanId;
   }
 
   @Override
