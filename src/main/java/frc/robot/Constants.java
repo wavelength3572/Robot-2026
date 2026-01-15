@@ -111,14 +111,32 @@ public final class Constants {
 
   /** Field positions for targeting (in meters). */
   public static final class FieldPositions {
-    /** Blue alliance speaker position. */
-    public static final double BLUE_HUB_X = 4.6; // TODO: Update with actual field coordinates
+    /** Field dimensions. */
+    public static final double FIELD_LENGTH = 16.54;
 
-    public static final double BLUE_HUB_Y = 4.0; // TODO: Update with actual field coordinates
+    public static final double FIELD_WIDTH = 8.23;
 
-    /** Red alliance speaker position. */
-    public static final double RED_HUB_X = 4.6; // TODO: Update with actual field coordinates
+    /** Zone boundaries. */
+    public static final double ALLIANCE_ZONE_DEPTH = 4.03;
 
-    public static final double RED_HUB_Y = 4.0; // TODO: Update with actual field coordinates
+    /** Blue alliance hub position. */
+    public static final double BLUE_HUB_X = 4.03;
+
+    public static final double BLUE_HUB_Y = 4.115;
+
+    /** Red alliance hub position. */
+    public static final double RED_HUB_X = 12.51;
+
+    public static final double RED_HUB_Y = 4.115;
+
+    /** Pass target X positions (1/3 into alliance zone from wall). */
+    public static final double BLUE_PASS_TARGET_X = 1.34;
+
+    public static final double RED_PASS_TARGET_X = 15.2;
+
+    /** Trench Y positions for dynamic pass targeting. */
+    public static final double LEFT_TRENCH_Y = 1.5;
+
+    public static final double RIGHT_TRENCH_Y = 6.73;
   }
 }

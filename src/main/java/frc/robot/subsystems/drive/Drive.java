@@ -40,6 +40,7 @@ import frc.robot.Constants;
 import frc.robot.Constants.Mode;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.util.LocalADStarAK;
+import frc.robot.util.TurretAimingHelper;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -175,27 +176,25 @@ public class Drive extends SubsystemBase {
       poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
     }
 
-    // Update turret to aim at speaker based on latest pose
+    // Update turret to aim based on zone: shoot in alliance zone, pass otherwise
     if (turret != null) {
       Pose2d currentPose = getPose();
-
-      // Get speaker coordinates based on alliance
       Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
-      double hubX =
-          (alliance == Alliance.Blue)
-              ? Constants.FieldPositions.BLUE_HUB_X
-              : Constants.FieldPositions.RED_HUB_X;
-      double hubY =
-          (alliance == Alliance.Blue)
-              ? Constants.FieldPositions.BLUE_HUB_Y
-              : Constants.FieldPositions.RED_HUB_Y;
+
+      TurretAimingHelper.AimResult aimResult =
+          TurretAimingHelper.getAimTarget(currentPose.getX(), currentPose.getY(), alliance);
+
+      // Log aiming data for AdvantageScope
+      Logger.recordOutput("Turret/AimMode", aimResult.mode().toString());
+      Logger.recordOutput("Turret/TargetX", aimResult.target().getX());
+      Logger.recordOutput("Turret/TargetY", aimResult.target().getY());
 
       turret.aimAtFieldPosition(
           currentPose.getX(),
           currentPose.getY(),
           currentPose.getRotation().getDegrees(),
-          hubX,
-          hubY);
+          aimResult.target().getX(),
+          aimResult.target().getY());
     }
 
     // Update gyro alert
