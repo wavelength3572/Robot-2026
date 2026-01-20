@@ -24,8 +24,8 @@ public class TurretIOSim implements TurretIO {
             LinearSystemId.createDCMotorSystem(turretGearBox, 0.001, TurretConstants.GEAR_RATIO),
             turretGearBox);
 
-    // Enable wrapping for turn PID
-    turretController.enableContinuousInput(-Math.PI, Math.PI);
+    // Do NOT enable continuous input - turret has limited travel (400° total)
+    // turretController.enableContinuousInput(-Math.PI, Math.PI);
   }
 
   @Override
@@ -34,15 +34,29 @@ public class TurretIOSim implements TurretIO {
     turretAppliedVolts =
         turretFFVolts + turretController.calculate(turretSim.getAngularPositionRad());
 
+    // Simulate soft limits - stop motor if at limit and trying to go further
+    double currentDegrees = Math.toDegrees(turretSim.getAngularPositionRad());
+    if ((currentDegrees >= TurretConstants.MAX_ANGLE_DEGREES && turretAppliedVolts > 0)
+        || (currentDegrees <= TurretConstants.MIN_ANGLE_DEGREES && turretAppliedVolts < 0)) {
+      turretAppliedVolts = 0.0; // Soft limit reached, stop motor
+    }
+
     // Update motor simulation
     turretSim.setInputVoltage(MathUtil.clamp(turretAppliedVolts, -12.0, 12.0));
     turretSim.update(0.02);
 
+    // Clamp simulated position to soft limits (in case of overshoot)
+    double simPositionDegrees =
+        MathUtil.clamp(
+            Math.toDegrees(turretSim.getAngularPositionRad()),
+            TurretConstants.MIN_ANGLE_DEGREES,
+            TurretConstants.MAX_ANGLE_DEGREES);
+
     // Get simulated position in degrees
     inputs.targetAngleDegrees = targetRotation.getDegrees();
     inputs.targetAngleRadians = targetRotation.getRadians();
-    inputs.currentAngleDegrees = Math.toDegrees(turretSim.getAngularPositionRad());
-    inputs.currentAngleRadians = turretSim.getAngularPositionRad();
+    inputs.currentAngleDegrees = simPositionDegrees;
+    inputs.currentAngleRadians = Math.toRadians(simPositionDegrees);
     inputs.velocityDegreesPerSec = Math.toDegrees(turretSim.getAngularVelocityRadPerSec());
     inputs.appliedVolts = turretAppliedVolts;
     inputs.currentAmps = Math.abs(turretSim.getCurrentDrawAmps());
@@ -50,7 +64,12 @@ public class TurretIOSim implements TurretIO {
 
   @Override
   public void setTargetAngle(Rotation2d rotation) {
-    targetRotation = rotation;
+    // Clamp the target angle to valid range (matching real robot soft limits)
+    double clampedDegrees =
+        Math.max(
+            TurretConstants.MIN_ANGLE_DEGREES,
+            Math.min(TurretConstants.MAX_ANGLE_DEGREES, rotation.getDegrees()));
+    targetRotation = Rotation2d.fromDegrees(clampedDegrees);
     turretController.setSetpoint(targetRotation.getRadians());
   }
 }

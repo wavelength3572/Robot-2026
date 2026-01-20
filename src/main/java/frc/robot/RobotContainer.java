@@ -23,6 +23,7 @@ import frc.robot.subsystems.drive.ModuleIOSpark;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
 import frc.robot.subsystems.turret.TurretIOSim;
+import frc.robot.subsystems.turret.TurretIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
@@ -57,7 +58,7 @@ public class RobotContainer {
       switch (Constants.currentMode) {
         case REAL:
           // Real MainBot - instantiate turret hardware
-          turret = new Turret(new TurretIOSim()); // TODO: Replace with real hardware IO when ready
+          turret = new Turret(new TurretIOTalonFX());
           break;
 
         case SIM:
@@ -88,7 +89,8 @@ public class RobotContainer {
                 new ModuleIOSpark(3),
                 turret);
         // Vision only for MainBot
-        // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
+        // Camera order: A (FrontLeft), B (FrontRight)
+        // Cameras C (BackLeft) and D (BackRight) temporarily removed
         if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
           vision =
               new Vision(
@@ -96,11 +98,11 @@ public class RobotContainer {
                   new VisionIOPhotonVision(
                       VisionConstants.frontLeftCam, VisionConstants.robotToFrontLeftCam),
                   new VisionIOPhotonVision(
-                      VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam),
-                  new VisionIOPhotonVision(
-                      VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
-                  new VisionIOPhotonVision(
-                      VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
+                      VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam));
+          // new VisionIOPhotonVision(
+          //     VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
+          // new VisionIOPhotonVision(
+          //     VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
         } else {
           vision = null;
         }
@@ -117,8 +119,9 @@ public class RobotContainer {
                 new ModuleIOSim(),
                 turret);
         // Vision only for MainBot
-        // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
-        // This order determines PhotonVision sim ports: A=1182, B=1183, C=1184, D=1185
+        // Camera order: A (FrontLeft), B (FrontRight)
+        // Cameras C (BackLeft) and D (BackRight) temporarily removed
+        // This order determines PhotonVision sim ports: A=1182, B=1183
         // Each camera has both current and recommended transforms for toggle comparison
         if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
           vision =
@@ -133,17 +136,17 @@ public class RobotContainer {
                       VisionConstants.frontRightCam,
                       VisionConstants.robotToFrontRightCam,
                       VisionConstants.recommendedFrontRightCam,
-                      RobotStatus::getRobotPose),
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.backLeftCam,
-                      VisionConstants.robotToBackLeftCam,
-                      VisionConstants.recommendedBackLeftCam,
-                      RobotStatus::getRobotPose),
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.backRightCam,
-                      VisionConstants.robotToBackRightCam,
-                      VisionConstants.recommendedBackRightCam,
                       RobotStatus::getRobotPose));
+          // new VisionIOPhotonVisionSim(
+          //     VisionConstants.backLeftCam,
+          //     VisionConstants.robotToBackLeftCam,
+          //     VisionConstants.recommendedBackLeftCam,
+          //     RobotStatus::getRobotPose),
+          // new VisionIOPhotonVisionSim(
+          //     VisionConstants.backRightCam,
+          //     VisionConstants.robotToBackRightCam,
+          //     VisionConstants.recommendedBackRightCam,
+          //     RobotStatus::getRobotPose));
         } else {
           vision = null;
         }

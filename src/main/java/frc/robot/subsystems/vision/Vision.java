@@ -284,25 +284,27 @@ public class Vision extends SubsystemBase {
     Logger.recordOutput("Vision/CameraViz/UsingProposedPositions", usingProposed);
 
     // Log camera transforms for the CURRENT physical positions (always visible for comparison)
+    // Cameras C (BackLeft) and D (BackRight) temporarily removed
     Logger.recordOutput(
         "Vision/CameraViz/PhysicalCameras",
         new Pose3d[] {
           robotPose3d.transformBy(robotToFrontLeftCam),
-          robotPose3d.transformBy(robotToFrontRightCam),
-          robotPose3d.transformBy(robotToBackLeftCam),
-          robotPose3d.transformBy(robotToBackRightCam)
+          robotPose3d.transformBy(robotToFrontRightCam)
+          // robotPose3d.transformBy(robotToBackLeftCam),
+          // robotPose3d.transformBy(robotToBackRightCam)
         });
 
     // In sim mode, log the initial recommended positions for reference
     // (Actual editable values are in SmartDashboard under Vision/CameraEditor)
+    // Cameras C (BackLeft) and D (BackRight) temporarily removed
     if (frc.robot.Constants.currentMode == frc.robot.Constants.Mode.SIM) {
       Logger.recordOutput(
           "Vision/CameraViz/InitialProposedCameras",
           new Pose3d[] {
             robotPose3d.transformBy(recommendedFrontLeftCam),
-            robotPose3d.transformBy(recommendedFrontRightCam),
-            robotPose3d.transformBy(recommendedBackLeftCam),
-            robotPose3d.transformBy(recommendedBackRightCam)
+            robotPose3d.transformBy(recommendedFrontRightCam)
+            // robotPose3d.transformBy(recommendedBackLeftCam),
+            // robotPose3d.transformBy(recommendedBackRightCam)
           });
     }
   }

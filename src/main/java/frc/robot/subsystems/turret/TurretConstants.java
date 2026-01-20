@@ -2,15 +2,22 @@ package frc.robot.subsystems.turret;
 
 public final class TurretConstants {
   // Hardware IDs
-  public static final int TURRET_MOTOR_CAN_ID = 10; // Adjust to your CAN ID
+  public static final int TURRET_MOTOR_CAN_ID = 50;
 
   // Physical constraints
-  public static final double GEAR_RATIO = 100.0; // Motor rotations per turret rotation
-  public static final double MIN_ANGLE_DEGREES = -180.0; // Minimum turret angle
-  public static final double MAX_ANGLE_DEGREES = 180.0; // Maximum turret angle
+  public static final double GEAR_RATIO = 1.0; // Motor rotations per turret rotation
+
+  // Turret travel limits (400 degrees total travel due to wiring constraints)
+  // This means ±200 degrees from the center/home position
+  public static final double MAX_ANGLE_DEGREES = 200.0; // Forward soft limit
+  public static final double MIN_ANGLE_DEGREES = -200.0; // Reverse soft limit
+
+  // Convert to rotations for TalonFX soft limits (mechanism rotations after gear ratio)
+  public static final double FORWARD_SOFT_LIMIT_ROTATIONS = MAX_ANGLE_DEGREES / 360.0;
+  public static final double REVERSE_SOFT_LIMIT_ROTATIONS = MIN_ANGLE_DEGREES / 360.0;
 
   // PID Constants (tune these for your robot)
-  public static final double kP = 15.0;
+  public static final double kP = 0.0;
   public static final double kD = 0.0;
   public static final double kFF = 0.0;
 
