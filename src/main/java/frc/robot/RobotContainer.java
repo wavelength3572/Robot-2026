@@ -29,6 +29,7 @@ import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
+import frc.robot.util.FuelSim;
 import frc.robot.util.RobotStatus;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -180,6 +181,11 @@ public class RobotContainer {
     // Initialize RobotStatus with subsystem references (vision may be null for MiniBot)
     RobotStatus.initialize(drive, vision);
 
+    // Initialize FuelSim for simulation mode
+    if (Constants.currentMode == Constants.Mode.SIM) {
+      initializeFuelSim();
+    }
+
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
 
@@ -320,6 +326,47 @@ public class RobotContainer {
         // Auto doesn't have a valid starting pose - silently ignore
         // This can happen for non-PathPlanner autos or invalid selections
       }
+    }
+  }
+
+  /**
+   * Initialize the FuelSim physics simulation for simulation mode. Registers the robot, spawns
+   * starting fuel, and initializes the turret visualizer.
+   */
+  private void initializeFuelSim() {
+    FuelSim fuelSim = FuelSim.getInstance();
+
+    // Robot dimensions (adjust for your robot)
+    double robotWidth = 0.7; // meters (with bumpers)
+    double robotLength = 0.7; // meters (with bumpers)
+    double bumperHeight = 0.2; // meters
+
+    // Register the robot with the simulation
+    fuelSim.registerRobot(
+        robotWidth,
+        robotLength,
+        bumperHeight,
+        drive::getPose,
+        () -> drive.getChassisSpeeds());
+
+    // Spawn test fuel (smaller set for testing)
+    fuelSim.spawnTestFuel();
+
+    // Start the simulation
+    fuelSim.start();
+
+    // Initialize turret visualizer if turret exists
+    if (turret != null) {
+      turret.initializeVisualizer(drive::getPose, () -> drive.getChassisSpeeds());
+    }
+  }
+
+  /**
+   * Update the fuel simulation. Call this from robotPeriodic().
+   */
+  public void updateFuelSim() {
+    if (Constants.currentMode == Constants.Mode.SIM) {
+      FuelSim.getInstance().updateSim();
     }
   }
 }
