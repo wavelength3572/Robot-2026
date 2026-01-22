@@ -20,6 +20,10 @@ import frc.robot.subsystems.drive.GyroIOPigeon2;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
+import frc.robot.subsystems.intake.Intake;
+import frc.robot.subsystems.intake.IntakeIO;
+import frc.robot.subsystems.intake.IntakeIOSim;
+import frc.robot.subsystems.intake.IntakeIOSparkMax;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
 import frc.robot.subsystems.turret.TurretIOSim;
@@ -43,6 +47,7 @@ public class RobotContainer {
   private final Drive drive;
   private final Turret turret; // Only instantiated for MainBot, null for MiniBot
   private final Vision vision; // Only instantiated for MainBot, null for MiniBot
+  private final Intake intake; // Only instantiated for MainBot, null for MiniBot
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs
@@ -74,6 +79,29 @@ public class RobotContainer {
     } else {
       // MiniBot does not have a turret
       turret = null;
+    }
+
+    // Instantiate intake only for MainBot (not present on MiniBot)
+    if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+      switch (Constants.currentMode) {
+        case REAL:
+          // Real MainBot - instantiate intake hardware
+          intake = new Intake(new IntakeIOSparkMax());
+          break;
+
+        case SIM:
+          // Sim MainBot - instantiate intake simulation
+          intake = new Intake(new IntakeIOSim());
+          break;
+
+        default:
+          // Replay mode - disable intake IO
+          intake = new Intake(new IntakeIO() {});
+          break;
+      }
+    } else {
+      // MiniBot does not have an intake
+      intake = null;
     }
 
     // Instantiate drive and vision subsystems
@@ -180,6 +208,15 @@ public class RobotContainer {
     // Initialize RobotStatus with subsystem references (vision may be null for MiniBot)
     RobotStatus.initialize(drive, vision);
 
+    // Connect intake to drive for velocity-based roller speed
+    if (intake != null) {
+      intake.setRobotVelocitySupplier(
+          () -> {
+            var speeds = drive.getChassisSpeeds();
+            return Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
+          });
+    }
+
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
 
@@ -219,7 +256,7 @@ public class RobotContainer {
   public void normalModeOI() {
     CommandScheduler.getInstance().getActiveButtonLoop().clear();
     oi = OISelector.findOperatorInterface();
-    ButtonsAndDashboardBindings.configureBindings(oi, drive, vision);
+    ButtonsAndDashboardBindings.configureBindings(oi, drive, vision, intake);
   }
 
   /**
@@ -265,6 +302,24 @@ public class RobotContainer {
    */
   public boolean hasVision() {
     return vision != null;
+  }
+
+  /**
+   * Get the intake subsystem if it exists (MainBot only).
+   *
+   * @return Intake subsystem or null if not present
+   */
+  public Intake getIntake() {
+    return intake;
+  }
+
+  /**
+   * Check if the intake subsystem is present on this robot.
+   *
+   * @return true if intake exists
+   */
+  public boolean hasIntake() {
+    return intake != null;
   }
 
   // Track last alliance to detect changes

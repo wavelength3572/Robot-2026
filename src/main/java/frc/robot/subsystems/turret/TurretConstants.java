@@ -17,8 +17,8 @@ public final class TurretConstants {
   public static final double REVERSE_SOFT_LIMIT_ROTATIONS = MIN_ANGLE_DEGREES / 360.0;
 
   // PID Constants (tune these for your robot)
-  public static final double kP = 0.0;
-  public static final double kD = 0.0;
+  public static final double kP = 5.0;
+  public static final double kD = 0.1;
   public static final double kFF = 0.0;
 
   // Motion constraints

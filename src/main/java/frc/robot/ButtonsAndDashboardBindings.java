@@ -5,6 +5,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveCommands;
 import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
+import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.vision.Vision;
 
 public class ButtonsAndDashboardBindings {
@@ -12,6 +13,7 @@ public class ButtonsAndDashboardBindings {
   private static OperatorInterface oi;
   private static Drive drive;
   private static Vision vision;
+  private static Intake intake;
 
   public ButtonsAndDashboardBindings() {}
 
@@ -22,19 +24,20 @@ public class ButtonsAndDashboardBindings {
   }
 
   public static void configureBindings(
-      OperatorInterface operatorInterface, Drive drive, Vision vision) {
+      OperatorInterface operatorInterface, Drive drive, Vision vision, Intake intake) {
     ButtonsAndDashboardBindings.oi = operatorInterface;
     ButtonsAndDashboardBindings.drive = drive;
     ButtonsAndDashboardBindings.vision = vision;
+    ButtonsAndDashboardBindings.intake = intake;
 
     configureDriverButtonBindings();
     configureOperatorButtonBindings();
     configureDashboardBindings();
   }
 
-  // Legacy method without vision parameter
+  // Legacy method without vision/intake parameters
   public static void configureBindings(OperatorInterface operatorInterface, Drive drive) {
-    configureBindings(operatorInterface, drive, null);
+    configureBindings(operatorInterface, drive, null, null);
   }
 
   /****************************** */
@@ -58,6 +61,21 @@ public class ButtonsAndDashboardBindings {
                   })
               .ignoringDisable(true)
               .withName("Toggle Vision"));
+    }
+
+    // Intake controls on dashboard
+    if (intake != null) {
+      // Deploy/Retract buttons
+      SmartDashboard.putData(
+          "Intake/Deploy", Commands.runOnce(intake::deploy, intake).withName("Deploy Intake"));
+      SmartDashboard.putData(
+          "Intake/Retract", Commands.runOnce(intake::retract, intake).withName("Retract Intake"));
+
+      // Roller on/off toggle
+      SmartDashboard.putData(
+          "Intake/Run", Commands.runOnce(intake::runIntake, intake).withName("Run Intake"));
+      SmartDashboard.putData(
+          "Intake/Stop", Commands.runOnce(intake::stopRollers, intake).withName("Stop Intake"));
     }
   }
 
