@@ -120,12 +120,12 @@ public final class Constants {
     public static final double ALLIANCE_ZONE_DEPTH = 4.03;
 
     /** Blue alliance hub position. */
-    public static final double BLUE_HUB_X = 4.03;
+    public static final double BLUE_HUB_X = 4.575; // 4.03
 
     public static final double BLUE_HUB_Y = 4.115;
 
     /** Red alliance hub position. */
-    public static final double RED_HUB_X = 12.51;
+    public static final double RED_HUB_X = 11.9865; // 12.51
 
     public static final double RED_HUB_Y = 4.115;
 

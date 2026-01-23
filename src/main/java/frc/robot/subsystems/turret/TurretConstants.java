@@ -4,6 +4,10 @@ public final class TurretConstants {
   // Hardware IDs
   public static final int TURRET_MOTOR_CAN_ID = 50;
 
+  // Physical dimensions
+  /** Height of the turret barrel above the ground in meters */
+  public static final double TURRET_HEIGHT_METERS = 0.4826; // 19 inches
+
   // Physical constraints
   public static final double GEAR_RATIO = 1.0; // Motor rotations per turret rotation
 
@@ -17,8 +21,8 @@ public final class TurretConstants {
   public static final double REVERSE_SOFT_LIMIT_ROTATIONS = MIN_ANGLE_DEGREES / 360.0;
 
   // PID Constants (tune these for your robot)
-  public static final double kP = 0.0;
-  public static final double kD = 0.0;
+  public static final double kP = 5.0;
+  public static final double kD = 0.1;
   public static final double kFF = 0.0;
 
   // Motion constraints

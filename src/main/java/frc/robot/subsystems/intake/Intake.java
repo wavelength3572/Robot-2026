@@ -1,0 +1,209 @@
+package frc.robot.subsystems.intake;
+
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.wpilibj.util.Color;
+import edu.wpi.first.wpilibj.util.Color8Bit;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import java.util.function.DoubleSupplier;
+import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.mechanism.LoggedMechanism2d;
+import org.littletonrobotics.junction.mechanism.LoggedMechanismLigament2d;
+import org.littletonrobotics.junction.mechanism.LoggedMechanismRoot2d;
+
+public class Intake extends SubsystemBase {
+  private final IntakeIO io;
+  private final IntakeIOInputsAutoLogged inputs = new IntakeIOInputsAutoLogged();
+
+  // Optional: supplier for robot velocity (for velocity-based roller speed)
+  private DoubleSupplier robotVelocitySupplier = () -> 0.0;
+
+  // Mechanism2d visualization (using AdvantageKit's logged version)
+  private final LoggedMechanism2d mechanism = new LoggedMechanism2d(3, 3);
+  private final LoggedMechanismRoot2d root = mechanism.getRoot("intake", 1.5, 0.2);
+  private final LoggedMechanismLigament2d deployArm;
+  private final LoggedMechanismLigament2d roller;
+  private double rollerAngle = 0.0; // Track cumulative roller angle
+
+  /**
+   * Creates a new Intake subsystem.
+   *
+   * @param io The IO implementation to use (real hardware or simulation)
+   */
+  public Intake(IntakeIO io) {
+    this.io = io;
+
+    // Create deploy arm (pivots based on deploy position)
+    deployArm =
+        root.append(
+            new LoggedMechanismLigament2d("deployArm", 0.5, 0, 6, new Color8Bit(Color.kOrange)));
+
+    // Create roller at end of deploy arm (rotates when running)
+    roller =
+        deployArm.append(
+            new LoggedMechanismLigament2d("roller", 0.15, 90, 4, new Color8Bit(Color.kGreen)));
+  }
+
+  /**
+   * Sets a supplier for robot velocity to adjust roller speed.
+   *
+   * @param velocitySupplier Supplier that returns robot linear velocity in m/s
+   */
+  public void setRobotVelocitySupplier(DoubleSupplier velocitySupplier) {
+    this.robotVelocitySupplier = velocitySupplier;
+  }
+
+  @Override
+  public void periodic() {
+    io.updateInputs(inputs);
+    Logger.processInputs("Intake", inputs);
+
+    // Update deploy arm angle
+    // Retracted (0 rotations) = 90° (pointing up)
+    // Deployed (0.5 rotations) = 0° (pointing forward over bumper)
+    double deployAngleDegrees = 90 - (inputs.deployPositionRotations * 180.0);
+    deployArm.setAngle(deployAngleDegrees);
+
+    // Update roller rotation (continuous spin based on velocity)
+    // RPM to degrees per 20ms: RPM * 360° / 60s / 50Hz = RPM * 0.12
+    rollerAngle -= inputs.rollerVelocityRPM * 0.12;
+    rollerAngle = rollerAngle % 360.0; // Keep in 0-360 range
+    roller.setAngle(90 + rollerAngle); // 90° base offset
+
+    // Log the mechanism to AdvantageKit (2D view)
+    Logger.recordOutput("Intake/Mechanism2d", mechanism);
+  }
+
+  // ========== DEPLOY CONTROL ==========
+
+  /** Deploy the intake (extend). */
+  public void deploy() {
+    io.setDeployPosition(IntakeConstants.DEPLOY_EXTENDED_POSITION);
+  }
+
+  /** Retract the intake. */
+  public void retract() {
+    io.setDeployPosition(IntakeConstants.DEPLOY_RETRACTED_POSITION);
+  }
+
+  /**
+   * Set the deploy position directly.
+   *
+   * @param positionRotations Target position in rotations
+   */
+  public void setDeployPosition(double positionRotations) {
+    io.setDeployPosition(positionRotations);
+  }
+
+  /** Check if the intake is fully deployed. */
+  @AutoLogOutput(key = "Intake/IsDeployed")
+  public boolean isDeployed() {
+    return Math.abs(inputs.deployPositionRotations - IntakeConstants.DEPLOY_EXTENDED_POSITION)
+        <= IntakeConstants.DEPLOY_POSITION_TOLERANCE;
+  }
+
+  /** Check if the intake is fully retracted. */
+  @AutoLogOutput(key = "Intake/IsRetracted")
+  public boolean isRetracted() {
+    return Math.abs(inputs.deployPositionRotations - IntakeConstants.DEPLOY_RETRACTED_POSITION)
+        <= IntakeConstants.DEPLOY_POSITION_TOLERANCE;
+  }
+
+  /** Check if the deploy mechanism is at target. */
+  public boolean deployAtTarget() {
+    return Math.abs(inputs.deployPositionRotations - inputs.deployTargetPosition)
+        <= IntakeConstants.DEPLOY_POSITION_TOLERANCE;
+  }
+
+  /** Get the current deploy position. */
+  public double getDeployPosition() {
+    return inputs.deployPositionRotations;
+  }
+
+  // ========== ROLLER CONTROL ==========
+
+  /** Run rollers to intake game pieces. */
+  public void runIntake() {
+    io.setRollerDutyCycle(IntakeConstants.ROLLER_INTAKE_SPEED);
+  }
+
+  /** Run rollers to eject game pieces. */
+  public void runEject() {
+    io.setRollerDutyCycle(IntakeConstants.ROLLER_EJECT_SPEED);
+  }
+
+  /** Run rollers at hold speed. */
+  public void runHold() {
+    io.setRollerDutyCycle(IntakeConstants.ROLLER_HOLD_SPEED);
+  }
+
+  /** Stop the rollers. */
+  public void stopRollers() {
+    io.setRollerDutyCycle(0.0);
+  }
+
+  /**
+   * Set roller speed directly.
+   *
+   * @param dutyCycle Duty cycle from -1 to 1
+   */
+  public void setRollerSpeed(double dutyCycle) {
+    io.setRollerDutyCycle(dutyCycle);
+  }
+
+  /**
+   * Run rollers with speed adjusted for robot velocity. Faster robot = faster rollers to maintain
+   * grip on game pieces.
+   *
+   * @param baseSpeed Base roller speed (duty cycle)
+   * @param velocityFactor How much robot velocity affects roller speed (duty cycle per m/s)
+   */
+  public void runIntakeWithVelocityCompensation(double baseSpeed, double velocityFactor) {
+    double robotVelocity = Math.abs(robotVelocitySupplier.getAsDouble());
+    double compensatedSpeed = baseSpeed + (robotVelocity * velocityFactor);
+    compensatedSpeed = Math.min(1.0, Math.max(-1.0, compensatedSpeed)); // Clamp to valid range
+    io.setRollerDutyCycle(compensatedSpeed);
+  }
+
+  /** Get the current roller velocity in RPM. */
+  public double getRollerVelocityRPM() {
+    return inputs.rollerVelocityRPM;
+  }
+
+  /** Get the roller current draw (useful for game piece detection). */
+  public double getRollerCurrentAmps() {
+    return inputs.rollerCurrentAmps;
+  }
+
+  // ========== GENERAL CONTROL ==========
+
+  /** Stop all motors. */
+  public void stop() {
+    io.stop();
+  }
+
+  // ========== 3D VISUALIZATION ==========
+
+  // Intake pivot point relative to robot center (meters)
+  // X = forward, Y = left, Z = up
+  // Adjust PIVOT_X to match your robot's front bumper location
+  private static final double PIVOT_X = 0.43; // At front bumper (frame edge + bumper thickness)
+  private static final double PIVOT_Y = 0.0; // Centered left-right
+  private static final double PIVOT_Z = 0.20; // Pivot height above ground
+
+  /**
+   * Returns the 3D pose of the intake arm for AdvantageScope visualization. When retracted (0
+   * rotations), arm points backward into robot. When deployed (0.5 rotations), arm points forward
+   * over bumper.
+   */
+  @AutoLogOutput(key = "Odometry/Intake")
+  public Pose3d getPose() {
+    // Convert deploy position to pitch angle
+    // 0 rotations = 90° pitch (pointing up/back into robot)
+    // 0.5 rotations = -90° pitch (pointing down/forward over bumper)
+    double pitchRadians = Math.PI / 2 - (inputs.deployPositionRotations * 2 * Math.PI);
+
+    return new Pose3d(PIVOT_X, PIVOT_Y, PIVOT_Z, new Rotation3d(0, pitchRadians, 0));
+  }
+}

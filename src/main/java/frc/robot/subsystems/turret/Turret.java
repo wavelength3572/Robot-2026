@@ -77,7 +77,8 @@ public class Turret extends SubsystemBase {
   }
 
   /**
-   * Calculate shot parameters for the given target and update the trajectory visualization.
+   * Calculate shot parameters for the given target and update the trajectory visualization. Also
+   * aims the turret at the target.
    *
    * @param target Target position (3D)
    */
@@ -90,9 +91,19 @@ public class Turret extends SubsystemBase {
     // Calculate shot with motion compensation
     currentShot = TurretCalculator.calculateMovingShot(robotPose, fieldSpeeds, target, 3);
 
+    // Aim turret at the target
+    double azimuthRad = TurretCalculator.calculateAzimuthAngle(robotPose, target);
+    double azimuthDeg = Math.toDegrees(azimuthRad);
+    // Convert from 0-360 to -180 to 180 range
+    if (azimuthDeg > 180) {
+      azimuthDeg -= 360;
+    }
+    setAngle(azimuthDeg);
+
     // Log shot data
     Logger.recordOutput("Turret/ShotExitVelocity", currentShot.getExitVelocity());
     Logger.recordOutput("Turret/ShotLaunchAngleDeg", currentShot.getLaunchAngleDegrees());
+    Logger.recordOutput("Turret/ShotAzimuthDeg", azimuthDeg);
     Logger.recordOutput("Turret/ShotTargetX", currentShot.getTarget().getX());
     Logger.recordOutput("Turret/ShotTargetY", currentShot.getTarget().getY());
     Logger.recordOutput("Turret/ShotTargetZ", currentShot.getTarget().getZ());
@@ -117,12 +128,16 @@ public class Turret extends SubsystemBase {
     calculateShotToTarget(hubTarget);
   }
 
-  /**
-   * Launch a fuel ball using the current shot parameters.
-   */
+  /** Launch a fuel ball using the current shot parameters. */
   public void launchFuel() {
-    if (visualizer != null && currentShot != null) {
-      visualizer.launchFuel(currentShot.getExitVelocity(), currentShot.getLaunchAngle());
+    if (visualizer != null && currentShot != null && robotPoseSupplier != null) {
+      // Calculate azimuth angle (field-relative direction from robot to target)
+      Pose2d robot = robotPoseSupplier.get();
+      Translation3d target = currentShot.getTarget();
+      double azimuthAngle = Math.atan2(target.getY() - robot.getY(), target.getX() - robot.getX());
+
+      visualizer.launchFuel(
+          currentShot.getExitVelocity(), currentShot.getLaunchAngle(), azimuthAngle);
     }
   }
 
@@ -243,7 +258,7 @@ public class Turret extends SubsystemBase {
     return new Pose3d(
         0,
         0,
-        0.127,
+        TurretConstants.TURRET_HEIGHT_METERS,
         new Rotation3d(0.0, 0.0, Rotation2d.fromDegrees(getCurrentAngle()).getRadians()));
   }
 }

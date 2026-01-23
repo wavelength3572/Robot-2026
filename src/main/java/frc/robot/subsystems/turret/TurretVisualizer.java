@@ -22,7 +22,6 @@ public class TurretVisualizer {
   private static final int TRAJECTORY_POINTS = 50;
   private static final double TRAJECTORY_TIME_STEP = 0.04; // seconds between points
   private static final double GRAVITY = 9.81; // m/s^2
-  private static final double TURRET_HEIGHT = 0.457; // meters (18 inches)
 
   private Translation3d[] trajectory = new Translation3d[TRAJECTORY_POINTS];
   private final Supplier<Pose3d> robotPoseSupplier;
@@ -31,6 +30,9 @@ public class TurretVisualizer {
   // Fuel inventory management
   private static final int FUEL_CAPACITY = 30;
   private int fuelStored = 8;
+
+  // Current azimuth angle for launching (set by visualizeShot)
+  private double currentAzimuthAngle = 0.0;
 
   /**
    * Creates a new TurretVisualizer.
@@ -50,24 +52,24 @@ public class TurretVisualizer {
   }
 
   /**
-   * Calculate the launch velocity vector accounting for robot rotation and movement.
+   * Calculate the launch velocity vector accounting for turret azimuth and robot movement.
    *
    * @param exitVelocity Exit velocity magnitude in m/s
    * @param launchAngle Launch angle in radians from horizontal
+   * @param azimuthAngle Turret azimuth angle in radians (field-relative direction to target)
    * @return 3D velocity vector in field coordinates
    */
-  private Translation3d calculateLaunchVelocity(double exitVelocity, double launchAngle) {
-    Pose3d robot = robotPoseSupplier.get();
+  private Translation3d calculateLaunchVelocity(
+      double exitVelocity, double launchAngle, double azimuthAngle) {
     ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
 
     // Calculate velocity components
     double horizontalVel = exitVelocity * Math.cos(launchAngle);
     double verticalVel = exitVelocity * Math.sin(launchAngle);
 
-    // Rotate horizontal velocity by robot heading
-    double robotHeading = robot.getRotation().toRotation2d().getRadians();
-    double xVel = horizontalVel * Math.cos(robotHeading);
-    double yVel = horizontalVel * Math.sin(robotHeading);
+    // Rotate horizontal velocity by turret azimuth (direction to target)
+    double xVel = horizontalVel * Math.cos(azimuthAngle);
+    double yVel = horizontalVel * Math.sin(azimuthAngle);
 
     // Add robot's field velocity to the projectile
     xVel += fieldSpeeds.vxMetersPerSecond;
@@ -85,9 +87,7 @@ public class TurretVisualizer {
     return fuelStored < FUEL_CAPACITY;
   }
 
-  /**
-   * Add a fuel to the robot's inventory (called when intake picks up fuel).
-   */
+  /** Add a fuel to the robot's inventory (called when intake picks up fuel). */
   public void intakeFuel() {
     if (fuelStored < FUEL_CAPACITY) {
       fuelStored++;
@@ -108,15 +108,17 @@ public class TurretVisualizer {
    *
    * @param exitVelocity Exit velocity in m/s
    * @param launchAngle Launch angle in radians
+   * @param azimuthAngle Turret azimuth angle in radians (field-relative direction to target)
    */
-  public void launchFuel(double exitVelocity, double launchAngle) {
+  public void launchFuel(double exitVelocity, double launchAngle, double azimuthAngle) {
     if (fuelStored == 0) return;
     fuelStored--;
 
     Pose3d robot = robotPoseSupplier.get();
     Translation3d launchPosition =
-        new Translation3d(robot.getX(), robot.getY(), robot.getZ() + TURRET_HEIGHT);
-    Translation3d launchVelocity = calculateLaunchVelocity(exitVelocity, launchAngle);
+        new Translation3d(
+            robot.getX(), robot.getY(), robot.getZ() + TurretConstants.TURRET_HEIGHT_METERS);
+    Translation3d launchVelocity = calculateLaunchVelocity(exitVelocity, launchAngle, azimuthAngle);
 
     FuelSim.getInstance().spawnFuel(launchPosition, launchVelocity);
   }
@@ -130,11 +132,12 @@ public class TurretVisualizer {
    * @return Command that launches fuel every 0.25 seconds
    */
   public Command repeatedlyLaunchFuel(
-      Supplier<Double> exitVelocitySupplier,
-      Supplier<Double> launchAngleSupplier,
-      Turret turret) {
+      Supplier<Double> exitVelocitySupplier, Supplier<Double> launchAngleSupplier, Turret turret) {
     return turret
-        .runOnce(() -> launchFuel(exitVelocitySupplier.get(), launchAngleSupplier.get()))
+        .runOnce(
+            () ->
+                launchFuel(
+                    exitVelocitySupplier.get(), launchAngleSupplier.get(), currentAzimuthAngle))
         .andThen(Commands.waitSeconds(0.25))
         .repeatedly();
   }
@@ -145,14 +148,15 @@ public class TurretVisualizer {
    *
    * @param exitVelocity Exit velocity in m/s
    * @param launchAngle Launch angle in radians
+   * @param azimuthAngle Turret azimuth angle in radians (field-relative direction to target)
    */
-  public void updateTrajectory(double exitVelocity, double launchAngle) {
-    Translation3d velocity = calculateLaunchVelocity(exitVelocity, launchAngle);
+  public void updateTrajectory(double exitVelocity, double launchAngle, double azimuthAngle) {
+    Translation3d velocity = calculateLaunchVelocity(exitVelocity, launchAngle, azimuthAngle);
     Pose3d robot = robotPoseSupplier.get();
 
     double startX = robot.getX();
     double startY = robot.getY();
-    double startZ = robot.getZ() + TURRET_HEIGHT;
+    double startZ = robot.getZ() + TurretConstants.TURRET_HEIGHT_METERS;
 
     for (int i = 0; i < TRAJECTORY_POINTS; i++) {
       double t = i * TRAJECTORY_TIME_STEP;
@@ -171,6 +175,7 @@ public class TurretVisualizer {
     Logger.recordOutput("Turret/Trajectory", trajectory);
     Logger.recordOutput("Turret/TrajectoryExitVelocity", exitVelocity);
     Logger.recordOutput("Turret/TrajectoryLaunchAngleDeg", Math.toDegrees(launchAngle));
+    Logger.recordOutput("Turret/TrajectoryAzimuthDeg", Math.toDegrees(azimuthAngle));
   }
 
   /**
@@ -180,12 +185,11 @@ public class TurretVisualizer {
    */
   public void update3dPose(double azimuthAngle) {
     Logger.recordOutput(
-        "Turret/TurretPose3d", new Pose3d(0, 0, TURRET_HEIGHT, new Rotation3d(0, 0, azimuthAngle)));
+        "Turret/TurretPose3d",
+        new Pose3d(0, 0, TurretConstants.TURRET_HEIGHT_METERS, new Rotation3d(0, 0, azimuthAngle)));
   }
 
-  /**
-   * Log fuel inventory status.
-   */
+  /** Log fuel inventory status. */
   public void logFuelStatus() {
     Logger.recordOutput("Turret/FuelStored", fuelStored);
     Logger.recordOutput("Turret/CanIntake", canIntake());
@@ -197,11 +201,18 @@ public class TurretVisualizer {
    * @param shotData The calculated shot parameters
    */
   public void visualizeShot(TurretCalculator.ShotData shotData) {
-    updateTrajectory(shotData.getExitVelocity(), shotData.getLaunchAngle());
+    // Calculate azimuth angle (field-relative direction from robot to target)
+    Pose3d robot = robotPoseSupplier.get();
+    Translation3d target = shotData.getTarget();
+    double azimuthAngle = Math.atan2(target.getY() - robot.getY(), target.getX() - robot.getX());
+
+    // Store azimuth for use by launchFuel
+    this.currentAzimuthAngle = azimuthAngle;
+
+    updateTrajectory(shotData.getExitVelocity(), shotData.getLaunchAngle(), azimuthAngle);
 
     // Log target marker
     Logger.recordOutput(
-        "Turret/TargetPosition",
-        new Pose3d(shotData.getTarget(), new Rotation3d()));
+        "Turret/TargetPosition", new Pose3d(shotData.getTarget(), new Rotation3d()));
   }
 }

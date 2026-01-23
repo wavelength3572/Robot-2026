@@ -212,7 +212,8 @@ public class FuelSim {
     for (int i = 0; i < 15; i++) {
       for (int j = 0; j < 6; j++) {
         fuels.add(
-            new Fuel(center.plus(new Translation3d(0.076 + 0.152 * j, 0.0254 + 0.076 + 0.152 * i, 0))));
+            new Fuel(
+                center.plus(new Translation3d(0.076 + 0.152 * j, 0.0254 + 0.076 + 0.152 * i, 0))));
         fuels.add(
             new Fuel(
                 center.plus(new Translation3d(-0.076 - 0.152 * j, 0.0254 + 0.076 + 0.152 * i, 0))));
@@ -221,7 +222,8 @@ public class FuelSim {
                 center.plus(new Translation3d(0.076 + 0.152 * j, -0.0254 - 0.076 - 0.152 * i, 0))));
         fuels.add(
             new Fuel(
-                center.plus(new Translation3d(-0.076 - 0.152 * j, -0.0254 - 0.076 - 0.152 * i, 0))));
+                center.plus(
+                    new Translation3d(-0.076 - 0.152 * j, -0.0254 - 0.076 - 0.152 * i, 0))));
       }
     }
 
@@ -396,8 +398,10 @@ public class FuelSim {
     Translation2d normal = posOffset.div(posOffset.getNorm());
     if (fuel.vel.toTranslation2d().dot(normal) < 0)
       fuel.addImpulse(
-          new Translation3d(normal.times(-fuel.vel.toTranslation2d().dot(normal) * (1 + ROBOT_COR))));
-    if (robotVel.dot(normal) > 0) fuel.addImpulse(new Translation3d(normal.times(robotVel.dot(normal))));
+          new Translation3d(
+              normal.times(-fuel.vel.toTranslation2d().dot(normal) * (1 + ROBOT_COR))));
+    if (robotVel.dot(normal) > 0)
+      fuel.addImpulse(new Translation3d(normal.times(robotVel.dot(normal))));
   }
 
   private Translation3d[][] getRobotBumperLines(Pose2d robot) {
@@ -541,7 +545,8 @@ public class FuelSim {
     }
 
     private Translation3d getDispersalVelocity() {
-      return new Translation3d(exitVelXMult * (Math.random() + 0.1) * 1.5, Math.random() * 2 - 1, 0);
+      return new Translation3d(
+          exitVelXMult * (Math.random() + 0.1) * 1.5, Math.random() * 2 - 1, 0);
     }
 
     /** Reset this hub's score to 0 */

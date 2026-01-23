@@ -6,8 +6,6 @@ package frc.robot.subsystems.turret;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
@@ -19,17 +17,17 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 public class TurretCalculator {
   // Physical constants
   private static final double GRAVITY = 9.81; // m/s^2
-  private static final double TURRET_HEIGHT = 0.457; // meters (18 inches) above ground
 
-  // Shooter parameters (tune these based on your robot)
-  private static final double DEFAULT_EXIT_VELOCITY = 10.0; // m/s
-  private static final double MIN_EXIT_VELOCITY = 5.0; // m/s
-  private static final double MAX_EXIT_VELOCITY = 20.0; // m/s
+  // Shooter parameters (from CAD - 75° launch angle, 6.5 m/s at 2m from hopper)
+  private static final double DEFAULT_EXIT_VELOCITY = 6.5; // m/s
+  private static final double MIN_EXIT_VELOCITY = 6.0; // m/s
+  private static final double MAX_EXIT_VELOCITY = 8.0; // m/s
 
   // Velocity scaling parameters
-  private static final double BASE_VELOCITY = 1.27; // m/s (50 inches/sec)
-  private static final double VELOCITY_MULTIPLIER = 1.778; // (70 inches/sec)
-  private static final double VELOCITY_POWER = 0.3;
+  // Tuned so velocity ≈ 6.5 m/s at 2m distance, slight increase for longer shots
+  private static final double BASE_VELOCITY = 6.0; // m/s base velocity
+  private static final double VELOCITY_MULTIPLIER = 0.4; // minimal scaling with distance
+  private static final double VELOCITY_POWER = 0.3; // gradual increase
 
   /**
    * Get the horizontal distance from robot to target.
@@ -54,7 +52,7 @@ public class TurretCalculator {
   public static double calculateAngleFromVelocity(
       Pose2d robot, double velocity, Translation3d target) {
     double xDist = getDistanceToTarget(robot, target);
-    double yDist = target.getZ() - TURRET_HEIGHT;
+    double yDist = target.getZ() - TurretConstants.TURRET_HEIGHT_METERS;
 
     // Solve quadratic for launch angle: tan(theta) = (v^2 +/- sqrt(v^4 - g*(g*x^2 + 2*y*v^2))) /
     // (g*x)
@@ -125,7 +123,8 @@ public class TurretCalculator {
    * @return Scaled exit velocity in m/s
    */
   public static double scaleExitVelocity(double distanceToTarget) {
-    double velocity = BASE_VELOCITY + VELOCITY_MULTIPLIER * Math.pow(distanceToTarget, VELOCITY_POWER);
+    double velocity =
+        BASE_VELOCITY + VELOCITY_MULTIPLIER * Math.pow(distanceToTarget, VELOCITY_POWER);
     return MathUtil.clamp(velocity, MIN_EXIT_VELOCITY, MAX_EXIT_VELOCITY);
   }
 

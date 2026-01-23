@@ -111,6 +111,7 @@
   ],
   "components": [
     {
+      "path": "Odometry/Turret",
       "zeroedRotations": [
         {
           "axis": "x",
@@ -128,7 +129,29 @@
       "zeroedPosition": [
         0.0,
         0.0,
-        0.0
+        0.4826
+      ]
+    },
+    {
+      "path": "Odometry/Intake",
+      "zeroedRotations": [
+        {
+          "axis": "x",
+          "degrees": 90.0
+        },
+        {
+          "axis": "y",
+          "degrees": 90.0
+        },
+        {
+          "axis": "z",
+          "degrees": 0.0
+        }
+      ],
+      "zeroedPosition": [
+        0.43,
+        0.0,
+        0.20
       ]
     }
   ]
