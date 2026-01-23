@@ -188,3 +188,4 @@ src/main/java/frc/robot/BuildConstants.java
 
 # Claude Code local settings
 .claude/
+tmpclaude*
