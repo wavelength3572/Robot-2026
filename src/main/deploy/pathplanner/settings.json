@@ -1,6 +1,6 @@
 {
-  "robotWidth": 0.9,
-  "robotLength": 0.9,
+  "robotWidth": 0.978,
+  "robotLength": 0.787,
   "holonomicMode": true,
   "pathFolders": [
     "Human Player"
@@ -13,22 +13,26 @@
   "defaultNominalVoltage": 12.0,
   "robotMass": 74.088,
   "robotMOI": 6.883,
-  "robotTrackwidth": 0.546,
+  "robotTrackwidth": 0.654,
   "driveWheelRadius": 0.048,
   "driveGearing": 5.143,
   "maxDriveSpeed": 5.45,
   "driveMotorType": "vortex",
   "driveCurrentLimit": 60.0,
   "wheelCOF": 1.2,
-  "flModuleX": 0.273,
-  "flModuleY": 0.273,
-  "frModuleX": 0.273,
-  "frModuleY": -0.273,
-  "blModuleX": -0.273,
-  "blModuleY": 0.273,
-  "brModuleX": -0.273,
-  "brModuleY": -0.273,
+  "flModuleX": 0.232,
+  "flModuleY": 0.327,
+  "frModuleX": 0.232,
+  "frModuleY": -0.327,
+  "blModuleX": -0.232,
+  "blModuleY": 0.327,
+  "brModuleX": -0.232,
+  "brModuleY": -0.327,
   "bumperOffsetX": 0.0,
   "bumperOffsetY": 0.0,
-  "robotFeatures": []
+  "robotFeatures": [
+    "{\"name\":\"Turret\",\"type\":\"circle\",\"data\":{\"center\":{\"x\":-0.083,\"y\":0.18415},\"radius\":0.075,\"strokeWidth\":0.01,\"filled\":false}}",
+    "{\"name\":\"Intake\",\"type\":\"rounded_rect\",\"data\":{\"center\":{\"x\":0.451,\"y\":0.0},\"size\":{\"width\":0.7874,\"length\":0.305},\"borderRadius\":0.015,\"strokeWidth\":0.02,\"filled\":false}}",
+    "{\"name\":\"Climber\",\"type\":\"rounded_rect\",\"data\":{\"center\":{\"x\":-0.25,\"y\":0.025},\"size\":{\"width\":0.1,\"length\":0.2},\"borderRadius\":0.0,\"strokeWidth\":0.02,\"filled\":false}}"
+  ]
 }

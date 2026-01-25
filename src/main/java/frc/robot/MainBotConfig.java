@@ -14,21 +14,22 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 
 /**
- * Configuration for MainBot2026 - 21.25" x 21.25" chassis with NEO drive motors Based on Robot-2025
- * configuration from wavelength3572/Robot-2025
+ * Configuration for MainBot2026 - 23.5" x 30" rectangular chassis with NEO drive motors Based on
+ * Robot-2025 configuration from wavelength3572/Robot-2025
  */
 public class MainBotConfig implements RobotConfig {
 
-  // Physical dimensions
-  private static final double trackWidth = Units.inchesToMeters(21.25);
-  private static final double wheelBase = Units.inchesToMeters(21.25);
+  // Physical dimensions (31" wide x 23.5" long frame, 25.75" x 18.25" module-to-module)
+  // Intake is on the wide (31") side at the front
+  private static final double trackWidth = Units.inchesToMeters(25.75);
+  private static final double wheelBase = Units.inchesToMeters(18.25);
   private static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
   private static final Translation2d[] moduleTranslations =
       new Translation2d[] {
-        new Translation2d(trackWidth / 2.0, wheelBase / 2.0), // Front Left
-        new Translation2d(trackWidth / 2.0, -wheelBase / 2.0), // Front Right
-        new Translation2d(-trackWidth / 2.0, wheelBase / 2.0), // Back Left
-        new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0) // Back Right
+        new Translation2d(wheelBase / 2.0, trackWidth / 2.0), // Front Left
+        new Translation2d(wheelBase / 2.0, -trackWidth / 2.0), // Front Right
+        new Translation2d(-wheelBase / 2.0, trackWidth / 2.0), // Back Left
+        new Translation2d(-wheelBase / 2.0, -trackWidth / 2.0) // Back Right
       };
 
   // Module zero rotations (calibrated for MainBot)
