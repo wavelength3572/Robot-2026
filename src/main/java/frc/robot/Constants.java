@@ -120,14 +120,17 @@ public final class Constants {
     public static final double ALLIANCE_ZONE_DEPTH = 4.03;
 
     /** Blue alliance hub position. */
-    public static final double BLUE_HUB_X = 4.03;
+    public static final double BLUE_HUB_X = 4.575; // 4.03
 
     public static final double BLUE_HUB_Y = 4.115;
 
     /** Red alliance hub position. */
-    public static final double RED_HUB_X = 12.51;
+    public static final double RED_HUB_X = 11.9865; // 12.51
 
     public static final double RED_HUB_Y = 4.115;
+
+    /** Hub height (scoring target height in meters). */
+    public static final double HUB_HEIGHT = 1.43; // ~56.4 inches
 
     /** Pass target X positions (1/3 into alliance zone from wall). */
     public static final double BLUE_PASS_TARGET_X = 1.34;

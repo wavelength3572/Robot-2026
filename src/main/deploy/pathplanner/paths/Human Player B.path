@@ -1,0 +1,81 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 0.570806818181818,
+        "y": 0.65
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 1.5708068181818187,
+        "y": 0.6499999999999999
+      },
+      "isLocked": false,
+      "linkedName": "HumanPlayerStation"
+    },
+    {
+      "anchor": {
+        "x": 1.7251704545454545,
+        "y": 2.6229659090909094
+      },
+      "prevControl": {
+        "x": 2.2251518765084035,
+        "y": 2.618655724418815
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "HumanPlayerLaunchZone"
+    }
+  ],
+  "rotationTargets": [],
+  "constraintZones": [
+    {
+      "name": "Constraints Zone",
+      "minWaypointRelativePos": 0.9010695187165783,
+      "maxWaypointRelativePos": 1,
+      "constraints": {
+        "maxVelocity": 0.3,
+        "maxAcceleration": 3.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [
+    {
+      "name": "RunIntake",
+      "waypointRelativePos": 0,
+      "endWaypointRelativePos": 1.0,
+      "command": null
+    },
+    {
+      "name": "LaunchFuel",
+      "waypointRelativePos": 0.6590909090909092,
+      "endWaypointRelativePos": 1.0,
+      "command": null
+    }
+  ],
+  "globalConstraints": {
+    "maxVelocity": 0.75,
+    "maxAcceleration": 3.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": -179.29268063145577
+  },
+  "reversed": false,
+  "folder": "Human Player",
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": 180.0
+  },
+  "useDefaultConstraints": false
+}

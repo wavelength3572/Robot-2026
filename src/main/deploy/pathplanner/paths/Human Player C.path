@@ -1,0 +1,75 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 1.7251704545454545,
+        "y": 2.6229659090909094
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 2.2251704545454545,
+        "y": 2.6229659090909094
+      },
+      "isLocked": false,
+      "linkedName": "HumanPlayerLaunchZone"
+    },
+    {
+      "anchor": {
+        "x": 1.5190340909090905,
+        "y": 3.5918068181818184
+      },
+      "prevControl": {
+        "x": 2.0190340909090905,
+        "y": 3.5918068181818184
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": null
+    }
+  ],
+  "rotationTargets": [],
+  "constraintZones": [
+    {
+      "name": "Constraints Zone",
+      "minWaypointRelativePos": 0.6323529411764718,
+      "maxWaypointRelativePos": 1.0,
+      "constraints": {
+        "maxVelocity": 0.3,
+        "maxAcceleration": 3.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [
+    {
+      "name": "Climb",
+      "waypointRelativePos": 0.6898395721925121,
+      "endWaypointRelativePos": 1.0,
+      "command": null
+    }
+  ],
+  "globalConstraints": {
+    "maxVelocity": 0.75,
+    "maxAcceleration": 3.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 180.0
+  },
+  "reversed": false,
+  "folder": "Human Player",
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": -179.29268063145577
+  },
+  "useDefaultConstraints": false
+}

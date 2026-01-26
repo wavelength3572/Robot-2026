@@ -1,15 +1,29 @@
 package frc.robot.subsystems.turret;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants.FieldPositions;
+import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Turret extends SubsystemBase {
   private final TurretIO io;
   private final TurretIOInputsAutoLogged inputs = new TurretIOInputsAutoLogged();
+
+  // Visualizer for trajectory display (initialized when suppliers are set)
+  private TurretVisualizer visualizer = null;
+  private Supplier<Pose2d> robotPoseSupplier = null;
+  private Supplier<ChassisSpeeds> fieldSpeedsSupplier = null;
+
+  // Current shot data
+  private TurretCalculator.ShotData currentShot = null;
 
   /**
    * Creates a new Turret subsystem.
@@ -24,6 +38,138 @@ public class Turret extends SubsystemBase {
   public void periodic() {
     io.updateInputs(inputs);
     Logger.processInputs("Turret", inputs);
+
+    // Update visualizer if initialized
+    if (visualizer != null) {
+      visualizer.logFuelStatus();
+      visualizer.update3dPose(Math.toRadians(getCurrentAngle()));
+
+      // Update trajectory visualization if we have a current shot
+      if (currentShot != null) {
+        visualizer.visualizeShot(currentShot);
+      }
+    }
+  }
+
+  /**
+   * Initialize the turret visualizer with robot pose and speed suppliers.
+   *
+   * @param poseSupplier Supplier for robot's 2D pose
+   * @param speedsSupplier Supplier for field-relative chassis speeds
+   */
+  public void initializeVisualizer(
+      Supplier<Pose2d> poseSupplier, Supplier<ChassisSpeeds> speedsSupplier) {
+    this.robotPoseSupplier = poseSupplier;
+    this.fieldSpeedsSupplier = speedsSupplier;
+
+    // Create 3D pose supplier from 2D pose
+    Supplier<Pose3d> pose3dSupplier =
+        () -> {
+          Pose2d pose2d = poseSupplier.get();
+          return new Pose3d(
+              pose2d.getX(),
+              pose2d.getY(),
+              0,
+              new Rotation3d(0, 0, pose2d.getRotation().getRadians()));
+        };
+
+    this.visualizer = new TurretVisualizer(pose3dSupplier, speedsSupplier);
+  }
+
+  /**
+   * Calculate shot parameters for the given target and update the trajectory visualization. Also
+   * aims the turret at the target.
+   *
+   * @param target Target position (3D)
+   */
+  public void calculateShotToTarget(Translation3d target) {
+    if (robotPoseSupplier == null || fieldSpeedsSupplier == null) return;
+
+    Pose2d robotPose = robotPoseSupplier.get();
+    ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
+
+    // Calculate shot with motion compensation
+    currentShot = TurretCalculator.calculateMovingShot(robotPose, fieldSpeeds, target, 3);
+
+    // Aim turret at the target
+    double azimuthRad = TurretCalculator.calculateAzimuthAngle(robotPose, target);
+    double azimuthDeg = Math.toDegrees(azimuthRad);
+    // Convert from 0-360 to -180 to 180 range
+    if (azimuthDeg > 180) {
+      azimuthDeg -= 360;
+    }
+    setAngle(azimuthDeg);
+
+    // Log shot data
+    Logger.recordOutput("Turret/ShotExitVelocity", currentShot.getExitVelocity());
+    Logger.recordOutput("Turret/ShotLaunchAngleDeg", currentShot.getLaunchAngleDegrees());
+    Logger.recordOutput("Turret/ShotAzimuthDeg", azimuthDeg);
+    Logger.recordOutput("Turret/ShotTargetX", currentShot.getTarget().getX());
+    Logger.recordOutput("Turret/ShotTargetY", currentShot.getTarget().getY());
+    Logger.recordOutput("Turret/ShotTargetZ", currentShot.getTarget().getZ());
+  }
+
+  /**
+   * Calculate shot to the alliance hub.
+   *
+   * @param isBlueAlliance True if targeting blue hub, false for red
+   */
+  public void calculateShotToHub(boolean isBlueAlliance) {
+    Translation3d hubTarget;
+    if (isBlueAlliance) {
+      hubTarget =
+          new Translation3d(
+              FieldPositions.BLUE_HUB_X, FieldPositions.BLUE_HUB_Y, FieldPositions.HUB_HEIGHT);
+    } else {
+      hubTarget =
+          new Translation3d(
+              FieldPositions.RED_HUB_X, FieldPositions.RED_HUB_Y, FieldPositions.HUB_HEIGHT);
+    }
+    calculateShotToTarget(hubTarget);
+  }
+
+  /** Launch a fuel ball using the current shot parameters. */
+  public void launchFuel() {
+    if (visualizer != null && currentShot != null && robotPoseSupplier != null) {
+      // Calculate azimuth angle (field-relative direction from robot to target)
+      Pose2d robot = robotPoseSupplier.get();
+      Translation3d target = currentShot.getTarget();
+      double azimuthAngle = Math.atan2(target.getY() - robot.getY(), target.getX() - robot.getX());
+
+      visualizer.launchFuel(
+          currentShot.getExitVelocity(), currentShot.getLaunchAngle(), azimuthAngle);
+    }
+  }
+
+  /**
+   * Get a command that repeatedly launches fuel at the current target.
+   *
+   * @return Command that launches fuel every 0.25 seconds
+   */
+  public Command repeatedlyLaunchFuelCommand() {
+    if (visualizer == null || currentShot == null) {
+      return runOnce(() -> {}); // No-op if not initialized
+    }
+    return visualizer.repeatedlyLaunchFuel(
+        () -> currentShot.getExitVelocity(), () -> currentShot.getLaunchAngle(), this);
+  }
+
+  /**
+   * Get the current shot data.
+   *
+   * @return Current shot parameters, or null if not calculated
+   */
+  public TurretCalculator.ShotData getCurrentShot() {
+    return currentShot;
+  }
+
+  /**
+   * Get the visualizer instance.
+   *
+   * @return TurretVisualizer or null if not initialized
+   */
+  public TurretVisualizer getVisualizer() {
+    return visualizer;
   }
 
   /**
@@ -112,7 +258,7 @@ public class Turret extends SubsystemBase {
     return new Pose3d(
         0,
         0,
-        0.127,
+        TurretConstants.TURRET_HEIGHT_METERS,
         new Rotation3d(0.0, 0.0, Rotation2d.fromDegrees(getCurrentAngle()).getRadians()));
   }
 }
