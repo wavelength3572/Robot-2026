@@ -3,25 +3,25 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 1.7251704545454545,
-        "y": 2.6229659090909094
+        "x": 1.8028345070422542,
+        "y": 2.6297887323943665
       },
       "prevControl": null,
       "nextControl": {
-        "x": 2.2251704545454545,
-        "y": 2.6229659090909094
+        "x": 1.5528345070422542,
+        "y": 2.6297887323943665
       },
       "isLocked": false,
       "linkedName": "HumanPlayerLaunchZone"
     },
     {
       "anchor": {
-        "x": 1.5190340909090905,
-        "y": 3.5918068181818184
+        "x": 1.467500000000001,
+        "y": 3.3802992957746483
       },
       "prevControl": {
-        "x": 2.0190340909090905,
-        "y": 3.5918068181818184
+        "x": 1.9944542253521134,
+        "y": 3.396267605633802
       },
       "nextControl": null,
       "isLocked": false,
@@ -63,13 +63,13 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 180.0
+    "rotation": 0.0
   },
   "reversed": false,
   "folder": "Human Player",
   "idealStartingState": {
     "velocity": 0,
-    "rotation": -179.29268063145577
+    "rotation": 1.041626676009992
   },
   "useDefaultConstraints": false
 }
