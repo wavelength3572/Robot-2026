@@ -14,32 +14,18 @@
 package frc.robot.subsystems.vision;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
-import java.io.IOException;
-import java.nio.file.Path;
 
 public final class VisionConstants {
 
   public static double MAX_TAG_DISTANCE = 1.5; // Only accept tags within 1.5 meters
 
   // AprilTag layout for 2026 Rebuilt field
-  // TODO: Once WPILib releases the official 2026 field, replace with:
-  //   public static AprilTagFieldLayout aprilTagLayout =
-  //       AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
-  public static AprilTagFieldLayout aprilTagLayout = load2026FieldLayout();
-
-  private static AprilTagFieldLayout load2026FieldLayout() {
-    try {
-      return new AprilTagFieldLayout(
-          Path.of(
-              edu.wpi.first.wpilibj.Filesystem.getDeployDirectory().getPath(),
-              "2026-rebuilt-welded.json"));
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to load 2026 AprilTag field layout", e);
-    }
-  }
+  public static AprilTagFieldLayout aprilTagLayout =
+      AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
 
   // _________________________________________________________________________________________________
 
@@ -59,6 +45,7 @@ public final class VisionConstants {
           0.26981,
           0.22155,
           new Rotation3d(0.0, Rotation2d.fromDegrees(-15).getRadians(), 0.0));
+
 
   public static Transform3d robotToFrontRightCam =
       new Transform3d(
