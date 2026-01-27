@@ -260,6 +260,5 @@ public class Turret extends SubsystemBase {
         TurretConstants.TURRET_Y_OFFSET,
         TurretConstants.TURRET_HEIGHT_METERS,
         new Rotation3d(0.0, 0.0, Rotation2d.fromDegrees(getCurrentAngle()).getRadians()));
-    // new Rotation3d(0.0, 0.0, 0.0));
   }
 }
