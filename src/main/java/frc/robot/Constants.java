@@ -35,9 +35,9 @@ public final class Constants {
    * Detects the robot type based on connected CAN hardware. In simulation mode, uses the configured
    * simRobotType instead.
    *
-   * <p>Detection strategy: MainBot uses drive motors on CAN IDs 3, 5, 6, 8. MiniBot uses drive
-   * motors on CAN IDs 11, 21, 31, 41. We check for a MainBot-specific CAN ID (5) and if it
-   * responds, we're on MainBot.
+   * <p>Detection strategy: SquareBot uses drive motors on CAN IDs 3, 5, 6, 8. SquareBot uses drive
+   * motors on CAN IDs 11, 21, 31, 41. We check for a SquareBot-specific CAN ID (5) and if it
+   * responds, we're on SquareBot.
    */
   private static RobotType detectRobotType() {
     // In simulation, use the configured type
@@ -49,8 +49,8 @@ public final class Constants {
 
     // On real hardware, auto-detect based on CAN devices
     try {
-      // Try to create a SparkMax at MainBot's front-left drive CAN ID (5)
-      // If this device exists and responds, we're on MainBot
+      // Try to create a SparkMax at SquareBot's front-left drive CAN ID (5)
+      // If this device exists and responds, we're on SquareBot
       SparkMax testMotor = new SparkMax(5, MotorType.kBrushless);
 
       // Check if the device is actually connected by reading firmware version
@@ -63,27 +63,27 @@ public final class Constants {
             "[RobotConfig] Detected MainBot (CAN ID 5 responded with firmware "
                 + firmwareVersion
                 + ")");
-        return RobotType.MAINBOT;
+        return RobotType.SQUAREBOT;
       } else {
-        System.out.println("[RobotConfig] CAN ID 5 not responding - assuming MiniBot");
-        return RobotType.MINIBOT;
+        System.out.println("[RobotConfig] CAN ID 5 not responding - assuming SquareBot");
+        return RobotType.MAINBOT;
       }
     } catch (Exception e) {
       // If any error occurs during detection, default to MainBot
       System.out.println(
           "[RobotConfig] Error during detection, defaulting to MainBot: " + e.getMessage());
-      return RobotType.MAINBOT;
+      return RobotType.SQUAREBOT;
     }
   }
 
   public static RobotConfig getRobotConfig() {
     if (robotConfig == null) {
       switch (currentRobot) {
+        case SQUAREBOT:
+          robotConfig = new SquareBotConfig();
+          break;
         case MAINBOT:
           robotConfig = new MainBotConfig();
-          break;
-        case MINIBOT:
-          robotConfig = new MiniBotConfig();
           break;
       }
     }
@@ -102,11 +102,11 @@ public final class Constants {
   }
 
   public static enum RobotType {
-    /** MainBot2026 - 21.25" chassis with NEO drive motors */
-    MAINBOT,
+    /** SquareBot2026 - 21.25" chassis with NEO drive motors */
+    SQUAREBOT,
 
-    /** MiniBot2026 - 14" chassis with NEO Vortex drive motors */
-    MINIBOT
+    /** MainBot2026 - 23.5" x 31" chassis with NEO Vortex drive motors */
+    MAINBOT
   }
 
   /** Field positions for targeting (in meters). */

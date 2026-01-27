@@ -6,7 +6,10 @@ public final class TurretConstants {
 
   // Physical dimensions
   /** Height of the turret barrel above the ground in meters */
-  public static final double TURRET_HEIGHT_METERS = 0.4826; // 19 inches
+  public static final double TURRET_X_OFFSET = -0.1819604184;
+
+  public static final double TURRET_Y_OFFSET = -0.085211539;
+  public static final double TURRET_HEIGHT_METERS = 0.3597275;
 
   // Physical constraints
   public static final double GEAR_RATIO = 1.0; // Motor rotations per turret rotation
