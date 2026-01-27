@@ -14,10 +14,10 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 
 /**
- * Configuration for MainBot2026 - 21.25" x 21.25" chassis with NEO drive motors Based on Robot-2025
- * configuration from wavelength3572/Robot-2025
+ * Configuration for SquareBot2026 - 21.25" x 21.25" chassis with NEO drive motors Based on
+ * Robot-2025 configuration from wavelength3572/Robot-2025
  */
-public class MainBotConfig implements RobotConfig {
+public class SquareBotConfig implements RobotConfig {
 
   // Physical dimensions
   private static final double trackWidth = Units.inchesToMeters(21.25);
@@ -31,7 +31,7 @@ public class MainBotConfig implements RobotConfig {
         new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0) // Back Right
       };
 
-  // Module zero rotations (calibrated for MainBot)
+  // Module zero rotations (calibrated for SquareBot)
   private static final Rotation2d frontLeftZeroRotation = new Rotation2d(1.636);
   private static final Rotation2d frontRightZeroRotation = new Rotation2d(2.0187);
   private static final Rotation2d backLeftZeroRotation = new Rotation2d(-2.1785);
@@ -104,6 +104,17 @@ public class MainBotConfig implements RobotConfig {
   private static final double maxSpeedMetersPerSec =
       5676.0 / 60.0 / driveMotorReduction * 2.0 * Math.PI * wheelRadiusMeters * 0.95;
   private static final double odometryFrequency = 100.0;
+
+  // ========== Turret Configuration (TalonFX) ==========
+  private static final int turretMotorCanId = 50;
+  private static final double turretGearRatio = 1.0; // Motor rotations per turret rotation
+  private static final double turretHeightMeters = 0.4826; // 19 inches
+  private static final double turretMaxAngleDegrees = 200.0; // Forward soft limit
+  private static final double turretMinAngleDegrees = -200.0; // Reverse soft limit
+  private static final int turretCurrentLimitAmps = 40;
+  private static final double turretKp = 5.0;
+  private static final double turretKd = 0.1;
+  private static final double turretKff = 0.0;
 
   // PathPlanner RobotConfig (computed)
   private final com.pathplanner.lib.config.RobotConfig ppConfig =
@@ -387,5 +398,57 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getOdometryFrequency() {
     return odometryFrequency;
+  }
+
+  // ========== Turret Configuration Overrides ==========
+
+  @Override
+  public boolean hasTurret() {
+    return true;
+  }
+
+  @Override
+  public int getTurretMotorCanId() {
+    return turretMotorCanId;
+  }
+
+  @Override
+  public double getTurretGearRatio() {
+    return turretGearRatio;
+  }
+
+  @Override
+  public double getTurretHeightMeters() {
+    return turretHeightMeters;
+  }
+
+  @Override
+  public double getTurretMaxAngleDegrees() {
+    return turretMaxAngleDegrees;
+  }
+
+  @Override
+  public double getTurretMinAngleDegrees() {
+    return turretMinAngleDegrees;
+  }
+
+  @Override
+  public int getTurretCurrentLimitAmps() {
+    return turretCurrentLimitAmps;
+  }
+
+  @Override
+  public double getTurretKp() {
+    return turretKp;
+  }
+
+  @Override
+  public double getTurretKd() {
+    return turretKd;
+  }
+
+  @Override
+  public double getTurretKff() {
+    return turretKff;
   }
 }

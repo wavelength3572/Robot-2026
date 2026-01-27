@@ -8,6 +8,7 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants;
 import frc.robot.Constants.FieldPositions;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -16,6 +17,7 @@ import org.littletonrobotics.junction.Logger;
 public class Turret extends SubsystemBase {
   private final TurretIO io;
   private final TurretIOInputsAutoLogged inputs = new TurretIOInputsAutoLogged();
+  private final double turretHeightMeters;
 
   // Visualizer for trajectory display (initialized when suppliers are set)
   private TurretVisualizer visualizer = null;
@@ -32,12 +34,30 @@ public class Turret extends SubsystemBase {
    */
   public Turret(TurretIO io) {
     this.io = io;
+    this.turretHeightMeters = Constants.getRobotConfig().getTurretHeightMeters();
+
+    // Log turret configuration for debugging (logged once at startup)
+    var config = Constants.getRobotConfig();
+    Logger.recordOutput("Turret/Config/heightMeters", turretHeightMeters);
+    Logger.recordOutput("Turret/Config/gearRatio", config.getTurretGearRatio());
+    Logger.recordOutput("Turret/Config/maxAngleDegrees", config.getTurretMaxAngleDegrees());
+    Logger.recordOutput("Turret/Config/minAngleDegrees", config.getTurretMinAngleDegrees());
+    Logger.recordOutput("Turret/Config/kP", config.getTurretKp());
+    Logger.recordOutput("Turret/Config/kI", config.getTurretKi());
+    Logger.recordOutput("Turret/Config/kD", config.getTurretKd());
+    Logger.recordOutput("Turret/Config/currentLimitAmps", config.getTurretCurrentLimitAmps());
+    Logger.recordOutput("Turret/Config/motorCanId", config.getTurretMotorCanId());
   }
 
   @Override
   public void periodic() {
     io.updateInputs(inputs);
     Logger.processInputs("Turret", inputs);
+
+    // Log additional useful debugging values
+    double angleError = inputs.targetAngleDegrees - inputs.currentAngleDegrees;
+    Logger.recordOutput("Turret/angleError", angleError);
+    Logger.recordOutput("Turret/atTarget", atTarget());
 
     // Update visualizer if initialized
     if (visualizer != null) {
@@ -73,7 +93,7 @@ public class Turret extends SubsystemBase {
               new Rotation3d(0, 0, pose2d.getRotation().getRadians()));
         };
 
-    this.visualizer = new TurretVisualizer(pose3dSupplier, speedsSupplier);
+    this.visualizer = new TurretVisualizer(pose3dSupplier, speedsSupplier, turretHeightMeters);
   }
 
   /**
@@ -89,7 +109,8 @@ public class Turret extends SubsystemBase {
     ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
 
     // Calculate shot with motion compensation
-    currentShot = TurretCalculator.calculateMovingShot(robotPose, fieldSpeeds, target, 3);
+    currentShot =
+        TurretCalculator.calculateMovingShot(robotPose, fieldSpeeds, target, 3, turretHeightMeters);
 
     // Aim turret at the target
     double azimuthRad = TurretCalculator.calculateAzimuthAngle(robotPose, target);
@@ -258,7 +279,16 @@ public class Turret extends SubsystemBase {
     return new Pose3d(
         0,
         0,
-        TurretConstants.TURRET_HEIGHT_METERS,
+        turretHeightMeters,
         new Rotation3d(0.0, 0.0, Rotation2d.fromDegrees(getCurrentAngle()).getRadians()));
+  }
+
+  /**
+   * Get the turret height from configuration.
+   *
+   * @return Turret height in meters
+   */
+  public double getTurretHeightMeters() {
+    return turretHeightMeters;
   }
 }

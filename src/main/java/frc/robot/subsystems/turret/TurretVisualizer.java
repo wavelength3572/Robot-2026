@@ -26,6 +26,7 @@ public class TurretVisualizer {
   private Translation3d[] trajectory = new Translation3d[TRAJECTORY_POINTS];
   private final Supplier<Pose3d> robotPoseSupplier;
   private final Supplier<ChassisSpeeds> fieldSpeedsSupplier;
+  private final double turretHeightMeters;
 
   // Fuel inventory management
   private static final int FUEL_CAPACITY = 30;
@@ -39,11 +40,15 @@ public class TurretVisualizer {
    *
    * @param robotPoseSupplier Supplier for robot's 3D pose
    * @param fieldSpeedsSupplier Supplier for field-relative chassis speeds
+   * @param turretHeightMeters Height of the turret in meters
    */
   public TurretVisualizer(
-      Supplier<Pose3d> robotPoseSupplier, Supplier<ChassisSpeeds> fieldSpeedsSupplier) {
+      Supplier<Pose3d> robotPoseSupplier,
+      Supplier<ChassisSpeeds> fieldSpeedsSupplier,
+      double turretHeightMeters) {
     this.robotPoseSupplier = robotPoseSupplier;
     this.fieldSpeedsSupplier = fieldSpeedsSupplier;
+    this.turretHeightMeters = turretHeightMeters;
 
     // Initialize trajectory array
     for (int i = 0; i < TRAJECTORY_POINTS; i++) {
@@ -116,8 +121,7 @@ public class TurretVisualizer {
 
     Pose3d robot = robotPoseSupplier.get();
     Translation3d launchPosition =
-        new Translation3d(
-            robot.getX(), robot.getY(), robot.getZ() + TurretConstants.TURRET_HEIGHT_METERS);
+        new Translation3d(robot.getX(), robot.getY(), robot.getZ() + turretHeightMeters);
     Translation3d launchVelocity = calculateLaunchVelocity(exitVelocity, launchAngle, azimuthAngle);
 
     FuelSim.getInstance().spawnFuel(launchPosition, launchVelocity);
@@ -156,7 +160,7 @@ public class TurretVisualizer {
 
     double startX = robot.getX();
     double startY = robot.getY();
-    double startZ = robot.getZ() + TurretConstants.TURRET_HEIGHT_METERS;
+    double startZ = robot.getZ() + turretHeightMeters;
 
     for (int i = 0; i < TRAJECTORY_POINTS; i++) {
       double t = i * TRAJECTORY_TIME_STEP;
@@ -186,7 +190,7 @@ public class TurretVisualizer {
   public void update3dPose(double azimuthAngle) {
     Logger.recordOutput(
         "Turret/TurretPose3d",
-        new Pose3d(0, 0, TurretConstants.TURRET_HEIGHT_METERS, new Rotation3d(0, 0, azimuthAngle)));
+        new Pose3d(0, 0, turretHeightMeters, new Rotation3d(0, 0, azimuthAngle)));
   }
 
   /** Log fuel inventory status. */

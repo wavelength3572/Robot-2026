@@ -20,6 +20,7 @@ import frc.robot.subsystems.drive.GyroIOPigeon2;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
+import frc.robot.subsystems.drive.ModuleIOVirtual;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeIO;
 import frc.robot.subsystems.intake.IntakeIOSim;
@@ -27,6 +28,7 @@ import frc.robot.subsystems.intake.IntakeIOSparkMax;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
 import frc.robot.subsystems.turret.TurretIOSim;
+import frc.robot.subsystems.turret.TurretIOSparkMax;
 import frc.robot.subsystems.turret.TurretIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
@@ -46,9 +48,9 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   // Subsystems
   private final Drive drive;
-  private final Turret turret; // Only instantiated for MainBot, null for MiniBot
-  private final Vision vision; // Only instantiated for MainBot, null for MiniBot
-  private final Intake intake; // Only instantiated for MainBot, null for MiniBot
+  private final Turret turret; // Only instantiated for SquareBot, null for RectangleBot
+  private final Vision vision; // Only instantiated for SquareBot, null for RectangleBot
+  private final Intake intake; // Only instantiated for SquareBot, null for RectangleBot
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs
@@ -59,16 +61,33 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
-    // Instantiate turret only for MainBot (not present on MiniBot)
-    if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+    // Instantiate turret for SquareBot and TurretBot (not present on RectangleBot)
+    if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
       switch (Constants.currentMode) {
         case REAL:
-          // Real MainBot - instantiate turret hardware
+          // Real SquareBot - instantiate turret hardware (TalonFX)
           turret = new Turret(new TurretIOTalonFX());
           break;
 
         case SIM:
-          // Sim MainBot - instantiate turret simulation
+          // Sim SquareBot - instantiate turret simulation
+          turret = new Turret(new TurretIOSim());
+          break;
+
+        default:
+          // Replay mode - disable turret IO
+          turret = new Turret(new TurretIO() {});
+          break;
+      }
+    } else if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
+      switch (Constants.currentMode) {
+        case REAL:
+          // Real TurretBot - instantiate turret hardware (SparkMax + NEO 550)
+          turret = new Turret(new TurretIOSparkMax());
+          break;
+
+        case SIM:
+          // Sim TurretBot - instantiate turret simulation
           turret = new Turret(new TurretIOSim());
           break;
 
@@ -78,20 +97,20 @@ public class RobotContainer {
           break;
       }
     } else {
-      // MiniBot does not have a turret
+      // RectangleBot does not have a turret
       turret = null;
     }
 
-    // Instantiate intake only for MainBot (not present on MiniBot)
-    if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+    // Instantiate intake only for SquareBot (not present on RectangleBot or TurretBot)
+    if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
       switch (Constants.currentMode) {
         case REAL:
-          // Real MainBot - instantiate intake hardware
+          // Real SquareBot - instantiate intake hardware
           intake = new Intake(new IntakeIOSparkMax());
           break;
 
         case SIM:
-          // Sim MainBot - instantiate intake simulation
+          // Sim SquareBot - instantiate intake simulation
           intake = new Intake(new IntakeIOSim());
           break;
 
@@ -101,7 +120,7 @@ public class RobotContainer {
           break;
       }
     } else {
-      // MiniBot does not have an intake
+      // RectangleBot and TurretBot do not have an intake
       intake = null;
     }
 
@@ -109,75 +128,106 @@ public class RobotContainer {
     switch (Constants.currentMode) {
       case REAL:
         // Real robot, instantiate hardware IO implementations
-        drive =
-            new Drive(
-                new GyroIOPigeon2(),
-                new ModuleIOSpark(0),
-                new ModuleIOSpark(1),
-                new ModuleIOSpark(2),
-                new ModuleIOSpark(3),
-                turret);
-        // Vision only for MainBot
-        // Camera order: A (FrontLeft), B (FrontRight)
-        // Cameras C (BackLeft) and D (BackRight) temporarily removed
-        if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
-          vision =
-              new Vision(
-                  drive::addVisionMeasurement,
-                  new VisionIOPhotonVision(
-                      VisionConstants.frontLeftCam, VisionConstants.robotToFrontLeftCam),
-                  new VisionIOPhotonVision(
-                      VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam));
-          // new VisionIOPhotonVision(
-          //     VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
-          // new VisionIOPhotonVision(
-          //     VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
+        if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
+          // TurretBot: Virtual gyro + virtual modules for full joystick-driven pose updates
+          // This allows testing turret auto-aiming while "driving" via joystick
+          // Using empty GyroIO so rotation comes from kinematics, not the physical Pigeon
+          drive =
+              new Drive(
+                  new GyroIO() {},
+                  new ModuleIOVirtual(),
+                  new ModuleIOVirtual(),
+                  new ModuleIOVirtual(),
+                  new ModuleIOVirtual(),
+                  turret);
+          vision = null; // TurretBot has no vision
         } else {
-          vision = null;
+          // SquareBot and RectangleBot: Full swerve drive
+          drive =
+              new Drive(
+                  new GyroIOPigeon2(),
+                  new ModuleIOSpark(0),
+                  new ModuleIOSpark(1),
+                  new ModuleIOSpark(2),
+                  new ModuleIOSpark(3),
+                  turret);
+          // Vision only for SquareBot
+          // Camera order: A (FrontLeft), B (FrontRight)
+          // Cameras C (BackLeft) and D (BackRight) temporarily removed
+          if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
+            vision =
+                new Vision(
+                    drive::addVisionMeasurement,
+                    new VisionIOPhotonVision(
+                        VisionConstants.frontLeftCam, VisionConstants.robotToFrontLeftCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam));
+            // new VisionIOPhotonVision(
+            //     VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
+            // new VisionIOPhotonVision(
+            //     VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
+          } else {
+            vision = null;
+          }
         }
         break;
 
       case SIM:
         // Sim robot, instantiate physics sim IO implementations
-        drive =
-            new Drive(
-                new GyroIO() {},
-                new ModuleIOSim(),
-                new ModuleIOSim(),
-                new ModuleIOSim(),
-                new ModuleIOSim(),
-                turret);
-        // Vision only for MainBot
-        // Camera order: A (FrontLeft), B (FrontRight)
-        // Cameras C (BackLeft) and D (BackRight) temporarily removed
-        // This order determines PhotonVision sim ports: A=1182, B=1183
-        // Each camera has both current and recommended transforms for toggle comparison
-        if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
-          vision =
-              new Vision(
-                  drive::addVisionMeasurement,
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.frontLeftCam,
-                      VisionConstants.robotToFrontLeftCam,
-                      VisionConstants.recommendedFrontLeftCam,
-                      RobotStatus::getRobotPose),
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.frontRightCam,
-                      VisionConstants.robotToFrontRightCam,
-                      VisionConstants.recommendedFrontRightCam,
-                      RobotStatus::getRobotPose));
-          // new VisionIOPhotonVisionSim(
-          //     VisionConstants.backLeftCam,
-          //     VisionConstants.robotToBackLeftCam,
-          //     VisionConstants.recommendedBackLeftCam,
-          //     RobotStatus::getRobotPose),
-          // new VisionIOPhotonVisionSim(
-          //     VisionConstants.backRightCam,
-          //     VisionConstants.robotToBackRightCam,
-          //     VisionConstants.recommendedBackRightCam,
-          //     RobotStatus::getRobotPose));
+        if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
+          // TurretBot sim: Virtual modules for joystick-driven pose updates
+          // This allows testing turret auto-aiming while "driving" via joystick
+          drive =
+              new Drive(
+                  new GyroIO() {},
+                  new ModuleIOVirtual(),
+                  new ModuleIOVirtual(),
+                  new ModuleIOVirtual(),
+                  new ModuleIOVirtual(),
+                  turret);
+          vision = null; // TurretBot has no vision
         } else {
-          vision = null;
+          // SquareBot and RectangleBot: Full swerve drive simulation
+          drive =
+              new Drive(
+                  new GyroIO() {},
+                  new ModuleIOSim(),
+                  new ModuleIOSim(),
+                  new ModuleIOSim(),
+                  new ModuleIOSim(),
+                  turret);
+          // Vision only for SquareBot
+          // Camera order: A (FrontLeft), B (FrontRight)
+          // Cameras C (BackLeft) and D (BackRight) temporarily removed
+          // This order determines PhotonVision sim ports: A=1182, B=1183
+          // Each camera has both current and recommended transforms for toggle comparison
+          if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
+            vision =
+                new Vision(
+                    drive::addVisionMeasurement,
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.frontLeftCam,
+                        VisionConstants.robotToFrontLeftCam,
+                        VisionConstants.recommendedFrontLeftCam,
+                        RobotStatus::getRobotPose),
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.frontRightCam,
+                        VisionConstants.robotToFrontRightCam,
+                        VisionConstants.recommendedFrontRightCam,
+                        RobotStatus::getRobotPose));
+            // new VisionIOPhotonVisionSim(
+            //     VisionConstants.backLeftCam,
+            //     VisionConstants.robotToBackLeftCam,
+            //     VisionConstants.recommendedBackLeftCam,
+            //     RobotStatus::getRobotPose),
+            // new VisionIOPhotonVisionSim(
+            //     VisionConstants.backRightCam,
+            //     VisionConstants.robotToBackRightCam,
+            //     VisionConstants.recommendedBackRightCam,
+            //     RobotStatus::getRobotPose));
+          } else {
+            vision = null;
+          }
         }
         break;
 
@@ -191,8 +241,8 @@ public class RobotContainer {
                 new ModuleIO() {},
                 new ModuleIO() {},
                 turret);
-        // Vision only for MainBot (replay mode)
-        if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+        // Vision only for SquareBot (replay mode), not for TurretBot or RectangleBot
+        if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
           vision =
               new Vision(
                   (pose, time, stdDevs) -> {},
@@ -206,7 +256,7 @@ public class RobotContainer {
         break;
     }
 
-    // Initialize RobotStatus with subsystem references (vision may be null for MiniBot)
+    // Initialize RobotStatus with subsystem references (vision may be null for RectangleBot)
     RobotStatus.initialize(drive, vision);
 
     // Connect intake to drive for velocity-based roller speed
@@ -275,7 +325,7 @@ public class RobotContainer {
   }
 
   /**
-   * Get the turret subsystem if it exists (MainBot only).
+   * Get the turret subsystem if it exists (SquareBot only).
    *
    * @return Turret subsystem or null if not present
    */
@@ -293,7 +343,7 @@ public class RobotContainer {
   }
 
   /**
-   * Get the vision subsystem if it exists (MainBot only).
+   * Get the vision subsystem if it exists (SquareBot only).
    *
    * @return Vision subsystem or null if not present
    */
@@ -311,7 +361,7 @@ public class RobotContainer {
   }
 
   /**
-   * Get the intake subsystem if it exists (MainBot only).
+   * Get the intake subsystem if it exists (SquareBot only).
    *
    * @return Intake subsystem or null if not present
    */

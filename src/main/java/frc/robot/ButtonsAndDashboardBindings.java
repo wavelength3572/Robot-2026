@@ -1,5 +1,7 @@
 package frc.robot;
 
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -108,6 +110,81 @@ public class ButtonsAndDashboardBindings {
           "Turret/LaunchFuel",
           Commands.runOnce(turret::launchFuel, turret).withName("Launch Fuel"));
     }
+
+    // TurretBot-specific testing controls
+    if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
+      configureTurretBotTestControls();
+    }
+  }
+
+  /** Configure dashboard controls for testing TurretBot without a drive system. */
+  private static void configureTurretBotTestControls() {
+    // === Manual Pose Setting ===
+    // Set default test position values
+    SmartDashboard.putNumber("TurretBot/TestPoseX", 2.0);
+    SmartDashboard.putNumber("TurretBot/TestPoseY", 4.0);
+    SmartDashboard.putNumber("TurretBot/TestPoseRotation", 0.0);
+
+    // Button to apply the test pose
+    SmartDashboard.putData(
+        "TurretBot/SetPose",
+        Commands.runOnce(
+                () -> {
+                  double x = SmartDashboard.getNumber("TurretBot/TestPoseX", 0);
+                  double y = SmartDashboard.getNumber("TurretBot/TestPoseY", 0);
+                  double rotDeg = SmartDashboard.getNumber("TurretBot/TestPoseRotation", 0);
+                  drive.setPose(new Pose2d(x, y, Rotation2d.fromDegrees(rotDeg)));
+                  System.out.println(
+                      "[TurretBot] Set pose to X="
+                          + x
+                          + ", Y="
+                          + y
+                          + ", Rotation="
+                          + rotDeg
+                          + " deg");
+                },
+                drive)
+            .ignoringDisable(true)
+            .withName("Set Test Pose"));
+
+    // === Preset Field Positions ===
+    // Blue alliance zone (should aim at blue hub)
+    SmartDashboard.putData(
+        "TurretBot/Preset_BlueZone",
+        Commands.runOnce(
+                () -> {
+                  drive.setPose(new Pose2d(2.0, 4.0, Rotation2d.fromDegrees(0)));
+                  System.out.println("[TurretBot] Set pose to Blue Alliance Zone");
+                },
+                drive)
+            .ignoringDisable(true)
+            .withName("Blue Zone Preset"));
+
+    // Red alliance zone (should aim at red hub)
+    SmartDashboard.putData(
+        "TurretBot/Preset_RedZone",
+        Commands.runOnce(
+                () -> {
+                  drive.setPose(new Pose2d(14.0, 4.0, Rotation2d.fromDegrees(180)));
+                  System.out.println("[TurretBot] Set pose to Red Alliance Zone");
+                },
+                drive)
+            .ignoringDisable(true)
+            .withName("Red Zone Preset"));
+
+    // Field center (neutral zone)
+    SmartDashboard.putData(
+        "TurretBot/Preset_Center",
+        Commands.runOnce(
+                () -> {
+                  drive.setPose(new Pose2d(8.27, 4.0, Rotation2d.fromDegrees(0)));
+                  System.out.println("[TurretBot] Set pose to Field Center");
+                },
+                drive)
+            .ignoringDisable(true)
+            .withName("Center Preset"));
+
+    System.out.println("[TurretBot] Test controls configured on SmartDashboard under 'TurretBot/'");
   }
 
   /****************************** */
@@ -115,9 +192,12 @@ public class ButtonsAndDashboardBindings {
   /****************************** */
 
   private static void configureDriverButtonBindings() {
+    // Enable joystick driving for all robots
+    // For TurretBot, this enables "virtual driving" to update odometry and test turret auto-aiming
     drive.setDefaultCommand(
         DriveCommands.joystickDrive(drive, oi::getTranslateX, oi::getTranslateY, oi::getRotate));
-    // Gyro Reset
+
+    // Gyro Reset (available on all robots with a gyro)
     oi.getResetGyroButton()
         .onTrue(Commands.runOnce(drive::zeroGyroscope, drive).ignoringDisable(true));
 

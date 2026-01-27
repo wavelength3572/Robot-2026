@@ -45,7 +45,7 @@ public class ModuleIOSpark implements ModuleIO {
   private final SparkBase turnSpark;
   private final RelativeEncoder driveEncoder;
   private final RelativeEncoder turnEncoder;
-  private final CANcoder cancoder; // null if no CANcoder (e.g., MiniBot)
+  private final CANcoder cancoder; // null if no CANcoder (e.g., RectangleBot)
 
   // Inputs from CANcoder (null if no CANcoder)
   private final StatusSignal<Angle> turnAbsolutePosition;

@@ -46,7 +46,6 @@ public final class VisionConstants {
           0.22155,
           new Rotation3d(0.0, Rotation2d.fromDegrees(-15).getRadians(), 0.0));
 
-
   public static Transform3d robotToFrontRightCam =
       new Transform3d(
           0.26985,

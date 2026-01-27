@@ -14,99 +14,102 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 
 /**
- * Configuration for RectangleBot2026 - 14" x 14" chassis with NEO Vortex drive motors Based on
- * RectangleBot-2025 configuration from wavelength3572/RectangleBot-2025
+ * Configuration for TurretBot - A minimal test rig with only turret + basic electronics (no drive
+ * base). This configuration provides stub/placeholder values for all drive-related methods since
+ * TurretBot has no drivetrain.
  */
-public class RectangleBotConfig implements RobotConfig {
+public class TurretBotConfig implements RobotConfig {
 
-  // Physical dimensions
-  private static final double trackWidth = Units.inchesToMeters(14);
-  private static final double wheelBase = Units.inchesToMeters(14);
+  // Placeholder physical dimensions (minimal values since no drive base)
+  private static final double trackWidth = Units.inchesToMeters(12.0);
+  private static final double wheelBase = Units.inchesToMeters(12.0);
   private static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
   private static final Translation2d[] moduleTranslations =
       new Translation2d[] {
-        new Translation2d(trackWidth / 2.0, wheelBase / 2.0), // Front Left
-        new Translation2d(trackWidth / 2.0, -wheelBase / 2.0), // Front Right
-        new Translation2d(-trackWidth / 2.0, wheelBase / 2.0), // Back Left
-        new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0) // Back Right
+        new Translation2d(trackWidth / 2.0, wheelBase / 2.0),
+        new Translation2d(trackWidth / 2.0, -wheelBase / 2.0),
+        new Translation2d(-trackWidth / 2.0, wheelBase / 2.0),
+        new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0)
       };
 
-  // Module zero rotations (needs calibration for RectangleBot)
-  private static final Rotation2d frontLeftZeroRotation = new Rotation2d(0.0);
-  private static final Rotation2d frontRightZeroRotation = new Rotation2d(0.0);
-  private static final Rotation2d backLeftZeroRotation = new Rotation2d(0.0);
-  private static final Rotation2d backRightZeroRotation = new Rotation2d(0.0);
+  // Module zero rotations (placeholder - no swerve modules)
+  private static final Rotation2d zeroRotation = new Rotation2d(0);
 
-  // CAN IDs
+  // CAN IDs - Only Pigeon IMU is real, drive motors are stub values (0 = not present)
   private static final int pigeonCanId = 19;
-  private static final int frontLeftDriveCanId = 11;
-  private static final int frontRightDriveCanId = 21;
-  private static final int backLeftDriveCanId = 31;
-  private static final int backRightDriveCanId = 41;
-  private static final int frontLeftTurnCanId = 12;
-  private static final int frontRightTurnCanId = 22;
-  private static final int backLeftTurnCanId = 32;
-  private static final int backRightTurnCanId = 42;
 
-  // Drive motor configuration
-  private static final int driveMotorCurrentLimit = 50;
+  // Placeholder drive motor configuration (no actual motors)
+  private static final int driveMotorCurrentLimit = 0;
   private static final double wheelRadiusMeters = Units.inchesToMeters(2.0);
-  private static final double driveMotorReduction =
-      (50.0 / 14.0) * (17.0 / 27.0) * (45.0 / 15.0); // SDS MK4i L2
-  private static final DCMotor driveGearbox = DCMotor.getNeoVortex(1);
+  private static final double driveMotorReduction = 1.0;
+  private static final DCMotor driveGearbox = DCMotor.getNEO(1);
 
-  // Drive encoder configuration
+  // Placeholder drive encoder configuration
   private static final double driveEncoderPositionFactor = 2 * Math.PI / driveMotorReduction;
   private static final double driveEncoderVelocityFactor =
       (2 * Math.PI) / 60.0 / driveMotorReduction;
 
-  // Drive PID configuration
+  // Placeholder PID configuration
   private static final double driveKp = 0.0;
   private static final double driveKd = 0.0;
   private static final double driveKs = 0.0;
-  private static final double driveKv = 0.1;
-  private static final double driveSimP = 0.05;
-  private static final double driveSimD = 0.0;
-  private static final double driveSimKs = 0.04307;
-  private static final double driveSimKv = 0.21126;
+  private static final double driveKv = 0.0;
 
-  // Turn motor configuration
-  private static final boolean turnInverted = true;
-  private static final int turnMotorCurrentLimit = 20;
-  private static final double turnMotorReduction = 150.0 / 7.0; // SDS MK4i L2
-  private static final DCMotor turnGearbox = DCMotor.getNeo550(1);
+  // Placeholder turn motor configuration
+  private static final boolean turnInverted = false;
+  private static final int turnMotorCurrentLimit = 0;
+  private static final double turnMotorReduction = 1.0;
+  private static final DCMotor turnGearbox = DCMotor.getNEO(1);
 
-  // Turn encoder configuration
-  private static final boolean turnEncoderInverted = true;
+  // Placeholder turn encoder configuration
+  private static final boolean turnEncoderInverted = false;
   private static final double turnEncoderPositionFactor = 2 * Math.PI / turnMotorReduction;
   private static final double turnEncoderVelocityFactor = (2 * Math.PI) / 60.0 / turnMotorReduction;
 
-  // Turn PID configuration
-  private static final double turnKp = 1.0;
+  // Placeholder turn PID configuration
+  private static final double turnKp = 0.0;
   private static final double turnKd = 0.0;
-  private static final double turnSimP = 8.0;
-  private static final double turnSimD = 0.0;
-  private static final double turnPIDMinInput = 0;
-  private static final double turnPIDMaxInput = 2 * Math.PI;
 
-  // PathPlanner configuration
-  private static final double robotMassKg = 74.088;
-  private static final double robotMOI = 6.883;
-  private static final double wheelCOF = 1.2;
+  // Robot configuration (minimal mass since only turret + electronics)
+  private static final double robotMassKg = Units.lbsToKilograms(25.0); // ~25 lbs
+  private static final double robotMOI = 1.0;
+  private static final double wheelCOF = 1.0;
 
-  // Performance
-  private static final double maxSpeedMetersPerSec =
-      5676.0 / 60.0 / driveMotorReduction * 2.0 * Math.PI * wheelRadiusMeters * 0.95;
+  // Performance - Virtual driving for turret testing
+  private static final double maxSpeedMetersPerSec = 4.5; // Reasonable speed for virtual driving
   private static final double odometryFrequency = 100.0;
 
-  // PathPlanner RobotConfig (computed)
+  // ========== Turret Configuration (NEO 550 + Spark Max) ==========
+  // Through Bore Encoder connects via data port (Gadgeteer) on the same Spark Max
+  private static final int turretMotorCanId = 60;
+  private static final double turretHeightMeters = 0.4826; // 19 inches
+
+  // Gear ratios:
+  // - NEO 550 internal gearbox: 7:1
+  // - External gearing from encoder to turret: 66:12 (~5.5:1)
+  // - Total ratio: 38.5:1 (motor rotations per turret rotation)
+  // The absolute encoder sits AFTER the 7:1 gearbox but BEFORE the 66:12 external gearing
+  private static final double turretGearRatio = 38.5; // Total motor rotations per turret rotation
+  private static final double turretExternalGearRatio = 66.0 / 12.0; // ~5.5 (encoder to turret)
+
+  // Travel limits: ±170° = 340° total travel
+  private static final double turretMaxAngleDegrees = 170.0;
+  private static final double turretMinAngleDegrees = -170.0;
+
+  // NEO 550-specific settings
+  private static final int turretCurrentLimitAmps = 20; // NEO 550 is smaller than NEO/Falcon
+  private static final double turretKp = 0.1; // Conservative PID for NEO 550
+  private static final double turretKi = 0.0;
+  private static final double turretKd = 0.01;
+
+  // PathPlanner RobotConfig (placeholder - no autonomous driving)
   private final com.pathplanner.lib.config.RobotConfig ppConfig =
       new com.pathplanner.lib.config.RobotConfig(
           robotMassKg,
           robotMOI,
           new ModuleConfig(
               wheelRadiusMeters,
-              maxSpeedMetersPerSec,
+              1.0, // Minimal max speed
               wheelCOF,
               driveGearbox.withReduction(driveMotorReduction),
               driveMotorCurrentLimit,
@@ -135,22 +138,22 @@ public class RectangleBotConfig implements RobotConfig {
 
   @Override
   public Rotation2d getFrontLeftZeroRotation() {
-    return frontLeftZeroRotation;
+    return zeroRotation;
   }
 
   @Override
   public Rotation2d getFrontRightZeroRotation() {
-    return frontRightZeroRotation;
+    return zeroRotation;
   }
 
   @Override
   public Rotation2d getBackLeftZeroRotation() {
-    return backLeftZeroRotation;
+    return zeroRotation;
   }
 
   @Override
   public Rotation2d getBackRightZeroRotation() {
-    return backRightZeroRotation;
+    return zeroRotation;
   }
 
   @Override
@@ -158,64 +161,65 @@ public class RectangleBotConfig implements RobotConfig {
     return pigeonCanId;
   }
 
+  // All drive motor CAN IDs return 0 (signals "not present")
   @Override
   public int getFrontLeftDriveCanId() {
-    return frontLeftDriveCanId;
+    return 0;
   }
 
   @Override
   public int getBackLeftDriveCanId() {
-    return backLeftDriveCanId;
+    return 0;
   }
 
   @Override
   public int getFrontRightDriveCanId() {
-    return frontRightDriveCanId;
+    return 0;
   }
 
   @Override
   public int getBackRightDriveCanId() {
-    return backRightDriveCanId;
+    return 0;
   }
 
   @Override
   public int getFrontLeftTurnCanId() {
-    return frontLeftTurnCanId;
+    return 0;
   }
 
   @Override
   public int getBackLeftTurnCanId() {
-    return backLeftTurnCanId;
+    return 0;
   }
 
   @Override
   public int getFrontRightTurnCanId() {
-    return frontRightTurnCanId;
+    return 0;
   }
 
   @Override
   public int getBackRightTurnCanId() {
-    return backRightTurnCanId;
+    return 0;
   }
 
   @Override
   public int getFrontLeftCANCoderCanId() {
-    return 0; // RectangleBot doesn't use CANCoders
+    return 0;
   }
 
   @Override
   public int getFrontRightCANCoderCanId() {
-    return 0; // RectangleBot doesn't use CANCoders
+    return 0;
   }
 
   @Override
   public int getBackLeftCANCoderCanId() {
-    return 0; // RectangleBot doesn't use CANCoders
+    return 0;
   }
 
   @Override
   public int getBackRightCANCoderCanId() {
-    return 0; // RectangleBot doesn't use CANCoders
+    return 0;
   }
 
   @Override
@@ -270,22 +274,22 @@ public class RectangleBotConfig implements RobotConfig {
 
   @Override
   public double getDriveSimP() {
-    return driveSimP;
+    return 0.0;
   }
 
   @Override
   public double getDriveSimD() {
-    return driveSimD;
+    return 0.0;
   }
 
   @Override
   public double getDriveSimKs() {
-    return driveSimKs;
+    return 0.0;
   }
 
   @Override
   public double getDriveSimKv() {
-    return driveSimKv;
+    return 0.0;
   }
 
   @Override
@@ -335,22 +339,22 @@ public class RectangleBotConfig implements RobotConfig {
 
   @Override
   public double getTurnSimP() {
-    return turnSimP;
+    return 0.0;
   }
 
   @Override
   public double getTurnSimD() {
-    return turnSimD;
+    return 0.0;
   }
 
   @Override
   public double getTurnPIDMinInput() {
-    return turnPIDMinInput;
+    return 0;
   }
 
   @Override
   public double getTurnPIDMaxInput() {
-    return turnPIDMaxInput;
+    return 2 * Math.PI;
   }
 
   @Override
@@ -381,5 +385,62 @@ public class RectangleBotConfig implements RobotConfig {
   @Override
   public double getOdometryFrequency() {
     return odometryFrequency;
+  }
+
+  // ========== Turret Configuration Overrides ==========
+
+  @Override
+  public boolean hasTurret() {
+    return true;
+  }
+
+  @Override
+  public int getTurretMotorCanId() {
+    return turretMotorCanId;
+  }
+
+  @Override
+  public double getTurretGearRatio() {
+    return turretGearRatio;
+  }
+
+  @Override
+  public double getTurretHeightMeters() {
+    return turretHeightMeters;
+  }
+
+  @Override
+  public double getTurretMaxAngleDegrees() {
+    return turretMaxAngleDegrees;
+  }
+
+  @Override
+  public double getTurretMinAngleDegrees() {
+    return turretMinAngleDegrees;
+  }
+
+  @Override
+  public int getTurretCurrentLimitAmps() {
+    return turretCurrentLimitAmps;
+  }
+
+  @Override
+  public double getTurretKp() {
+    return turretKp;
+  }
+
+  @Override
+  public double getTurretKi() {
+    return turretKi;
+  }
+
+  @Override
+  public double getTurretKd() {
+    return turretKd;
+  }
+
+  @Override
+  public double getTurretExternalGearRatio() {
+    return turretExternalGearRatio;
   }
 }

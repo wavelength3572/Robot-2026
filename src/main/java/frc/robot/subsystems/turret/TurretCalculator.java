@@ -47,12 +47,13 @@ public class TurretCalculator {
    * @param robot Current robot pose
    * @param velocity Exit velocity in m/s
    * @param target Target position (3D)
+   * @param turretHeightMeters Height of the turret above ground in meters
    * @return Launch angle in radians (from horizontal)
    */
   public static double calculateAngleFromVelocity(
-      Pose2d robot, double velocity, Translation3d target) {
+      Pose2d robot, double velocity, Translation3d target, double turretHeightMeters) {
     double xDist = getDistanceToTarget(robot, target);
-    double yDist = target.getZ() - TurretConstants.TURRET_HEIGHT_METERS;
+    double yDist = target.getZ() - turretHeightMeters;
 
     // Solve quadratic for launch angle: tan(theta) = (v^2 +/- sqrt(v^4 - g*(g*x^2 + 2*y*v^2))) /
     // (g*x)
@@ -136,14 +137,20 @@ public class TurretCalculator {
    * @param fieldSpeeds Field-relative chassis speeds
    * @param target Target position
    * @param iterations Number of refinement iterations (3-5 recommended)
+   * @param turretHeightMeters Height of the turret above ground in meters
    * @return ShotData containing exit velocity, hood angle, and predicted target
    */
   public static ShotData calculateMovingShot(
-      Pose2d robot, ChassisSpeeds fieldSpeeds, Translation3d target, int iterations) {
+      Pose2d robot,
+      ChassisSpeeds fieldSpeeds,
+      Translation3d target,
+      int iterations,
+      double turretHeightMeters) {
     // Initial estimation assuming stationary robot
     double distance = getDistanceToTarget(robot, target);
     double exitVelocity = scaleExitVelocity(distance);
-    double launchAngle = calculateAngleFromVelocity(robot, exitVelocity, target);
+    double launchAngle =
+        calculateAngleFromVelocity(robot, exitVelocity, target, turretHeightMeters);
     double timeOfFlight = calculateTimeOfFlight(exitVelocity, launchAngle, distance);
 
     Translation3d predictedTarget = target;
@@ -153,7 +160,8 @@ public class TurretCalculator {
       predictedTarget = predictTargetPos(target, fieldSpeeds, timeOfFlight);
       distance = getDistanceToTarget(robot, predictedTarget);
       exitVelocity = scaleExitVelocity(distance);
-      launchAngle = calculateAngleFromVelocity(robot, exitVelocity, predictedTarget);
+      launchAngle =
+          calculateAngleFromVelocity(robot, exitVelocity, predictedTarget, turretHeightMeters);
       timeOfFlight = calculateTimeOfFlight(exitVelocity, launchAngle, distance);
     }
 
@@ -165,12 +173,15 @@ public class TurretCalculator {
    *
    * @param robot Current robot pose
    * @param target Target position
+   * @param turretHeightMeters Height of the turret above ground in meters
    * @return ShotData containing exit velocity, hood angle, and target
    */
-  public static ShotData calculateStationaryShot(Pose2d robot, Translation3d target) {
+  public static ShotData calculateStationaryShot(
+      Pose2d robot, Translation3d target, double turretHeightMeters) {
     double distance = getDistanceToTarget(robot, target);
     double exitVelocity = scaleExitVelocity(distance);
-    double launchAngle = calculateAngleFromVelocity(robot, exitVelocity, target);
+    double launchAngle =
+        calculateAngleFromVelocity(robot, exitVelocity, target, turretHeightMeters);
     return new ShotData(exitVelocity, launchAngle, target);
   }
 

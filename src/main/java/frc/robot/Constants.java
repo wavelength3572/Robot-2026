@@ -24,10 +24,27 @@ public final class Constants {
    * Robot type for simulation mode. Change this to test different configurations. On real hardware,
    * this is ignored and auto-detection is used.
    */
-  public static final RobotType simRobotType = RobotType.MAINBOT;
+  public static final RobotType simRobotType = RobotType.SQUAREBOT;
 
-  /** The detected or configured robot type. */
-  public static final RobotType currentRobot = detectRobotType();
+  /**
+   * The detected or configured robot type. Set FORCE_ROBOT_TYPE to override auto-detection. Set to
+   * null to use auto-detection.
+   */
+  public static final RobotType FORCE_ROBOT_TYPE =
+      null; // Set to a RobotType to override auto-detect
+
+  public static final RobotType currentRobot = initRobotType();
+
+  private static RobotType initRobotType() {
+    if (FORCE_ROBOT_TYPE != null) {
+      System.out.println(
+          "[RobotConfig] *** FORCED ROBOT TYPE: "
+              + FORCE_ROBOT_TYPE
+              + " *** (auto-detect disabled)");
+      return FORCE_ROBOT_TYPE;
+    }
+    return detectRobotType();
+  }
 
   private static RobotConfig robotConfig = null;
 
@@ -35,9 +52,15 @@ public final class Constants {
    * Detects the robot type based on connected CAN hardware. In simulation mode, uses the configured
    * simRobotType instead.
    *
-   * <p>Detection strategy: MainBot uses drive motors on CAN IDs 3, 5, 6, 8. MiniBot uses drive
-   * motors on CAN IDs 11, 21, 31, 41. We check for a MainBot-specific CAN ID (5) and if it
-   * responds, we're on MainBot.
+   * <p>Detection strategy:
+   *
+   * <ul>
+   *   <li>TurretBot uses turret motor on CAN ID 60
+   *   <li>SquareBot uses drive motors on CAN IDs 3, 5, 6, 8
+   *   <li>RectangleBot uses drive motors on CAN IDs 11, 21, 31, 41
+   * </ul>
+   *
+   * We check CAN ID 60 first (TurretBot), then CAN ID 5 (SquareBot), then default to RectangleBot.
    */
   private static RobotType detectRobotType() {
     // In simulation, use the configured type
@@ -47,43 +70,92 @@ public final class Constants {
       return simRobotType;
     }
 
+    System.out.println("[RobotConfig] Starting robot type detection...");
+
     // On real hardware, auto-detect based on CAN devices
+    // Check for TurretBot first (CAN ID 60)
     try {
-      // Try to create a SparkMax at MainBot's front-left drive CAN ID (5)
-      // If this device exists and responds, we're on MainBot
+      System.out.println("[RobotConfig] Checking for TurretBot (CAN ID 60)...");
+      SparkMax turretMotor = new SparkMax(60, MotorType.kBrushless);
+
+      // Give CAN bus time to respond
+      try {
+        Thread.sleep(100);
+      } catch (InterruptedException e) {
+        // Ignore
+      }
+
+      int turretFirmware = turretMotor.getFirmwareVersion();
+      System.out.println("[RobotConfig] CAN ID 60 firmware version: " + turretFirmware);
+      turretMotor.close();
+
+      if (turretFirmware != 0) {
+        System.out.println(
+            "[RobotConfig] *** DETECTED TURRETBOT *** (CAN ID 60 responded with firmware "
+                + turretFirmware
+                + ")");
+        return RobotType.TURRETBOT;
+      } else {
+        System.out.println("[RobotConfig] CAN ID 60 returned firmware 0 - not TurretBot");
+      }
+    } catch (Exception e) {
+      // TurretBot detection failed, continue to SquareBot check
+      System.out.println(
+          "[RobotConfig] TurretBot detection exception: "
+              + e.getClass().getSimpleName()
+              + " - "
+              + e.getMessage());
+    }
+
+    // Check for SquareBot (CAN ID 5)
+    try {
+      System.out.println("[RobotConfig] Checking for SquareBot (CAN ID 5)...");
       SparkMax testMotor = new SparkMax(5, MotorType.kBrushless);
 
-      // Check if the device is actually connected by reading firmware version
-      // A disconnected device will have firmware version 0
+      // Give CAN bus time to respond
+      try {
+        Thread.sleep(100);
+      } catch (InterruptedException e) {
+        // Ignore
+      }
+
       int firmwareVersion = testMotor.getFirmwareVersion();
+      System.out.println("[RobotConfig] CAN ID 5 firmware version: " + firmwareVersion);
       testMotor.close();
 
       if (firmwareVersion != 0) {
         System.out.println(
-            "[RobotConfig] Detected MainBot (CAN ID 5 responded with firmware "
+            "[RobotConfig] *** DETECTED SQUAREBOT *** (CAN ID 5 responded with firmware "
                 + firmwareVersion
                 + ")");
-        return RobotType.MAINBOT;
+        return RobotType.SQUAREBOT;
       } else {
-        System.out.println("[RobotConfig] CAN ID 5 not responding - assuming MiniBot");
-        return RobotType.MINIBOT;
+        System.out.println("[RobotConfig] *** DETECTED RECTANGLEBOT *** (CAN ID 5 not responding)");
+        return RobotType.RECTANGLEBOT;
       }
     } catch (Exception e) {
-      // If any error occurs during detection, default to MainBot
+      // If any error occurs during detection, default to RectangleBot (safest option)
       System.out.println(
-          "[RobotConfig] Error during detection, defaulting to MainBot: " + e.getMessage());
-      return RobotType.MAINBOT;
+          "[RobotConfig] SquareBot detection exception: "
+              + e.getClass().getSimpleName()
+              + " - "
+              + e.getMessage());
+      System.out.println("[RobotConfig] *** DEFAULTING TO RECTANGLEBOT ***");
+      return RobotType.RECTANGLEBOT;
     }
   }
 
   public static RobotConfig getRobotConfig() {
     if (robotConfig == null) {
       switch (currentRobot) {
-        case MAINBOT:
-          robotConfig = new MainBotConfig();
+        case SQUAREBOT:
+          robotConfig = new SquareBotConfig();
           break;
-        case MINIBOT:
-          robotConfig = new MiniBotConfig();
+        case RECTANGLEBOT:
+          robotConfig = new RectangleBotConfig();
+          break;
+        case TURRETBOT:
+          robotConfig = new TurretBotConfig();
           break;
       }
     }
@@ -102,11 +174,14 @@ public final class Constants {
   }
 
   public static enum RobotType {
-    /** MainBot2026 - 21.25" chassis with NEO drive motors */
-    MAINBOT,
+    /** SquareBot2026 - 21.25" chassis with NEO drive motors */
+    SQUAREBOT,
 
-    /** MiniBot2026 - 14" chassis with NEO Vortex drive motors */
-    MINIBOT
+    /** RectangleBot2026 - 14" chassis with NEO Vortex drive motors */
+    RECTANGLEBOT,
+
+    /** TurretBot - Minimal test rig with only turret + basic electronics (no drive base) */
+    TURRETBOT
   }
 
   /** Field positions for targeting (in meters). */

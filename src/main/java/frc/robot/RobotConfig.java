@@ -13,7 +13,7 @@ import edu.wpi.first.math.system.plant.DCMotor;
 
 /**
  * Interface defining robot-specific configuration values. Implement this interface for each
- * physical robot (MainBot, MiniBot, etc.)
+ * physical robot (SquareBot, RectangleBot, etc.)
  */
 public interface RobotConfig {
 
@@ -54,7 +54,7 @@ public interface RobotConfig {
 
   int getBackRightTurnCanId();
 
-  // CANCoder CAN IDs (for MainBot external absolute encoders)
+  // CANCoder CAN IDs (for SquareBot external absolute encoders)
   int getFrontLeftCANCoderCanId();
 
   int getFrontRightCANCoderCanId();
@@ -136,4 +136,78 @@ public interface RobotConfig {
   double getMaxSpeedMetersPerSec();
 
   double getOdometryFrequency();
+
+  // ========== Turret Configuration ==========
+  // Default implementations return 0/false for robots without turrets (e.g., RectangleBot)
+
+  /** Whether this robot has a turret. */
+  default boolean hasTurret() {
+    return false;
+  }
+
+  /** Turret motor CAN ID. */
+  default int getTurretMotorCanId() {
+    return 0;
+  }
+
+  /** Turret gear ratio (motor rotations per turret rotation). */
+  default double getTurretGearRatio() {
+    return 1.0;
+  }
+
+  /** Turret height above ground in meters. */
+  default double getTurretHeightMeters() {
+    return 0.0;
+  }
+
+  /** Maximum turret angle in degrees (forward soft limit). */
+  default double getTurretMaxAngleDegrees() {
+    return 0.0;
+  }
+
+  /** Minimum turret angle in degrees (reverse soft limit). */
+  default double getTurretMinAngleDegrees() {
+    return 0.0;
+  }
+
+  /** Turret motor current limit in amps. */
+  default int getTurretCurrentLimitAmps() {
+    return 0;
+  }
+
+  /** Turret PID proportional gain. */
+  default double getTurretKp() {
+    return 0.0;
+  }
+
+  /** Turret PID derivative gain. */
+  default double getTurretKd() {
+    return 0.0;
+  }
+
+  /** Turret PID integral gain. */
+  default double getTurretKi() {
+    return 0.0;
+  }
+
+  /** Turret feedforward gain. */
+  default double getTurretKff() {
+    return 0.0;
+  }
+
+  // TurretBot-specific: external gear ratio (encoder to turret)
+  // Only used when absolute encoder is after motor gearbox but before external gearing
+  default double getTurretExternalGearRatio() {
+    return 1.0;
+  }
+
+  /** Whether turret motor is inverted. */
+  default boolean getTurretMotorInverted() {
+    return false;
+  }
+
+  /** Whether turret encoder is inverted. */
+  default boolean getTurretEncoderInverted() {
+    return false;
+  }
 }
