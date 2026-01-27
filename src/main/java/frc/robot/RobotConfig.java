@@ -13,7 +13,7 @@ import edu.wpi.first.math.system.plant.DCMotor;
 
 /**
  * Interface defining robot-specific configuration values. Implement this interface for each
- * physical robot (MainBot, MiniBot, etc.)
+ * physical robot (MainBot, SquareBot, etc.)
  */
 public interface RobotConfig {
 

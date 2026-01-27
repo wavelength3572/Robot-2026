@@ -46,9 +46,9 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   // Subsystems
   private final Drive drive;
-  private final Turret turret; // Only instantiated for MainBot, null for MiniBot
-  private final Vision vision; // Only instantiated for MainBot, null for MiniBot
-  private final Intake intake; // Only instantiated for MainBot, null for MiniBot
+  private final Turret turret; // Only instantiated for SquareBot, null for MainBot
+  private final Vision vision; // Only instantiated for SquareBot, null for MainBot
+  private final Intake intake; // Only instantiated for SquareBot, null for MainBot
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs
@@ -59,31 +59,26 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
-    // Instantiate turret only for MainBot (not present on MiniBot)
-    if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
-      switch (Constants.currentMode) {
-        case REAL:
-          // Real MainBot - instantiate turret hardware
-          turret = new Turret(new TurretIOTalonFX());
-          break;
+    // Instantiate turret only for SquareBot (not present on MainBot)
+    switch (Constants.currentMode) {
+      case REAL:
+        // Real MainBot - instantiate turret hardware
+        turret = new Turret(new TurretIOTalonFX());
+        break;
 
-        case SIM:
-          // Sim MainBot - instantiate turret simulation
-          turret = new Turret(new TurretIOSim());
-          break;
+      case SIM:
+        // Sim MainBot - instantiate turret simulation
+        turret = new Turret(new TurretIOSim());
+        break;
 
-        default:
-          // Replay mode - disable turret IO
-          turret = new Turret(new TurretIO() {});
-          break;
-      }
-    } else {
-      // MiniBot does not have a turret
-      turret = null;
+      default:
+        // Replay mode - disable turret IO
+        turret = new Turret(new TurretIO() {});
+        break;
     }
 
     // Instantiate intake only for MainBot (not present on MiniBot)
-    if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+    if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
       switch (Constants.currentMode) {
         case REAL:
           // Real MainBot - instantiate intake hardware
@@ -120,7 +115,7 @@ public class RobotContainer {
         // Vision only for MainBot
         // Camera order: A (FrontLeft), B (FrontRight)
         // Cameras C (BackLeft) and D (BackRight) temporarily removed
-        if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+        if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
           vision =
               new Vision(
                   drive::addVisionMeasurement,
@@ -152,7 +147,7 @@ public class RobotContainer {
         // Cameras C (BackLeft) and D (BackRight) temporarily removed
         // This order determines PhotonVision sim ports: A=1182, B=1183
         // Each camera has both current and recommended transforms for toggle comparison
-        if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+        if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
           vision =
               new Vision(
                   drive::addVisionMeasurement,
@@ -192,7 +187,7 @@ public class RobotContainer {
                 new ModuleIO() {},
                 turret);
         // Vision only for MainBot (replay mode)
-        if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+        if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
           vision =
               new Vision(
                   (pose, time, stdDevs) -> {},

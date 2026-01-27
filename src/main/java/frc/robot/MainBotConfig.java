@@ -14,14 +14,14 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 
 /**
- * Configuration for MainBot2026 - 21.25" x 21.25" chassis with NEO drive motors Based on Robot-2025
- * configuration from wavelength3572/Robot-2025
+ * Configuration for MainBot2026 - 23.5" x 31" chassis with NEO Vortex drive motors Based on
+ * MainBot-2025 configuration from wavelength3572/MainBot-2025
  */
 public class MainBotConfig implements RobotConfig {
 
   // Physical dimensions
-  private static final double trackWidth = Units.inchesToMeters(21.25);
-  private static final double wheelBase = Units.inchesToMeters(21.25);
+  private static final double trackWidth = Units.inchesToMeters(23.5);
+  private static final double wheelBase = Units.inchesToMeters(31);
   private static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
   private static final Translation2d[] moduleTranslations =
       new Translation2d[] {
@@ -31,35 +31,29 @@ public class MainBotConfig implements RobotConfig {
         new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0) // Back Right
       };
 
-  // Module zero rotations (calibrated for MainBot)
-  private static final Rotation2d frontLeftZeroRotation = new Rotation2d(1.636);
-  private static final Rotation2d frontRightZeroRotation = new Rotation2d(2.0187);
-  private static final Rotation2d backLeftZeroRotation = new Rotation2d(-2.1785);
-  private static final Rotation2d backRightZeroRotation = new Rotation2d(2.5226);
+  // Module zero rotations (needs calibration for MainBot)
+  private static final Rotation2d frontLeftZeroRotation = new Rotation2d(0.0);
+  private static final Rotation2d frontRightZeroRotation = new Rotation2d(0.0);
+  private static final Rotation2d backLeftZeroRotation = new Rotation2d(0.0);
+  private static final Rotation2d backRightZeroRotation = new Rotation2d(0.0);
 
   // CAN IDs
   private static final int pigeonCanId = 19;
-  private static final int frontLeftDriveCanId = 5;
-  private static final int backLeftDriveCanId = 8;
-  private static final int frontRightDriveCanId = 3;
-  private static final int backRightDriveCanId = 6;
-  private static final int frontLeftTurnCanId = 9;
-  private static final int backLeftTurnCanId = 4;
-  private static final int frontRightTurnCanId = 7;
-  private static final int backRightTurnCanId = 2;
-
-  // CANCoder CAN IDs
-  private static final int frontLeftCANCoderCanId = 13;
-  private static final int frontRightCANCoderCanId = 11;
-  private static final int backLeftCANCoderCanId = 12;
-  private static final int backRightCANCoderCanId = 10;
+  private static final int frontLeftDriveCanId = 11;
+  private static final int frontRightDriveCanId = 21;
+  private static final int backLeftDriveCanId = 31;
+  private static final int backRightDriveCanId = 41;
+  private static final int frontLeftTurnCanId = 12;
+  private static final int frontRightTurnCanId = 22;
+  private static final int backLeftTurnCanId = 32;
+  private static final int backRightTurnCanId = 42;
 
   // Drive motor configuration
-  private static final int driveMotorCurrentLimit = 35;
-  private static final double wheelRadiusMeters = Units.inchesToMeters(1.9695);
+  private static final int driveMotorCurrentLimit = 50;
+  private static final double wheelRadiusMeters = Units.inchesToMeters(2.0);
   private static final double driveMotorReduction =
       (50.0 / 14.0) * (17.0 / 27.0) * (45.0 / 15.0); // SDS MK4i L2
-  private static final DCMotor driveGearbox = DCMotor.getNEO(1);
+  private static final DCMotor driveGearbox = DCMotor.getNeoVortex(1);
 
   // Drive encoder configuration
   private static final double driveEncoderPositionFactor = 2 * Math.PI / driveMotorReduction;
@@ -69,8 +63,8 @@ public class MainBotConfig implements RobotConfig {
   // Drive PID configuration
   private static final double driveKp = 0.0;
   private static final double driveKd = 0.0;
-  private static final double driveKs = 0.17296;
-  private static final double driveKv = 0.13139;
+  private static final double driveKs = 0.0;
+  private static final double driveKv = 0.1;
   private static final double driveSimP = 0.05;
   private static final double driveSimD = 0.0;
   private static final double driveSimKs = 0.04307;
@@ -78,12 +72,12 @@ public class MainBotConfig implements RobotConfig {
 
   // Turn motor configuration
   private static final boolean turnInverted = true;
-  private static final int turnMotorCurrentLimit = 50;
+  private static final int turnMotorCurrentLimit = 20;
   private static final double turnMotorReduction = 150.0 / 7.0; // SDS MK4i L2
-  private static final DCMotor turnGearbox = DCMotor.getNEO(1);
+  private static final DCMotor turnGearbox = DCMotor.getNeo550(1);
 
   // Turn encoder configuration
-  private static final boolean turnEncoderInverted = false;
+  private static final boolean turnEncoderInverted = true;
   private static final double turnEncoderPositionFactor = 2 * Math.PI / turnMotorReduction;
   private static final double turnEncoderVelocityFactor = (2 * Math.PI) / 60.0 / turnMotorReduction;
 
@@ -96,9 +90,9 @@ public class MainBotConfig implements RobotConfig {
   private static final double turnPIDMaxInput = 2 * Math.PI;
 
   // PathPlanner configuration
-  private static final double robotMassKg = Units.lbsToKilograms(126.2 + 13.5); // Robot + Battery
+  private static final double robotMassKg = 74.088;
   private static final double robotMOI = 6.883;
-  private static final double wheelCOF = 1.0;
+  private static final double wheelCOF = 1.2;
 
   // Performance
   private static final double maxSpeedMetersPerSec =
@@ -206,22 +200,22 @@ public class MainBotConfig implements RobotConfig {
 
   @Override
   public int getFrontLeftCANCoderCanId() {
-    return frontLeftCANCoderCanId;
+    return 0;
   }
 
   @Override
   public int getFrontRightCANCoderCanId() {
-    return frontRightCANCoderCanId;
+    return 0;
   }
 
   @Override
   public int getBackLeftCANCoderCanId() {
-    return backLeftCANCoderCanId;
+    return 0;
   }
 
   @Override
   public int getBackRightCANCoderCanId() {
-    return backRightCANCoderCanId;
+    return 0;
   }
 
   @Override
