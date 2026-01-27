@@ -23,12 +23,13 @@ public class SquareBotConfig implements RobotConfig {
   private static final double trackWidth = Units.inchesToMeters(21.25);
   private static final double wheelBase = Units.inchesToMeters(21.25);
   private static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
+  // wheelBase = front-to-back (X axis), trackWidth = side-to-side (Y axis)
   private static final Translation2d[] moduleTranslations =
       new Translation2d[] {
-        new Translation2d(trackWidth / 2.0, wheelBase / 2.0), // Front Left
-        new Translation2d(trackWidth / 2.0, -wheelBase / 2.0), // Front Right
-        new Translation2d(-trackWidth / 2.0, wheelBase / 2.0), // Back Left
-        new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0) // Back Right
+        new Translation2d(wheelBase / 2.0, trackWidth / 2.0), // Front Left
+        new Translation2d(wheelBase / 2.0, -trackWidth / 2.0), // Front Right
+        new Translation2d(-wheelBase / 2.0, trackWidth / 2.0), // Back Left
+        new Translation2d(-wheelBase / 2.0, -trackWidth / 2.0) // Back Right
       };
 
   // Module zero rotations (calibrated for MainBot)

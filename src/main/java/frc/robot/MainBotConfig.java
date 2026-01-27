@@ -14,14 +14,16 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 
 /**
- * Configuration for MainBot2026 - 23.5" x 31" chassis with NEO Vortex drive motors Based on
- * MainBot-2025 configuration from wavelength3572/MainBot-2025
+ * Configuration for MainBot2026 - 31" wide x 23.5" deep chassis with NEO Vortex drive motors.
+ * Intake is on the 31" (wide) front edge. Based on MainBot-2025 configuration from
+ * wavelength3572/MainBot-2025
  */
 public class MainBotConfig implements RobotConfig {
 
   // Physical dimensions
-  private static final double trackWidth = Units.inchesToMeters(23.5);
-  private static final double wheelBase = Units.inchesToMeters(31);
+  // trackWidth = side-to-side (Y axis), wheelBase = front-to-back (X axis)
+  private static final double trackWidth = Units.inchesToMeters(31);
+  private static final double wheelBase = Units.inchesToMeters(23.5);
   private static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
   private static final Translation2d[] moduleTranslations =
       new Translation2d[] {
