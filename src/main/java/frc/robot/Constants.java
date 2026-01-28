@@ -132,7 +132,7 @@ public final class Constants {
 
     public static final double RIGHT_TRENCH_Y = 6.73;
 
-        /** Blue alliance speaker position. */
+    /** Blue alliance speaker position. */
     public static final double BLUE_HUB_X = 4.625594; // 182.11 = 4.625594 OLD 4.575
 
     public static final double BLUE_HUB_Y = 4.034536; // 158.84 = 4.034536 OLD 4.115
@@ -141,5 +141,4 @@ public final class Constants {
 
     public static final double RED_HUB_Y = 4.034536;
   }
-
 }
