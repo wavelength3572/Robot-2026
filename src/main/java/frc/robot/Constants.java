@@ -119,16 +119,6 @@ public final class Constants {
     /** Zone boundaries. */
     public static final double ALLIANCE_ZONE_DEPTH = 4.03;
 
-    /** Blue alliance hub position. */
-    public static final double BLUE_HUB_X = 4.575; // 4.03
-
-    public static final double BLUE_HUB_Y = 4.115;
-
-    /** Red alliance hub position. */
-    public static final double RED_HUB_X = 11.9865; // 12.51
-
-    public static final double RED_HUB_Y = 4.115;
-
     /** Hub height (scoring target height in meters). */
     public static final double HUB_HEIGHT = 1.43; // ~56.4 inches
 
@@ -141,5 +131,15 @@ public final class Constants {
     public static final double LEFT_TRENCH_Y = 1.5;
 
     public static final double RIGHT_TRENCH_Y = 6.73;
+
+        /** Blue alliance speaker position. */
+    public static final double BLUE_HUB_X = 4.625594; // 182.11 = 4.625594 OLD 4.575
+
+    public static final double BLUE_HUB_Y = 4.034536; // 158.84 = 4.034536 OLD 4.115
+    /** Red alliance speaker position. */
+    public static final double RED_HUB_X = 11.915394; // 469.11 = 11.915394 OLD 11.9865
+
+    public static final double RED_HUB_Y = 4.034536;
   }
+
 }
