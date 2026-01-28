@@ -63,13 +63,13 @@ public class Turret extends SubsystemBase {
     // to field coordinates based on the robot's heading
     double turretFieldX =
         robotX
-            + (TurretConstants.TURRET_OFFSET_X * Math.cos(robotOmegaRad)
-                - TurretConstants.TURRET_OFFSET_Y * Math.sin(robotOmegaRad));
+            + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotOmegaRad)
+                - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotOmegaRad));
 
     double turretFieldY =
         robotY
-            + (TurretConstants.TURRET_OFFSET_X * Math.sin(robotOmegaRad)
-                + TurretConstants.TURRET_OFFSET_Y * Math.cos(robotOmegaRad));
+            + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotOmegaRad)
+                + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotOmegaRad));
 
     // Calculate vector from turret position to target
     double deltaX = targetX - turretFieldX;
@@ -137,9 +137,9 @@ public class Turret extends SubsystemBase {
   @AutoLogOutput(key = "Odometry/Turret")
   public Pose3d getPose() {
     return new Pose3d(
-        0,
-        0,
-        0.127,
+        TurretConstants.TURRET_X_OFFSET,
+        TurretConstants.TURRET_Y_OFFSET,
+        TurretConstants.TURRET_HEIGHT_METERS,
         new Rotation3d(0.0, 0.0, Rotation2d.fromDegrees(getCurrentAngle()).getRadians()));
   }
 }
