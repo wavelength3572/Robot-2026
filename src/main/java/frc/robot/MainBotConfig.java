@@ -21,8 +21,7 @@ import edu.wpi.first.math.util.Units;
 public class MainBotConfig implements RobotConfig {
 
   // Physical dimensions
-  // trackWidth = side-to-side (Y axis), wheelBase = front-to-back (X axis)
-  private static final double trackWidth = Units.inchesToMeters(31);
+  private static final double trackWidth = Units.inchesToMeters(31.0);
   private static final double wheelBase = Units.inchesToMeters(23.5);
   private static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
   private static final Translation2d[] moduleTranslations =
