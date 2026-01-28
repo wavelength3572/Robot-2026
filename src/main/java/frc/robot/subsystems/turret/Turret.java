@@ -196,12 +196,39 @@ public class Turret extends SubsystemBase {
     setAngle(turretAngle);
   }
 
-  /** Calculate the turret angle needed to point at a target location on the field. */
+  /**
+   * Calculate the turret angle needed to point at a target location on the field, accounting for
+   * the turret's offset from the robot's center.
+   *
+   * @param robotX Robot center's X position on field (meters)
+   * @param robotY Robot center's Y position on field (meters)
+   * @param robotOmega Robot's heading in degrees (0-360, counter-clockwise from +X axis)
+   * @param targetX Target X position on field (meters)
+   * @param targetY Target Y position on field (meters)
+   * @return Angle in degrees the turret needs to rotate relative to robot heading Range: -180 to
+   *     +180 degrees
+   */
   private double calculateTurretAngle(
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
-    // Calculate vector from robot to target
-    double deltaX = targetX - robotX;
-    double deltaY = targetY - robotY;
+    // Convert robot heading to radians for rotation calculations
+    double robotOmegaRad = Math.toRadians(robotOmega);
+
+    // Calculate turret's actual position on the field
+    // The turret offset is in robot-relative coordinates, so we need to rotate it
+    // to field coordinates based on the robot's heading
+    double turretFieldX =
+        robotX
+            + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotOmegaRad)
+                - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotOmegaRad));
+
+    double turretFieldY =
+        robotY
+            + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotOmegaRad)
+                + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotOmegaRad));
+
+    // Calculate vector from turret position to target
+    double deltaX = targetX - turretFieldX;
+    double deltaY = targetY - turretFieldY;
 
     // Calculate absolute angle to target from field coordinates
     double absoluteAngle = Math.toDegrees(Math.atan2(deltaY, deltaX));
