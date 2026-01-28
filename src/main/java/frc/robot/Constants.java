@@ -32,13 +32,12 @@ public final class Constants {
   /** Field positions for targeting (in meters). */
   public static final class FieldPositions {
     /** Blue alliance speaker position. */
-    public static final double BLUE_HUB_X = 4.6; // TODO: Update with actual field coordinates
+    public static final double BLUE_HUB_X = 4.625594; // 182.11 = 4.625594 OLD 4.575
 
-    public static final double BLUE_HUB_Y = 4.0; // TODO: Update with actual field coordinates
-
+    public static final double BLUE_HUB_Y = 4.034536; // 158.84 = 4.034536 OLD 4.115
     /** Red alliance speaker position. */
-    public static final double RED_HUB_X = 4.6; // TODO: Update with actual field coordinates
+    public static final double RED_HUB_X = 11.915394; // 469.11 = 11.915394 OLD 11.9865
 
-    public static final double RED_HUB_Y = 4.0; // TODO: Update with actual field coordinates
+    public static final double RED_HUB_Y = 4.034536;
   }
 }
