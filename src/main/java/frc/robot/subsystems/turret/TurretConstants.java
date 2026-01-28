@@ -12,9 +12,9 @@ public final class TurretConstants {
   // Turret offset from robot center (in robot-relative coordinates)
   // Positive X = forward from robot center
   // Positive Y = left from robot center
-  public static final double TURRET_X_OFFSET = 0.0; // meters
-  public static final double TURRET_Y_OFFSET = 0.0; // meters
-  public static final double TURRET_HEIGHT_METERS = 0.0; // Meters
+  public static final double TURRET_X_OFFSET = -0.1819604184; // meters
+  public static final double TURRET_Y_OFFSET = -0.085211539; // meters
+  public static final double TURRET_HEIGHT_METERS = 0.3597275; // Meters
 
   // PID Constants (tune these for your robot)
   public static final double kP = 15.0;
