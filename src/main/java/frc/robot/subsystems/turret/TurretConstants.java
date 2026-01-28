@@ -9,6 +9,12 @@ public final class TurretConstants {
   public static final double MIN_ANGLE_DEGREES = -180.0; // Minimum turret angle
   public static final double MAX_ANGLE_DEGREES = 180.0; // Maximum turret angle
 
+  // Turret offset from robot center (in robot-relative coordinates)
+  // Positive X = forward from robot center
+  // Positive Y = left from robot center
+  public static final double TURRET_OFFSET_X = 0.0; // meters
+  public static final double TURRET_OFFSET_Y = 0.0; // meters
+
   // PID Constants (tune these for your robot)
   public static final double kP = 15.0;
   public static final double kD = 0.0;
