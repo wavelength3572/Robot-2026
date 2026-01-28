@@ -25,7 +25,7 @@ public class TurretIOSim implements TurretIO {
             turretGearBox);
 
     // Enable wrapping for turn PID
-    turretController.enableContinuousInput(-Math.PI, Math.PI);
+    turretController.enableContinuousInput(-Math.PI - 0.349066, Math.PI + 0.349066);
   }
 
   @Override
