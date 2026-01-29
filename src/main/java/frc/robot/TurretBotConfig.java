@@ -85,22 +85,28 @@ public class TurretBotConfig implements RobotConfig {
   private static final double turretHeightMeters = 0.4826; // 19 inches
 
   // Gear ratios:
-  // - NEO 550 internal gearbox: 7:1
+  // - NEO 550 internal gearbox: 10:1
   // - External gearing from encoder to turret: 66:12 (~5.5:1)
-  // - Total ratio: 38.5:1 (motor rotations per turret rotation)
-  // The absolute encoder sits AFTER the 7:1 gearbox but BEFORE the 66:12 external gearing
-  private static final double turretGearRatio = 38.5; // Total motor rotations per turret rotation
+  // - Total ratio: 55:1 (motor rotations per turret rotation)
+  // The absolute encoder sits AFTER the 10:1 gearbox but BEFORE the 66:12 external gearing
+  private static final double turretGearRatio = 55.0; // Total motor rotations per turret rotation
   private static final double turretExternalGearRatio = 66.0 / 12.0; // ~5.5 (encoder to turret)
 
-  // Travel limits: ±170° = 340° total travel
-  private static final double turretMaxAngleDegrees = 170.0;
-  private static final double turretMinAngleDegrees = -170.0;
+  // Travel limits: ±200° = 400° total travel
+  private static final double turretMaxAngleDegrees = 200.0;
+  private static final double turretMinAngleDegrees = -200.0;
 
   // NEO 550-specific settings
   private static final int turretCurrentLimitAmps = 20; // NEO 550 is smaller than NEO/Falcon
-  private static final double turretKp = 0.1; // Conservative PID for NEO 550
+  private static final double turretKp =
+      0.0065; // PID operates in motor rotations (scaled from 0.001 in degrees)
   private static final double turretKi = 0.0;
-  private static final double turretKd = 0.01;
+  private static final double turretKd = 0.0;
+
+  // Absolute encoder zero offset (raw rotations 0.0-1.0)
+  // To calibrate: position turret at physical 0°, read the "AbsRaw" value from startup diagnostics,
+  // and set this to that value.
+  private static final double turretAbsoluteEncoderOffset = 0.25;
 
   // PathPlanner RobotConfig (placeholder - no autonomous driving)
   private final com.pathplanner.lib.config.RobotConfig ppConfig =
@@ -442,5 +448,10 @@ public class TurretBotConfig implements RobotConfig {
   @Override
   public double getTurretExternalGearRatio() {
     return turretExternalGearRatio;
+  }
+
+  @Override
+  public double getTurretAbsoluteEncoderOffset() {
+    return turretAbsoluteEncoderOffset;
   }
 }

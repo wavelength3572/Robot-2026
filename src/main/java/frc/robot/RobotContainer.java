@@ -48,9 +48,9 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   // Subsystems
   private final Drive drive;
-  private final Turret turret; // Only instantiated for SquareBot, null for RectangleBot
-  private final Vision vision; // Only instantiated for SquareBot, null for RectangleBot
-  private final Intake intake; // Only instantiated for SquareBot, null for RectangleBot
+  private final Turret turret; // Only instantiated for SquareBot, null for MainBot
+  private final Vision vision; // Only instantiated for SquareBot, null for MainBot
+  private final Intake intake; // Only instantiated for SquareBot, null for MainBot
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs
@@ -61,47 +61,29 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
-    // Instantiate turret for SquareBot and TurretBot (not present on RectangleBot)
-    if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
-      switch (Constants.currentMode) {
-        case REAL:
-          // Real SquareBot - instantiate turret hardware (TalonFX)
-          turret = new Turret(new TurretIOTalonFX());
-          break;
-
-        case SIM:
-          // Sim SquareBot - instantiate turret simulation
-          turret = new Turret(new TurretIOSim());
-          break;
-
-        default:
-          // Replay mode - disable turret IO
-          turret = new Turret(new TurretIO() {});
-          break;
-      }
-    } else if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
-      switch (Constants.currentMode) {
-        case REAL:
-          // Real TurretBot - instantiate turret hardware (SparkMax + NEO 550)
+    // Instantiate turret subsystem
+    switch (Constants.currentMode) {
+      case REAL:
+        if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
+          // TurretBot uses SparkMax + NEO 550
           turret = new Turret(new TurretIOSparkMax());
-          break;
+        } else {
+          // SquareBot and MainBot use TalonFX
+          turret = new Turret(new TurretIOTalonFX());
+        }
+        break;
 
-        case SIM:
-          // Sim TurretBot - instantiate turret simulation
-          turret = new Turret(new TurretIOSim());
-          break;
+      case SIM:
+        turret = new Turret(new TurretIOSim());
+        break;
 
-        default:
-          // Replay mode - disable turret IO
-          turret = new Turret(new TurretIO() {});
-          break;
-      }
-    } else {
-      // RectangleBot does not have a turret
-      turret = null;
+      default:
+        // Replay mode - disable turret IO
+        turret = new Turret(new TurretIO() {});
+        break;
     }
 
-    // Instantiate intake only for SquareBot (not present on RectangleBot or TurretBot)
+    // Instantiate intake only for MainBot (not present on MiniBot)
     if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
       switch (Constants.currentMode) {
         case REAL:
@@ -129,9 +111,7 @@ public class RobotContainer {
       case REAL:
         // Real robot, instantiate hardware IO implementations
         if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
-          // TurretBot: Virtual gyro + virtual modules for full joystick-driven pose updates
-          // This allows testing turret auto-aiming while "driving" via joystick
-          // Using empty GyroIO so rotation comes from kinematics, not the physical Pigeon
+          // TurretBot: Virtual drive modules (no physical drivetrain)
           drive =
               new Drive(
                   new GyroIO() {},
@@ -140,9 +120,9 @@ public class RobotContainer {
                   new ModuleIOVirtual(),
                   new ModuleIOVirtual(),
                   turret);
-          vision = null; // TurretBot has no vision
+          vision = null;
         } else {
-          // SquareBot and RectangleBot: Full swerve drive
+          // SquareBot and MainBot: Full swerve drive
           drive =
               new Drive(
                   new GyroIOPigeon2(),
@@ -176,7 +156,6 @@ public class RobotContainer {
         // Sim robot, instantiate physics sim IO implementations
         if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
           // TurretBot sim: Virtual modules for joystick-driven pose updates
-          // This allows testing turret auto-aiming while "driving" via joystick
           drive =
               new Drive(
                   new GyroIO() {},
@@ -185,9 +164,8 @@ public class RobotContainer {
                   new ModuleIOVirtual(),
                   new ModuleIOVirtual(),
                   turret);
-          vision = null; // TurretBot has no vision
+          vision = null;
         } else {
-          // SquareBot and RectangleBot: Full swerve drive simulation
           drive =
               new Drive(
                   new GyroIO() {},
@@ -241,7 +219,7 @@ public class RobotContainer {
                 new ModuleIO() {},
                 new ModuleIO() {},
                 turret);
-        // Vision only for SquareBot (replay mode), not for TurretBot or RectangleBot
+        // Vision only for MainBot (replay mode)
         if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
           vision =
               new Vision(

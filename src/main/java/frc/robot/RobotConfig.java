@@ -13,7 +13,7 @@ import edu.wpi.first.math.system.plant.DCMotor;
 
 /**
  * Interface defining robot-specific configuration values. Implement this interface for each
- * physical robot (SquareBot, RectangleBot, etc.)
+ * physical robot (MainBot, SquareBot, etc.)
  */
 public interface RobotConfig {
 
@@ -209,5 +209,10 @@ public interface RobotConfig {
   /** Whether turret encoder is inverted. */
   default boolean getTurretEncoderInverted() {
     return false;
+  }
+
+  /** Absolute encoder zero offset in raw rotations (0.0 to 1.0) for turret calibration. */
+  default double getTurretAbsoluteEncoderOffset() {
+    return 0.0;
   }
 }

@@ -14,24 +14,25 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 
 /**
- * Configuration for RectangleBot2026 - 14" x 14" chassis with NEO Vortex drive motors Based on
- * RectangleBot-2025 configuration from wavelength3572/RectangleBot-2025
+ * Configuration for MainBot2026 - 31" wide x 23.5" deep chassis with NEO Vortex drive motors.
+ * Intake is on the 31" (wide) front edge. Based on MainBot-2025 configuration from
+ * wavelength3572/MainBot-2025
  */
-public class RectangleBotConfig implements RobotConfig {
+public class MainBotConfig implements RobotConfig {
 
   // Physical dimensions
-  private static final double trackWidth = Units.inchesToMeters(14);
-  private static final double wheelBase = Units.inchesToMeters(14);
+  private static final double trackWidth = Units.inchesToMeters(31.0);
+  private static final double wheelBase = Units.inchesToMeters(23.5);
   private static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
   private static final Translation2d[] moduleTranslations =
       new Translation2d[] {
-        new Translation2d(trackWidth / 2.0, wheelBase / 2.0), // Front Left
-        new Translation2d(trackWidth / 2.0, -wheelBase / 2.0), // Front Right
-        new Translation2d(-trackWidth / 2.0, wheelBase / 2.0), // Back Left
-        new Translation2d(-trackWidth / 2.0, -wheelBase / 2.0) // Back Right
+        new Translation2d(wheelBase / 2.0, trackWidth / 2.0), // Front Left
+        new Translation2d(wheelBase / 2.0, -trackWidth / 2.0), // Front Right
+        new Translation2d(-wheelBase / 2.0, trackWidth / 2.0), // Back Left
+        new Translation2d(-wheelBase / 2.0, -trackWidth / 2.0) // Back Right
       };
 
-  // Module zero rotations (needs calibration for RectangleBot)
+  // Module zero rotations (needs calibration for MainBot)
   private static final Rotation2d frontLeftZeroRotation = new Rotation2d(0.0);
   private static final Rotation2d frontRightZeroRotation = new Rotation2d(0.0);
   private static final Rotation2d backLeftZeroRotation = new Rotation2d(0.0);
@@ -93,6 +94,16 @@ public class RectangleBotConfig implements RobotConfig {
   private static final double robotMassKg = 74.088;
   private static final double robotMOI = 6.883;
   private static final double wheelCOF = 1.2;
+
+  // Turret configuration
+  private static final int turretMotorCanId = 50;
+  private static final double turretGearRatio = 1.0;
+  private static final double turretHeightMeters = 0.3597275;
+  private static final double turretMaxAngleDegrees = 200.0;
+  private static final double turretMinAngleDegrees = -200.0;
+  private static final int turretCurrentLimitAmps = 40;
+  private static final double turretKp = 5.0;
+  private static final double turretKd = 0.1;
 
   // Performance
   private static final double maxSpeedMetersPerSec =
@@ -200,22 +211,22 @@ public class RectangleBotConfig implements RobotConfig {
 
   @Override
   public int getFrontLeftCANCoderCanId() {
-    return 0; // RectangleBot doesn't use CANCoders
+    return 0;
   }
 
   @Override
   public int getFrontRightCANCoderCanId() {
-    return 0; // RectangleBot doesn't use CANCoders
+    return 0;
   }
 
   @Override
   public int getBackLeftCANCoderCanId() {
-    return 0; // RectangleBot doesn't use CANCoders
+    return 0;
   }
 
   @Override
   public int getBackRightCANCoderCanId() {
-    return 0; // RectangleBot doesn't use CANCoders
+    return 0;
   }
 
   @Override
@@ -381,5 +392,45 @@ public class RectangleBotConfig implements RobotConfig {
   @Override
   public double getOdometryFrequency() {
     return odometryFrequency;
+  }
+
+  @Override
+  public int getTurretMotorCanId() {
+    return turretMotorCanId;
+  }
+
+  @Override
+  public double getTurretGearRatio() {
+    return turretGearRatio;
+  }
+
+  @Override
+  public double getTurretHeightMeters() {
+    return turretHeightMeters;
+  }
+
+  @Override
+  public double getTurretMaxAngleDegrees() {
+    return turretMaxAngleDegrees;
+  }
+
+  @Override
+  public double getTurretMinAngleDegrees() {
+    return turretMinAngleDegrees;
+  }
+
+  @Override
+  public int getTurretCurrentLimitAmps() {
+    return turretCurrentLimitAmps;
+  }
+
+  @Override
+  public double getTurretKp() {
+    return turretKp;
+  }
+
+  @Override
+  public double getTurretKd() {
+    return turretKd;
   }
 }

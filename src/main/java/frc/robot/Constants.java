@@ -24,7 +24,7 @@ public final class Constants {
    * Robot type for simulation mode. Change this to test different configurations. On real hardware,
    * this is ignored and auto-detection is used.
    */
-  public static final RobotType simRobotType = RobotType.SQUAREBOT;
+  public static final RobotType simRobotType = RobotType.MAINBOT;
 
   /**
    * The detected or configured robot type. Set FORCE_ROBOT_TYPE to override auto-detection. Set to
@@ -52,15 +52,10 @@ public final class Constants {
    * Detects the robot type based on connected CAN hardware. In simulation mode, uses the configured
    * simRobotType instead.
    *
-   * <p>Detection strategy:
-   *
-   * <ul>
-   *   <li>TurretBot uses turret motor on CAN ID 60
-   *   <li>SquareBot uses drive motors on CAN IDs 3, 5, 6, 8
-   *   <li>RectangleBot uses drive motors on CAN IDs 11, 21, 31, 41
-   * </ul>
-   *
-   * We check CAN ID 60 first (TurretBot), then CAN ID 5 (SquareBot), then default to RectangleBot.
+   * <p>Detection strategy: Probe SparkMax drive motor CAN IDs unique to each robot. SquareBot uses
+   * drive CAN IDs 3, 5. MainBot uses drive CAN IDs 11, 21. TurretBot has no drive motors but has a
+   * turret SparkMax at CAN ID 60. If at least 2 drive IDs respond for a robot, that's the match.
+   * Otherwise check for TurretBot, and fall back to MAINBOT.
    */
   private static RobotType detectRobotType() {
     // In simulation, use the configured type
@@ -72,76 +67,63 @@ public final class Constants {
 
     System.out.println("[RobotConfig] Starting robot type detection...");
 
-    // On real hardware, auto-detect based on CAN devices
-    // Check for TurretBot first (CAN ID 60)
     try {
-      System.out.println("[RobotConfig] Checking for TurretBot (CAN ID 60)...");
-      SparkMax turretMotor = new SparkMax(60, MotorType.kBrushless);
-
-      // Give CAN bus time to respond
+      // Give CAN bus time to settle
       try {
-        Thread.sleep(100);
+        Thread.sleep(200);
       } catch (InterruptedException e) {
         // Ignore
       }
 
-      int turretFirmware = turretMotor.getFirmwareVersion();
-      System.out.println("[RobotConfig] CAN ID 60 firmware version: " + turretFirmware);
-      turretMotor.close();
+      // Check for SquareBot drive motors (CAN IDs 3, 5)
+      int squareBotCount = 0;
+      if (isSparkMaxPresent(3)) squareBotCount++;
+      if (isSparkMaxPresent(5)) squareBotCount++;
+      System.out.println("[RobotConfig] SquareBot drive motors found: " + squareBotCount + "/2");
 
-      if (turretFirmware != 0) {
-        System.out.println(
-            "[RobotConfig] *** DETECTED TURRETBOT *** (CAN ID 60 responded with firmware "
-                + turretFirmware
-                + ")");
-        return RobotType.TURRETBOT;
-      } else {
-        System.out.println("[RobotConfig] CAN ID 60 returned firmware 0 - not TurretBot");
-      }
-    } catch (Exception e) {
-      // TurretBot detection failed, continue to SquareBot check
-      System.out.println(
-          "[RobotConfig] TurretBot detection exception: "
-              + e.getClass().getSimpleName()
-              + " - "
-              + e.getMessage());
-    }
-
-    // Check for SquareBot (CAN ID 5)
-    try {
-      System.out.println("[RobotConfig] Checking for SquareBot (CAN ID 5)...");
-      SparkMax testMotor = new SparkMax(5, MotorType.kBrushless);
-
-      // Give CAN bus time to respond
-      try {
-        Thread.sleep(100);
-      } catch (InterruptedException e) {
-        // Ignore
-      }
-
-      int firmwareVersion = testMotor.getFirmwareVersion();
-      System.out.println("[RobotConfig] CAN ID 5 firmware version: " + firmwareVersion);
-      testMotor.close();
-
-      if (firmwareVersion != 0) {
-        System.out.println(
-            "[RobotConfig] *** DETECTED SQUAREBOT *** (CAN ID 5 responded with firmware "
-                + firmwareVersion
-                + ")");
+      if (squareBotCount >= 2) {
+        System.out.println("[RobotConfig] *** DETECTED SQUAREBOT ***");
         return RobotType.SQUAREBOT;
-      } else {
-        System.out.println("[RobotConfig] *** DETECTED RECTANGLEBOT *** (CAN ID 5 not responding)");
-        return RobotType.RECTANGLEBOT;
       }
+
+      // Check for MainBot drive motors (CAN IDs 11, 21)
+      int mainBotCount = 0;
+      if (isSparkMaxPresent(11)) mainBotCount++;
+      if (isSparkMaxPresent(21)) mainBotCount++;
+      System.out.println("[RobotConfig] MainBot drive motors found: " + mainBotCount + "/2");
+
+      if (mainBotCount >= 2) {
+        System.out.println("[RobotConfig] *** DETECTED MAINBOT ***");
+        return RobotType.MAINBOT;
+      }
+
+      // Check for TurretBot turret motor (CAN ID 60)
+      if (isSparkMaxPresent(60)) {
+        System.out.println("[RobotConfig] *** DETECTED TURRETBOT *** (CAN ID 60 responded)");
+        return RobotType.TURRETBOT;
+      }
+
+      // Nothing matched, default to MAINBOT
+      System.out.println("[RobotConfig] No robot detected, defaulting to MAINBOT");
+      return RobotType.MAINBOT;
     } catch (Exception e) {
-      // If any error occurs during detection, default to RectangleBot (safest option)
       System.out.println(
-          "[RobotConfig] SquareBot detection exception: "
-              + e.getClass().getSimpleName()
-              + " - "
-              + e.getMessage());
-      System.out.println("[RobotConfig] *** DEFAULTING TO RECTANGLEBOT ***");
-      return RobotType.RECTANGLEBOT;
+          "[RobotConfig] Error during detection, defaulting to MAINBOT: " + e.getMessage());
+      return RobotType.MAINBOT;
+    }
+  }
+
+  /** Probe a SparkMax at the given CAN ID. Returns true if a motor responds with valid firmware. */
+  private static boolean isSparkMaxPresent(int canId) {
+    try {
+      SparkMax motor = new SparkMax(canId, MotorType.kBrushless);
+      int firmware = motor.getFirmwareVersion();
+      motor.close();
+      System.out.println("[RobotConfig] CAN ID " + canId + " firmware: " + firmware);
+      return firmware != 0;
+    } catch (Exception e) {
+      System.out.println("[RobotConfig] CAN ID " + canId + " error: " + e.getMessage());
+      return false;
     }
   }
 
@@ -151,8 +133,8 @@ public final class Constants {
         case SQUAREBOT:
           robotConfig = new SquareBotConfig();
           break;
-        case RECTANGLEBOT:
-          robotConfig = new RectangleBotConfig();
+        case MAINBOT:
+          robotConfig = new MainBotConfig();
           break;
         case TURRETBOT:
           robotConfig = new TurretBotConfig();
@@ -177,10 +159,10 @@ public final class Constants {
     /** SquareBot2026 - 21.25" chassis with NEO drive motors */
     SQUAREBOT,
 
-    /** RectangleBot2026 - 14" chassis with NEO Vortex drive motors */
-    RECTANGLEBOT,
+    /** MainBot2026 - 23.5" x 31" chassis with NEO Vortex drive motors */
+    MAINBOT,
 
-    /** TurretBot - Minimal test rig with only turret + basic electronics (no drive base) */
+    /** TurretBot - turret-only test platform with no drivetrain */
     TURRETBOT
   }
 
@@ -194,16 +176,6 @@ public final class Constants {
     /** Zone boundaries. */
     public static final double ALLIANCE_ZONE_DEPTH = 4.03;
 
-    /** Blue alliance hub position. */
-    public static final double BLUE_HUB_X = 4.575; // 4.03
-
-    public static final double BLUE_HUB_Y = 4.115;
-
-    /** Red alliance hub position. */
-    public static final double RED_HUB_X = 11.9865; // 12.51
-
-    public static final double RED_HUB_Y = 4.115;
-
     /** Hub height (scoring target height in meters). */
     public static final double HUB_HEIGHT = 1.43; // ~56.4 inches
 
@@ -216,5 +188,14 @@ public final class Constants {
     public static final double LEFT_TRENCH_Y = 1.5;
 
     public static final double RIGHT_TRENCH_Y = 6.73;
+
+    /** Blue alliance speaker position. */
+    public static final double BLUE_HUB_X = 4.625594; // 182.11 = 4.625594 OLD 4.575
+
+    public static final double BLUE_HUB_Y = 4.034536; // 158.84 = 4.034536 OLD 4.115
+    /** Red alliance speaker position. */
+    public static final double RED_HUB_X = 11.915394; // 469.11 = 11.915394 OLD 11.9865
+
+    public static final double RED_HUB_Y = 4.034536;
   }
 }

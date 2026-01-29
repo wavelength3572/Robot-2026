@@ -15,7 +15,7 @@ import frc.robot.Constants;
 
 /**
  * DriveConstants provides a unified interface to robot-specific drive configuration. All values are
- * retrieved from the currently selected RobotConfig (SquareBot or RectangleBot).
+ * retrieved from the currently selected RobotConfig
  */
 public class DriveConstants {
   private static final frc.robot.RobotConfig config = Constants.getRobotConfig();
