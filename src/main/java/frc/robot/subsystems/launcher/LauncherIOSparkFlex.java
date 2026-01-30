@@ -48,8 +48,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
   private final LoggedTunableNumber kP;
   private final LoggedTunableNumber kI;
   private final LoggedTunableNumber kD;
+  private final LoggedTunableNumber kFF; // Simple velocity feedforward (output = kFF * velocity)
 
-  // Tunable feedforward gains (from SysId characterization)
+  // Tunable feedforward gains (from SysId characterization - for future use)
   // kS = static friction voltage, kV = velocity voltage (V/(rad/s)), kA = acceleration voltage
   private final LoggedTunableNumber kS;
   private final LoggedTunableNumber kV;
@@ -68,7 +69,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
   private double currentTargetWheelRPM = 0.0;
 
   // Constants
-  private static final double MAX_VELOCITY_RPM = 6000.0; // Max wheel RPM
+  private static final double MAX_VELOCITY_RPM = 3500.0; // Max wheel RPM (safety limit)
   private static final double VELOCITY_TOLERANCE_RPM = 50.0; // At-setpoint tolerance
 
   public LauncherIOSparkFlex() {
@@ -78,15 +79,17 @@ public class LauncherIOSparkFlex implements LauncherIO {
     gearRatio = config.getLauncherGearRatio();
 
     // Initialize tunable PID gains from config
+    // Note: kFF is set to 0 because we use SysId feedforward (kS, kV, kA) instead
     kP = new LoggedTunableNumber("Launcher/kP", config.getLauncherKp());
     kI = new LoggedTunableNumber("Launcher/kI", config.getLauncherKi());
     kD = new LoggedTunableNumber("Launcher/kD", config.getLauncherKd());
+    kFF = new LoggedTunableNumber("Launcher/kFF", 0.0);
 
-    // Initialize tunable feedforward gains (default to 0, set after SysId characterization)
+    // SysId feedforward gains (from characterization)
     // Units: kS = volts, kV = volts per (rad/s), kA = volts per (rad/s^2)
-    kS = new LoggedTunableNumber("Launcher/kS", 0.0);
-    kV = new LoggedTunableNumber("Launcher/kV", 0.0);
-    kA = new LoggedTunableNumber("Launcher/kA", 0.0);
+    kS = new LoggedTunableNumber("Launcher/kS", 0.84);
+    kV = new LoggedTunableNumber("Launcher/kV", 0.0118);
+    kA = new LoggedTunableNumber("Launcher/kA", 0.003);
 
     // Create feedforward controller
     feedforward = new SimpleMotorFeedforward(kS.get(), kV.get(), kA.get());
@@ -110,11 +113,11 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
     // PID control using motor's relative encoder (units: motor RPM)
     // No conversion factors - all conversions done in software
-    // Note: kFF is set to 0 here because we use SimpleMotorFeedforward with arbFF instead
+    // kFF provides simple velocity feedforward (output = kFF * velocity setpoint)
     leaderConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pidf(kP.get(), kI.get(), kD.get(), 0.0);
+        .pidf(kP.get(), kI.get(), kD.get(), kFF.get());
 
     // Signal update rates
     leaderConfig
@@ -133,11 +136,10 @@ public class LauncherIOSparkFlex implements LauncherIO {
                 leaderConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
 
     // Configure follower motor
-    // Leader is inverted(true), follower is inverted(false) due to opposite physical orientation
-    // Follower inverts leader's output to match directions
+    // In hardware follower mode, only the follow() inversion parameter matters
+    // follow(leader, true) means follower inverts leader's output
     var followerConfig = new SparkFlexConfig();
     followerConfig
-        .inverted(false)
         .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(config.getLauncherCurrentLimitAmps())
         .voltageCompensation(12.0)
@@ -184,10 +186,10 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
   @Override
   public void updateInputs(LauncherIOInputs inputs) {
-    // Check for tunable PID changes and apply
-    if (LoggedTunableNumber.hasChanged(kP, kI, kD)) {
+    // Check for tunable PID/FF changes and apply
+    if (LoggedTunableNumber.hasChanged(kP, kI, kD, kFF)) {
       var pidConfig = new SparkFlexConfig();
-      pidConfig.closedLoop.pidf(kP.get(), kI.get(), kD.get(), 0.0);
+      pidConfig.closedLoop.pidf(kP.get(), kI.get(), kD.get(), kFF.get());
       leaderMotor.configure(
           pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
     }
@@ -244,21 +246,32 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Convert wheel RPM to motor RPM for the controller
     double motorRPM = wheelToMotorRPM(currentTargetWheelRPM);
 
-    // Convert motor RPM to rad/s for feedforward calculation
+    // If SysId feedforward gains are configured, use them as additional arbFF
+    // Otherwise the built-in kFF handles feedforward
     double motorRadPerSec = Units.rotationsPerMinuteToRadiansPerSecond(motorRPM);
-
-    // Calculate feedforward voltage using characterized kS, kV, kA
-    double ffVolts = feedforward.calculate(motorRadPerSec);
+    double arbFFVolts = feedforward.calculate(motorRadPerSec);
 
     // Command leader with PID + feedforward - follower follows automatically in hardware
     leaderController.setReference(
-        motorRPM, ControlType.kVelocity, ClosedLoopSlot.kSlot0, ffVolts, ArbFFUnits.kVoltage);
+        motorRPM, ControlType.kVelocity, ClosedLoopSlot.kSlot0, arbFFVolts, ArbFFUnits.kVoltage);
   }
 
   @Override
   public void setVoltage(double volts) {
     // Clear velocity target when in voltage mode (for SysId characterization)
     currentTargetWheelRPM = 0.0;
+
+    // Safety: limit voltage when approaching max velocity to prevent overspeed during SysId
+    double currentWheelRPM = motorToWheelRPM(Math.abs(leaderEncoder.getVelocity()));
+    if (currentWheelRPM >= MAX_VELOCITY_RPM * 0.95) {
+      // At or above 95% of max - cut voltage to prevent overspeed
+      volts = 0.0;
+    } else if (currentWheelRPM >= MAX_VELOCITY_RPM * 0.85) {
+      // Between 85-95% of max - scale down voltage proportionally
+      double scale = (MAX_VELOCITY_RPM * 0.95 - currentWheelRPM) / (MAX_VELOCITY_RPM * 0.1);
+      volts = volts * scale;
+    }
+
     // Command leader directly - follower follows automatically via hardware follower mode
     leaderMotor.setVoltage(volts);
   }

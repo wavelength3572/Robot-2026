@@ -2,6 +2,7 @@ package frc.robot.subsystems.launcher;
 
 import static edu.wpi.first.units.Units.*;
 
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
@@ -29,17 +30,25 @@ public class Launcher extends SubsystemBase {
     this.io = io;
 
     // Configure SysId routine for flywheel characterization
-    // Using Volts.per(Second) for ramp rate (0.5 V/s) and Volts for step voltage (6V)
+    // Using Volts.per(Second) for ramp rate (0.5 V/s) and Volts for step voltage (4V)
+    // Step voltage kept moderate to respect 3000 RPM max velocity limit
     sysId =
         new SysIdRoutine(
             new SysIdRoutine.Config(
                 Volts.per(Second).of(0.5), // Ramp rate: 0.5 V/s for quasistatic
-                Volts.of(6), // Step voltage: 6V for dynamic
+                Volts.of(4), // Step voltage: 4V for dynamic (limited for safety)
                 Seconds.of(10), // Timeout: 10 seconds
                 (state) -> Logger.recordOutput("Launcher/SysIdState", state.toString())),
             new SysIdRoutine.Mechanism(
                 (voltage) -> io.setVoltage(voltage.in(Volts)),
-                null, // No log consumer - AdvantageKit handles logging
+                (log) -> {
+                  // Log data for SysId tool analysis
+                  log.motor("launcher")
+                      .voltage(Volts.of(inputs.leaderAppliedVolts))
+                      .angularVelocity(
+                          RadiansPerSecond.of(
+                              Units.rotationsPerMinuteToRadiansPerSecond(inputs.wheelVelocityRPM)));
+                },
                 this));
   }
 

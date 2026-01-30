@@ -82,6 +82,17 @@ public class LauncherIOSim implements LauncherIO {
   public void setVoltage(double volts) {
     voltageMode = true; // Enter voltage mode for SysId
     targetWheelRPM = 0.0; // Clear velocity target
+
+    // Safety: limit voltage when approaching max velocity to prevent overspeed during SysId
+    double currentWheelRPM = Math.abs(sim.getAngularVelocityRPM());
+    double maxVelocityRPM = 3500.0; // Must match LauncherIOSparkFlex
+    if (currentWheelRPM >= maxVelocityRPM * 0.95) {
+      volts = 0.0;
+    } else if (currentWheelRPM >= maxVelocityRPM * 0.85) {
+      double scale = (maxVelocityRPM * 0.95 - currentWheelRPM) / (maxVelocityRPM * 0.1);
+      volts = volts * scale;
+    }
+
     appliedVolts = volts;
     sim.setInputVoltage(volts);
   }
