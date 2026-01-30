@@ -9,11 +9,14 @@ import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
 import com.revrobotics.spark.SparkClosedLoopController;
+import com.revrobotics.spark.SparkClosedLoopController.ArbFFUnits;
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkFlexConfig;
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.math.util.Units;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
@@ -45,7 +48,15 @@ public class LauncherIOSparkFlex implements LauncherIO {
   private final LoggedTunableNumber kP;
   private final LoggedTunableNumber kI;
   private final LoggedTunableNumber kD;
-  private final LoggedTunableNumber kFF;
+
+  // Tunable feedforward gains (from SysId characterization)
+  // kS = static friction voltage, kV = velocity voltage (V/(rad/s)), kA = acceleration voltage
+  private final LoggedTunableNumber kS;
+  private final LoggedTunableNumber kV;
+  private final LoggedTunableNumber kA;
+
+  // Feedforward controller (rebuilt when gains change)
+  private SimpleMotorFeedforward feedforward;
 
   // Connection debouncers
   private final Debouncer leaderConnectedDebounce =
@@ -66,11 +77,19 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Store gear ratio from config
     gearRatio = config.getLauncherGearRatio();
 
-    // Initialize tunable numbers from config
+    // Initialize tunable PID gains from config
     kP = new LoggedTunableNumber("Launcher/kP", config.getLauncherKp());
     kI = new LoggedTunableNumber("Launcher/kI", config.getLauncherKi());
     kD = new LoggedTunableNumber("Launcher/kD", config.getLauncherKd());
-    kFF = new LoggedTunableNumber("Launcher/kFF", config.getLauncherKff());
+
+    // Initialize tunable feedforward gains (default to 0, set after SysId characterization)
+    // Units: kS = volts, kV = volts per (rad/s), kA = volts per (rad/s^2)
+    kS = new LoggedTunableNumber("Launcher/kS", 0.0);
+    kV = new LoggedTunableNumber("Launcher/kV", 0.0);
+    kA = new LoggedTunableNumber("Launcher/kA", 0.0);
+
+    // Create feedforward controller
+    feedforward = new SimpleMotorFeedforward(kS.get(), kV.get(), kA.get());
 
     // Create SparkFlex controllers
     leaderMotor = new SparkFlex(config.getLauncherLeaderCanId(), MotorType.kBrushless);
@@ -91,10 +110,11 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
     // PID control using motor's relative encoder (units: motor RPM)
     // No conversion factors - all conversions done in software
+    // Note: kFF is set to 0 here because we use SimpleMotorFeedforward with arbFF instead
     leaderConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pidf(kP.get(), kI.get(), kD.get(), kFF.get());
+        .pidf(kP.get(), kI.get(), kD.get(), 0.0);
 
     // Signal update rates
     leaderConfig
@@ -165,11 +185,16 @@ public class LauncherIOSparkFlex implements LauncherIO {
   @Override
   public void updateInputs(LauncherIOInputs inputs) {
     // Check for tunable PID changes and apply
-    if (LoggedTunableNumber.hasChanged(kP, kI, kD, kFF)) {
+    if (LoggedTunableNumber.hasChanged(kP, kI, kD)) {
       var pidConfig = new SparkFlexConfig();
-      pidConfig.closedLoop.pidf(kP.get(), kI.get(), kD.get(), kFF.get());
+      pidConfig.closedLoop.pidf(kP.get(), kI.get(), kD.get(), 0.0);
       leaderMotor.configure(
           pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+    }
+
+    // Check for tunable feedforward changes and rebuild
+    if (LoggedTunableNumber.hasChanged(kS, kV, kA)) {
+      feedforward = new SimpleMotorFeedforward(kS.get(), kV.get(), kA.get());
     }
 
     // Update leader motor inputs
@@ -219,8 +244,23 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Convert wheel RPM to motor RPM for the controller
     double motorRPM = wheelToMotorRPM(currentTargetWheelRPM);
 
-    // Command leader only - follower follows automatically in hardware
-    leaderController.setReference(motorRPM, ControlType.kVelocity, ClosedLoopSlot.kSlot0);
+    // Convert motor RPM to rad/s for feedforward calculation
+    double motorRadPerSec = Units.rotationsPerMinuteToRadiansPerSecond(motorRPM);
+
+    // Calculate feedforward voltage using characterized kS, kV, kA
+    double ffVolts = feedforward.calculate(motorRadPerSec);
+
+    // Command leader with PID + feedforward - follower follows automatically in hardware
+    leaderController.setReference(
+        motorRPM, ControlType.kVelocity, ClosedLoopSlot.kSlot0, ffVolts, ArbFFUnits.kVoltage);
+  }
+
+  @Override
+  public void setVoltage(double volts) {
+    // Clear velocity target when in voltage mode (for SysId characterization)
+    currentTargetWheelRPM = 0.0;
+    // Command leader directly - follower follows automatically via hardware follower mode
+    leaderMotor.setVoltage(volts);
   }
 
   @Override

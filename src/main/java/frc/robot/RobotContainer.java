@@ -296,6 +296,22 @@ public class RobotContainer {
           "Drive SysId (Dynamic Forward)", drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
       autoChooser.addOption(
           "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+
+      // Launcher SysId routines (TurretBot only)
+      if (launcher != null) {
+        autoChooser.addOption(
+            "Launcher SysId (Quasistatic Forward)",
+            launcher.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+        autoChooser.addOption(
+            "Launcher SysId (Quasistatic Reverse)",
+            launcher.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+        autoChooser.addOption(
+            "Launcher SysId (Dynamic Forward)",
+            launcher.sysIdDynamic(SysIdRoutine.Direction.kForward));
+        autoChooser.addOption(
+            "Launcher SysId (Dynamic Reverse)",
+            launcher.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+      }
     }
 
     updateOI();

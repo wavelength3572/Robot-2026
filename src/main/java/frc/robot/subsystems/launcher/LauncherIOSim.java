@@ -16,6 +16,7 @@ public class LauncherIOSim implements LauncherIO {
 
   private double targetWheelRPM = 0.0;
   private double appliedVolts = 0.0;
+  private boolean voltageMode = false; // True when using direct voltage control (SysId)
 
   // Simulation constants
   private static final double FLYWHEEL_MOI = 0.005; // kg*m^2 moment of inertia
@@ -39,13 +40,17 @@ public class LauncherIOSim implements LauncherIO {
 
   @Override
   public void updateInputs(LauncherIOInputs inputs) {
-    // Simple P control for simulation
-    double currentWheelRPM = sim.getAngularVelocityRPM();
-    double error = targetWheelRPM - currentWheelRPM;
-    appliedVolts = error * 0.01; // Simple proportional gain
-    appliedVolts = Math.max(-12.0, Math.min(12.0, appliedVolts));
+    // Only apply P-control when in velocity mode (not voltage mode for SysId)
+    if (!voltageMode) {
+      // Simple P control for simulation
+      double currentWheelRPM = sim.getAngularVelocityRPM();
+      double error = targetWheelRPM - currentWheelRPM;
+      appliedVolts = error * 0.01; // Simple proportional gain
+      appliedVolts = Math.max(-12.0, Math.min(12.0, appliedVolts));
+      sim.setInputVoltage(appliedVolts);
+    }
+    // In voltage mode, appliedVolts is set directly by setVoltage()
 
-    sim.setInputVoltage(appliedVolts);
     sim.update(0.02); // 20ms update period
 
     double wheelRPM = sim.getAngularVelocityRPM();
@@ -69,12 +74,23 @@ public class LauncherIOSim implements LauncherIO {
 
   @Override
   public void setVelocity(double velocityRPM) {
+    voltageMode = false; // Exit voltage mode, use P-control
     targetWheelRPM = Math.abs(velocityRPM);
   }
 
   @Override
+  public void setVoltage(double volts) {
+    voltageMode = true; // Enter voltage mode for SysId
+    targetWheelRPM = 0.0; // Clear velocity target
+    appliedVolts = volts;
+    sim.setInputVoltage(volts);
+  }
+
+  @Override
   public void stop() {
+    voltageMode = false;
     targetWheelRPM = 0.0;
+    appliedVolts = 0.0;
     sim.setInputVoltage(0.0);
   }
 }

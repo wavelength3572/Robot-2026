@@ -1,7 +1,10 @@
 package frc.robot.subsystems.launcher;
 
+import static edu.wpi.first.units.Units.*;
+
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -13,6 +16,7 @@ import org.littletonrobotics.junction.Logger;
 public class Launcher extends SubsystemBase {
   private final LauncherIO io;
   private final LauncherIOInputsAutoLogged inputs = new LauncherIOInputsAutoLogged();
+  private final SysIdRoutine sysId;
 
   // Dashboard-tunable target velocity (starts at 0 for safety)
   private static final LoggedTunableNumber targetVelocity =
@@ -23,6 +27,20 @@ public class Launcher extends SubsystemBase {
 
   public Launcher(LauncherIO io) {
     this.io = io;
+
+    // Configure SysId routine for flywheel characterization
+    // Using Volts.per(Second) for ramp rate (0.5 V/s) and Volts for step voltage (6V)
+    sysId =
+        new SysIdRoutine(
+            new SysIdRoutine.Config(
+                Volts.per(Second).of(0.5), // Ramp rate: 0.5 V/s for quasistatic
+                Volts.of(6), // Step voltage: 6V for dynamic
+                Seconds.of(10), // Timeout: 10 seconds
+                (state) -> Logger.recordOutput("Launcher/SysIdState", state.toString())),
+            new SysIdRoutine.Mechanism(
+                (voltage) -> io.setVoltage(voltage.in(Volts)),
+                null, // No log consumer - AdvantageKit handles logging
+                this));
   }
 
   @Override
@@ -109,6 +127,28 @@ public class Launcher extends SubsystemBase {
    */
   public boolean isConnected() {
     return inputs.leaderConnected && inputs.followerConnected;
+  }
+
+  // ========== SysId Commands ==========
+
+  /**
+   * SysId quasistatic characterization command (slow voltage ramp).
+   *
+   * @param direction Forward or reverse direction
+   * @return Command to run quasistatic characterization
+   */
+  public Command sysIdQuasistatic(SysIdRoutine.Direction direction) {
+    return sysId.quasistatic(direction);
+  }
+
+  /**
+   * SysId dynamic characterization command (step voltage).
+   *
+   * @param direction Forward or reverse direction
+   * @return Command to run dynamic characterization
+   */
+  public Command sysIdDynamic(SysIdRoutine.Direction direction) {
+    return sysId.dynamic(direction);
   }
 
   // ========== Commands ==========

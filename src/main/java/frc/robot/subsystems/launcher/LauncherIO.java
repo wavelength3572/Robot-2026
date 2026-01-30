@@ -39,6 +39,9 @@ public interface LauncherIO {
   /** Set the target velocity in wheel RPM. */
   public default void setVelocity(double velocityRPM) {}
 
+  /** Run the launcher at the specified voltage (for characterization). */
+  public default void setVoltage(double volts) {}
+
   /** Stop the launcher motors. */
   public default void stop() {}
 }
