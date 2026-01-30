@@ -9,6 +9,7 @@ import frc.robot.commands.DriveCommands;
 import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.intake.Intake;
+import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.vision.Vision;
 
@@ -19,6 +20,7 @@ public class ButtonsAndDashboardBindings {
   private static Vision vision;
   private static Intake intake;
   private static Turret turret;
+  private static Launcher launcher;
 
   public ButtonsAndDashboardBindings() {}
 
@@ -33,21 +35,23 @@ public class ButtonsAndDashboardBindings {
       Drive drive,
       Vision vision,
       Intake intake,
-      Turret turret) {
+      Turret turret,
+      Launcher launcher) {
     ButtonsAndDashboardBindings.oi = operatorInterface;
     ButtonsAndDashboardBindings.drive = drive;
     ButtonsAndDashboardBindings.vision = vision;
     ButtonsAndDashboardBindings.intake = intake;
     ButtonsAndDashboardBindings.turret = turret;
+    ButtonsAndDashboardBindings.launcher = launcher;
 
     configureDriverButtonBindings();
     configureOperatorButtonBindings();
     configureDashboardBindings();
   }
 
-  // Legacy method without vision/intake/turret parameters
+  // Legacy method without vision/intake/turret/launcher parameters
   public static void configureBindings(OperatorInterface operatorInterface, Drive drive) {
-    configureBindings(operatorInterface, drive, null, null, null);
+    configureBindings(operatorInterface, drive, null, null, null, null);
   }
 
   /****************************** */
@@ -184,6 +188,33 @@ public class ButtonsAndDashboardBindings {
             .ignoringDisable(true)
             .withName("Center Preset"));
 
+    // === Launcher Test Controls ===
+    if (launcher != null) {
+      // Run launcher at tunable velocity (hold this button in dashboard)
+      SmartDashboard.putData(
+          "TurretBot/Launcher_Run",
+          launcher.runAtTunableVelocityCommand().withName("Run Launcher"));
+
+      // Stop launcher
+      SmartDashboard.putData(
+          "TurretBot/Launcher_Stop", launcher.stopCommand().withName("Stop Launcher"));
+
+      // Quick test velocities
+      SmartDashboard.putData(
+          "TurretBot/Launcher_100RPM",
+          launcher.runAtVelocityCommand(100).withName("Launcher 100 RPM"));
+
+      SmartDashboard.putData(
+          "TurretBot/Launcher_500RPM",
+          launcher.runAtVelocityCommand(500).withName("Launcher 500 RPM"));
+
+      SmartDashboard.putData(
+          "TurretBot/Launcher_1000RPM",
+          launcher.runAtVelocityCommand(1000).withName("Launcher 1000 RPM"));
+
+      System.out.println("[TurretBot] Launcher test controls configured");
+    }
+
     System.out.println("[TurretBot] Test controls configured on SmartDashboard under 'TurretBot/'");
   }
 
@@ -231,6 +262,12 @@ public class ButtonsAndDashboardBindings {
 
       // Shoot button: Launch fuel while held
       oi.getShootButton().whileTrue(turret.repeatedlyLaunchFuelCommand());
+    }
+
+    // Launcher controls (TurretBot only)
+    if (launcher != null) {
+      // Button 24: Run launcher at tunable velocity while held
+      oi.getLauncherButton().whileTrue(launcher.runAtTunableVelocityCommand());
     }
   }
 

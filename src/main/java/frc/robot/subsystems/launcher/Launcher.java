@@ -1,0 +1,158 @@
+package frc.robot.subsystems.launcher;
+
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.util.LoggedTunableNumber;
+import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
+
+/**
+ * Launcher subsystem for controlling two coupled Vortex motors. Uses velocity control with hardware
+ * follower mode to ensure motors run in sync.
+ */
+public class Launcher extends SubsystemBase {
+  private final LauncherIO io;
+  private final LauncherIOInputsAutoLogged inputs = new LauncherIOInputsAutoLogged();
+
+  // Dashboard-tunable target velocity (starts at 0 for safety)
+  private static final LoggedTunableNumber targetVelocity =
+      new LoggedTunableNumber("Launcher/TargetVelocityRPM", 0.0);
+
+  // Safety threshold for velocity mismatch between motors
+  private static final double VELOCITY_MISMATCH_THRESHOLD_RPM = 200.0;
+
+  public Launcher(LauncherIO io) {
+    this.io = io;
+  }
+
+  @Override
+  public void periodic() {
+    io.updateInputs(inputs);
+    Logger.processInputs("Launcher", inputs);
+
+    // Log velocity error
+    double velocityError = inputs.targetVelocityRPM - inputs.wheelVelocityRPM;
+    Logger.recordOutput("Launcher/velocityError", velocityError);
+
+    // Safety: detect velocity mismatch between motors
+    // Both encoders read motor RPM, so compare directly
+    double velocityMismatch =
+        Math.abs(Math.abs(inputs.leaderVelocityRPM) - Math.abs(inputs.followerVelocityRPM));
+    Logger.recordOutput("Launcher/velocityMismatch", velocityMismatch);
+
+    // Alert if mismatch exceeds threshold while running
+    boolean mismatchAlert =
+        velocityMismatch > VELOCITY_MISMATCH_THRESHOLD_RPM && inputs.targetVelocityRPM > 100;
+    Logger.recordOutput("Launcher/velocityMismatchAlert", mismatchAlert);
+
+    if (mismatchAlert) {
+      System.err.println(
+          "[Launcher] WARNING: Velocity mismatch detected! Leader: "
+              + inputs.leaderVelocityRPM
+              + " RPM, Follower: "
+              + inputs.followerVelocityRPM
+              + " RPM");
+    }
+  }
+
+  /**
+   * Set the launcher wheel velocity.
+   *
+   * @param velocityRPM Target velocity in wheel RPM
+   */
+  public void setVelocity(double velocityRPM) {
+    io.setVelocity(velocityRPM);
+  }
+
+  /** Run the launcher at the dashboard-tunable velocity. Useful for PID tuning. */
+  public void runAtTunableVelocity() {
+    io.setVelocity(targetVelocity.get());
+  }
+
+  /** Stop the launcher. */
+  public void stop() {
+    io.stop();
+  }
+
+  /**
+   * Get the current wheel velocity.
+   *
+   * @return Current velocity in wheel RPM
+   */
+  @AutoLogOutput(key = "Launcher/currentVelocity")
+  public double getVelocity() {
+    return inputs.wheelVelocityRPM;
+  }
+
+  /**
+   * Get the target velocity.
+   *
+   * @return Target velocity in wheel RPM
+   */
+  public double getTargetVelocity() {
+    return inputs.targetVelocityRPM;
+  }
+
+  /**
+   * Check if the launcher is at the target velocity.
+   *
+   * @return True if at setpoint within tolerance
+   */
+  public boolean atSetpoint() {
+    return inputs.atSetpoint;
+  }
+
+  /**
+   * Check if both motors are connected.
+   *
+   * @return True if both motors are responding
+   */
+  public boolean isConnected() {
+    return inputs.leaderConnected && inputs.followerConnected;
+  }
+
+  // ========== Commands ==========
+
+  /**
+   * Command to run the launcher at a specific velocity.
+   *
+   * @param velocityRPM Target velocity in wheel RPM
+   * @return Command that runs until interrupted
+   */
+  public Command runAtVelocityCommand(double velocityRPM) {
+    return run(() -> setVelocity(velocityRPM))
+        .finallyDo(this::stop)
+        .withName("Launcher: Run at " + velocityRPM + " RPM");
+  }
+
+  /**
+   * Command to run the launcher at the dashboard-tunable velocity. Updates continuously so you can
+   * change the velocity via Elastic while running.
+   *
+   * @return Command that runs until interrupted
+   */
+  public Command runAtTunableVelocityCommand() {
+    return run(this::runAtTunableVelocity).finallyDo(this::stop).withName("Launcher: Tunable");
+  }
+
+  /**
+   * Command to spin up and wait until at setpoint.
+   *
+   * @param velocityRPM Target velocity in wheel RPM
+   * @return Command that completes when at setpoint
+   */
+  public Command spinUpCommand(double velocityRPM) {
+    return runOnce(() -> setVelocity(velocityRPM))
+        .andThen(run(() -> {}).until(this::atSetpoint))
+        .withName("Launcher: Spin Up to " + velocityRPM + " RPM");
+  }
+
+  /**
+   * Command to stop the launcher.
+   *
+   * @return Instant command that stops motors
+   */
+  public Command stopCommand() {
+    return runOnce(this::stop).withName("Launcher: Stop");
+  }
+}

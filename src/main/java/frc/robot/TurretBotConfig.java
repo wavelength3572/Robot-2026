@@ -108,6 +108,18 @@ public class TurretBotConfig implements RobotConfig {
   // and set this to that value.
   private static final double turretAbsoluteEncoderOffset = 0.25;
 
+  // ========== Launcher Configuration (Two NEO Vortex + SparkFlex) ==========
+  // Two motors coupled to same shaft, facing opposite directions
+  // Gear ratio: 1 motor rotation = 1.5 wheel rotations (wheel spins faster)
+  private static final int launcherLeaderCanId = 58;
+  private static final int launcherFollowerCanId = 59;
+  private static final double launcherGearRatio = 1.5; // 1 motor rot = 1.5 wheel rot
+  private static final int launcherCurrentLimitAmps = 60;
+  private static final double launcherKp = 0.0001;
+  private static final double launcherKi = 0.0;
+  private static final double launcherKd = 0.0;
+  private static final double launcherKff = 0.0002223; // Tuned value for launcher
+
   // PathPlanner RobotConfig (placeholder - no autonomous driving)
   private final com.pathplanner.lib.config.RobotConfig ppConfig =
       new com.pathplanner.lib.config.RobotConfig(
@@ -453,5 +465,52 @@ public class TurretBotConfig implements RobotConfig {
   @Override
   public double getTurretAbsoluteEncoderOffset() {
     return turretAbsoluteEncoderOffset;
+  }
+
+  // ========== Launcher Configuration Overrides ==========
+
+  @Override
+  public boolean hasLauncher() {
+    return true;
+  }
+
+  @Override
+  public int getLauncherLeaderCanId() {
+    return launcherLeaderCanId;
+  }
+
+  @Override
+  public int getLauncherFollowerCanId() {
+    return launcherFollowerCanId;
+  }
+
+  @Override
+  public double getLauncherGearRatio() {
+    return launcherGearRatio;
+  }
+
+  @Override
+  public int getLauncherCurrentLimitAmps() {
+    return launcherCurrentLimitAmps;
+  }
+
+  @Override
+  public double getLauncherKp() {
+    return launcherKp;
+  }
+
+  @Override
+  public double getLauncherKi() {
+    return launcherKi;
+  }
+
+  @Override
+  public double getLauncherKd() {
+    return launcherKd;
+  }
+
+  @Override
+  public double getLauncherKff() {
+    return launcherKff;
   }
 }

@@ -190,4 +190,9 @@ public class InterLinkDXOI implements OperatorInterface {
   public Trigger getButtonDPosition2() {
     return interLinkJoystickJoystickButtons[7]; // Button D top left of front face - down position
   }
+
+  @Override
+  public Trigger getLauncherButton() {
+    return interLinkJoystickJoystickButtons[24]; // Button 24 - slider below right axis push right
+  }
 }

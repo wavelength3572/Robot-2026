@@ -215,4 +215,55 @@ public interface RobotConfig {
   default double getTurretAbsoluteEncoderOffset() {
     return 0.0;
   }
+
+  // ========== Launcher Configuration ==========
+  // Default implementations return 0/false for robots without launchers
+
+  /** Whether this robot has a launcher. */
+  default boolean hasLauncher() {
+    return false;
+  }
+
+  /** Launcher leader motor CAN ID. */
+  default int getLauncherLeaderCanId() {
+    return 0;
+  }
+
+  /** Launcher follower motor CAN ID. */
+  default int getLauncherFollowerCanId() {
+    return 0;
+  }
+
+  /**
+   * Launcher gear ratio: motor rotations to wheel rotations. Example: 1.5 means 1 motor rotation =
+   * 1.5 wheel rotations (wheel spins faster).
+   */
+  default double getLauncherGearRatio() {
+    return 1.5;
+  }
+
+  /** Launcher motor current limit in amps. */
+  default int getLauncherCurrentLimitAmps() {
+    return 60;
+  }
+
+  /** Launcher PID proportional gain. */
+  default double getLauncherKp() {
+    return 0.0001;
+  }
+
+  /** Launcher PID integral gain. */
+  default double getLauncherKi() {
+    return 0.0;
+  }
+
+  /** Launcher PID derivative gain. */
+  default double getLauncherKd() {
+    return 0.0;
+  }
+
+  /** Launcher velocity feedforward gain. */
+  default double getLauncherKff() {
+    return 0.000175;
+  }
 }

@@ -340,4 +340,8 @@ public interface OperatorInterface {
   public default Trigger getButtonI() {
     return new Trigger(() -> false);
   }
+
+  public default Trigger getLauncherButton() {
+    return new Trigger(() -> false);
+  }
 }

@@ -25,6 +25,10 @@ import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeIO;
 import frc.robot.subsystems.intake.IntakeIOSim;
 import frc.robot.subsystems.intake.IntakeIOSparkMax;
+import frc.robot.subsystems.launcher.Launcher;
+import frc.robot.subsystems.launcher.LauncherIO;
+import frc.robot.subsystems.launcher.LauncherIOSim;
+import frc.robot.subsystems.launcher.LauncherIOSparkFlex;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
 import frc.robot.subsystems.turret.TurretIOSim;
@@ -51,6 +55,7 @@ public class RobotContainer {
   private final Turret turret; // Only instantiated for SquareBot, null for MainBot
   private final Vision vision; // Only instantiated for SquareBot, null for MainBot
   private final Intake intake; // Only instantiated for SquareBot, null for MainBot
+  private final Launcher launcher; // Only instantiated for TurretBot, null for others
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs
@@ -104,6 +109,26 @@ public class RobotContainer {
     } else {
       // RectangleBot and TurretBot do not have an intake
       intake = null;
+    }
+
+    // Instantiate launcher subsystem (TurretBot only)
+    if (Constants.getRobotConfig().hasLauncher()) {
+      switch (Constants.currentMode) {
+        case REAL:
+          launcher = new Launcher(new LauncherIOSparkFlex());
+          break;
+
+        case SIM:
+          launcher = new Launcher(new LauncherIOSim());
+          break;
+
+        default:
+          // Replay mode - disable launcher IO
+          launcher = new Launcher(new LauncherIO() {});
+          break;
+      }
+    } else {
+      launcher = null;
     }
 
     // Instantiate drive and vision subsystems
@@ -290,7 +315,7 @@ public class RobotContainer {
   public void normalModeOI() {
     CommandScheduler.getInstance().getActiveButtonLoop().clear();
     oi = OISelector.findOperatorInterface();
-    ButtonsAndDashboardBindings.configureBindings(oi, drive, vision, intake, turret);
+    ButtonsAndDashboardBindings.configureBindings(oi, drive, vision, intake, turret, launcher);
   }
 
   /**
@@ -354,6 +379,24 @@ public class RobotContainer {
    */
   public boolean hasIntake() {
     return intake != null;
+  }
+
+  /**
+   * Get the launcher subsystem if it exists (TurretBot only).
+   *
+   * @return Launcher subsystem or null if not present
+   */
+  public Launcher getLauncher() {
+    return launcher;
+  }
+
+  /**
+   * Check if the launcher subsystem is present on this robot.
+   *
+   * @return true if launcher exists
+   */
+  public boolean hasLauncher() {
+    return launcher != null;
   }
 
   // Track last alliance to detect changes
