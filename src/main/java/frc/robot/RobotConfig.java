@@ -136,4 +136,10 @@ public interface RobotConfig {
   double getMaxSpeedMetersPerSec();
 
   double getOdometryFrequency();
+
+  double getTurretOffsetX();
+
+  double getTurretOffsetY();
+
+  double getTurretHeightMeters();
 }

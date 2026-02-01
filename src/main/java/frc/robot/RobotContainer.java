@@ -11,6 +11,7 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.robot.Constants.RobotType;
 import frc.robot.commands.DriveCommands;
 import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
@@ -63,7 +64,11 @@ public class RobotContainer {
     switch (Constants.currentMode) {
       case REAL:
         // Real MainBot - instantiate turret hardware
-        turret = new Turret(new TurretIOTalonFX());
+        if (Constants.currentRobot == RobotType.SQUAREBOT) {
+          turret = new Turret(new TurretIOTalonFX());
+        } else {
+          turret = null;
+        }
         break;
 
       case SIM:
@@ -82,7 +87,11 @@ public class RobotContainer {
       switch (Constants.currentMode) {
         case REAL:
           // Real MainBot - instantiate intake hardware
-          intake = new Intake(new IntakeIOSparkMax());
+          if (Constants.currentRobot == RobotType.SQUAREBOT) {
+            intake = null;
+          } else {
+            intake = new Intake(new IntakeIOSparkMax());
+          }
           break;
 
         case SIM:
@@ -112,7 +121,7 @@ public class RobotContainer {
                 new ModuleIOSpark(2),
                 new ModuleIOSpark(3),
                 turret);
-        // Vision only for MainBot
+        // Vision only for SquareBot
         // Camera order: A (FrontLeft), B (FrontRight)
         // Cameras C (BackLeft) and D (BackRight) temporarily removed
         if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
@@ -124,9 +133,9 @@ public class RobotContainer {
                   new VisionIOPhotonVision(
                       VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam));
           // new VisionIOPhotonVision(
-          //     VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
+          // VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
           // new VisionIOPhotonVision(
-          //     VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
+          // VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
         } else {
           vision = null;
         }
@@ -162,15 +171,15 @@ public class RobotContainer {
                       VisionConstants.recommendedFrontRightCam,
                       RobotStatus::getRobotPose));
           // new VisionIOPhotonVisionSim(
-          //     VisionConstants.backLeftCam,
-          //     VisionConstants.robotToBackLeftCam,
-          //     VisionConstants.recommendedBackLeftCam,
-          //     RobotStatus::getRobotPose),
+          // VisionConstants.backLeftCam,
+          // VisionConstants.robotToBackLeftCam,
+          // VisionConstants.recommendedBackLeftCam,
+          // RobotStatus::getRobotPose),
           // new VisionIOPhotonVisionSim(
-          //     VisionConstants.backRightCam,
-          //     VisionConstants.robotToBackRightCam,
-          //     VisionConstants.recommendedBackRightCam,
-          //     RobotStatus::getRobotPose));
+          // VisionConstants.backRightCam,
+          // VisionConstants.robotToBackRightCam,
+          // VisionConstants.recommendedBackRightCam,
+          // RobotStatus::getRobotPose));
         } else {
           vision = null;
         }
@@ -201,7 +210,8 @@ public class RobotContainer {
         break;
     }
 
-    // Initialize RobotStatus with subsystem references (vision may be null for MiniBot)
+    // Initialize RobotStatus with subsystem references (vision may be null for
+    // MiniBot)
     RobotStatus.initialize(drive, vision);
 
     // Connect intake to drive for velocity-based roller speed
@@ -360,7 +370,8 @@ public class RobotContainer {
 
       try {
         // Get the starting pose from the PathPlanner auto
-        // PathPlannerAuto.getStartingPose() returns the pose relative to blue alliance origin
+        // PathPlannerAuto.getStartingPose() returns the pose relative to blue alliance
+        // origin
         com.pathplanner.lib.commands.PathPlannerAuto auto =
             new com.pathplanner.lib.commands.PathPlannerAuto(selectedAutoName);
         edu.wpi.first.math.geometry.Pose2d startingPose = auto.getStartingPose();

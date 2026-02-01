@@ -7,8 +7,7 @@
 
 package frc.robot;
 
-import com.revrobotics.spark.SparkLowLevel.MotorType;
-import com.revrobotics.spark.SparkMax;
+import edu.wpi.first.wpilibj.Preferences;
 import edu.wpi.first.wpilibj.RobotBase;
 
 /**
@@ -49,30 +48,19 @@ public final class Constants {
 
     // On real hardware, auto-detect based on CAN devices
     try {
-      // Try to create a SparkMax at SquareBot's front-left drive CAN ID (5)
-      // If this device exists and responds, we're on SquareBot
-      SparkMax testMotor = new SparkMax(5, MotorType.kBrushless);
-
-      // Check if the device is actually connected by reading firmware version
-      // A disconnected device will have firmware version 0
-      int firmwareVersion = testMotor.getFirmwareVersion();
-      testMotor.close();
-
-      if (firmwareVersion != 0) {
-        System.out.println(
-            "[RobotConfig] Detected MainBot (CAN ID 5 responded with firmware "
-                + firmwareVersion
-                + ")");
+      // Read RobotPreferences from RoboRIO for the RobotName
+      if (Preferences.getString("RobotName", "nullBot").equals("SquareBot")) {
+        System.out.println("[RobotConfig] Detected SquareBot");
         return RobotType.SQUAREBOT;
       } else {
-        System.out.println("[RobotConfig] CAN ID 5 not responding - assuming SquareBot");
+        System.out.println("[RobotConfig] Assuming MainBot");
         return RobotType.MAINBOT;
       }
     } catch (Exception e) {
       // If any error occurs during detection, default to MainBot
       System.out.println(
           "[RobotConfig] Error during detection, defaulting to MainBot: " + e.getMessage());
-      return RobotType.SQUAREBOT;
+      return RobotType.MAINBOT;
     }
   }
 
@@ -132,7 +120,7 @@ public final class Constants {
 
     public static final double RIGHT_TRENCH_Y = 6.73;
 
-        /** Blue alliance speaker position. */
+    /** Blue alliance speaker position. */
     public static final double BLUE_HUB_X = 4.625594; // 182.11 = 4.625594 OLD 4.575
 
     public static final double BLUE_HUB_Y = 4.034536; // 158.84 = 4.034536 OLD 4.115
@@ -141,5 +129,4 @@ public final class Constants {
 
     public static final double RED_HUB_Y = 4.034536;
   }
-
 }

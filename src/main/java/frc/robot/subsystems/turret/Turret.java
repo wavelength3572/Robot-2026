@@ -8,6 +8,7 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants;
 import frc.robot.Constants.FieldPositions;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -24,6 +25,8 @@ public class Turret extends SubsystemBase {
 
   // Current shot data
   private TurretCalculator.ShotData currentShot = null;
+
+  private static final frc.robot.RobotConfig config = Constants.getRobotConfig();
 
   /**
    * Creates a new Turret subsystem.
@@ -218,13 +221,13 @@ public class Turret extends SubsystemBase {
     // to field coordinates based on the robot's heading
     double turretFieldX =
         robotX
-            + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotOmegaRad)
-                - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotOmegaRad));
+            + (config.getTurretOffsetX() * Math.cos(robotOmegaRad)
+                - config.getTurretOffsetY() * Math.sin(robotOmegaRad));
 
     double turretFieldY =
         robotY
-            + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotOmegaRad)
-                + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotOmegaRad));
+            + (config.getTurretOffsetX() * Math.sin(robotOmegaRad)
+                + config.getTurretOffsetY() * Math.cos(robotOmegaRad));
 
     // Calculate vector from turret position to target
     double deltaX = targetX - turretFieldX;
@@ -283,9 +286,9 @@ public class Turret extends SubsystemBase {
   @AutoLogOutput(key = "Odometry/Turret")
   public Pose3d getPose() {
     return new Pose3d(
-        TurretConstants.TURRET_X_OFFSET,
-        TurretConstants.TURRET_Y_OFFSET,
-        TurretConstants.TURRET_HEIGHT_METERS,
+        config.getTurretOffsetX(),
+        config.getTurretOffsetY(),
+        config.getTurretHeightMeters(),
         new Rotation3d(0.0, 0.0, Rotation2d.fromDegrees(getCurrentAngle()).getRadians()));
   }
 }

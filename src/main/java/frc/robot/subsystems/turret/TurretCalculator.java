@@ -9,6 +9,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.Constants;
 
 /**
  * Utility class for turret ballistics calculations. Provides methods to calculate optimal launch
@@ -28,6 +29,8 @@ public class TurretCalculator {
   private static final double BASE_VELOCITY = 6.0; // m/s base velocity
   private static final double VELOCITY_MULTIPLIER = 0.4; // minimal scaling with distance
   private static final double VELOCITY_POWER = 0.3; // gradual increase
+
+  private static final frc.robot.RobotConfig config = Constants.getRobotConfig();
 
   /**
    * Get the horizontal distance from robot to target.
@@ -52,7 +55,7 @@ public class TurretCalculator {
   public static double calculateAngleFromVelocity(
       Pose2d robot, double velocity, Translation3d target) {
     double xDist = getDistanceToTarget(robot, target);
-    double yDist = target.getZ() - TurretConstants.TURRET_HEIGHT_METERS;
+    double yDist = target.getZ() - config.getTurretHeightMeters();
 
     // Solve quadratic for launch angle: tan(theta) = (v^2 +/- sqrt(v^4 - g*(g*x^2 + 2*y*v^2))) /
     // (g*x)

@@ -10,6 +10,7 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.Constants;
 import frc.robot.util.FuelSim;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
@@ -33,6 +34,8 @@ public class TurretVisualizer {
 
   // Current azimuth angle for launching (set by visualizeShot)
   private double currentAzimuthAngle = 0.0;
+
+  private static final frc.robot.RobotConfig config = Constants.getRobotConfig();
 
   /**
    * Creates a new TurretVisualizer.
@@ -117,7 +120,7 @@ public class TurretVisualizer {
     Pose3d robot = robotPoseSupplier.get();
     Translation3d launchPosition =
         new Translation3d(
-            robot.getX(), robot.getY(), robot.getZ() + TurretConstants.TURRET_HEIGHT_METERS);
+            robot.getX(), robot.getY(), robot.getZ() + config.getTurretHeightMeters());
     Translation3d launchVelocity = calculateLaunchVelocity(exitVelocity, launchAngle, azimuthAngle);
 
     FuelSim.getInstance().spawnFuel(launchPosition, launchVelocity);
@@ -156,7 +159,7 @@ public class TurretVisualizer {
 
     double startX = robot.getX();
     double startY = robot.getY();
-    double startZ = robot.getZ() + TurretConstants.TURRET_HEIGHT_METERS;
+    double startZ = robot.getZ() + config.getTurretHeightMeters();
 
     for (int i = 0; i < TRAJECTORY_POINTS; i++) {
       double t = i * TRAJECTORY_TIME_STEP;
@@ -186,7 +189,7 @@ public class TurretVisualizer {
   public void update3dPose(double azimuthAngle) {
     Logger.recordOutput(
         "Turret/TurretPose3d",
-        new Pose3d(0, 0, TurretConstants.TURRET_HEIGHT_METERS, new Rotation3d(0, 0, azimuthAngle)));
+        new Pose3d(0, 0, config.getTurretHeightMeters(), new Rotation3d(0, 0, azimuthAngle)));
   }
 
   /** Log fuel inventory status. */

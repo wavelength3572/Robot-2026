@@ -4,14 +4,6 @@ public final class TurretConstants {
   // Hardware IDs
   public static final int TURRET_MOTOR_CAN_ID = 50;
 
-  // Physical dimensions
-  // Turret offset from robot center (in robot-relative coordinates)
-  // Positive X = forward from robot center
-  // Positive Y = left from robot center
-  public static final double TURRET_X_OFFSET = -0.085211539; // meters
-  public static final double TURRET_Y_OFFSET = 0.1819604184; // meters
-  public static final double TURRET_HEIGHT_METERS = 0.3597275; // Meters
-
   // Physical constraints
   public static final double GEAR_RATIO = 1.0; // Motor rotations per turret rotation
 

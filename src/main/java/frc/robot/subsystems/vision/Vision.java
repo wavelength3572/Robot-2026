@@ -180,18 +180,34 @@ public class Vision extends SubsystemBase {
           inputs[cameraIndex].poseObservations.length);
 
       // Loop over pose observations
-      for (var observation : inputs[cameraIndex].poseObservations) {
-        // Rejection conditions
-        boolean rejectPose =
-            observation.tagCount() == 0
-                || (observation.tagCount() == 1 && observation.ambiguity() > maxAmbiguity)
-                || Math.abs(observation.pose().getZ()) > maxZError
-                || observation.pose().getX() < 0.0
-                || observation.pose().getX() > aprilTagLayout.getFieldLength()
-                || observation.pose().getY() < 0.0
-                || observation.pose().getY() > aprilTagLayout.getFieldWidth()
-                || observation.closestTagDistance() > MAX_TAG_DISTANCE;
 
+      for (var observation : inputs[cameraIndex].poseObservations) {
+        boolean rejectPose = false;
+        // Rejection conditions
+        if (observation.tagCount() == 0) {
+          rejectPose = true;
+        }
+        if (observation.tagCount() == 1 && observation.ambiguity() > maxAmbiguity) {
+          rejectPose = true;
+        }
+        if (Math.abs(observation.pose().getZ()) > maxZError) {
+          rejectPose = true;
+        }
+        if (observation.pose().getX() < 0.0) {
+          rejectPose = true;
+        }
+        if (observation.pose().getX() > aprilTagLayout.getFieldLength()) {
+          rejectPose = true;
+        }
+        if (observation.pose().getY() < 0.0) {
+          rejectPose = true;
+        }
+        if (observation.pose().getY() > aprilTagLayout.getFieldWidth()) {
+          rejectPose = true;
+        }
+        if (observation.closestTagDistance() > MAX_TAG_DISTANCE) {
+          rejectPose = true;
+        }
         // Add pose to log
         robotPoses.add(observation.pose());
         if (rejectPose) {
