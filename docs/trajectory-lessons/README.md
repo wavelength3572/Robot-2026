@@ -30,14 +30,23 @@ A deep dive into the engineering:
 
 ## Quick Start
 
-1. **Run the simulation:**
-   ```bash
-   ./gradlew simulateJava
-   ```
+### Freshman Track
+```bash
+git checkout lessons/freshman-start
+./gradlew simulateJava
+```
+Everything works! Explore and tune parameters.
 
-2. **Open AdvantageScope** and connect to see the robot
+### Senior Track
+```bash
+git checkout lessons/senior-start
+./gradlew simulateJava
+```
+Starts at turretbot baseline - you'll build the scoring system!
 
-3. **Pick your track** and start learning!
+---
+
+**Then open AdvantageScope**, connect to the simulation, and start your track.
 
 ---
 

@@ -9,10 +9,22 @@ In this hands-on session, you'll learn how our robot shoots balls into the hub. 
 
 ---
 
+## Setup
+
+```bash
+git checkout lessons/freshman-start
+./gradlew simulateJava
+```
+
+This branch has the full scoring system working - you'll explore and tune it!
+
+---
+
 ## Part 1: See It In Action (20 min)
 
 ### 1.1 Launch the Simulation
 
+If you haven't already:
 ```bash
 ./gradlew simulateJava
 ```

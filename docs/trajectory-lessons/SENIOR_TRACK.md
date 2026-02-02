@@ -10,6 +10,23 @@ You'll work through the key engineering challenges we solved building this scori
 
 ---
 
+## Setup
+
+```bash
+git checkout lessons/senior-start
+./gradlew simulateJava
+```
+
+This branch starts at the **turretbot baseline** - a turret that aims but can't shoot. You'll build:
+- The launcher subsystem
+- Trajectory optimization
+- Physics simulation integration
+- Shooting commands
+
+Reference the finished code on `lessons/freshman-start` if you get stuck.
+
+---
+
 ## Section 1: The Optimization Problem (45 min)
 
 ### The Challenge

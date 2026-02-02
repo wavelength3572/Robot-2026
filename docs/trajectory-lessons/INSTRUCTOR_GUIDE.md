@@ -1,5 +1,22 @@
 # Instructor Guide
 
+## Branch Setup (One-Time)
+
+Create and push the lesson branches if they don't exist:
+
+```bash
+git branch lessons/freshman-start HEAD
+git branch lessons/senior-start 88b425c
+git push origin lessons/freshman-start lessons/senior-start
+```
+
+| Branch | Points To | Purpose |
+|--------|-----------|---------|
+| `lessons/freshman-start` | Current HEAD | Full working system for exploration |
+| `lessons/senior-start` | `88b425c` | Turretbot baseline for building |
+
+---
+
 ## Two Tracks
 
 | Track | Audience | Time | Focus |
