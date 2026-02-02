@@ -6,7 +6,10 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.robot.subsystems.turret.TurretCalculator;
 import frc.robot.util.LoggedTunableNumber;
+import java.util.ArrayList;
+import java.util.List;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
@@ -26,6 +29,19 @@ public class Launcher extends SubsystemBase {
   // Safety threshold for velocity mismatch between motors
   private static final double VELOCITY_MISMATCH_THRESHOLD_RPM = 200.0;
 
+  // SysId safety: end test when velocity reaches this threshold
+  private static final double SYSID_MAX_VELOCITY_RPM = 3000.0;
+
+  // SysId data collection for automatic kS/kV calculation
+  // Set min velocity to focus characterization on your actual shooting range
+  // e.g., if you shoot at 2000-2800 RPM, set min to ~1500 to bias the fit
+  private static final LoggedTunableNumber sysIdMinVelocityRPM =
+      new LoggedTunableNumber("Launcher/SysIdMinVelocityRPM", 1000.0);
+
+  private final List<Double> sysIdVoltages = new ArrayList<>();
+  private final List<Double> sysIdVelocities = new ArrayList<>();
+  private boolean collectingSysIdData = false;
+
   public Launcher(LauncherIO io) {
     this.io = io;
 
@@ -42,12 +58,20 @@ public class Launcher extends SubsystemBase {
             new SysIdRoutine.Mechanism(
                 (voltage) -> io.setVoltage(voltage.in(Volts)),
                 (log) -> {
+                  double velocityRadPerSec =
+                      Units.rotationsPerMinuteToRadiansPerSecond(inputs.wheelVelocityRPM);
+
                   // Log data for SysId tool analysis
                   log.motor("launcher")
                       .voltage(Volts.of(inputs.leaderAppliedVolts))
-                      .angularVelocity(
-                          RadiansPerSecond.of(
-                              Units.rotationsPerMinuteToRadiansPerSecond(inputs.wheelVelocityRPM)));
+                      .angularVelocity(RadiansPerSecond.of(velocityRadPerSec));
+
+                  // Collect data for automatic kS/kV calculation
+                  // Only collect above min threshold to focus on operating velocity range
+                  if (collectingSysIdData && inputs.wheelVelocityRPM > sysIdMinVelocityRPM.get()) {
+                    sysIdVoltages.add(inputs.leaderAppliedVolts);
+                    sysIdVelocities.add(velocityRadPerSec);
+                  }
                 },
                 this));
   }
@@ -56,6 +80,9 @@ public class Launcher extends SubsystemBase {
   public void periodic() {
     io.updateInputs(inputs);
     Logger.processInputs("Launcher", inputs);
+
+    // Update TurretCalculator with current wheel RPM for trajectory calculations
+    TurretCalculator.setLauncherRPM(inputs.wheelVelocityRPM);
 
     // Log velocity error
     double velocityError = inputs.targetVelocityRPM - inputs.wheelVelocityRPM;
@@ -89,6 +116,8 @@ public class Launcher extends SubsystemBase {
    */
   public void setVelocity(double velocityRPM) {
     io.setVelocity(velocityRPM);
+    // Update TurretCalculator with target RPM for setpoint trajectory
+    TurretCalculator.setTargetLauncherRPM(velocityRPM);
   }
 
   /** Run the launcher at the dashboard-tunable velocity. Useful for PID tuning. */
@@ -99,6 +128,7 @@ public class Launcher extends SubsystemBase {
   /** Stop the launcher. */
   public void stop() {
     io.stop();
+    TurretCalculator.setTargetLauncherRPM(0.0);
   }
 
   /**
@@ -140,24 +170,101 @@ public class Launcher extends SubsystemBase {
 
   // ========== SysId Commands ==========
 
-  /**
-   * SysId quasistatic characterization command (slow voltage ramp).
-   *
-   * @param direction Forward or reverse direction
-   * @return Command to run quasistatic characterization
-   */
-  public Command sysIdQuasistatic(SysIdRoutine.Direction direction) {
-    return sysId.quasistatic(direction);
+  /** Returns true when velocity exceeds safe threshold for SysId testing. */
+  private boolean sysIdVelocityLimitReached() {
+    return inputs.wheelVelocityRPM >= SYSID_MAX_VELOCITY_RPM;
+  }
+
+  /** Clear collected SysId data and start collecting. */
+  private void startSysIdCollection() {
+    sysIdVoltages.clear();
+    sysIdVelocities.clear();
+    collectingSysIdData = true;
+  }
+
+  /** Stop collecting and calculate kS/kV from quasistatic data using linear regression. */
+  private void finishSysIdCollection() {
+    collectingSysIdData = false;
+
+    int n = sysIdVoltages.size();
+    if (n < 10) {
+      System.out.println("[Launcher SysId] Not enough data points (" + n + ") to calculate gains");
+      return;
+    }
+
+    // Linear regression: V = kS + kV * ω
+    // Using least squares: kV = (n*Σ(ωV) - Σω*ΣV) / (n*Σ(ω²) - (Σω)²)
+    //                      kS = (ΣV - kV*Σω) / n
+    double sumV = 0, sumW = 0, sumVW = 0, sumW2 = 0;
+    double minW = Double.MAX_VALUE, maxW = Double.MIN_VALUE;
+    for (int i = 0; i < n; i++) {
+      double v = sysIdVoltages.get(i);
+      double w = sysIdVelocities.get(i);
+      sumV += v;
+      sumW += w;
+      sumVW += v * w;
+      sumW2 += w * w;
+      minW = Math.min(minW, w);
+      maxW = Math.max(maxW, w);
+    }
+
+    double denominator = n * sumW2 - sumW * sumW;
+    if (Math.abs(denominator) < 1e-6) {
+      System.out.println(
+          "[Launcher SysId] Cannot calculate gains - insufficient velocity variation");
+      return;
+    }
+
+    double kV = (n * sumVW - sumW * sumV) / denominator;
+    double kS = (sumV - kV * sumW) / n;
+
+    // Convert velocity range to RPM for readability
+    double minRPM = Units.radiansPerSecondToRotationsPerMinute(minW);
+    double maxRPM = Units.radiansPerSecondToRotationsPerMinute(maxW);
+
+    // Output results
+    System.out.println("[Launcher SysId] ========== RESULTS ==========");
+    System.out.printf("[Launcher SysId] Velocity range: %.0f - %.0f RPM%n", minRPM, maxRPM);
+    System.out.println("[Launcher SysId] Data points: " + n);
+    System.out.printf("[Launcher SysId] kS = %.4f V (static friction)%n", kS);
+    System.out.printf("[Launcher SysId] kV = %.6f V/(rad/s) (velocity gain)%n", kV);
+    System.out.println("[Launcher SysId] ==============================");
+    System.out.println("[Launcher SysId] To use these values, update Launcher/kS and Launcher/kV");
+
+    // Also log to AdvantageKit for dashboard viewing
+    Logger.recordOutput("Launcher/SysId/CalculatedKs", kS);
+    Logger.recordOutput("Launcher/SysId/CalculatedKv", kV);
+    Logger.recordOutput("Launcher/SysId/DataPoints", n);
+    Logger.recordOutput("Launcher/SysId/MinVelocityRPM", minRPM);
+    Logger.recordOutput("Launcher/SysId/MaxVelocityRPM", maxRPM);
   }
 
   /**
-   * SysId dynamic characterization command (step voltage).
+   * SysId quasistatic characterization command (slow voltage ramp). Automatically ends when
+   * velocity reaches the safety threshold. Calculates and outputs kS/kV when complete.
    *
-   * @param direction Forward or reverse direction
+   * @return Command to run quasistatic characterization
+   */
+  public Command launcherSysIdQuasistatic() {
+    return sysId
+        .quasistatic(SysIdRoutine.Direction.kForward)
+        .until(this::sysIdVelocityLimitReached)
+        .beforeStarting(this::startSysIdCollection)
+        .finallyDo(this::finishSysIdCollection)
+        .withName("Launcher SysId Quasistatic");
+  }
+
+  /**
+   * SysId dynamic characterization command (step voltage). Automatically ends when velocity reaches
+   * the safety threshold. Useful for determining kA (acceleration gain).
+   *
    * @return Command to run dynamic characterization
    */
-  public Command sysIdDynamic(SysIdRoutine.Direction direction) {
-    return sysId.dynamic(direction);
+  public Command launcherSysIdDynamic() {
+    return sysId
+        .dynamic(SysIdRoutine.Direction.kForward)
+        .until(this::sysIdVelocityLimitReached)
+        .withName("Launcher SysId Dynamic");
   }
 
   // ========== Commands ==========

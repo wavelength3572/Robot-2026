@@ -98,6 +98,9 @@ public class Robot extends LoggedRobot {
     // Update fuel simulation (only runs in SIM mode)
     robotContainer.updateFuelSim();
 
+    // Update match phase tracker (for shooting coordination)
+    robotContainer.updateMatchPhaseTracker();
+
     // Return to non-RT thread priority (do not modify the first argument)
     // Threads.setCurrentThreadPriority(false, 10);
   }

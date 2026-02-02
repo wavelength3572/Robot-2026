@@ -92,9 +92,10 @@ public class TurretBotConfig implements RobotConfig {
   private static final double turretGearRatio = 55.0; // Total motor rotations per turret rotation
   private static final double turretExternalGearRatio = 66.0 / 12.0; // ~5.5 (encoder to turret)
 
-  // Travel limits: ±200° = 400° total travel
-  private static final double turretMaxAngleDegrees = 200.0;
-  private static final double turretMinAngleDegrees = -200.0;
+  // Travel limits: ±185° = 370° total travel (physical limit is ±200°, this provides 15° safety
+  // margin)
+  private static final double turretMaxAngleDegrees = 185.0;
+  private static final double turretMinAngleDegrees = -185.0;
 
   // NEO 550-specific settings
   private static final int turretCurrentLimitAmps = 20; // NEO 550 is smaller than NEO/Falcon
@@ -512,5 +513,27 @@ public class TurretBotConfig implements RobotConfig {
   @Override
   public double getLauncherKff() {
     return launcherKff;
+  }
+
+  // ========== Hood Configuration ==========
+
+  @Override
+  public boolean hasHood() {
+    return true; // TurretBot has hood for hybrid trajectory control
+  }
+
+  @Override
+  public int getHoodCanId() {
+    return 17; // TODO: Confirm CAN ID when hardware is ready
+  }
+
+  @Override
+  public double getHoodMinAngleDeg() {
+    return 15.0;
+  }
+
+  @Override
+  public double getHoodMaxAngleDeg() {
+    return 85.0;
   }
 }

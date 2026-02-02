@@ -10,6 +10,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.Constants.FieldPositions;
+import frc.robot.util.LoggedTunableNumber;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -27,6 +28,23 @@ public class Turret extends SubsystemBase {
   // Current shot data
   private TurretCalculator.ShotData currentShot = null;
 
+  // ========== Tunable Limits (adjust in AdvantageScope without recompiling!) ==========
+  // FlipAngleDeg: How far can the turret rotate before it must "flip" (go the other way)
+  //               Example: 185 means turret can go from -185° to +185° before flipping
+  // CenterOffsetDeg: Shifts the whole range (0 = symmetric around robot forward)
+  //                  Example: 10 would shift limits to -175° to +195°
+  // Effective limits = [CenterOffset - FlipAngle, CenterOffset + FlipAngle]
+  private final LoggedTunableNumber flipAngleDeg;
+  private final LoggedTunableNumber centerOffsetDeg;
+  private final LoggedTunableNumber warningZoneDeg;
+
+  // Cached effective limits (updated when tunables change)
+  private double effectiveMinAngleDeg;
+  private double effectiveMaxAngleDeg;
+
+  // Startup safety - turret locked until operator confirms position
+  private boolean operatorConfirmed = false;
+
   /**
    * Creates a new Turret subsystem.
    *
@@ -36,17 +54,84 @@ public class Turret extends SubsystemBase {
     this.io = io;
     this.turretHeightMeters = Constants.getRobotConfig().getTurretHeightMeters();
 
-    // Log turret configuration for debugging (logged once at startup)
+    // Log turret configuration (logged once at startup)
     var config = Constants.getRobotConfig();
+    Logger.recordOutput("Turret/Config/hardLimitMinDeg", TurretConstants.HARD_LIMIT_MIN_DEG);
+    Logger.recordOutput("Turret/Config/hardLimitMaxDeg", TurretConstants.HARD_LIMIT_MAX_DEG);
     Logger.recordOutput("Turret/Config/heightMeters", turretHeightMeters);
     Logger.recordOutput("Turret/Config/gearRatio", config.getTurretGearRatio());
-    Logger.recordOutput("Turret/Config/maxAngleDegrees", config.getTurretMaxAngleDegrees());
-    Logger.recordOutput("Turret/Config/minAngleDegrees", config.getTurretMinAngleDegrees());
     Logger.recordOutput("Turret/Config/kP", config.getTurretKp());
-    Logger.recordOutput("Turret/Config/kI", config.getTurretKi());
     Logger.recordOutput("Turret/Config/kD", config.getTurretKd());
     Logger.recordOutput("Turret/Config/currentLimitAmps", config.getTurretCurrentLimitAmps());
-    Logger.recordOutput("Turret/Config/motorCanId", config.getTurretMotorCanId());
+
+    // Initialize tunable limits (adjustable via NetworkTables at runtime)
+    double configMin = config.getTurretMinAngleDegrees();
+    double configMax = config.getTurretMaxAngleDegrees();
+    double defaultCenter = (configMax + configMin) / 2.0;
+    double defaultFlipAngle = (configMax - configMin) / 2.0;
+
+    flipAngleDeg = new LoggedTunableNumber("Turret/Tuning/FlipAngleDeg", defaultFlipAngle);
+    centerOffsetDeg = new LoggedTunableNumber("Turret/Tuning/CenterOffsetDeg", defaultCenter);
+    warningZoneDeg = new LoggedTunableNumber("Turret/Tuning/WarningZoneDeg", 20.0);
+
+    // Calculate initial effective limits
+    updateEffectiveLimits();
+
+    // Print startup information
+    printStartupDiagnostics();
+  }
+
+  /** Update effective min/max limits from tunable flip angle and center offset. */
+  private void updateEffectiveLimits() {
+    double center = centerOffsetDeg.get();
+    double flipAngle = flipAngleDeg.get();
+    // Clamp to hard limits (mechanical stops)
+    effectiveMinAngleDeg = Math.max(TurretConstants.HARD_LIMIT_MIN_DEG, center - flipAngle);
+    effectiveMaxAngleDeg = Math.min(TurretConstants.HARD_LIMIT_MAX_DEG, center + flipAngle);
+  }
+
+  /**
+   * Generate a line of 3D poses for field overlay visualization. The line extends from a start
+   * point in the given direction at a specified height.
+   *
+   * @param startX Start X position (meters)
+   * @param startY Start Y position (meters)
+   * @param height Height above ground (meters)
+   * @param angleDeg Direction angle in degrees (field-relative, 0 = +X, 90 = +Y)
+   * @param length Length of line in meters
+   * @param numPoints Number of poses along the line
+   * @return Array of Pose3d representing the line
+   */
+  private Pose3d[] generateFieldLine3d(
+      double startX, double startY, double height, double angleDeg, double length, int numPoints) {
+    Pose3d[] poses = new Pose3d[numPoints];
+    double angleRad = Math.toRadians(angleDeg);
+    Rotation3d rotation = new Rotation3d(0, 0, angleRad);
+
+    for (int i = 0; i < numPoints; i++) {
+      double t = (double) i / (numPoints - 1); // 0 to 1
+      double x = startX + t * length * Math.cos(angleRad);
+      double y = startY + t * length * Math.sin(angleRad);
+      poses[i] = new Pose3d(x, y, height, rotation);
+    }
+    return poses;
+  }
+
+  /** Print startup diagnostics to console. */
+  private void printStartupDiagnostics() {
+    System.out.println();
+    System.out.println("+====================================================================+");
+    System.out.println("|                      TURRET SUBSYSTEM                              |");
+    System.out.println("+====================================================================+");
+    System.out.printf(
+        "|  Hard Limits:  %+.0f deg to %+.0f deg (mechanical stops)%n",
+        TurretConstants.HARD_LIMIT_MIN_DEG, TurretConstants.HARD_LIMIT_MAX_DEG);
+    System.out.printf(
+        "|  Soft Limits:  %+.1f deg to %+.1f deg (%.0f deg usable range)%n",
+        effectiveMinAngleDeg, effectiveMaxAngleDeg, effectiveMaxAngleDeg - effectiveMinAngleDeg);
+    System.out.printf("|  Warning Zone: %.0f deg%n", warningZoneDeg.get());
+    System.out.println("+====================================================================+");
+    System.out.println();
   }
 
   @Override
@@ -54,19 +139,162 @@ public class Turret extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs("Turret", inputs);
 
+    // Check if tunable limits have changed
+    if (LoggedTunableNumber.hasChanged(flipAngleDeg, centerOffsetDeg)) {
+      updateEffectiveLimits();
+    }
+
     // Log additional useful debugging values
     double angleError = inputs.targetAngleDegrees - inputs.currentAngleDegrees;
-    Logger.recordOutput("Turret/angleError", angleError);
-    Logger.recordOutput("Turret/atTarget", atTarget());
+    Logger.recordOutput("Turret/AngleError", angleError);
+    Logger.recordOutput("Turret/AtTarget", atTarget());
+
+    // ========== Safety Logging ==========
+    double currentAngle = inputs.currentAngleDegrees;
+    double roomCW = effectiveMaxAngleDeg - currentAngle;
+    double roomCCW = currentAngle - effectiveMinAngleDeg;
+    double warningZone = warningZoneDeg.get();
+    double dangerZone = warningZone / 2.0; // Half of warning zone is danger zone
+
+    // Calculate position as percentage of travel (0% = CCW limit, 100% = CW limit)
+    double totalRange = effectiveMaxAngleDeg - effectiveMinAngleDeg;
+    double positionPercent =
+        totalRange > 0 ? ((currentAngle - effectiveMinAngleDeg) / totalRange) * 100.0 : 50.0;
+
+    // Log safety metrics (current angle already in inputs, no need to duplicate)
+    boolean nearLimit = roomCW <= warningZone || roomCCW <= warningZone;
+    boolean inDangerZone = roomCW <= dangerZone || roomCCW <= dangerZone;
+    Logger.recordOutput("Turret/Safety/RoomCW_Deg", roomCW);
+    Logger.recordOutput("Turret/Safety/RoomCCW_Deg", roomCCW);
+    Logger.recordOutput("Turret/Safety/PositionPercent", positionPercent);
+    Logger.recordOutput("Turret/Safety/NearLimit", nearLimit);
+    Logger.recordOutput("Turret/Safety/InDangerZone", inDangerZone);
+
+    // ========== Turret Overlay (3D field visualization) ==========
+    if (robotPoseSupplier != null) {
+      Pose2d robotPose = robotPoseSupplier.get();
+      double robotX = robotPose.getX();
+      double robotY = robotPose.getY();
+      double robotHeadingDeg = robotPose.getRotation().getDegrees();
+      double robotHeadingRad = robotPose.getRotation().getRadians();
+
+      // Calculate turret's actual position on the field (offset from robot center)
+      double turretX =
+          robotX
+              + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotHeadingRad)
+                  - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotHeadingRad));
+      double turretY =
+          robotY
+              + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotHeadingRad)
+                  + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotHeadingRad));
+
+      // Calculate field-relative angles
+      // Turret angle is relative to robot, so add robot heading to get field-relative
+      double currentFieldAngle = robotHeadingDeg + currentAngle;
+      double cwLimitFieldAngle = robotHeadingDeg + effectiveMaxAngleDeg;
+      double ccwLimitFieldAngle = robotHeadingDeg + effectiveMinAngleDeg;
+
+      // Heights for 3D visualization - all at same height for consistency
+      double turretHeight = 0.36; // All lines at turret height
+
+      // Generate and log field overlay lines (emanating from turret position)
+      // Current turret direction - length is distance to hub so line points at target
+      boolean isBlueAlliance =
+          edu.wpi.first.wpilibj.DriverStation.getAlliance()
+              .orElse(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue)
+              .equals(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue);
+      double hubX = isBlueAlliance ? FieldPositions.BLUE_HUB_X : FieldPositions.RED_HUB_X;
+      double hubY = isBlueAlliance ? FieldPositions.BLUE_HUB_Y : FieldPositions.RED_HUB_Y;
+      double distanceToHub = Math.sqrt(Math.pow(hubX - turretX, 2) + Math.pow(hubY - turretY, 2));
+      Logger.recordOutput(
+          "Turret/Overlay/Aim",
+          generateFieldLine3d(turretX, turretY, turretHeight, currentFieldAngle, distanceToHub, 5));
+
+      // Limit visualization logic:
+      // - When centered (within 10° of center): show both limits at fixed 0.4m length
+      // - When approaching one limit: show only that limit, scaled 0.4m to 0.6m
+      double maxRoom = effectiveMaxAngleDeg - effectiveMinAngleDeg; // Total travel range
+      double center = centerOffsetDeg.get();
+      double centeredZoneDeg = 10.0; // Show both limits when within this many degrees of center
+
+      // Calculate proximity to each limit (0 = far, 1 = at limit)
+      double cwProximity = 1.0 - (roomCW / maxRoom);
+      cwProximity = Math.max(0, Math.min(1, cwProximity)); // Clamp to 0-1
+      double ccwProximity = 1.0 - (roomCCW / maxRoom);
+      ccwProximity = Math.max(0, Math.min(1, ccwProximity)); // Clamp to 0-1
+
+      boolean isCentered = Math.abs(currentAngle - center) <= centeredZoneDeg;
+      boolean approachingCW = !isCentered && currentAngle > center;
+      boolean approachingCCW = !isCentered && currentAngle < center;
+
+      if (approachingCW) {
+        // Only show CW limit, scaled from 0.4m to 0.6m based on proximity
+        double cwLineLength = 0.4 + (cwProximity - 0.5) * 0.4; // 0.4m at 0.5 proximity, 0.6m at 1.0
+        Logger.recordOutput(
+            "Turret/Overlay/CWLimit",
+            generateFieldLine3d(
+                turretX, turretY, turretHeight, cwLimitFieldAngle, cwLineLength, 2));
+        Logger.recordOutput("Turret/Overlay/CCWLimit", new Pose3d[] {});
+      } else if (approachingCCW) {
+        // Only show CCW limit, scaled from 0.4m to 0.6m based on proximity
+        double ccwLineLength =
+            0.4 + (ccwProximity - 0.5) * 0.4; // 0.4m at 0.5 proximity, 0.6m at 1.0
+        Logger.recordOutput("Turret/Overlay/CWLimit", new Pose3d[] {});
+        Logger.recordOutput(
+            "Turret/Overlay/CCWLimit",
+            generateFieldLine3d(
+                turretX, turretY, turretHeight, ccwLimitFieldAngle, ccwLineLength, 2));
+      } else {
+        // Centered - show both limits at fixed modest length
+        double fixedLength = 0.4;
+        Logger.recordOutput(
+            "Turret/Overlay/CWLimit",
+            generateFieldLine3d(turretX, turretY, turretHeight, cwLimitFieldAngle, fixedLength, 2));
+        Logger.recordOutput(
+            "Turret/Overlay/CCWLimit",
+            generateFieldLine3d(
+                turretX, turretY, turretHeight, ccwLimitFieldAngle, fixedLength, 2));
+      }
+
+      // Center line - fixed length nub showing where center is
+      double centerFieldAngle = robotHeadingDeg + centerOffsetDeg.get();
+      Logger.recordOutput(
+          "Turret/Overlay/Center",
+          generateFieldLine3d(turretX, turretY, turretHeight, centerFieldAngle, 0.5, 2));
+
+      // Log the target direction if we have a current shot
+      if (currentShot != null) {
+        double targetX = currentShot.getTarget().getX();
+        double targetY = currentShot.getTarget().getY();
+        double targetAngle = Math.toDegrees(Math.atan2(targetY - turretY, targetX - turretX));
+        double distanceToTarget =
+            Math.sqrt(Math.pow(targetX - turretX, 2) + Math.pow(targetY - turretY, 2));
+        Logger.recordOutput(
+            "Turret/Overlay/Target",
+            generateFieldLine3d(
+                turretX, turretY, turretHeight, targetAngle, Math.min(distanceToTarget, 3.0), 4));
+      }
+    }
 
     // Update visualizer if initialized
     if (visualizer != null) {
       visualizer.logFuelStatus();
-      visualizer.update3dPose(Math.toRadians(getCurrentAngle()));
+
+      // Continuously calculate shot to hub for real-time trajectory visualization
+      if (robotPoseSupplier != null && fieldSpeedsSupplier != null) {
+        // Auto-calculate shot every periodic cycle for live trajectory display
+        boolean isBlue =
+            edu.wpi.first.wpilibj.DriverStation.getAlliance()
+                .orElse(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue)
+                .equals(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue);
+        calculateShotToHub(isBlue);
+      }
 
       // Update trajectory visualization if we have a current shot
-      if (currentShot != null) {
-        visualizer.visualizeShot(currentShot);
+      if (currentShot != null && robotPoseSupplier != null) {
+        double currentTurretAngleRad = Math.toRadians(inputs.currentAngleDegrees);
+        double robotHeadingRad = robotPoseSupplier.get().getRotation().getRadians();
+        visualizer.visualizeShot(currentShot, currentTurretAngleRad, robotHeadingRad);
       }
     }
   }
@@ -93,7 +321,13 @@ public class Turret extends SubsystemBase {
               new Rotation3d(0, 0, pose2d.getRotation().getRadians()));
         };
 
-    this.visualizer = new TurretVisualizer(pose3dSupplier, speedsSupplier, turretHeightMeters);
+    this.visualizer =
+        new TurretVisualizer(
+            pose3dSupplier,
+            speedsSupplier,
+            turretHeightMeters,
+            TurretConstants.TURRET_X_OFFSET,
+            TurretConstants.TURRET_Y_OFFSET);
   }
 
   /**
@@ -107,27 +341,52 @@ public class Turret extends SubsystemBase {
 
     Pose2d robotPose = robotPoseSupplier.get();
     ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
+    double robotHeadingRad = robotPose.getRotation().getRadians();
+
+    // Calculate turret's actual position on the field (offset from robot center)
+    double turretX =
+        robotPose.getX()
+            + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotHeadingRad)
+                - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotHeadingRad));
+    double turretY =
+        robotPose.getY()
+            + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotHeadingRad)
+                + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotHeadingRad));
 
     // Calculate shot with motion compensation
     currentShot =
         TurretCalculator.calculateMovingShot(robotPose, fieldSpeeds, target, 3, turretHeightMeters);
 
-    // Aim turret at the target
-    double azimuthRad = TurretCalculator.calculateAzimuthAngle(robotPose, target);
+    // Aim turret at the target (from turret position, not robot center)
+    double azimuthRad = Math.atan2(target.getY() - turretY, target.getX() - turretX);
     double azimuthDeg = Math.toDegrees(azimuthRad);
-    // Convert from 0-360 to -180 to 180 range
-    if (azimuthDeg > 180) {
-      azimuthDeg -= 360;
+    // Convert to robot-relative angle
+    double robotHeadingDeg = robotPose.getRotation().getDegrees();
+    double relativeAngleDeg = azimuthDeg - robotHeadingDeg;
+    // Normalize to -180 to 180 range
+    if (relativeAngleDeg > 180) {
+      relativeAngleDeg -= 360;
+    } else if (relativeAngleDeg < -180) {
+      relativeAngleDeg += 360;
     }
-    setAngle(azimuthDeg);
+    setAngle(relativeAngleDeg);
 
-    // Log shot data
-    Logger.recordOutput("Turret/ShotExitVelocity", currentShot.getExitVelocity());
-    Logger.recordOutput("Turret/ShotLaunchAngleDeg", currentShot.getLaunchAngleDegrees());
-    Logger.recordOutput("Turret/ShotAzimuthDeg", azimuthDeg);
-    Logger.recordOutput("Turret/ShotTargetX", currentShot.getTarget().getX());
-    Logger.recordOutput("Turret/ShotTargetY", currentShot.getTarget().getY());
-    Logger.recordOutput("Turret/ShotTargetZ", currentShot.getTarget().getZ());
+    // Log shot data (TargetPosition Pose3d is logged by TurretVisualizer.visualizeShot)
+    Logger.recordOutput("Turret/Shot/ExitVelocityMps", currentShot.getExitVelocity());
+    Logger.recordOutput("Turret/Shot/LaunchAngleDeg", currentShot.getLaunchAngleDegrees());
+    Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
+    Logger.recordOutput("Turret/Shot/RelativeAngleDeg", relativeAngleDeg);
+
+    // Log velocity calculation details
+    double distanceToTarget =
+        Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
+    Logger.recordOutput("Turret/Shot/DistanceToTargetM", distanceToTarget);
+
+    // Show what RPM would be ideal for different target velocities
+    Logger.recordOutput(
+        "Turret/Shot/RPMNeededFor8mps", TurretCalculator.calculateRPMForVelocity(8.0));
+    Logger.recordOutput(
+        "Turret/Shot/RPMNeededFor10mps", TurretCalculator.calculateRPMForVelocity(10.0));
   }
 
   /**
@@ -152,10 +411,22 @@ public class Turret extends SubsystemBase {
   /** Launch a fuel ball using the current shot parameters. */
   public void launchFuel() {
     if (visualizer != null && currentShot != null && robotPoseSupplier != null) {
-      // Calculate azimuth angle (field-relative direction from robot to target)
-      Pose2d robot = robotPoseSupplier.get();
+      // Calculate azimuth angle (field-relative direction from turret to target)
+      Pose2d robotPose = robotPoseSupplier.get();
+      double robotHeadingRad = robotPose.getRotation().getRadians();
+
+      // Calculate turret's actual position on the field (offset from robot center)
+      double turretX =
+          robotPose.getX()
+              + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotHeadingRad)
+                  - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotHeadingRad));
+      double turretY =
+          robotPose.getY()
+              + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotHeadingRad)
+                  + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotHeadingRad));
+
       Translation3d target = currentShot.getTarget();
-      double azimuthAngle = Math.atan2(target.getY() - robot.getY(), target.getX() - robot.getX());
+      double azimuthAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
 
       visualizer.launchFuel(
           currentShot.getExitVelocity(), currentShot.getLaunchAngle(), azimuthAngle);
@@ -197,12 +468,89 @@ public class Turret extends SubsystemBase {
   }
 
   /**
-   * Set the turret to point at a specific angle relative to the robot's front.
+   * Set the turret to point at a specific angle relative to the robot's front. The angle will be
+   * clamped to the effective limits (travelCenter ± travelRange).
    *
-   * @param angleDegrees Angle in degrees (-180 to 180, positive = counter-clockwise)
+   * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
   public void setAngle(double angleDegrees) {
-    io.setTargetAngle(new Rotation2d(Rotation2d.fromDegrees(angleDegrees).getRadians()));
+    // Clamp to effective limits (these may be different from config limits if tuned)
+    double clampedAngle =
+        Math.max(effectiveMinAngleDeg, Math.min(effectiveMaxAngleDeg, angleDegrees));
+
+    // Log when clamping occurs (only logs on clamp events, not every call)
+    if (clampedAngle != angleDegrees) {
+      Logger.recordOutput("Turret/Safety/ClampedRequestDeg", angleDegrees);
+    }
+
+    io.setTargetAngle(new Rotation2d(Rotation2d.fromDegrees(clampedAngle).getRadians()));
+  }
+
+  // ========== Safety Control Methods ==========
+
+  /**
+   * Confirm that the turret position is correct. Call this after visually verifying the turret is
+   * where the code thinks it is.
+   */
+  public void confirmPosition() {
+    operatorConfirmed = true;
+    System.out.println(
+        "[Turret] Operator confirmed position at " + inputs.currentAngleDegrees + "°");
+  }
+
+  /**
+   * Check if the operator has confirmed the turret position.
+   *
+   * @return True if position has been confirmed
+   */
+  public boolean isPositionConfirmed() {
+    return operatorConfirmed;
+  }
+
+  /**
+   * Get the room available to rotate clockwise (positive direction).
+   *
+   * @return Degrees of room until CW limit
+   */
+  public double getRoomCW() {
+    return effectiveMaxAngleDeg - inputs.currentAngleDegrees;
+  }
+
+  /**
+   * Get the room available to rotate counter-clockwise (negative direction).
+   *
+   * @return Degrees of room until CCW limit
+   */
+  public double getRoomCCW() {
+    return inputs.currentAngleDegrees - effectiveMinAngleDeg;
+  }
+
+  /**
+   * Check if the turret is near either limit.
+   *
+   * @return True if within warning zone of either limit
+   */
+  public boolean isNearLimit() {
+    double warningZone = warningZoneDeg.get();
+    return getRoomCW() <= warningZone || getRoomCCW() <= warningZone;
+  }
+
+  /**
+   * Get the effective minimum angle (CCW limit).
+   *
+   * @return Minimum angle in degrees
+   */
+  public double getEffectiveMinAngle() {
+    return effectiveMinAngleDeg;
+  }
+
+  /**
+   * Get the effective maximum angle (CW limit).
+   *
+   * @return Maximum angle in degrees
+   */
+  public double getEffectiveMaxAngle() {
+    return effectiveMaxAngleDeg;
   }
 
   /**

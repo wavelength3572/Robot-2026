@@ -266,4 +266,37 @@ public interface RobotConfig {
   default double getLauncherKff() {
     return 0.000175;
   }
+
+  // ========== Hood Configuration ==========
+  // Default implementations return 0/false for robots without hoods
+
+  /** Whether this robot has a hood (launch angle adjustment). */
+  default boolean hasHood() {
+    return false;
+  }
+
+  /** Hood motor CAN ID. */
+  default int getHoodCanId() {
+    return 0;
+  }
+
+  /** Hood minimum angle in degrees. */
+  default double getHoodMinAngleDeg() {
+    return 25.0;
+  }
+
+  /** Hood maximum angle in degrees. */
+  default double getHoodMaxAngleDeg() {
+    return 65.0;
+  }
+
+  /** Hood gear ratio (motor rotations per degree of hood movement). */
+  default double getHoodGearRatio() {
+    return 1.0;
+  }
+
+  /** Hood motor current limit in amps. */
+  default int getHoodCurrentLimitAmps() {
+    return 20;
+  }
 }

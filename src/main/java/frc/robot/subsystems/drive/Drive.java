@@ -184,10 +184,10 @@ public class Drive extends SubsystemBase {
       TurretAimingHelper.AimResult aimResult =
           TurretAimingHelper.getAimTarget(currentPose.getX(), currentPose.getY(), alliance);
 
-      // Log aiming data for AdvantageScope
-      Logger.recordOutput("Turret/AimMode", aimResult.mode().toString());
-      Logger.recordOutput("Turret/TargetX", aimResult.target().getX());
-      Logger.recordOutput("Turret/TargetY", aimResult.target().getY());
+      // Log aiming data for AdvantageScope (zone-based target selection)
+      Logger.recordOutput("Turret/Aim/Mode", aimResult.mode().toString());
+      Logger.recordOutput("Turret/Aim/TargetX", aimResult.target().getX());
+      Logger.recordOutput("Turret/Aim/TargetY", aimResult.target().getY());
 
       turret.aimAtFieldPosition(
           currentPose.getX(),

@@ -70,7 +70,10 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
   // Constants
   private static final double MAX_VELOCITY_RPM = 3500.0; // Max wheel RPM (safety limit)
-  private static final double VELOCITY_TOLERANCE_RPM = 50.0; // At-setpoint tolerance
+
+  // Shared tunable tolerance (same instance as LauncherIOSim for consistency)
+  private static final LoggedTunableNumber velocityToleranceRPM =
+      new LoggedTunableNumber("Launcher/VelocityToleranceRPM", 50.0);
 
   public LauncherIOSparkFlex() {
     config = Constants.getRobotConfig();
@@ -235,7 +238,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Target and at-setpoint status
     inputs.targetVelocityRPM = currentTargetWheelRPM;
     inputs.atSetpoint =
-        Math.abs(inputs.wheelVelocityRPM - currentTargetWheelRPM) < VELOCITY_TOLERANCE_RPM;
+        Math.abs(inputs.wheelVelocityRPM - currentTargetWheelRPM) < velocityToleranceRPM.get();
   }
 
   @Override
@@ -243,13 +246,12 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Clamp to max velocity (wheel RPM)
     currentTargetWheelRPM = Math.min(Math.abs(velocityRPM), MAX_VELOCITY_RPM);
 
-    // Convert wheel RPM to motor RPM for the controller
+    // Convert wheel RPM to motor RPM for the SparkFlex PID controller
     double motorRPM = wheelToMotorRPM(currentTargetWheelRPM);
 
-    // If SysId feedforward gains are configured, use them as additional arbFF
-    // Otherwise the built-in kFF handles feedforward
-    double motorRadPerSec = Units.rotationsPerMinuteToRadiansPerSecond(motorRPM);
-    double arbFFVolts = feedforward.calculate(motorRadPerSec);
+    // Calculate feedforward using WHEEL velocity (SysId was characterized with wheel velocity)
+    double wheelRadPerSec = Units.rotationsPerMinuteToRadiansPerSecond(currentTargetWheelRPM);
+    double arbFFVolts = feedforward.calculate(wheelRadPerSec);
 
     // Command leader with PID + feedforward - follower follows automatically in hardware
     leaderController.setReference(
@@ -261,18 +263,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Clear velocity target when in voltage mode (for SysId characterization)
     currentTargetWheelRPM = 0.0;
 
-    // Safety: limit voltage when approaching max velocity to prevent overspeed during SysId
-    double currentWheelRPM = motorToWheelRPM(Math.abs(leaderEncoder.getVelocity()));
-    if (currentWheelRPM >= MAX_VELOCITY_RPM * 0.95) {
-      // At or above 95% of max - cut voltage to prevent overspeed
-      volts = 0.0;
-    } else if (currentWheelRPM >= MAX_VELOCITY_RPM * 0.85) {
-      // Between 85-95% of max - scale down voltage proportionally
-      double scale = (MAX_VELOCITY_RPM * 0.95 - currentWheelRPM) / (MAX_VELOCITY_RPM * 0.1);
-      volts = volts * scale;
-    }
-
     // Command leader directly - follower follows automatically via hardware follower mode
+    // Note: Velocity safety limiting is handled at the command level via .until() conditions
+    // rather than here, to avoid oscillations that would corrupt SysId data
     leaderMotor.setVoltage(volts);
   }
 

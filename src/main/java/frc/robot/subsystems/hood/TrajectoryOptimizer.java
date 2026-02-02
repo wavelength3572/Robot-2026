@@ -1,0 +1,320 @@
+package frc.robot.subsystems.hood;
+
+import edu.wpi.first.math.geometry.Translation3d;
+import frc.robot.subsystems.turret.TurretCalculator;
+import frc.robot.util.LoggedTunableNumber;
+import org.littletonrobotics.junction.Logger;
+
+/**
+ * Trajectory optimizer for hybrid RPM+hood control. Calculates the optimal combination of launcher
+ * RPM and hood angle to achieve a valid arc trajectory.
+ *
+ * <p>The trajectory is defined by:
+ *
+ * <ol>
+ *   <li>Descent angle (tunable) - angle of line from hub edge entry to hub center, parallel to hub
+ *       wall
+ *   <li>This determines the required height at hub edge
+ *   <li>Clearance must be within min/max bounds (safety constraints)
+ * </ol>
+ *
+ * <p>Given valid geometry, there is exactly ONE trajectory (launch angle + RPM) that passes through
+ * both points with the specified descent angle.
+ */
+public class TrajectoryOptimizer {
+  private static final double GRAVITY = 9.81; // m/s^2
+
+  // Hub geometry (from FuelSim and welded field measurements)
+  private static final double HUB_LIP_HEIGHT = 1.83; // meters - top of hub lip (ENTRY_HEIGHT)
+  private static final double HUB_CENTER_HEIGHT = 1.43; // meters - where ball should land
+  // Verified against welded field: 20.865 inches radius
+  private static final double HUB_ENTRY_RADIUS = 0.530; // meters - 20.865 inches
+
+  // PRIMARY TUNABLE: Descent angle (angle of line from hub edge to hub center)
+  // Tune this to match the hub wall angle visually (60° matches well)
+  private static final LoggedTunableNumber descentAngleDeg =
+      new LoggedTunableNumber("Trajectory/DescentAngleDeg", 60.0);
+
+  // Clearance constraints (inches above the lip)
+  private static final LoggedTunableNumber minClearanceInches =
+      new LoggedTunableNumber("Trajectory/MinClearanceInches", 2.0); // Safety margin
+  private static final LoggedTunableNumber maxClearanceInches =
+      new LoggedTunableNumber("Trajectory/MaxClearanceInches", 24.0); // Sanity check
+
+  // RPM limits
+  private static final LoggedTunableNumber minRPM =
+      new LoggedTunableNumber("Trajectory/MinRPM", 1500.0);
+  private static final LoggedTunableNumber maxRPM =
+      new LoggedTunableNumber("Trajectory/MaxRPM", 4000.0);
+  private static final LoggedTunableNumber maxPeakHeightM =
+      new LoggedTunableNumber("Trajectory/MaxPeakHeightM", 4.0);
+
+  // Hood/launch angle limits (tunable)
+  private static final LoggedTunableNumber hoodMinAngleDeg =
+      new LoggedTunableNumber("Trajectory/LaunchAngleMinDeg", 15.0);
+  private static final LoggedTunableNumber hoodMaxAngleDeg =
+      new LoggedTunableNumber("Trajectory/LaunchAngleMaxDeg", 85.0);
+
+  /** Result of trajectory optimization. */
+  public static class OptimalShot {
+    public final double rpm;
+    public final double launchAngleDeg;
+    public final double exitVelocityMps;
+    public final double peakHeightM;
+    public final double descentAngleDeg;
+    public final boolean achievable;
+    public final String notes;
+
+    public OptimalShot(
+        double rpm,
+        double launchAngleDeg,
+        double exitVelocityMps,
+        double peakHeightM,
+        double descentAngleDeg,
+        boolean achievable,
+        String notes) {
+      this.rpm = rpm;
+      this.launchAngleDeg = launchAngleDeg;
+      this.exitVelocityMps = exitVelocityMps;
+      this.peakHeightM = peakHeightM;
+      this.descentAngleDeg = descentAngleDeg;
+      this.achievable = achievable;
+      this.notes = notes;
+    }
+  }
+
+  /**
+   * Calculate the optimal RPM and hood angle for a shot.
+   *
+   * <p>The descent angle (tunable) determines the required height at the hub edge. The trajectory
+   * must pass through:
+   *
+   * <ul>
+   *   <li>Point A (hub edge): height = hub_center + R * tan(descent_angle)
+   *   <li>Point B (hub center): height = 1.43m
+   * </ul>
+   *
+   * <p>The resulting clearance (height above lip) must be within min/max bounds.
+   */
+  public static OptimalShot calculateOptimalShot(
+      Translation3d turretPosition, Translation3d target) {
+    // Calculate geometry
+    double dx = target.getX() - turretPosition.getX();
+    double dy = target.getY() - turretPosition.getY();
+    double D = Math.sqrt(dx * dx + dy * dy); // Horizontal distance to hub center
+    double turretHeightM = turretPosition.getZ();
+
+    double R = HUB_ENTRY_RADIUS;
+    double D_edge = D - R; // Distance to hub edge
+
+    // Descent angle determines required height at hub edge
+    // height_at_edge = hub_center + R * tan(descent_angle)
+    double descentRad = Math.toRadians(descentAngleDeg.get());
+    double heightDrop = R * Math.tan(descentRad); // Height drop from edge to center
+    double heightAtEdge = HUB_CENTER_HEIGHT + heightDrop;
+
+    // Calculate clearance and check bounds
+    double clearanceM = heightAtEdge - HUB_LIP_HEIGHT;
+    double clearanceInchesComputed = clearanceM / 0.0254;
+
+    // Log inputs
+    Logger.recordOutput("Trajectory/Input/HorizontalDistanceM", D);
+    Logger.recordOutput("Trajectory/Input/TurretHeightM", turretHeightM);
+    Logger.recordOutput("Trajectory/Input/HubEdgeDistanceM", D_edge);
+    Logger.recordOutput("Trajectory/Input/DescentAngleDeg", descentAngleDeg.get());
+    Logger.recordOutput("Trajectory/Input/HeightAtEdgeM", heightAtEdge);
+    Logger.recordOutput("Trajectory/Input/ClearanceInches", clearanceInchesComputed);
+
+    // Check clearance bounds
+    if (clearanceInchesComputed < minClearanceInches.get()) {
+      OptimalShot shot =
+          new OptimalShot(
+              0,
+              0,
+              0,
+              0,
+              descentAngleDeg.get(),
+              false,
+              String.format(
+                  "Clearance %.1f in < min %.1f in - increase descent angle",
+                  clearanceInchesComputed, minClearanceInches.get()));
+      logResult(shot);
+      return shot;
+    }
+    if (clearanceInchesComputed > maxClearanceInches.get()) {
+      OptimalShot shot =
+          new OptimalShot(
+              0,
+              0,
+              0,
+              0,
+              descentAngleDeg.get(),
+              false,
+              String.format(
+                  "Clearance %.1f in > max %.1f in - decrease descent angle",
+                  clearanceInchesComputed, maxClearanceInches.get()));
+      logResult(shot);
+      return shot;
+    }
+
+    // Heights relative to turret (for trajectory math)
+    double H_edge = heightAtEdge - turretHeightM; // Height of point A relative to turret
+    double H_target = HUB_CENTER_HEIGHT - turretHeightM; // Height of point B relative to turret
+
+    // Calculate trajectory through two points
+    OptimalShot shot =
+        calculateTrajectoryThroughTwoPoints(D_edge, H_edge, D, H_target, turretHeightM);
+
+    logResult(shot);
+    return shot;
+  }
+
+  /**
+   * Calculate the unique trajectory that passes through two specified points.
+   *
+   * <p>Given two points (x1, y1) and (x2, y2) on a parabolic trajectory, we can solve for the
+   * launch angle theta and velocity v.
+   *
+   * <p>Projectile motion: y = x*tan(theta) - g*x^2 / (2*v^2*cos^2(theta))
+   *
+   * <p>Let K = g / (2*v^2*cos^2(theta)), then: y = x*tan(theta) - K*x^2
+   *
+   * <p>From two points: y1 = x1*tan(theta) - K*x1^2 y2 = x2*tan(theta) - K*x2^2
+   *
+   * <p>Solving: tan(theta) = (y1*x2^2 - y2*x1^2) / (x1*x2^2 - x2*x1^2) = (y1*x2^2 - y2*x1^2) /
+   * (x1*x2*(x2 - x1))
+   */
+  private static OptimalShot calculateTrajectoryThroughTwoPoints(
+      double x1, double y1, double x2, double y2, double turretHeightM) {
+
+    // Compute descent angle for this trajectory (angle of line from point A to point B)
+    double heightAtEdge = turretHeightM + y1;
+    double heightDrop = heightAtEdge - HUB_CENTER_HEIGHT;
+    double descentAngleDeg = Math.toDegrees(Math.atan(heightDrop / HUB_ENTRY_RADIUS));
+
+    // Solve for launch angle
+    double denominator = x1 * x2 * (x2 - x1);
+    if (Math.abs(denominator) < 0.001) {
+      return new OptimalShot(
+          0, 0, 0, 0, descentAngleDeg, false, "Geometry error: points too close");
+    }
+
+    double tanTheta = (y1 * x2 * x2 - y2 * x1 * x1) / denominator;
+    double theta = Math.atan(tanTheta);
+    double thetaDeg = Math.toDegrees(theta);
+
+    // Check hood angle limits
+    if (thetaDeg < hoodMinAngleDeg.get() || thetaDeg > hoodMaxAngleDeg.get()) {
+      return new OptimalShot(
+          0,
+          thetaDeg,
+          0,
+          0,
+          descentAngleDeg,
+          false,
+          String.format(
+              "Launch angle %.1f deg outside hood range [%.0f-%.0f]",
+              thetaDeg, hoodMinAngleDeg.get(), hoodMaxAngleDeg.get()));
+    }
+
+    // Solve for K = g / (2*v^2*cos^2(theta)) using first point
+    double K = (x1 * tanTheta - y1) / (x1 * x1);
+    if (K <= 0) {
+      return new OptimalShot(
+          0, thetaDeg, 0, 0, descentAngleDeg, false, "Invalid trajectory: K <= 0 (unreachable)");
+    }
+
+    // Calculate velocity: v^2 = g / (2*K*cos^2(theta))
+    double cosTheta = Math.cos(theta);
+    double vSquared = GRAVITY / (2 * K * cosTheta * cosTheta);
+    if (vSquared <= 0) {
+      return new OptimalShot(
+          0, thetaDeg, 0, 0, descentAngleDeg, false, "Invalid velocity calculation");
+    }
+    double velocity = Math.sqrt(vSquared);
+
+    // Convert to RPM
+    double rpm = TurretCalculator.calculateRPMForVelocity(velocity);
+
+    // Check RPM limits
+    if (rpm < minRPM.get() || rpm > maxRPM.get()) {
+      return new OptimalShot(
+          rpm,
+          thetaDeg,
+          velocity,
+          0,
+          descentAngleDeg,
+          false,
+          String.format("RPM %.0f outside range [%.0f-%.0f]", rpm, minRPM.get(), maxRPM.get()));
+    }
+
+    // Calculate peak height
+    double sinTheta = Math.sin(theta);
+    double vy0 = velocity * sinTheta;
+    double peakHeight = turretHeightM + (vy0 * vy0) / (2 * GRAVITY);
+
+    // Check peak height limit
+    if (peakHeight > maxPeakHeightM.get()) {
+      return new OptimalShot(
+          rpm,
+          thetaDeg,
+          velocity,
+          peakHeight,
+          descentAngleDeg,
+          false,
+          String.format("Peak %.2fm exceeds max %.2fm", peakHeight, maxPeakHeightM.get()));
+    }
+
+    // Check that peak is before hub edge (ball should be descending at point A)
+    double vx = velocity * cosTheta;
+    double timeToPeak = vy0 / GRAVITY;
+    double distanceToPeak = vx * timeToPeak;
+    if (distanceToPeak >= x1) {
+      return new OptimalShot(
+          rpm,
+          thetaDeg,
+          velocity,
+          peakHeight,
+          descentAngleDeg,
+          false,
+          String.format(
+              "Peak at %.2fm, hub edge at %.2fm - ball still rising", distanceToPeak, x1));
+    }
+
+    // All constraints satisfied!
+    double clearanceM = heightAtEdge - HUB_LIP_HEIGHT;
+    return new OptimalShot(
+        rpm,
+        thetaDeg,
+        velocity,
+        peakHeight,
+        descentAngleDeg,
+        true,
+        String.format(
+            "OK - clearance %.1f in, descent %.1f deg", clearanceM / 0.0254, descentAngleDeg));
+  }
+
+  private static void logResult(OptimalShot shot) {
+    Logger.recordOutput("Trajectory/Ideal/RPM", shot.rpm);
+    Logger.recordOutput("Trajectory/Ideal/LaunchAngleDeg", shot.launchAngleDeg);
+    Logger.recordOutput("Trajectory/Ideal/ExitVelocityMps", shot.exitVelocityMps);
+    Logger.recordOutput("Trajectory/Ideal/PeakHeightM", shot.peakHeightM);
+    Logger.recordOutput("Trajectory/Ideal/DescentAngleDeg", shot.descentAngleDeg);
+    Logger.recordOutput("Trajectory/Ideal/Achievable", shot.achievable);
+    Logger.recordOutput("Trajectory/Ideal/Notes", shot.notes);
+  }
+
+  /** Get the current descent angle setting in degrees. */
+  public static double getDescentAngleDeg() {
+    return descentAngleDeg.get();
+  }
+
+  /** Get the computed clearance for the current descent angle, in inches. */
+  public static double getComputedClearanceInches() {
+    double descentRad = Math.toRadians(descentAngleDeg.get());
+    double heightDrop = HUB_ENTRY_RADIUS * Math.tan(descentRad);
+    double heightAtEdge = HUB_CENTER_HEIGHT + heightDrop;
+    double clearanceM = heightAtEdge - HUB_LIP_HEIGHT;
+    return clearanceM / 0.0254;
+  }
+}

@@ -171,13 +171,13 @@ public final class Constants {
     /** Field dimensions. */
     public static final double FIELD_LENGTH = 16.54;
 
-    public static final double FIELD_WIDTH = 8.23;
+    public static final double FIELD_WIDTH = 8.07; // 317.69 inches (welded field)
 
     /** Zone boundaries. */
     public static final double ALLIANCE_ZONE_DEPTH = 4.03;
 
-    /** Hub height (scoring target height in meters). */
-    public static final double HUB_HEIGHT = 1.43; // ~56.4 inches
+    /** Hub center height - the smallest opening where balls should land (below the lip). */
+    public static final double HUB_HEIGHT = 1.43; // ~56.4 inches - center of hub opening
 
     /** Pass target X positions (1/3 into alliance zone from wall). */
     public static final double BLUE_PASS_TARGET_X = 1.34;

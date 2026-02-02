@@ -9,6 +9,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.util.LoggedTunableNumber;
 
 /**
  * Utility class for turret ballistics calculations. Provides methods to calculate optimal launch
@@ -18,16 +19,122 @@ public class TurretCalculator {
   // Physical constants
   private static final double GRAVITY = 9.81; // m/s^2
 
-  // Shooter parameters (from CAD - 75° launch angle, 6.5 m/s at 2m from hopper)
-  private static final double DEFAULT_EXIT_VELOCITY = 6.5; // m/s
-  private static final double MIN_EXIT_VELOCITY = 6.0; // m/s
-  private static final double MAX_EXIT_VELOCITY = 8.0; // m/s
+  // Tunable shooter parameters
+  // Launcher wheel radius in meters (4" diameter = 2" radius = 0.0508m)
+  private static final LoggedTunableNumber wheelRadiusMeters =
+      new LoggedTunableNumber("Shooter/WheelRadiusMeters", 0.0508);
 
-  // Velocity scaling parameters
-  // Tuned so velocity ≈ 6.5 m/s at 2m distance, slight increase for longer shots
-  private static final double BASE_VELOCITY = 6.0; // m/s base velocity
-  private static final double VELOCITY_MULTIPLIER = 0.4; // minimal scaling with distance
-  private static final double VELOCITY_POWER = 0.3; // gradual increase
+  // Efficiency factor: how much of wheel surface velocity transfers to ball (0.0-1.0)
+  // Accounts for slip, compression, etc. Typical values: 0.6-0.9
+  private static final LoggedTunableNumber launchEfficiency =
+      new LoggedTunableNumber("Shooter/LaunchEfficiency", 0.70);
+
+  // Launcher RPM tracking
+  // currentLauncherRPM = what the launcher is actually doing right now
+  // targetLauncherRPM = what we're commanding the launcher to do (setpoint)
+  private static double currentLauncherRPM = 0.0;
+  private static double targetLauncherRPM = 0.0;
+
+  // Launch angle override: set to override the physics-calculated angle
+  // -1 = use physics calculation (default), any other value = use that fixed angle in degrees
+  private static final LoggedTunableNumber launchAngleOverrideDeg =
+      new LoggedTunableNumber("Shooter/LaunchAngleOverrideDeg", -1.0);
+
+  // Velocity limits for safety
+  private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
+  private static final double MAX_EXIT_VELOCITY = 15.0; // m/s
+
+  /**
+   * Set the current launcher wheel RPM. Call this from the shooting system so trajectory
+   * calculations use the actual wheel speed.
+   *
+   * @param rpm Current launcher wheel RPM
+   */
+  public static void setLauncherRPM(double rpm) {
+    currentLauncherRPM = rpm;
+  }
+
+  /**
+   * Set the target launcher wheel RPM. Call this when commanding a new velocity so trajectory
+   * setpoint calculations use the commanded speed.
+   *
+   * @param rpm Target launcher wheel RPM
+   */
+  public static void setTargetLauncherRPM(double rpm) {
+    targetLauncherRPM = rpm;
+  }
+
+  /**
+   * Get the current launcher RPM.
+   *
+   * @return Current launcher wheel RPM
+   */
+  public static double getCurrentLauncherRPM() {
+    return currentLauncherRPM;
+  }
+
+  /**
+   * Get the target launcher RPM.
+   *
+   * @return Target launcher wheel RPM
+   */
+  public static double getTargetLauncherRPM() {
+    return targetLauncherRPM;
+  }
+
+  /**
+   * Calculate ball exit velocity from current wheel RPM using physics.
+   *
+   * <p>Formula: exitVelocity = (RPM × 2π × radius / 60) × efficiency
+   *
+   * @return Exit velocity in m/s based on CURRENT launcher RPM
+   */
+  public static double calculateExitVelocityFromRPM() {
+    return calculateExitVelocityFromRPM(currentLauncherRPM);
+  }
+
+  /**
+   * Calculate ball exit velocity from TARGET wheel RPM using physics.
+   *
+   * @return Exit velocity in m/s based on TARGET launcher RPM (what we're commanding)
+   */
+  public static double calculateSetpointExitVelocity() {
+    return calculateExitVelocityFromRPM(targetLauncherRPM);
+  }
+
+  /**
+   * Calculate ball exit velocity from a given wheel RPM using physics.
+   *
+   * <p>Formula: exitVelocity = (RPM × 2π × radius / 60) × efficiency
+   *
+   * @param rpm Wheel RPM to calculate from
+   * @return Exit velocity in m/s
+   */
+  public static double calculateExitVelocityFromRPM(double rpm) {
+    double radius = wheelRadiusMeters.get();
+    double efficiency = launchEfficiency.get();
+
+    // Wheel surface velocity in m/s
+    double surfaceVelocity = (rpm * 2.0 * Math.PI * radius) / 60.0;
+
+    // Apply efficiency factor
+    return surfaceVelocity * efficiency;
+  }
+
+  /**
+   * Get what RPM would be needed to achieve a target exit velocity.
+   *
+   * @param targetExitVelocity Desired exit velocity in m/s
+   * @return Required wheel RPM
+   */
+  public static double calculateRPMForVelocity(double targetExitVelocity) {
+    double radius = wheelRadiusMeters.get();
+    double efficiency = launchEfficiency.get();
+
+    // Reverse the formula: RPM = (velocity / efficiency) × 60 / (2π × radius)
+    double surfaceVelocity = targetExitVelocity / efficiency;
+    return (surfaceVelocity * 60.0) / (2.0 * Math.PI * radius);
+  }
 
   /**
    * Get the horizontal distance from robot to target.
@@ -117,16 +224,51 @@ public class TurretCalculator {
   }
 
   /**
-   * Scale exit velocity based on distance to target. Uses a power-law scaling to minimize flywheel
-   * speed changes.
+   * Get the exit velocity for shots based on current launcher RPM.
    *
-   * @param distanceToTarget Distance to target in meters
-   * @return Scaled exit velocity in m/s
+   * @param distanceToTarget Distance to target in meters (unused, kept for API compatibility)
+   * @return Exit velocity in m/s
    */
   public static double scaleExitVelocity(double distanceToTarget) {
-    double velocity =
-        BASE_VELOCITY + VELOCITY_MULTIPLIER * Math.pow(distanceToTarget, VELOCITY_POWER);
-    return MathUtil.clamp(velocity, MIN_EXIT_VELOCITY, MAX_EXIT_VELOCITY);
+    double velocity = calculateExitVelocityFromRPM();
+
+    // Debug logging
+    org.littletonrobotics.junction.Logger.recordOutput(
+        "Shooter/Debug/CurrentRPM", currentLauncherRPM);
+    org.littletonrobotics.junction.Logger.recordOutput("Shooter/Debug/RawExitVelocity", velocity);
+    org.littletonrobotics.junction.Logger.recordOutput(
+        "Shooter/Debug/WheelRadius", wheelRadiusMeters.get());
+    org.littletonrobotics.junction.Logger.recordOutput(
+        "Shooter/Debug/Efficiency", launchEfficiency.get());
+
+    double clampedVelocity = MathUtil.clamp(velocity, MIN_EXIT_VELOCITY, MAX_EXIT_VELOCITY);
+    org.littletonrobotics.junction.Logger.recordOutput(
+        "Shooter/Debug/ClampedVelocity", clampedVelocity);
+    org.littletonrobotics.junction.Logger.recordOutput(
+        "Shooter/Debug/WasClamped", velocity != clampedVelocity);
+
+    return clampedVelocity;
+  }
+
+  /**
+   * Get the launch angle for shots. If override is set (>= 0), uses that fixed angle. Otherwise
+   * calculates optimal angle from physics.
+   *
+   * @param robot Current robot pose
+   * @param velocity Exit velocity in m/s
+   * @param target Target position (3D)
+   * @param turretHeightMeters Height of turret above ground
+   * @return Launch angle in radians
+   */
+  public static double getLaunchAngle(
+      Pose2d robot, double velocity, Translation3d target, double turretHeightMeters) {
+    double overrideAngle = launchAngleOverrideDeg.get();
+    if (overrideAngle >= 0) {
+      // Use override angle (convert degrees to radians)
+      return Math.toRadians(overrideAngle);
+    }
+    // Calculate optimal angle from physics
+    return calculateAngleFromVelocity(robot, velocity, target, turretHeightMeters);
   }
 
   /**
@@ -148,10 +290,9 @@ public class TurretCalculator {
       double turretHeightMeters) {
     // Initial estimation assuming stationary robot
     double distance = getDistanceToTarget(robot, target);
-    double exitVelocity = scaleExitVelocity(distance);
-    double launchAngle =
-        calculateAngleFromVelocity(robot, exitVelocity, target, turretHeightMeters);
-    double timeOfFlight = calculateTimeOfFlight(exitVelocity, launchAngle, distance);
+    double velocity = scaleExitVelocity(distance);
+    double launchAngle = getLaunchAngle(robot, velocity, target, turretHeightMeters);
+    double timeOfFlight = calculateTimeOfFlight(velocity, launchAngle, distance);
 
     Translation3d predictedTarget = target;
 
@@ -159,13 +300,12 @@ public class TurretCalculator {
     for (int i = 0; i < iterations; i++) {
       predictedTarget = predictTargetPos(target, fieldSpeeds, timeOfFlight);
       distance = getDistanceToTarget(robot, predictedTarget);
-      exitVelocity = scaleExitVelocity(distance);
-      launchAngle =
-          calculateAngleFromVelocity(robot, exitVelocity, predictedTarget, turretHeightMeters);
-      timeOfFlight = calculateTimeOfFlight(exitVelocity, launchAngle, distance);
+      velocity = scaleExitVelocity(distance);
+      launchAngle = getLaunchAngle(robot, velocity, predictedTarget, turretHeightMeters);
+      timeOfFlight = calculateTimeOfFlight(velocity, launchAngle, distance);
     }
 
-    return new ShotData(exitVelocity, launchAngle, predictedTarget);
+    return new ShotData(velocity, launchAngle, predictedTarget);
   }
 
   /**
@@ -179,10 +319,9 @@ public class TurretCalculator {
   public static ShotData calculateStationaryShot(
       Pose2d robot, Translation3d target, double turretHeightMeters) {
     double distance = getDistanceToTarget(robot, target);
-    double exitVelocity = scaleExitVelocity(distance);
-    double launchAngle =
-        calculateAngleFromVelocity(robot, exitVelocity, target, turretHeightMeters);
-    return new ShotData(exitVelocity, launchAngle, target);
+    double velocity = scaleExitVelocity(distance);
+    double launchAngle = getLaunchAngle(robot, velocity, target, turretHeightMeters);
+    return new ShotData(velocity, launchAngle, target);
   }
 
   /** Record containing all parameters needed for a shot. */
