@@ -213,6 +213,14 @@ public class Turret extends SubsystemBase {
    */
   private double calculateTurretAngle(
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
+
+    // Normalize robotOmega to -180 to +180 range
+    double robotOmegaNormalized = robotOmega % 360;
+    if (robotOmegaNormalized > 180) {
+      robotOmegaNormalized -= 360;
+    } else if (robotOmegaNormalized <= -180) {
+      robotOmegaNormalized += 360;
+    }
     // Convert robot heading to radians for rotation calculations
     double robotOmegaRad = Math.toRadians(robotOmega);
 
@@ -236,22 +244,54 @@ public class Turret extends SubsystemBase {
     // Calculate absolute angle to target from field coordinates
     double absoluteAngle = Math.toDegrees(Math.atan2(deltaY, deltaX));
 
-    // Normalize to 0-360 range
-    if (absoluteAngle < 0) {
-      absoluteAngle += 360;
-    }
-
     // Calculate relative angle (turret angle relative to robot heading)
     double relativeAngle = absoluteAngle - robotOmega;
 
-    // Normalize to -180 to +180 range for shortest rotation
-    if (relativeAngle > 180) {
-      relativeAngle -= 360;
-    } else if (relativeAngle < -180) {
-      relativeAngle += 360;
+    // Log calculation values
+    Logger.recordOutput("Turret/RobotOmegaNormalized", robotOmegaNormalized);
+    Logger.recordOutput("Turret/AbsoluteAngle", absoluteAngle);
+    Logger.recordOutput("Turret/RelativeAngle", relativeAngle);
+
+    // Check if the raw relative angle is within turret limits
+    if (relativeAngle >= TurretConstants.MIN_ANGLE_DEGREES
+        && relativeAngle <= TurretConstants.MAX_ANGLE_DEGREES) {
+      return relativeAngle;
     }
 
-    return relativeAngle;
+    // Not in range - check the 360° wrapped alternative
+    double wrappedAngle;
+    if (relativeAngle > TurretConstants.MAX_ANGLE_DEGREES) {
+      wrappedAngle = relativeAngle - 360.0;
+    } else { // relativeAngle < MIN_ANGLE_DEGREES
+      wrappedAngle = relativeAngle + 360.0;
+    }
+
+    Logger.recordOutput("Turret/WrappedAngle", wrappedAngle);
+
+    // Check if wrapped version is in range
+    if (wrappedAngle >= TurretConstants.MIN_ANGLE_DEGREES
+        && wrappedAngle <= TurretConstants.MAX_ANGLE_DEGREES) {
+      return wrappedAngle;
+    }
+
+    // Neither version is in range - clamp to the nearest limit
+    // Determine which limit is closer to the target
+    double distToMin =
+        Math.min(
+            Math.abs(relativeAngle - TurretConstants.MIN_ANGLE_DEGREES),
+            Math.abs(wrappedAngle - TurretConstants.MIN_ANGLE_DEGREES));
+
+    double distToMax =
+        Math.min(
+            Math.abs(relativeAngle - TurretConstants.MAX_ANGLE_DEGREES),
+            Math.abs(wrappedAngle - TurretConstants.MAX_ANGLE_DEGREES));
+
+    // Return the closest limit
+    if (distToMin < distToMax) {
+      return TurretConstants.MIN_ANGLE_DEGREES;
+    } else {
+      return TurretConstants.MAX_ANGLE_DEGREES;
+    }
   }
 
   /**

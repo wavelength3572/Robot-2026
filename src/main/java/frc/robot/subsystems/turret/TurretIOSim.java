@@ -65,11 +65,11 @@ public class TurretIOSim implements TurretIO {
   @Override
   public void setTargetAngle(Rotation2d rotation) {
     // Clamp the target angle to valid range (matching real robot soft limits)
-    double clampedDegrees =
-        Math.max(
-            TurretConstants.MIN_ANGLE_DEGREES,
-            Math.min(TurretConstants.MAX_ANGLE_DEGREES, rotation.getDegrees()));
-    targetRotation = Rotation2d.fromDegrees(clampedDegrees);
+    // double clampedDegrees =
+    //     Math.max(
+    //         TurretConstants.MIN_ANGLE_DEGREES,
+    //         Math.min(TurretConstants.MAX_ANGLE_DEGREES, rotation.getDegrees()));
+    targetRotation = Rotation2d.fromDegrees(rotation.getDegrees());
     turretController.setSetpoint(targetRotation.getRadians());
   }
 }
