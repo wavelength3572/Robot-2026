@@ -6,6 +6,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveCommands;
+import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.intake.Intake;
@@ -119,6 +120,47 @@ public class ButtonsAndDashboardBindings {
     if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
       configureTurretBotTestControls();
     }
+
+    // Coordinated shooting controls (requires both turret and launcher)
+    if (turret != null && launcher != null) {
+      configureShootingControls();
+    }
+  }
+
+  /** Configure dashboard controls for coordinated shooting system. */
+  private static void configureShootingControls() {
+    // === Shooting Commands ===
+    // Start coordinated shooting (Phase 1: shoot until empty)
+    SmartDashboard.putData(
+        "Shooting/StartShooting",
+        ShootingCommands.shootUntilEmpty(launcher, turret, ShootingCommands.getHubActiveSupplier())
+            .withName("Start Shooting"));
+
+    // Continuous shooting (Phase 2: keeps shooting as fuel is picked up)
+    SmartDashboard.putData(
+        "Shooting/ContinuousShooting",
+        ShootingCommands.continuousShooting(
+                launcher, turret, ShootingCommands.getHubActiveSupplier())
+            .withName("Continuous Shooting"));
+
+    // Shoot while moving (Phase 3: driver controls robot, auto-aims and shoots)
+    SmartDashboard.putData(
+        "Shooting/ShootWhileMoving",
+        ShootingCommands.shootWhileMoving(launcher, turret, ShootingCommands.getHubActiveSupplier())
+            .withName("Shoot While Moving"));
+
+    // === Hub Override Controls ===
+    SmartDashboard.putData("Shooting/HubOverride_ON", ShootingCommands.setHubOverrideOn());
+    SmartDashboard.putData("Shooting/HubOverride_OFF", ShootingCommands.setHubOverrideOff());
+    SmartDashboard.putData("Shooting/HubOverride_AUTO", ShootingCommands.setHubOverrideAuto());
+
+    // === Match Phase Controls ===
+    SmartDashboard.putData("Shooting/ToggleWeWonAuto", ShootingCommands.toggleWeWonAuto());
+
+    // === Fuel Management ===
+    SmartDashboard.putData("Shooting/ResetFuelTo25", ShootingCommands.resetFuelCommand(turret));
+
+    System.out.println("[Shooting] Coordinated shooting controls configured on SmartDashboard");
   }
 
   /** Configure dashboard controls for testing TurretBot without a drive system. */
@@ -260,8 +302,17 @@ public class ButtonsAndDashboardBindings {
                       turret)
                   .ignoringDisable(true));
 
-      // Shoot button: Launch fuel while held
-      oi.getShootButton().whileTrue(turret.repeatedlyLaunchFuelCommand());
+      // Shoot button binding depends on whether we have coordinated shooting
+      if (launcher != null) {
+        // Coordinated shooting: launcher spins up, turret aims, shoots when ready
+        oi.getShootButton()
+            .whileTrue(
+                ShootingCommands.shootWhileMoving(
+                    launcher, turret, ShootingCommands.getHubActiveSupplier()));
+      } else {
+        // Simple shooting: just launch fuel (no launcher coordination)
+        oi.getShootButton().whileTrue(turret.repeatedlyLaunchFuelCommand());
+      }
     }
 
     // Launcher controls (TurretBot only)
