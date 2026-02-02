@@ -17,6 +17,10 @@ public final class TurretConstants {
 
   // ========== Universal Constants ==========
 
+  // Hard limits (mechanical stops - never exceed these)
+  public static final double HARD_LIMIT_MIN_DEG = -200.0;
+  public static final double HARD_LIMIT_MAX_DEG = 200.0;
+
   // Tolerances
   public static final double ANGLE_TOLERANCE_DEGREES = 2.0;
 

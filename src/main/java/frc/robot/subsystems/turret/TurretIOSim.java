@@ -1,28 +1,35 @@
 package frc.robot.subsystems.turret;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.math.system.plant.LinearSystemId;
-import edu.wpi.first.wpilibj.simulation.DCMotorSim;
+import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
 
+/**
+ * Simulation implementation of TurretIO using a simple motion profile.
+ *
+ * <p>This simulation moves the turret smoothly toward the target using a trapezoidal velocity
+ * profile. No PID - just follows the profile directly for guaranteed stable motion.
+ */
 public class TurretIOSim implements TurretIO {
   private final RobotConfig config;
-  private final DCMotorSim turretSim;
-  private final PIDController turretController;
 
-  // Configuration values from RobotConfig
+  // Configuration values
   private final double maxAngleDegrees;
   private final double minAngleDegrees;
 
-  // Simulation
+  // Motion profile for smooth movement
+  private final TrapezoidProfile.Constraints constraints;
+  private TrapezoidProfile.State currentState = new TrapezoidProfile.State(0, 0);
+  private TrapezoidProfile.State goalState = new TrapezoidProfile.State(0, 0);
+
+  // Target tracking
   private Rotation2d targetRotation = new Rotation2d();
-  private DCMotor turretGearBox = DCMotor.getNEO(1);
-  private double turretFFVolts = 0.0;
-  private double turretAppliedVolts = 0.0;
+
+  // Tunable speed - increase if turret can't keep up
+  private static final double MAX_VELOCITY_DEG_PER_SEC = 540.0; // 1.5 rotations per second
+  private static final double MAX_ACCEL_DEG_PER_SEC_SQ = 1080.0; // Fast acceleration
 
   public TurretIOSim() {
     config = Constants.getRobotConfig();
@@ -31,56 +38,69 @@ public class TurretIOSim implements TurretIO {
     maxAngleDegrees = config.getTurretMaxAngleDegrees();
     minAngleDegrees = config.getTurretMinAngleDegrees();
 
-    // Create PID controller from config
-    turretController = new PIDController(config.getTurretKp(), 0, config.getTurretKd());
+    // Create motion profile constraints
+    constraints =
+        new TrapezoidProfile.Constraints(MAX_VELOCITY_DEG_PER_SEC, MAX_ACCEL_DEG_PER_SEC_SQ);
 
-    turretSim =
-        new DCMotorSim(
-            LinearSystemId.createDCMotorSystem(turretGearBox, 0.001, config.getTurretGearRatio()),
-            turretGearBox);
-
-    // Do NOT enable continuous input - turret has limited travel
-    // turretController.enableContinuousInput(-Math.PI, Math.PI);
+    // Print startup info
+    System.out.println();
+    System.out.println(
+        "+=========================================================================+");
+    System.out.println(
+        "|              TURRET SIMULATION INITIALIZED                              |");
+    System.out.println(
+        "+=========================================================================+");
+    System.out.printf(
+        "|  Soft Limits: %.1f deg to %+.1f deg                                    %n",
+        minAngleDegrees, maxAngleDegrees);
+    System.out.printf(
+        "|  Max Velocity: %.0f deg/sec  |  Max Accel: %.0f deg/sec^2              %n",
+        MAX_VELOCITY_DEG_PER_SEC, MAX_ACCEL_DEG_PER_SEC_SQ);
+    System.out.println(
+        "+=========================================================================+");
+    System.out.println();
   }
 
   @Override
   public void updateInputs(TurretIOInputs inputs) {
-    // Get the voltage being applied
-    turretAppliedVolts =
-        turretFFVolts + turretController.calculate(turretSim.getAngularPositionRad());
+    // Create a new profile from current state to goal
+    TrapezoidProfile profile = new TrapezoidProfile(constraints);
 
-    // Simulate soft limits - stop motor if at limit and trying to go further
-    double currentDegrees = Math.toDegrees(turretSim.getAngularPositionRad());
-    if ((currentDegrees >= maxAngleDegrees && turretAppliedVolts > 0)
-        || (currentDegrees <= minAngleDegrees && turretAppliedVolts < 0)) {
-      turretAppliedVolts = 0.0; // Soft limit reached, stop motor
+    // Step the profile forward by one timestep (20ms)
+    currentState = profile.calculate(0.02, currentState, goalState);
+
+    // Clamp to soft limits
+    double clampedPosition =
+        MathUtil.clamp(currentState.position, minAngleDegrees, maxAngleDegrees);
+
+    // If we hit a limit, stop velocity in that direction
+    double clampedVelocity = currentState.velocity;
+    if (clampedPosition >= maxAngleDegrees && clampedVelocity > 0) {
+      clampedVelocity = 0;
+    } else if (clampedPosition <= minAngleDegrees && clampedVelocity < 0) {
+      clampedVelocity = 0;
     }
 
-    // Update motor simulation
-    turretSim.setInputVoltage(MathUtil.clamp(turretAppliedVolts, -12.0, 12.0));
-    turretSim.update(0.02);
+    // Update current state with clamped values
+    currentState = new TrapezoidProfile.State(clampedPosition, clampedVelocity);
 
-    // Clamp simulated position to soft limits (in case of overshoot)
-    double simPositionDegrees =
-        MathUtil.clamp(
-            Math.toDegrees(turretSim.getAngularPositionRad()), minAngleDegrees, maxAngleDegrees);
-
-    // Get simulated position in degrees
+    // Populate inputs
     inputs.targetAngleDegrees = targetRotation.getDegrees();
     inputs.targetAngleRadians = targetRotation.getRadians();
-    inputs.currentAngleDegrees = simPositionDegrees;
-    inputs.currentAngleRadians = Math.toRadians(simPositionDegrees);
-    inputs.velocityDegreesPerSec = Math.toDegrees(turretSim.getAngularVelocityRadPerSec());
-    inputs.appliedVolts = turretAppliedVolts;
-    inputs.currentAmps = Math.abs(turretSim.getCurrentDrawAmps());
+    inputs.currentAngleDegrees = currentState.position;
+    inputs.currentAngleRadians = Math.toRadians(currentState.position);
+    inputs.velocityDegreesPerSec = currentState.velocity;
+    inputs.appliedVolts = 0.0;
+    inputs.currentAmps = 0.0;
   }
 
   @Override
   public void setTargetAngle(Rotation2d rotation) {
-    // Clamp the target angle to valid range (matching real robot soft limits)
-    double clampedDegrees =
-        Math.max(minAngleDegrees, Math.min(maxAngleDegrees, rotation.getDegrees()));
+    // Clamp the target angle to valid range
+    double clampedDegrees = MathUtil.clamp(rotation.getDegrees(), minAngleDegrees, maxAngleDegrees);
     targetRotation = Rotation2d.fromDegrees(clampedDegrees);
-    turretController.setSetpoint(targetRotation.getRadians());
+
+    // Set the goal state (target position, zero velocity at goal)
+    goalState = new TrapezoidProfile.State(clampedDegrees, 0);
   }
 }

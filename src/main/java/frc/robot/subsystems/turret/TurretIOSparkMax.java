@@ -47,7 +47,6 @@ public class TurretIOSparkMax implements TurretIO {
 
   // Tunable PID gains
   private final LoggedTunableNumber kP;
-  private final LoggedTunableNumber kI;
   private final LoggedTunableNumber kD;
 
   // Configuration values
@@ -106,7 +105,6 @@ public class TurretIOSparkMax implements TurretIO {
 
     // Initialize tunable numbers from config
     kP = new LoggedTunableNumber("Turret/kP", config.getTurretKp());
-    kI = new LoggedTunableNumber("Turret/kI", config.getTurretKi());
     kD = new LoggedTunableNumber("Turret/kD", config.getTurretKd());
 
     // Store config values
@@ -127,16 +125,36 @@ public class TurretIOSparkMax implements TurretIO {
 
     // Configure Spark Max - minimal settings only, NO encoder conversion factors
     // Motor inversion handled in software (degreesToMotorRotations / motorRotationsToDegrees)
-    // Soft limits disabled for now (no physical stops on turret currently)
-    // Idle mode left at default (coast) - can add brake later
+    // Idle mode set to BRAKE for safety when stopping
     var motorConfig = new SparkMaxConfig();
-    motorConfig.smartCurrentLimit(config.getTurretCurrentLimitAmps()).voltageCompensation(12.0);
+    motorConfig
+        .smartCurrentLimit(config.getTurretCurrentLimitAmps())
+        .voltageCompensation(12.0)
+        .idleMode(com.revrobotics.spark.config.SparkBaseConfig.IdleMode.kBrake);
 
     // PID control using motor's relative encoder (units: motor rotations)
     motorConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pidf(kP.get(), kI.get(), kD.get(), 0.0);
+        .pidf(kP.get(), 0.0, kD.get(), 0.0);
+
+    // ========== HARDWARE SOFT LIMITS (Critical Safety Feature) ==========
+    // These limits are enforced by the SparkMax itself, providing protection even if
+    // software bugs out. The motor will refuse to drive past these positions.
+    // Units: motor rotations (must convert from turret degrees)
+    double forwardLimitMotorRot = degreesToMotorRotations(maxAngleDegrees);
+    double reverseLimitMotorRot = degreesToMotorRotations(minAngleDegrees);
+
+    // Ensure forward > reverse (swap if motor is inverted and values got flipped)
+    double actualForward = Math.max(forwardLimitMotorRot, reverseLimitMotorRot);
+    double actualReverse = Math.min(forwardLimitMotorRot, reverseLimitMotorRot);
+
+    motorConfig
+        .softLimit
+        .forwardSoftLimitEnabled(true)
+        .forwardSoftLimit((float) actualForward)
+        .reverseSoftLimitEnabled(true)
+        .reverseSoftLimit((float) actualReverse);
 
     // Signal update rates
     motorConfig
@@ -167,55 +185,85 @@ public class TurretIOSparkMax implements TurretIO {
 
     // --- Startup diagnostics ---
     double wrapDegrees = 360.0 / externalGearRatio;
-    System.out.println("[TurretIOSparkMax] ========== STARTUP DIAGNOSTICS ==========");
-    System.out.println("[TurretIOSparkMax] CAN ID: " + config.getTurretMotorCanId());
-    System.out.println("[TurretIOSparkMax] Total gear ratio: " + totalGearRatio + ":1");
-    System.out.println("[TurretIOSparkMax] External gear ratio: " + externalGearRatio + ":1");
+    double roomCW = maxAngleDegrees - turretPositionDegrees;
+    double roomCCW = turretPositionDegrees - minAngleDegrees;
+
+    System.out.println();
     System.out.println(
-        "[TurretIOSparkMax] Encoder wraps every: "
-            + String.format("%.1f", wrapDegrees)
-            + "° of turret rotation");
+        "+=========================================================================+");
     System.out.println(
-        "[TurretIOSparkMax] Configured zeroOffset: "
-            + String.format("%.6f", absoluteEncoderOffset));
+        "|              TURRET HARDWARE INITIALIZATION                             |");
     System.out.println(
-        "[TurretIOSparkMax] Absolute encoder RAW: "
-            + String.format("%.6f", rawAbsValue)
-            + " (0.0-1.0, no firmware offset)");
+        "+=========================================================================+");
     System.out.println(
-        "[TurretIOSparkMax] Computed turret position: "
-            + String.format("%.2f", turretPositionDegrees)
-            + "°");
+        "|  HARDWARE CONFIG                                                        |");
+    System.out.printf(
+        "|    CAN ID: %d  |  Gear Ratio: %.1f:1  |  External: %.2f:1            %n",
+        config.getTurretMotorCanId(), totalGearRatio, externalGearRatio);
+    System.out.printf(
+        "|    Encoder wraps every: %.1f deg of turret rotation                   %n", wrapDegrees);
     System.out.println(
-        "[TurretIOSparkMax] Motor encoder seeded to: "
-            + String.format("%.4f", seedMotorRotations)
-            + " motor rotations ("
-            + String.format("%.2f", turretPositionDegrees)
-            + "°)");
+        "|                                                                         |");
     System.out.println(
-        "[TurretIOSparkMax] Soft limits: "
-            + String.format("%.2f", degreesToMotorRotations(minAngleDegrees))
-            + " to "
-            + String.format("%.2f", degreesToMotorRotations(maxAngleDegrees))
-            + " motor rotations ("
-            + minAngleDegrees
-            + "° to "
-            + maxAngleDegrees
-            + "°)");
-    System.out.println("[TurretIOSparkMax] ===========================================");
+        "|  ENCODER READINGS                                                       |");
+    System.out.printf(
+        "|    Absolute encoder RAW: %.6f (0.0-1.0)                            %n", rawAbsValue);
+    System.out.printf(
+        "|    Configured zero offset: %.6f                                     %n",
+        absoluteEncoderOffset);
     System.out.println(
-        "[TurretIOSparkMax] CALIBRATION: Position turret at 0°, note the AbsRaw value,");
+        "|                                                                         |");
     System.out.println(
-        "[TurretIOSparkMax]   set turretAbsoluteEncoderOffset in TurretBotConfig.java");
-    System.out.println("[TurretIOSparkMax] ===========================================");
+        "|  +---------------------------------------------------------------------+|");
+    System.out.printf(
+        "|  |  BELIEVED POSITION: %+7.1f deg                                   ||%n",
+        turretPositionDegrees);
+    System.out.println(
+        "|  +---------------------------------------------------------------------+|");
+    System.out.println(
+        "|                                                                         |");
+    System.out.println(
+        "|  ROOM TO ROTATE                                                         |");
+    System.out.printf(
+        "|    -> CW  (positive): %6.1f deg until %+.1f deg limit                %n",
+        roomCW, maxAngleDegrees);
+    System.out.printf(
+        "|    <- CCW (negative): %6.1f deg until %+.1f deg limit               %n",
+        roomCCW, minAngleDegrees);
+    System.out.println(
+        "|                                                                         |");
+    System.out.println(
+        "|  HARDWARE SOFT LIMITS (SparkMax enforced)                               |");
+    System.out.printf(
+        "|    Reverse: %.2f motor rot (%.1f deg)                                %n",
+        actualReverse, minAngleDegrees);
+    System.out.printf(
+        "|    Forward: %.2f motor rot (%.1f deg)                                 %n",
+        actualForward, maxAngleDegrees);
+    System.out.println(
+        "|                                                                         |");
+    System.out.println(
+        "|  *** WARNING: Encoder wraps within travel range!                        |");
+    System.out.printf(
+        "|      If turret is >%.1f deg from center at startup, position is WRONG %n",
+        wrapDegrees / 2.0);
+    System.out.println(
+        "|      VERIFY physical position matches believed position above!          |");
+    System.out.println(
+        "+=========================================================================+");
+    System.out.println();
+    System.out.println("[TurretIOSparkMax] CALIBRATION TIP: To set zero offset, position turret");
+    System.out.println("  at physical 0 deg, note the AbsRaw value above, and set that as");
+    System.out.println("  turretAbsoluteEncoderOffset in TurretBotConfig.java");
+    System.out.println();
   }
 
   @Override
   public void updateInputs(TurretIOInputs inputs) {
     // Check if PID values have changed and apply new configuration
-    if (LoggedTunableNumber.hasChanged(kP, kI, kD)) {
+    if (LoggedTunableNumber.hasChanged(kP, kD)) {
       var pidConfig = new SparkMaxConfig();
-      pidConfig.closedLoop.pidf(kP.get(), kI.get(), kD.get(), 0.0);
+      pidConfig.closedLoop.pidf(kP.get(), 0.0, kD.get(), 0.0);
       motorSpark.configure(
           pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
     }
