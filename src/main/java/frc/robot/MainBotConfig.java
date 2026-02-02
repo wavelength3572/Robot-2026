@@ -105,6 +105,16 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretKp = 5.0;
   private static final double turretKd = 0.1;
 
+  // Launcher configuration (same as TurretBot for now)
+  private static final int launcherLeaderCanId = 58;
+  private static final int launcherFollowerCanId = 59;
+  private static final double launcherGearRatio = 1.5; // 1 motor rot = 1.5 wheel rot
+  private static final int launcherCurrentLimitAmps = 60;
+  private static final double launcherKp = 0.000001;
+  private static final double launcherKi = 0.0;
+  private static final double launcherKd = 0.00001;
+  private static final double launcherKff = 0.0;
+
   // Performance
   private static final double maxSpeedMetersPerSec =
       5676.0 / 60.0 / driveMotorReduction * 2.0 * Math.PI * wheelRadiusMeters * 0.95;
@@ -432,5 +442,74 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getTurretKd() {
     return turretKd;
+  }
+
+  // ========== Launcher Configuration ==========
+
+  @Override
+  public boolean hasLauncher() {
+    return true;
+  }
+
+  @Override
+  public int getLauncherLeaderCanId() {
+    return launcherLeaderCanId;
+  }
+
+  @Override
+  public int getLauncherFollowerCanId() {
+    return launcherFollowerCanId;
+  }
+
+  @Override
+  public double getLauncherGearRatio() {
+    return launcherGearRatio;
+  }
+
+  @Override
+  public int getLauncherCurrentLimitAmps() {
+    return launcherCurrentLimitAmps;
+  }
+
+  @Override
+  public double getLauncherKp() {
+    return launcherKp;
+  }
+
+  @Override
+  public double getLauncherKi() {
+    return launcherKi;
+  }
+
+  @Override
+  public double getLauncherKd() {
+    return launcherKd;
+  }
+
+  @Override
+  public double getLauncherKff() {
+    return launcherKff;
+  }
+
+  // ========== Hood Configuration ==========
+
+  @Override
+  public boolean hasHood() {
+    return true; // MainBot has hood for hybrid trajectory control
+  }
+
+  @Override
+  public int getHoodCanId() {
+    return 17; // TODO: Confirm CAN ID when hardware is ready
+  }
+
+  @Override
+  public double getHoodMinAngleDeg() {
+    return 25.0;
+  }
+
+  @Override
+  public double getHoodMaxAngleDeg() {
+    return 65.0;
   }
 }

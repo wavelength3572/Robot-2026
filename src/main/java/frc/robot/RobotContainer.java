@@ -21,6 +21,9 @@ import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
 import frc.robot.subsystems.drive.ModuleIOVirtual;
+import frc.robot.subsystems.hood.Hood;
+import frc.robot.subsystems.hood.HoodIO;
+import frc.robot.subsystems.hood.HoodIOSim;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeIO;
 import frc.robot.subsystems.intake.IntakeIOSim;
@@ -40,6 +43,7 @@ import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.FuelSim;
+import frc.robot.util.MatchPhaseTracker;
 import frc.robot.util.RobotStatus;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -56,6 +60,7 @@ public class RobotContainer {
   private final Vision vision; // Only instantiated for SquareBot, null for MainBot
   private final Intake intake; // Only instantiated for SquareBot, null for MainBot
   private final Launcher launcher; // Only instantiated for TurretBot, null for others
+  private final Hood hood; // Only instantiated for robots with hood hardware, null for others
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs
@@ -129,6 +134,27 @@ public class RobotContainer {
       }
     } else {
       launcher = null;
+    }
+
+    // Instantiate hood subsystem (robots with hood hardware)
+    if (Constants.getRobotConfig().hasHood()) {
+      switch (Constants.currentMode) {
+        case REAL:
+          // TODO: Create HoodIOSparkMax when hardware is ready
+          hood = new Hood(new HoodIOSim()); // Use sim for now
+          break;
+
+        case SIM:
+          hood = new Hood(new HoodIOSim());
+          break;
+
+        default:
+          // Replay mode - disable hood IO
+          hood = new Hood(new HoodIO() {});
+          break;
+      }
+    } else {
+      hood = null;
     }
 
     // Instantiate drive and vision subsystems
@@ -276,6 +302,11 @@ public class RobotContainer {
       initializeFuelSim();
     }
 
+    // Initialize turret visualizer (works on both real robot and sim for debugging)
+    if (turret != null && drive != null) {
+      turret.initializeVisualizer(drive::getPose, () -> drive.getChassisSpeeds());
+    }
+
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
 
@@ -297,20 +328,10 @@ public class RobotContainer {
       autoChooser.addOption(
           "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
-      // Launcher SysId routines (TurretBot only)
+      // Launcher SysId routines (TurretBot only) - forward only since launcher never runs reverse
       if (launcher != null) {
-        autoChooser.addOption(
-            "Launcher SysId (Quasistatic Forward)",
-            launcher.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
-        autoChooser.addOption(
-            "Launcher SysId (Quasistatic Reverse)",
-            launcher.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
-        autoChooser.addOption(
-            "Launcher SysId (Dynamic Forward)",
-            launcher.sysIdDynamic(SysIdRoutine.Direction.kForward));
-        autoChooser.addOption(
-            "Launcher SysId (Dynamic Reverse)",
-            launcher.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+        autoChooser.addOption("Launcher SysId (Quasistatic)", launcher.launcherSysIdQuasistatic());
+        autoChooser.addOption("Launcher SysId (Dynamic)", launcher.launcherSysIdDynamic());
       }
     }
 
@@ -415,6 +436,24 @@ public class RobotContainer {
     return launcher != null;
   }
 
+  /**
+   * Check if the hood subsystem is present on this robot.
+   *
+   * @return true if hood exists
+   */
+  public boolean hasHood() {
+    return hood != null;
+  }
+
+  /**
+   * Get the hood subsystem.
+   *
+   * @return Hood subsystem or null if not present
+   */
+  public Hood getHood() {
+    return hood;
+  }
+
   // Track last alliance to detect changes
   private edu.wpi.first.wpilibj.DriverStation.Alliance lastAlliance = null;
 
@@ -487,16 +526,11 @@ public class RobotContainer {
     fuelSim.registerRobot(
         robotWidth, robotLength, bumperHeight, drive::getPose, () -> drive.getChassisSpeeds());
 
-    // Spawn test fuel (smaller set for testing)
-    fuelSim.spawnTestFuel();
+    // Spawn the full match fuel layout
+    fuelSim.spawnStartingFuel();
 
     // Start the simulation
     fuelSim.start();
-
-    // Initialize turret visualizer if turret exists
-    if (turret != null) {
-      turret.initializeVisualizer(drive::getPose, () -> drive.getChassisSpeeds());
-    }
   }
 
   /** Update the fuel simulation. Call this from robotPeriodic(). */
@@ -504,5 +538,10 @@ public class RobotContainer {
     if (Constants.currentMode == Constants.Mode.SIM) {
       FuelSim.getInstance().updateSim();
     }
+  }
+
+  /** Update the match phase tracker. Call this from robotPeriodic(). */
+  public void updateMatchPhaseTracker() {
+    MatchPhaseTracker.getInstance().periodic();
   }
 }
