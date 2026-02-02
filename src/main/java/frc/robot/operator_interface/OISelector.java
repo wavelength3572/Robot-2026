@@ -94,9 +94,9 @@ public class OISelector {
       }
     }
 
-    if (interlinkDXPort != null && buttonBox1Port != null && buttonBox2Port != null) {
+    if (interlinkDXPort != null && buttonBox1Port != null) {
       noOperatorInterfaceWarning.set(false);
-      nonCompetitionOperatorInterfaceWarning.set(false);
+      nonCompetitionOperatorInterfaceWarning.set(buttonBox2Port == null);
       return new InterLinkDXButtonBoxOI(interlinkDXPort, buttonBox1Port, buttonBox2Port);
     } else if (interlinkDXPort != null) {
       noOperatorInterfaceWarning.set(false);

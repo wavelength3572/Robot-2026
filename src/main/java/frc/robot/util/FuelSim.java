@@ -205,6 +205,33 @@ public class FuelSim {
     fuels.clear();
   }
 
+  /**
+   * Clears all fuel from the field and spawns a specified number of fuel balls in a grid pattern
+   * near the center of the field.
+   *
+   * @param count Number of fuel balls to spawn
+   */
+  public void resetWithFuel(int count) {
+    clearFuel();
+    Hub.BLUE_HUB.resetScore();
+    Hub.RED_HUB.resetScore();
+
+    // Spawn fuel in a grid pattern near field center
+    Translation3d center = new Translation3d(FIELD_LENGTH / 2, FIELD_WIDTH / 2, FUEL_RADIUS);
+    int gridSize = (int) Math.ceil(Math.sqrt(count));
+    double spacing = 0.18; // meters between fuel balls
+
+    int spawned = 0;
+    for (int row = 0; row < gridSize && spawned < count; row++) {
+      for (int col = 0; col < gridSize && spawned < count; col++) {
+        double xOffset = (col - gridSize / 2.0 + 0.5) * spacing;
+        double yOffset = (row - gridSize / 2.0 + 0.5) * spacing;
+        fuels.add(new Fuel(center.plus(new Translation3d(xOffset, yOffset, 0))));
+        spawned++;
+      }
+    }
+  }
+
   /** Spawns fuel in the neutral zone and depots */
   public void spawnStartingFuel() {
     // Center fuel grid

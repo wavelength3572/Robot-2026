@@ -12,6 +12,7 @@ import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.vision.Vision;
+import frc.robot.util.FuelSim;
 
 public class ButtonsAndDashboardBindings {
 
@@ -118,6 +119,15 @@ public class ButtonsAndDashboardBindings {
     // TurretBot-specific testing controls
     if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
       configureTurretBotTestControls();
+    }
+
+    // FuelSim controls (simulation only)
+    if (Constants.currentMode == Constants.Mode.SIM) {
+      SmartDashboard.putData(
+          "FuelSim/Reset100",
+          Commands.runOnce(() -> FuelSim.getInstance().resetWithFuel(100))
+              .ignoringDisable(true)
+              .withName("Reset 100 Fuel"));
     }
   }
 
@@ -275,5 +285,39 @@ public class ButtonsAndDashboardBindings {
   /*** BUTTON BOX BINDINGS ****** */
   /****************************** */
 
-  private static void configureOperatorButtonBindings() {}
+  private static void configureOperatorButtonBindings() {
+    // Intake controls
+    if (intake != null) {
+      // Button 4: Deploy intake
+      oi.getButtonBox1Button4().onTrue(Commands.runOnce(intake::deploy, intake));
+
+      // Button 3: Retract intake
+      oi.getButtonBox1Button3().onTrue(Commands.runOnce(intake::retract, intake));
+
+      // Button 6: Toggle rollers on/off
+      oi.getButtonBox1Button6()
+          .onTrue(
+              Commands.either(
+                  Commands.runOnce(intake::stopRollers, intake),
+                  Commands.runOnce(intake::runIntake, intake),
+                  () -> intake.getRollerVelocityRPM() > 10));
+    }
+
+    // Shooting controls (uses turret for simulation)
+    if (turret != null) {
+      // Button 2: Shoot while held (calculates shot first, then repeatedly launches)
+      oi.getButtonBox1Button2()
+          .whileTrue(
+              Commands.runOnce(
+                      () -> {
+                        boolean isBlue =
+                            DriverStation.getAlliance()
+                                .orElse(DriverStation.Alliance.Blue)
+                                .equals(DriverStation.Alliance.Blue);
+                        turret.calculateShotToHub(isBlue);
+                      },
+                      turret)
+                  .andThen(turret.repeatedlyLaunchFuelCommand()));
+    }
+  }
 }

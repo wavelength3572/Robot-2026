@@ -168,11 +168,14 @@ public class Turret extends SubsystemBase {
    * @return Command that launches fuel every 0.25 seconds
    */
   public Command repeatedlyLaunchFuelCommand() {
-    if (visualizer == null || currentShot == null) {
-      return runOnce(() -> {}); // No-op if not initialized
+    if (visualizer == null) {
+      return runOnce(() -> {}); // No-op if visualizer not initialized
     }
+    // Use suppliers so currentShot is checked at runtime, not binding time
     return visualizer.repeatedlyLaunchFuel(
-        () -> currentShot.getExitVelocity(), () -> currentShot.getLaunchAngle(), this);
+        () -> currentShot != null ? currentShot.getExitVelocity() : 0.0,
+        () -> currentShot != null ? currentShot.getLaunchAngle() : 0.0,
+        this);
   }
 
   /**

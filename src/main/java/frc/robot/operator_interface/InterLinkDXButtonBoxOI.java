@@ -11,10 +11,10 @@ public class InterLinkDXButtonBoxOI implements OperatorInterface {
   private final Trigger[] Box1Buttons;
   private final Trigger[] Box2Buttons;
 
-  public InterLinkDXButtonBoxOI(int interlinkPort, int buttonBox1Port, int buttonBox2Port) {
+  public InterLinkDXButtonBoxOI(int interlinkPort, int buttonBox1Port, Integer buttonBox2Port) {
     interLinkJoystick = new CommandGenericHID(interlinkPort);
     player1ButtonBox = new CommandGenericHID(buttonBox1Port);
-    player2ButtonBox = new CommandGenericHID(buttonBox2Port);
+    player2ButtonBox = buttonBox2Port != null ? new CommandGenericHID(buttonBox2Port) : null;
 
     // buttons use 1-based indexing such that the index matches the button number;
     // leave index 0 set
@@ -26,7 +26,8 @@ public class InterLinkDXButtonBoxOI implements OperatorInterface {
 
     this.Box2Buttons = new Trigger[13];
     for (int i = 1; i < Box2Buttons.length; i++) {
-      Box2Buttons[i] = player2ButtonBox.button(i);
+      Box2Buttons[i] =
+          player2ButtonBox != null ? player2ButtonBox.button(i) : new Trigger(() -> false);
     }
 
     this.interLinkJoystickJoystickButtons = new Trigger[28];

@@ -89,7 +89,8 @@ public class RobotContainer {
     }
 
     // Instantiate intake only for MainBot (not present on MiniBot)
-    if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
+    if (Constants.currentRobot == Constants.RobotType.SQUAREBOT
+        || Constants.currentRobot == Constants.RobotType.MAINBOT) {
       switch (Constants.currentMode) {
         case REAL:
           // Real SquareBot - instantiate intake hardware
