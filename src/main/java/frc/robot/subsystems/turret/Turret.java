@@ -10,6 +10,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.Constants.FieldPositions;
+import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -340,7 +341,6 @@ public class Turret extends SubsystemBase {
     if (robotPoseSupplier == null || fieldSpeedsSupplier == null) return;
 
     Pose2d robotPose = robotPoseSupplier.get();
-    ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
     double robotHeadingRad = robotPose.getRotation().getRadians();
 
     // Calculate turret's actual position on the field (offset from robot center)
@@ -352,10 +352,16 @@ public class Turret extends SubsystemBase {
         robotPose.getY()
             + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotHeadingRad)
                 + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotHeadingRad));
+    Translation3d turretPos = new Translation3d(turretX, turretY, turretHeightMeters);
 
-    // Calculate shot with motion compensation
+    // Use TrajectoryOptimizer to calculate optimal shot (RPM + angle)
+    TrajectoryOptimizer.OptimalShot optimalShot =
+        TrajectoryOptimizer.calculateOptimalShot(turretPos, target);
+
+    // Create shot data from optimal shot
     currentShot =
-        TurretCalculator.calculateMovingShot(robotPose, fieldSpeeds, target, 3, turretHeightMeters);
+        new TurretCalculator.ShotData(
+            optimalShot.exitVelocityMps, Math.toRadians(optimalShot.launchAngleDeg), target);
 
     // Aim turret at the target (from turret position, not robot center)
     double azimuthRad = Math.atan2(target.getY() - turretY, target.getX() - turretX);
@@ -371,22 +377,18 @@ public class Turret extends SubsystemBase {
     }
     setAngle(relativeAngleDeg);
 
-    // Log shot data (TargetPosition Pose3d is logged by TurretVisualizer.visualizeShot)
+    // Log shot data
     Logger.recordOutput("Turret/Shot/ExitVelocityMps", currentShot.getExitVelocity());
     Logger.recordOutput("Turret/Shot/LaunchAngleDeg", currentShot.getLaunchAngleDegrees());
+    Logger.recordOutput("Turret/Shot/IdealRPM", optimalShot.rpm);
+    Logger.recordOutput("Turret/Shot/Achievable", optimalShot.achievable);
     Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
     Logger.recordOutput("Turret/Shot/RelativeAngleDeg", relativeAngleDeg);
 
-    // Log velocity calculation details
+    // Log distance to target
     double distanceToTarget =
         Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
     Logger.recordOutput("Turret/Shot/DistanceToTargetM", distanceToTarget);
-
-    // Show what RPM would be ideal for different target velocities
-    Logger.recordOutput(
-        "Turret/Shot/RPMNeededFor8mps", TurretCalculator.calculateRPMForVelocity(8.0));
-    Logger.recordOutput(
-        "Turret/Shot/RPMNeededFor10mps", TurretCalculator.calculateRPMForVelocity(10.0));
   }
 
   /**
@@ -428,6 +430,8 @@ public class Turret extends SubsystemBase {
       Translation3d target = currentShot.getTarget();
       double azimuthAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
 
+      // Use ideal trajectory parameters from currentShot (the calculated shot that hits the target)
+      // This avoids RPM timing issues and shows where the shot SHOULD go
       visualizer.launchFuel(
           currentShot.getExitVelocity(), currentShot.getLaunchAngle(), azimuthAngle);
     }

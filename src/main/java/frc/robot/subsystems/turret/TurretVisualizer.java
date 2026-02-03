@@ -307,24 +307,19 @@ public class TurretVisualizer {
     // Uses turret position (where ball launches from), not robot center
     updateIdealTrajectory(target, targetAzimuthAngle);
 
-    // ACTUAL trajectory: Where the ball would REALLY go with current state
-    // Uses current launcher RPM and current turret angle
-    double actualExitVelocity = TurretCalculator.calculateExitVelocityFromRPM();
-    double actualAzimuthAngle = robotHeadingRad + currentTurretAngleRad; // Field-relative
+    // ACTUAL trajectory: What we'll actually launch with (same as launchFuel uses)
+    // Uses the shot data's ideal parameters since that's what launchFuel() uses
+    double actualExitVelocity = shotData.getExitVelocity();
+    double actualLaunchAngle = shotData.getLaunchAngle();
 
-    // Calculate launch angle for the ACTUAL velocity (not the planned velocity)
-    // This shows where the ball would really land given current launcher speed
-    double actualLaunchAngle = calculateLaunchAngleForVelocity(actualExitVelocity, target);
-
-    updateActualTrajectory(actualExitVelocity, actualLaunchAngle, actualAzimuthAngle);
+    updateActualTrajectory(actualExitVelocity, actualLaunchAngle, targetAzimuthAngle);
 
     // Log for debugging
     Logger.recordOutput("Turret/Shot/TargetRPM", TurretCalculator.getTargetLauncherRPM());
     Logger.recordOutput("Turret/Shot/CurrentRPM", TurretCalculator.getCurrentLauncherRPM());
-    Logger.recordOutput("Turret/Shot/ActualVelocityMps", actualExitVelocity);
-    Logger.recordOutput("Turret/Shot/ActualLaunchAngleDeg", Math.toDegrees(actualLaunchAngle));
-    Logger.recordOutput("Turret/Shot/TargetAzimuthDeg", Math.toDegrees(targetAzimuthAngle));
-    Logger.recordOutput("Turret/Shot/ActualAzimuthDeg", Math.toDegrees(actualAzimuthAngle));
+    Logger.recordOutput("Turret/Shot/ExitVelocityMps", actualExitVelocity);
+    Logger.recordOutput("Turret/Shot/LaunchAngleDeg", Math.toDegrees(actualLaunchAngle));
+    Logger.recordOutput("Turret/Shot/AzimuthDeg", Math.toDegrees(targetAzimuthAngle));
 
     // Log target marker
     Logger.recordOutput(

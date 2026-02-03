@@ -6,6 +6,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.turret.Turret;
+import frc.robot.subsystems.turret.TurretCalculator;
 import frc.robot.subsystems.turret.TurretVisualizer;
 import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.MatchPhaseTracker;
@@ -142,13 +143,12 @@ public class ShootingCommands {
   public static Command shootWhileMoving(
       Launcher launcher, Turret turret, BooleanSupplier hubActiveSupplier) {
 
-    // Same as continuous shooting - turret already auto-aims in its periodic()
-    // The difference is this command is designed to be bound to a trigger
-    // and run while the driver is driving
+    // Continuously update launcher RPM based on ideal trajectory calculation
+    // The turret recalculates the shot every cycle, so we read the ideal velocity
+    // and convert it to RPM for the launcher
     return Commands.sequence(
             Commands.runOnce(
                 () -> {
-                  launcher.setVelocity(launchVelocityRPM.get());
                   Logger.recordOutput("Shooting/State", "Spinning Up (Moving)");
                 }),
             createShootingLoop(launcher, turret, hubActiveSupplier))
@@ -175,6 +175,15 @@ public class ShootingCommands {
             // Wait for all conditions to be met
             Commands.waitUntil(
                 () -> {
+                  // Continuously update launcher RPM based on ideal trajectory
+                  TurretCalculator.ShotData currentShot = turret.getCurrentShot();
+                  if (currentShot != null) {
+                    double idealRPM =
+                        TurretCalculator.calculateRPMForVelocity(currentShot.getExitVelocity());
+                    launcher.setVelocity(idealRPM);
+                    Logger.recordOutput("Shooting/IdealRPM", idealRPM);
+                  }
+
                   boolean hubActive = hubActiveSupplier.getAsBoolean();
                   boolean turretReady = turret.atTarget();
                   boolean launcherReady = launcher.atSetpoint();

@@ -167,7 +167,14 @@ public class ButtonsAndDashboardBindings {
     if (Constants.currentMode == Constants.Mode.SIM) {
       SmartDashboard.putData(
           "FuelSim/Reset100",
-          Commands.runOnce(() -> FuelSim.getInstance().resetWithFuel(100))
+          Commands.runOnce(
+                  () -> {
+                    FuelSim.getInstance().resetWithFuel(100);
+                    // Also reset turret's fuel inventory to 100
+                    if (turret != null && turret.getVisualizer() != null) {
+                      turret.getVisualizer().setFuelCount(100);
+                    }
+                  })
               .ignoringDisable(true)
               .withName("Reset 100 Fuel"));
     }
@@ -355,8 +362,14 @@ public class ButtonsAndDashboardBindings {
     }
 
     // Shooting controls (uses turret for simulation)
-    if (turret != null) {
-      // Button 2: Shoot while held (calculates shot first, then repeatedly launches)
+    if (turret != null && launcher != null) {
+      // Button 2: Shoot while held (spins up launcher and shoots properly)
+      oi.getButtonBox1Button2()
+          .whileTrue(
+              ShootingCommands.shootWhileMoving(
+                  launcher, turret, ShootingCommands.getHubActiveSupplier()));
+    } else if (turret != null) {
+      // Fallback if no launcher: just launch fuel visually
       oi.getButtonBox1Button2()
           .whileTrue(
               Commands.runOnce(
