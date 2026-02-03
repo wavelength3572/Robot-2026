@@ -536,4 +536,26 @@ public class TurretBotConfig implements RobotConfig {
   public double getHoodMaxAngleDeg() {
     return 85.0;
   }
+
+  // ========== Motivator Configuration ==========
+
+  @Override
+  public boolean hasMotivator() {
+    return true;
+  }
+
+  @Override
+  public int getMotivatorLeaderCanId() {
+    return 55;
+  }
+
+  @Override
+  public int getMotivatorFollowerCanId() {
+    return 56;
+  }
+
+  @Override
+  public int getPrefeedCanId() {
+    return 57;
+  }
 }

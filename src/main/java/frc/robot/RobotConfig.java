@@ -299,4 +299,37 @@ public interface RobotConfig {
   default int getHoodCurrentLimitAmps() {
     return 20;
   }
+
+  // ========== Motivator Configuration ==========
+  // Default implementations return 0/false for robots without motivators
+
+  /** Whether this robot has a motivator (ball feeder to launcher). */
+  default boolean hasMotivator() {
+    return false;
+  }
+
+  /** Motivator leader motor CAN ID. */
+  default int getMotivatorLeaderCanId() {
+    return 55;
+  }
+
+  /** Motivator follower motor CAN ID. */
+  default int getMotivatorFollowerCanId() {
+    return 56;
+  }
+
+  /** Prefeed motor CAN ID. */
+  default int getPrefeedCanId() {
+    return 57;
+  }
+
+  /** Motivator motor current limit in amps. */
+  default int getMotivatorCurrentLimit() {
+    return 40;
+  }
+
+  /** Prefeed motor current limit in amps. */
+  default int getPrefeedCurrentLimit() {
+    return 40;
+  }
 }
