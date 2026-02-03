@@ -146,7 +146,9 @@ public class ModuleIOSpark implements ModuleIO {
         5,
         () ->
             driveSpark.configure(
-                driveConfig, ResetMode.kResetSafeParameters,com.revrobotics.PersistMode.kNoPersistParameters ));
+                driveConfig,
+                ResetMode.kResetSafeParameters,
+                com.revrobotics.PersistMode.kNoPersistParameters));
     tryUntilOk(driveSpark, 5, () -> driveEncoder.setPosition(0.0));
 
     // Configure turn motor
@@ -180,7 +182,10 @@ public class ModuleIOSpark implements ModuleIO {
         turnSpark,
         5,
         () ->
-            turnSpark.configure(turnConfig, ResetMode.kResetSafeParameters, com.revrobotics.PersistMode.kPersistParameters));
+            turnSpark.configure(
+                turnConfig,
+                ResetMode.kResetSafeParameters,
+                com.revrobotics.PersistMode.kPersistParameters));
 
     // Configure CANcoder and seed turn encoder (if CANcoder available)
     if (cancoder != null) {

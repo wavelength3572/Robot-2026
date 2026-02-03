@@ -87,7 +87,10 @@ public class IntakeIOSparkMax implements IntakeIO {
         deployMotor,
         5,
         () ->
-            deployMotor.configure(deployConfig, com.revrobotics.ResetMode.kResetSafeParameters, com.revrobotics.PersistMode.kPersistParameters));
+            deployMotor.configure(
+                deployConfig,
+                com.revrobotics.ResetMode.kResetSafeParameters,
+                com.revrobotics.PersistMode.kPersistParameters));
     tryUntilOk(deployMotor, 5, () -> deployEncoder.setPosition(0.0));
 
     // Configure roller motor
@@ -113,7 +116,8 @@ public class IntakeIOSparkMax implements IntakeIO {
         rollerMotor,
         5,
         () ->
-            rollerMotor.configure(rollerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+            rollerMotor.configure(
+                rollerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
   }
 
   @Override

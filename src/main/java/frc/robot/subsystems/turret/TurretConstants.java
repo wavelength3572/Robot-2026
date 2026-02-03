@@ -5,16 +5,21 @@ public final class TurretConstants {
   public static final int TURRET_MOTOR_CAN_ID = 50;
 
   // Physical constraints
-  public static final double GEAR_RATIO = 1.0; // Motor rotations per turret rotation
+  // Motor rotations per turret rotation
+  // 5.5 for the turret proper, 66:12 but a 10:1 on the motor so overall 55.0:1
+  public static final double GEAR_RATIO = 55.0;
 
   // Turret travel limits (400 degrees total travel due to wiring constraints)
   // This means ±200 degrees from the center/home position
-  public static final double MAX_ANGLE_DEGREES = 200.0; // Forward soft limit
-  public static final double MIN_ANGLE_DEGREES = -200.0; // Reverse soft limit
+  public static final double FULL_ROTATION_ANGLE_DEGREES = 400.0;
+  public static final double MAX_ANGLE_DEGREES =
+      FULL_ROTATION_ANGLE_DEGREES / 2.0; // Forward soft limit
+  public static final double MIN_ANGLE_DEGREES = -MAX_ANGLE_DEGREES; // Reverse soft limit
 
   // Convert to rotations for TalonFX soft limits (mechanism rotations after gear ratio)
-  public static final double FORWARD_SOFT_LIMIT_ROTATIONS = MAX_ANGLE_DEGREES / 360.0;
-  public static final double REVERSE_SOFT_LIMIT_ROTATIONS = MIN_ANGLE_DEGREES / 360.0;
+  public static final double FORWARD_SOFT_LIMIT_ROTATIONS =
+      ((FULL_ROTATION_ANGLE_DEGREES / 360.0) * GEAR_RATIO) / 2.0;
+  public static final double REVERSE_SOFT_LIMIT_ROTATIONS = -FORWARD_SOFT_LIMIT_ROTATIONS;
 
   // PID Constants (tune these for your robot)
   public static final double kP = 5.0;
