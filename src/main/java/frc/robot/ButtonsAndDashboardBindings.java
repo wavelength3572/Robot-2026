@@ -11,6 +11,7 @@ import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.launcher.Launcher;
+import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.FuelSim;
@@ -23,6 +24,7 @@ public class ButtonsAndDashboardBindings {
   private static Intake intake;
   private static Turret turret;
   private static Launcher launcher;
+  private static Motivator motivator;
 
   public ButtonsAndDashboardBindings() {}
 
@@ -38,22 +40,24 @@ public class ButtonsAndDashboardBindings {
       Vision vision,
       Intake intake,
       Turret turret,
-      Launcher launcher) {
+      Launcher launcher,
+      Motivator motivator) {
     ButtonsAndDashboardBindings.oi = operatorInterface;
     ButtonsAndDashboardBindings.drive = drive;
     ButtonsAndDashboardBindings.vision = vision;
     ButtonsAndDashboardBindings.intake = intake;
     ButtonsAndDashboardBindings.turret = turret;
     ButtonsAndDashboardBindings.launcher = launcher;
+    ButtonsAndDashboardBindings.motivator = motivator;
 
     configureDriverButtonBindings();
     configureOperatorButtonBindings();
     configureDashboardBindings();
   }
 
-  // Legacy method without vision/intake/turret/launcher parameters
+  // Legacy method without vision/intake/turret/launcher/motivator parameters
   public static void configureBindings(OperatorInterface operatorInterface, Drive drive) {
-    configureBindings(operatorInterface, drive, null, null, null, null);
+    configureBindings(operatorInterface, drive, null, null, null, null, null);
   }
 
   /****************************** */
@@ -63,10 +67,7 @@ public class ButtonsAndDashboardBindings {
   private static void configureDashboardBindings() {
     // Vision toggle on dashboard
     if (vision != null) {
-      // Default vision OFF in simulation for performance
-      if (Constants.currentMode == Constants.Mode.SIM) {
-        vision.setVisionOff();
-      }
+      // Vision ON by default in simulation (use SmartDashboard toggle to disable if needed)
       SmartDashboard.putBoolean("Vision/Enable", vision.isVisionOn());
       SmartDashboard.putData(
           "Vision/Toggle",
@@ -272,6 +273,27 @@ public class ButtonsAndDashboardBindings {
           launcher.runAtVelocityCommand(1000).withName("Launcher 1000 RPM"));
 
       System.out.println("[TurretBot] Launcher test controls configured");
+    }
+
+    // === Motivator Test Controls ===
+    if (motivator != null) {
+      // Feed (main motivator)
+      SmartDashboard.putData("TurretBot/Motivator_Feed", motivator.feedCommand());
+
+      // Prefeed (staging roller)
+      SmartDashboard.putData("TurretBot/Motivator_Prefeed", motivator.prefeedCommand());
+
+      // Feed + Prefeed together
+      SmartDashboard.putData(
+          "TurretBot/Motivator_FeedAndPrefeed", motivator.feedAndPrefeedCommand());
+
+      // Eject (reverse)
+      SmartDashboard.putData("TurretBot/Motivator_Eject", motivator.ejectCommand());
+
+      // Stop
+      SmartDashboard.putData("TurretBot/Motivator_Stop", motivator.stopCommand());
+
+      System.out.println("[TurretBot] Motivator test controls configured");
     }
 
     System.out.println("[TurretBot] Test controls configured on SmartDashboard under 'TurretBot/'");

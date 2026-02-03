@@ -32,6 +32,10 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.launcher.LauncherIO;
 import frc.robot.subsystems.launcher.LauncherIOSim;
 import frc.robot.subsystems.launcher.LauncherIOSparkFlex;
+import frc.robot.subsystems.motivator.Motivator;
+import frc.robot.subsystems.motivator.MotivatorIO;
+import frc.robot.subsystems.motivator.MotivatorIOSim;
+import frc.robot.subsystems.motivator.MotivatorIOSparkFlex;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
 import frc.robot.subsystems.turret.TurretIOSim;
@@ -61,6 +65,7 @@ public class RobotContainer {
   private final Intake intake; // Only instantiated for SquareBot, null for MainBot
   private final Launcher launcher; // Only instantiated for TurretBot, null for others
   private final Hood hood; // Only instantiated for robots with hood hardware, null for others
+  private final Motivator motivator; // Only instantiated for robots with motivator, null for others
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs
@@ -158,6 +163,26 @@ public class RobotContainer {
       hood = null;
     }
 
+    // Instantiate motivator subsystem (robots with motivator hardware)
+    if (Constants.getRobotConfig().hasMotivator()) {
+      switch (Constants.currentMode) {
+        case REAL:
+          motivator = new Motivator(new MotivatorIOSparkFlex());
+          break;
+
+        case SIM:
+          motivator = new Motivator(new MotivatorIOSim());
+          break;
+
+        default:
+          // Replay mode - disable motivator IO
+          motivator = new Motivator(new MotivatorIO() {});
+          break;
+      }
+    } else {
+      motivator = null;
+    }
+
     // Instantiate drive and vision subsystems
     switch (Constants.currentMode) {
       case REAL:
@@ -183,9 +208,8 @@ public class RobotContainer {
                   new ModuleIOSpark(2),
                   new ModuleIOSpark(3),
                   turret);
-          // Vision only for SquareBot
-          // Camera order: A (FrontLeft), B (FrontRight)
-          // Cameras C (BackLeft) and D (BackRight) temporarily removed
+          // Vision for SquareBot and MainBot
+          // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
           if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
             vision =
                 new Vision(
@@ -193,11 +217,27 @@ public class RobotContainer {
                     new VisionIOPhotonVision(
                         VisionConstants.frontLeftCam, VisionConstants.robotToFrontLeftCam),
                     new VisionIOPhotonVision(
-                        VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam));
-            // new VisionIOPhotonVision(
-            //     VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
-            // new VisionIOPhotonVision(
-            //     VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
+                        VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
+          } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+            // MainBot uses corner-mounted cameras aimed diagonally outward + front center for
+            // intake
+            vision =
+                new Vision(
+                    drive::addVisionMeasurement,
+                    new VisionIOPhotonVision(
+                        VisionConstants.frontLeftCam, VisionConstants.mainBotToFrontLeftCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.frontRightCam, VisionConstants.mainBotToFrontRightCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.frontCenterCam, VisionConstants.mainBotToFrontCenterCam));
           } else {
             vision = null;
           }
@@ -226,10 +266,9 @@ public class RobotContainer {
                   new ModuleIOSim(),
                   new ModuleIOSim(),
                   turret);
-          // Vision only for SquareBot
-          // Camera order: A (FrontLeft), B (FrontRight)
-          // Cameras C (BackLeft) and D (BackRight) temporarily removed
-          // This order determines PhotonVision sim ports: A=1182, B=1183
+          // Vision for SquareBot and MainBot in simulation
+          // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
+          // This order determines PhotonVision sim ports: A=1182, B=1183, C=1184, D=1185
           // Each camera has both current and recommended transforms for toggle comparison
           if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
             vision =
@@ -244,17 +283,48 @@ public class RobotContainer {
                         VisionConstants.frontRightCam,
                         VisionConstants.robotToFrontRightCam,
                         VisionConstants.recommendedFrontRightCam,
+                        RobotStatus::getRobotPose),
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.backLeftCam,
+                        VisionConstants.robotToBackLeftCam,
+                        VisionConstants.recommendedBackLeftCam,
+                        RobotStatus::getRobotPose),
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.backRightCam,
+                        VisionConstants.robotToBackRightCam,
+                        VisionConstants.recommendedBackRightCam,
                         RobotStatus::getRobotPose));
-            // new VisionIOPhotonVisionSim(
-            //     VisionConstants.backLeftCam,
-            //     VisionConstants.robotToBackLeftCam,
-            //     VisionConstants.recommendedBackLeftCam,
-            //     RobotStatus::getRobotPose),
-            // new VisionIOPhotonVisionSim(
-            //     VisionConstants.backRightCam,
-            //     VisionConstants.robotToBackRightCam,
-            //     VisionConstants.recommendedBackRightCam,
-            //     RobotStatus::getRobotPose));
+          } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+            // MainBot uses corner-mounted cameras aimed diagonally outward + front center for
+            // intake
+            vision =
+                new Vision(
+                    drive::addVisionMeasurement,
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.frontLeftCam,
+                        VisionConstants.mainBotToFrontLeftCam,
+                        VisionConstants.mainBotRecommendedFrontLeftCam,
+                        RobotStatus::getRobotPose),
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.frontRightCam,
+                        VisionConstants.mainBotToFrontRightCam,
+                        VisionConstants.mainBotRecommendedFrontRightCam,
+                        RobotStatus::getRobotPose),
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.backLeftCam,
+                        VisionConstants.mainBotToBackLeftCam,
+                        VisionConstants.mainBotRecommendedBackLeftCam,
+                        RobotStatus::getRobotPose),
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.backRightCam,
+                        VisionConstants.mainBotToBackRightCam,
+                        VisionConstants.mainBotRecommendedBackRightCam,
+                        RobotStatus::getRobotPose),
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.frontCenterCam,
+                        VisionConstants.mainBotToFrontCenterCam,
+                        VisionConstants.mainBotRecommendedFrontCenterCam,
+                        RobotStatus::getRobotPose));
           } else {
             vision = null;
           }
@@ -271,11 +341,21 @@ public class RobotContainer {
                 new ModuleIO() {},
                 new ModuleIO() {},
                 turret);
-        // Vision only for MainBot (replay mode)
+        // Vision for SquareBot and MainBot (replay mode)
         if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
           vision =
               new Vision(
                   (pose, time, stdDevs) -> {},
+                  new VisionIO() {},
+                  new VisionIO() {},
+                  new VisionIO() {},
+                  new VisionIO() {});
+        } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+          // MainBot has 5 cameras
+          vision =
+              new Vision(
+                  (pose, time, stdDevs) -> {},
+                  new VisionIO() {},
                   new VisionIO() {},
                   new VisionIO() {},
                   new VisionIO() {},
@@ -353,7 +433,8 @@ public class RobotContainer {
   public void normalModeOI() {
     CommandScheduler.getInstance().getActiveButtonLoop().clear();
     oi = OISelector.findOperatorInterface();
-    ButtonsAndDashboardBindings.configureBindings(oi, drive, vision, intake, turret, launcher);
+    ButtonsAndDashboardBindings.configureBindings(
+        oi, drive, vision, intake, turret, launcher, motivator);
   }
 
   /**
@@ -453,6 +534,24 @@ public class RobotContainer {
    */
   public Hood getHood() {
     return hood;
+  }
+
+  /**
+   * Check if the motivator subsystem is present on this robot.
+   *
+   * @return true if motivator exists
+   */
+  public boolean hasMotivator() {
+    return motivator != null;
+  }
+
+  /**
+   * Get the motivator subsystem.
+   *
+   * @return Motivator subsystem or null if not present
+   */
+  public Motivator getMotivator() {
+    return motivator;
   }
 
   // Track last alliance to detect changes

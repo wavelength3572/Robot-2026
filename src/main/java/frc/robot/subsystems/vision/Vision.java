@@ -20,6 +20,7 @@ import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
@@ -283,29 +284,55 @@ public class Vision extends SubsystemBase {
             && VisionIOPhotonVisionSim.isUsingRecommendedPositions();
     Logger.recordOutput("Vision/CameraViz/UsingProposedPositions", usingProposed);
 
-    // Log camera transforms for the CURRENT physical positions (always visible for comparison)
-    // Cameras C (BackLeft) and D (BackRight) temporarily removed
-    Logger.recordOutput(
-        "Vision/CameraViz/PhysicalCameras",
-        new Pose3d[] {
-          robotPose3d.transformBy(robotToFrontLeftCam),
-          robotPose3d.transformBy(robotToFrontRightCam)
-          // robotPose3d.transformBy(robotToBackLeftCam),
-          // robotPose3d.transformBy(robotToBackRightCam)
-        });
+    // Select camera transforms based on robot type
+    Transform3d frontLeftCamTransform;
+    Transform3d frontRightCamTransform;
+    Transform3d backLeftCamTransform;
+    Transform3d backRightCamTransform;
+    Transform3d frontCenterCamTransform = null; // Only for MainBot
 
-    // In sim mode, log the initial recommended positions for reference
-    // (Actual editable values are in SmartDashboard under Vision/CameraEditor)
-    // Cameras C (BackLeft) and D (BackRight) temporarily removed
-    if (frc.robot.Constants.currentMode == frc.robot.Constants.Mode.SIM) {
+    if (frc.robot.Constants.currentRobot == frc.robot.Constants.RobotType.MAINBOT) {
+      // MainBot camera transforms (5 cameras)
+      frontLeftCamTransform = VisionConstants.mainBotToFrontLeftCam;
+      frontRightCamTransform = VisionConstants.mainBotToFrontRightCam;
+      backLeftCamTransform = VisionConstants.mainBotToBackLeftCam;
+      backRightCamTransform = VisionConstants.mainBotToBackRightCam;
+      frontCenterCamTransform = VisionConstants.mainBotToFrontCenterCam;
+    } else {
+      // SquareBot camera transforms (4 cameras)
+      frontLeftCamTransform = robotToFrontLeftCam;
+      frontRightCamTransform = robotToFrontRightCam;
+      backLeftCamTransform = robotToBackLeftCam;
+      backRightCamTransform = robotToBackRightCam;
+    }
+
+    // Log each camera position individually with meaningful names for AdvantageScope
+    Pose3d frontLeftPose = robotPose3d.transformBy(frontLeftCamTransform);
+    Pose3d frontRightPose = robotPose3d.transformBy(frontRightCamTransform);
+    Pose3d backLeftPose = robotPose3d.transformBy(backLeftCamTransform);
+    Pose3d backRightPose = robotPose3d.transformBy(backRightCamTransform);
+
+    Logger.recordOutput("Vision/Cameras/FrontLeft", frontLeftPose);
+    Logger.recordOutput("Vision/Cameras/FrontRight", frontRightPose);
+    Logger.recordOutput("Vision/Cameras/BackLeft", backLeftPose);
+    Logger.recordOutput("Vision/Cameras/BackRight", backRightPose);
+
+    // Log all corner cameras as array for combined visualization
+    if (frc.robot.Constants.currentRobot == frc.robot.Constants.RobotType.MAINBOT
+        && frontCenterCamTransform != null) {
+      // MainBot has 5 cameras
+      Pose3d frontCenterPose = robotPose3d.transformBy(frontCenterCamTransform);
+      Logger.recordOutput("Vision/Cameras/FrontCenter", frontCenterPose);
       Logger.recordOutput(
-          "Vision/CameraViz/InitialProposedCameras",
+          "Vision/CameraViz/AllCameras",
           new Pose3d[] {
-            robotPose3d.transformBy(recommendedFrontLeftCam),
-            robotPose3d.transformBy(recommendedFrontRightCam)
-            // robotPose3d.transformBy(recommendedBackLeftCam),
-            // robotPose3d.transformBy(recommendedBackRightCam)
+            frontLeftPose, frontRightPose, backLeftPose, backRightPose, frontCenterPose
           });
+    } else {
+      // SquareBot has 4 cameras
+      Logger.recordOutput(
+          "Vision/CameraViz/AllCameras",
+          new Pose3d[] {frontLeftPose, frontRightPose, backLeftPose, backRightPose});
     }
   }
 
