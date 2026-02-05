@@ -30,12 +30,11 @@ public final class VisionConstants {
   // _________________________________________________________________________________________________
 
   // Camera names, must match names configured on coprocessor
-  // TODO: Update these camera names to match your PhotonVision coprocessor configuration
-  public static String frontRightCam = "CAMERA_B";
-  public static String backRightCam = "CAMERA_D";
-  public static String frontLeftCam = "CAMERA_A";
-  public static String backLeftCam = "CAMERA_C";
-  public static String frontCenterCam = "CAMERA_E"; // Intake/object detection camera
+  public static String frontRightCam = "FrontRight";
+  public static String backRightCam = "BackRight";
+  public static String frontLeftCam = "FrontLeft";
+  public static String backLeftCam = "BackLeft";
+  public static String frontCenterCam = "FrontCenter"; // Intake/object detection camera
 
   // Robot to camera transforms
   // TODO: Calibrate these transforms for your 2026 robot - these are placeholders
@@ -85,16 +84,14 @@ public final class VisionConstants {
 
   // Standard deviation multipliers for each camera
   // (Adjust to trust some cameras more than others)
-  // Order matches camera instantiation: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight),
-  // E
-  // (FrontCenter)
+  // Order matches camera instantiation: FrontLeft, FrontRight, BackLeft, BackRight, FrontCenter
   public static double[] cameraStdDevFactors =
       new double[] {
-        1.0, // FrontLeft (CAMERA_A)
-        1.0, // FrontRight (CAMERA_B)
-        1.0, // BackLeft (CAMERA_C)
-        1.0, // BackRight (CAMERA_D)
-        1.0 // FrontCenter (CAMERA_E) - MainBot only
+        1.0, // FrontLeft
+        1.0, // FrontRight
+        1.0, // BackLeft
+        1.0, // BackRight
+        1.0 // FrontCenter - MainBot only
       };
 
   // Multipliers to apply for MegaTag 2 observations
@@ -116,7 +113,7 @@ public final class VisionConstants {
           new Rotation3d(
               0.0,
               Rotation2d.fromDegrees(-10).getRadians(), // Pitch down 10°
-              Rotation2d.fromDegrees(45).getRadians())); // Yaw outward 45°
+              Rotation2d.fromDegrees(0).getRadians())); // Yaw straight forward
 
   public static Transform3d mainBotToFrontRightCam =
       new Transform3d(
@@ -125,18 +122,18 @@ public final class VisionConstants {
           0.5144, // Z: 20.25 inches
           new Rotation3d(
               0.0,
-              Rotation2d.fromDegrees(-10).getRadians(), // Pitch down 10°
-              Rotation2d.fromDegrees(-45).getRadians())); // Yaw outward -45°
+              Rotation2d.fromDegrees(-16).getRadians(), // Pitch up 16°
+              Rotation2d.fromDegrees(-83).getRadians())); // Yaw perpendicular right -83°
 
   public static Transform3d mainBotToBackLeftCam =
       new Transform3d(
-          -0.298, // X: back of robot
+          -0.2726, // X: back of robot (1" toward center)
           0.394, // Y: left side
-          0.5144, // Z: 20.25 inches
+          0.37465, // Z: 14.75 inches
           new Rotation3d(
               0.0,
-              Rotation2d.fromDegrees(-10).getRadians(), // Pitch down 10°
-              Rotation2d.fromDegrees(135).getRadians())); // Yaw outward 135°
+              Rotation2d.fromDegrees(-21).getRadians(), // Pitch up 21°
+              Rotation2d.fromDegrees(83).getRadians())); // Yaw left 83°
 
   public static Transform3d mainBotToBackRightCam =
       new Transform3d(
@@ -146,7 +143,7 @@ public final class VisionConstants {
           new Rotation3d(
               0.0,
               Rotation2d.fromDegrees(-10).getRadians(), // Pitch down 10°
-              Rotation2d.fromDegrees(-135).getRadians())); // Yaw outward -135°
+              Rotation2d.fromDegrees(180).getRadians())); // Yaw straight backward
 
   // MainBot front center camera - for intake/object detection
   // Positioned at front center, looking straight ahead with downward pitch
@@ -157,7 +154,7 @@ public final class VisionConstants {
           0.5144, // Z: 20.25 inches
           new Rotation3d(
               0.0,
-              Rotation2d.fromDegrees(10).getRadians(), // Pitch DOWN 10° (positive = down)
+              Rotation2d.fromDegrees(25).getRadians(), // Pitch DOWN 25° (positive = down)
               Rotation2d.fromDegrees(0).getRadians())); // Yaw straight ahead
 
   // MainBot recommended transforms (for testing/comparison in sim)
