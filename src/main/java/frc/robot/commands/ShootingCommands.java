@@ -5,6 +5,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.launcher.Launcher;
+import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretCalculator;
 import frc.robot.subsystems.turret.TurretVisualizer;
@@ -36,13 +37,33 @@ public class ShootingCommands {
 
   // Tunable launcher velocity for shooting (RPM)
   private static final LoggedTunableNumber launchVelocityRPM =
-      new LoggedTunableNumber("Shooting/LaunchVelocityRPM", 2000.0);
+      new LoggedTunableNumber("Shooting/LaunchVelocityRPM", 500.0);
+
+  // Tunable motivator velocity for shooting (RPM)
+  private static final LoggedTunableNumber motivatorVelocityRPM =
+      new LoggedTunableNumber("Shooting/MotivatorVelocityRPM", 500.0);
+
+  // Tunable prefeed velocity for shooting (RPM)
+  private static final LoggedTunableNumber prefeedVelocityRPM =
+      new LoggedTunableNumber("Shooting/PrefeedVelocityRPM", 500.0);
 
   // Tolerance for turret angle (degrees)
   private static final double TURRET_ANGLE_TOLERANCE_DEG = 2.0;
 
   private ShootingCommands() {
     // Static factory class
+  }
+
+  /**
+   * Initialize tunables so they appear in the dashboard immediately. Call this at robot startup to
+   * ensure all shooting-related tunables are visible in NetworkTables/Elastic.
+   */
+  public static void initTunables() {
+    // Accessing the tunables forces them to register with NetworkTables
+    launchVelocityRPM.get();
+    motivatorVelocityRPM.get();
+    prefeedVelocityRPM.get();
+    shootDelaySeconds.get();
   }
 
   /**
@@ -320,5 +341,60 @@ public class ShootingCommands {
             })
         .ignoringDisable(true)
         .withName("Toggle We Won Auto");
+  }
+
+  /**
+   * Full physical shooting sequence: spins up launcher and motivator wheels together using velocity
+   * control, waits for both to reach speed, then runs prefeed to push balls through.
+   *
+   * <p>Sequence:
+   *
+   * <ol>
+   *   <li>Launcher and motivator main wheels spin up simultaneously to target RPM
+   *   <li>Wait for BOTH to reach their velocity setpoints
+   *   <li>Prefeed runs at target RPM to push balls into the spinning wheels
+   * </ol>
+   *
+   * <p>Tunables:
+   *
+   * <ul>
+   *   <li>Shooting/LaunchVelocityRPM - Launcher wheel speed
+   *   <li>Shooting/MotivatorVelocityRPM - Main motivator wheel speed
+   *   <li>Shooting/PrefeedVelocityRPM - Prefeed roller speed
+   * </ul>
+   *
+   * @param launcher The launcher subsystem
+   * @param motivator The motivator subsystem
+   * @return Command that runs full shoot sequence while held
+   */
+  public static Command launchWithMotivator(Launcher launcher, Motivator motivator) {
+    return Commands.parallel(
+            // Keep launcher spinning at target velocity
+            Commands.run(() -> launcher.setVelocity(launchVelocityRPM.get()), launcher),
+            // Spin up motivator main wheels, wait for both at speed, then add prefeed
+            Commands.sequence(
+                Commands.runOnce(
+                    () ->
+                        Logger.recordOutput("Shooting/State", "Spinning Up Launcher + Motivator")),
+                // Run both motivator wheels at target velocity (no prefeed yet)
+                Commands.run(
+                        () -> motivator.setMotivatorsVelocity(motivatorVelocityRPM.get()),
+                        motivator)
+                    .until(() -> launcher.atSetpoint() && motivator.areMotivatorsAtSetpoint()),
+                Commands.runOnce(
+                    () -> Logger.recordOutput("Shooting/State", "At Speed - Running Prefeed")),
+                // Now run both motivator wheels AND prefeed at target velocities
+                Commands.run(
+                    () ->
+                        motivator.setVelocities(
+                            motivatorVelocityRPM.get(), prefeedVelocityRPM.get()),
+                    motivator)))
+        .finallyDo(
+            () -> {
+              launcher.stop();
+              motivator.stop();
+              Logger.recordOutput("Shooting/State", "Stopped");
+            })
+        .withName("Launch With Motivator");
   }
 }

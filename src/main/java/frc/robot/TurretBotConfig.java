@@ -111,10 +111,10 @@ public class TurretBotConfig implements RobotConfig {
 
   // ========== Launcher Configuration (Two NEO Vortex + SparkFlex) ==========
   // Two motors coupled to same shaft, facing opposite directions
-  // Gear ratio: 1 motor rotation = 1.5 wheel rotations (wheel spins faster)
+  // Gear ratio: 1 motor rotation = 1.0 wheel rotations (direct drive)
   private static final int launcherLeaderCanId = 58;
   private static final int launcherFollowerCanId = 59;
-  private static final double launcherGearRatio = 1.5; // 1 motor rot = 1.5 wheel rot
+  private static final double launcherGearRatio = 1.0; // 1 motor rot = 1.0 wheel rot (direct drive)
   private static final int launcherCurrentLimitAmps = 60;
   private static final double launcherKp = 0.000001;
   private static final double launcherKi = 0.0;

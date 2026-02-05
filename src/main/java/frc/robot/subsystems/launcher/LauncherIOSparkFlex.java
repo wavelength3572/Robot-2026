@@ -69,7 +69,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
   private double currentTargetWheelRPM = 0.0;
 
   // Constants
-  private static final double MAX_VELOCITY_RPM = 3500.0; // Max wheel RPM (safety limit)
+  private static final double MAX_VELOCITY_RPM = 7000.0; // Max wheel RPM (safety limit)
 
   // Shared tunable tolerance (same instance as LauncherIOSim for consistency)
   private static final LoggedTunableNumber velocityToleranceRPM =

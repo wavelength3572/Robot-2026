@@ -296,6 +296,13 @@ public class ButtonsAndDashboardBindings {
       System.out.println("[TurretBot] Motivator test controls configured");
     }
 
+    // Initialize shooting velocity tunables so they appear in dashboard immediately
+    // Just accessing them triggers LoggedTunableNumber to register with NetworkTables
+    if (launcher != null || motivator != null) {
+      ShootingCommands.initTunables();
+      System.out.println("[TurretBot] Shooting velocity tunables initialized");
+    }
+
     System.out.println("[TurretBot] Test controls configured on SmartDashboard under 'TurretBot/'");
   }
 
@@ -355,8 +362,11 @@ public class ButtonsAndDashboardBindings {
     }
 
     // Launcher controls (TurretBot only)
-    if (launcher != null) {
-      // Button 24: Run launcher at tunable velocity while held
+    if (launcher != null && motivator != null) {
+      // Button 24: Full launch sequence - launcher + motivator at target RPMs
+      oi.getLauncherButton().whileTrue(ShootingCommands.launchWithMotivator(launcher, motivator));
+    } else if (launcher != null) {
+      // Fallback: launcher only (no motivator available)
       oi.getLauncherButton().whileTrue(launcher.runAtTunableVelocityCommand());
     }
   }
@@ -383,9 +393,14 @@ public class ButtonsAndDashboardBindings {
                   () -> intake.getRollerVelocityRPM() > 10));
     }
 
-    // Shooting controls (uses turret for simulation)
-    if (turret != null && launcher != null) {
-      // Button 2: Shoot while held (spins up launcher and shoots properly)
+    // Shooting controls
+    if (launcher != null && motivator != null) {
+      // Button 2: Full physical shooting sequence (launcher + motivator)
+      // Spins up launcher, waits for speed, then feeds with motivator
+      oi.getButtonBox1Button2()
+          .whileTrue(ShootingCommands.launchWithMotivator(launcher, motivator));
+    } else if (turret != null && launcher != null) {
+      // Fallback: simulation shooting (no physical motivator)
       oi.getButtonBox1Button2()
           .whileTrue(
               ShootingCommands.shootWhileMoving(
