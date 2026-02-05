@@ -21,6 +21,7 @@ import frc.robot.Constants;
 import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * LauncherIO implementation using two SparkFlex controllers with NEO Vortex motors. The follower
@@ -87,8 +88,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
     // SysId feedforward gains (from characterization)
     // Units: kS = volts, kV = volts per (rad/s), kA = volts per (rad/s^2)
-    kS = new LoggedTunableNumber("Tuning/Launcher/kS", 0.84);
-    kV = new LoggedTunableNumber("Tuning/Launcher/kV", 0.0135);
+    kS = new LoggedTunableNumber("Tuning/Launcher/kS", 0.29);
+    kV = new LoggedTunableNumber("Tuning/Launcher/kV", 0.0165);
     kA = new LoggedTunableNumber("Tuning/Launcher/kA", 0.003);
 
     // Create feedforward controller
@@ -248,6 +249,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Calculate feedforward using WHEEL velocity (SysId was characterized with wheel velocity)
     double wheelRadPerSec = Units.rotationsPerMinuteToRadiansPerSecond(currentTargetWheelRPM);
     double arbFFVolts = feedforward.calculate(wheelRadPerSec);
+    Logger.recordOutput("Launcher/FeedforwardVolts", arbFFVolts);
 
     // Command leader with PID + feedforward - follower follows automatically in hardware
     leaderController.setReference(

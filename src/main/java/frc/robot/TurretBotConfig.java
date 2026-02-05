@@ -116,9 +116,9 @@ public class TurretBotConfig implements RobotConfig {
   private static final int launcherFollowerCanId = 59;
   private static final double launcherGearRatio = 1.0; // 1 motor rot = 1.0 wheel rot (direct drive)
   private static final int launcherCurrentLimitAmps = 60;
-  private static final double launcherKp = 0.0001;
+  private static final double launcherKp = 0.00006;
   private static final double launcherKi = 0.0;
-  private static final double launcherKd = 0.0002;
+  private static final double launcherKd = 0.003;
   private static final double launcherKff = 0.0; // Disabled - using SysId feedforward instead
 
   // PathPlanner RobotConfig (placeholder - no autonomous driving)

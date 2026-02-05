@@ -97,10 +97,10 @@ public class ShootingCommands {
       new LoggedTunableNumber("Shooting/Test/LauncherRPM", 2000.0);
 
   private static final LoggedTunableNumber testMotivatorRPM =
-      new LoggedTunableNumber("Shooting/Test/MotivatorRPM", 3000.0);
+      new LoggedTunableNumber("Shooting/Test/MotivatorRPM", 1000.0);
 
   private static final LoggedTunableNumber testPrefeedRPM =
-      new LoggedTunableNumber("Shooting/Test/PrefeedRPM", 2000.0);
+      new LoggedTunableNumber("Shooting/Test/PrefeedRPM", 500.0);
 
   private static final LoggedTunableNumber testTurretAngleDeg =
       new LoggedTunableNumber("Shooting/Test/AngleDegTurret", 0.0);
