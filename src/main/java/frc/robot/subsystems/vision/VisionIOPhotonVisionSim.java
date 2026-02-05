@@ -212,8 +212,10 @@ public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
       initialized = true;
     }
 
-    // Add sim camera
+    // Add sim camera with 1280x800 resolution and 70° horizontal FOV
     var cameraProperties = new SimCameraProperties();
+    // For 1280x800 (16:10 aspect), 70° horizontal FOV ≈ 79° diagonal FOV
+    cameraProperties.setCalibration(1280, 800, Rotation2d.fromDegrees(79));
     cameraSim = new PhotonCameraSim(camera, cameraProperties, aprilTagLayout);
     cameraSim.enableRawStream(true);
     cameraSim.enableProcessedStream(true);
@@ -349,7 +351,7 @@ public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
       sb.append("    {\n");
       sb.append("      \"name\": \"").append(displayName).append("\",\n");
       sb.append("      \"fov\": 70,\n");
-      sb.append("      \"resolution\": [800, 600],\n");
+      sb.append("      \"resolution\": [1280, 800],\n");
       sb.append("      \"position\": [")
           .append(roundTo(config.cachedX, 5))
           .append(", ")

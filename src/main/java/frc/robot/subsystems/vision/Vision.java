@@ -306,23 +306,16 @@ public class Vision extends SubsystemBase {
       backRightCamTransform = robotToBackRightCam;
     }
 
-    // Log each camera position individually with meaningful names for AdvantageScope
+    // Log all cameras as array for combined visualization
     Pose3d frontLeftPose = robotPose3d.transformBy(frontLeftCamTransform);
     Pose3d frontRightPose = robotPose3d.transformBy(frontRightCamTransform);
     Pose3d backLeftPose = robotPose3d.transformBy(backLeftCamTransform);
     Pose3d backRightPose = robotPose3d.transformBy(backRightCamTransform);
 
-    Logger.recordOutput("Vision/Cameras/FrontLeft", frontLeftPose);
-    Logger.recordOutput("Vision/Cameras/FrontRight", frontRightPose);
-    Logger.recordOutput("Vision/Cameras/BackLeft", backLeftPose);
-    Logger.recordOutput("Vision/Cameras/BackRight", backRightPose);
-
-    // Log all corner cameras as array for combined visualization
     if (frc.robot.Constants.currentRobot == frc.robot.Constants.RobotType.MAINBOT
         && frontCenterCamTransform != null) {
       // MainBot has 5 cameras
       Pose3d frontCenterPose = robotPose3d.transformBy(frontCenterCamTransform);
-      Logger.recordOutput("Vision/Cameras/FrontCenter", frontCenterPose);
       Logger.recordOutput(
           "Vision/CameraViz/AllCameras",
           new Pose3d[] {
