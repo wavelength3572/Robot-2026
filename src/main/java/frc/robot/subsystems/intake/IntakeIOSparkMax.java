@@ -2,11 +2,11 @@ package frc.robot.subsystems.intake;
 
 import static frc.robot.util.SparkUtil.*;
 
+import com.revrobotics.PersistMode;
 import com.revrobotics.RelativeEncoder;
+import com.revrobotics.ResetMode;
 import com.revrobotics.spark.FeedbackSensor;
 import com.revrobotics.spark.SparkBase.ControlType;
-import com.revrobotics.spark.SparkBase.PersistMode;
-import com.revrobotics.spark.SparkBase.ResetMode;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
@@ -66,7 +66,7 @@ public class IntakeIOSparkMax implements IntakeIO {
     deployConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pidf(deployKP.get(), deployKI.get(), deployKD.get(), 0.0);
+        .pid(deployKP.get(), deployKI.get(), deployKD.get());
     deployConfig
         .softLimit
         .forwardSoftLimitEnabled(true)
@@ -88,7 +88,9 @@ public class IntakeIOSparkMax implements IntakeIO {
         5,
         () ->
             deployMotor.configure(
-                deployConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+                deployConfig,
+                com.revrobotics.ResetMode.kResetSafeParameters,
+                com.revrobotics.PersistMode.kPersistParameters));
     tryUntilOk(deployMotor, 5, () -> deployEncoder.setPosition(0.0));
 
     // Configure roller motor
@@ -123,7 +125,7 @@ public class IntakeIOSparkMax implements IntakeIO {
     // Check for tunable changes and update PID
     if (LoggedTunableNumber.hasChanged(deployKP, deployKI, deployKD)) {
       var config = new SparkMaxConfig();
-      config.closedLoop.pidf(deployKP.get(), deployKI.get(), deployKD.get(), 0.0);
+      config.closedLoop.pid(deployKP.get(), deployKI.get(), deployKD.get());
       deployMotor.configure(
           config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
     }

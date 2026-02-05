@@ -134,6 +134,14 @@ public class MainBotConfig implements RobotConfig {
               1),
           moduleTranslations);
 
+  // Physical dimensions
+  // Turret offset from robot center (in robot-relative coordinates)
+  // Positive X = forward from robot center
+  // Positive Y = left from robot center
+  private static final double TURRET_X_OFFSET = -0.085211539; // meters
+  private static final double TURRET_Y_OFFSET = 0.1819604184; // meters
+  private static final double TURRET_HEIGHT_METERS = 0.3597275; // Meters
+
   @Override
   public double getTrackWidth() {
     return trackWidth;
@@ -412,6 +420,16 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getTurretGearRatio() {
     return turretGearRatio;
+  }
+
+  @Override
+  public double getTurretOffsetX() {
+    return TURRET_X_OFFSET;
+  }
+
+  @Override
+  public double getTurretOffsetY() {
+    return TURRET_Y_OFFSET;
   }
 
   @Override

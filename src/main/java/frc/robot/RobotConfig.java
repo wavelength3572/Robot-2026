@@ -160,6 +160,16 @@ public interface RobotConfig {
     return 0.0;
   }
 
+  /** Turret X offset from robot center (positive = forward). */
+  default double getTurretOffsetX() {
+    return 0.0;
+  }
+
+  /** Turret Y offset from robot center (positive = left). */
+  default double getTurretOffsetY() {
+    return 0.0;
+  }
+
   /** Maximum turret angle in degrees (forward soft limit). */
   default double getTurretMaxAngleDegrees() {
     return 0.0;

@@ -15,12 +15,11 @@ import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.revrobotics.RelativeEncoder;
+import com.revrobotics.ResetMode;
 import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.FeedbackSensor;
 import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkBase.ControlType;
-import com.revrobotics.spark.SparkBase.PersistMode;
-import com.revrobotics.spark.SparkBase.ResetMode;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkClosedLoopController.ArbFFUnits;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
@@ -132,7 +131,7 @@ public class ModuleIOSpark implements ModuleIO {
     driveConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pidf(driveKp, 0.0, driveKd, 0.0);
+        .pid(driveKp, 0.0, driveKd);
     driveConfig
         .signals
         .primaryEncoderPositionAlwaysOn(true)
@@ -147,7 +146,9 @@ public class ModuleIOSpark implements ModuleIO {
         5,
         () ->
             driveSpark.configure(
-                driveConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+                driveConfig,
+                ResetMode.kResetSafeParameters,
+                com.revrobotics.PersistMode.kNoPersistParameters));
     tryUntilOk(driveSpark, 5, () -> driveEncoder.setPosition(0.0));
 
     // Configure turn motor
@@ -167,7 +168,7 @@ public class ModuleIOSpark implements ModuleIO {
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .positionWrappingEnabled(true)
         .positionWrappingInputRange(turnPIDMinInput, turnPIDMaxInput)
-        .pidf(turnKp, 0.0, turnKd, 0.0);
+        .pid(turnKp, 0.0, turnKd);
     turnConfig
         .signals
         .primaryEncoderPositionAlwaysOn(true)
@@ -182,7 +183,9 @@ public class ModuleIOSpark implements ModuleIO {
         5,
         () ->
             turnSpark.configure(
-                turnConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+                turnConfig,
+                ResetMode.kResetSafeParameters,
+                com.revrobotics.PersistMode.kPersistParameters));
 
     // Configure CANcoder and seed turn encoder (if CANcoder available)
     if (cancoder != null) {

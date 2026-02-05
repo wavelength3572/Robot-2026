@@ -7,8 +7,7 @@
 
 package frc.robot;
 
-import com.revrobotics.spark.SparkLowLevel.MotorType;
-import com.revrobotics.spark.SparkMax;
+import edu.wpi.first.wpilibj.Preferences;
 import edu.wpi.first.wpilibj.RobotBase;
 
 /**
@@ -49,13 +48,8 @@ public final class Constants {
   private static RobotConfig robotConfig = null;
 
   /**
-   * Detects the robot type based on connected CAN hardware. In simulation mode, uses the configured
+   * Detects the robot type based on RobotPreferences. In simulation mode, uses the configured
    * simRobotType instead.
-   *
-   * <p>Detection strategy: Probe SparkMax drive motor CAN IDs unique to each robot. SquareBot uses
-   * drive CAN IDs 3, 5. MainBot uses drive CAN IDs 11, 21. TurretBot has no drive motors but has a
-   * turret SparkMax at CAN ID 60. If at least 2 drive IDs respond for a robot, that's the match.
-   * Otherwise check for TurretBot, and fall back to MAINBOT.
    */
   private static RobotType detectRobotType() {
     // In simulation, use the configured type
@@ -68,62 +62,18 @@ public final class Constants {
     System.out.println("[RobotConfig] Starting robot type detection...");
 
     try {
-      // Give CAN bus time to settle
-      try {
-        Thread.sleep(200);
-      } catch (InterruptedException e) {
-        // Ignore
-      }
-
-      // Check for SquareBot drive motors (CAN IDs 3, 5)
-      int squareBotCount = 0;
-      if (isSparkMaxPresent(3)) squareBotCount++;
-      if (isSparkMaxPresent(5)) squareBotCount++;
-      System.out.println("[RobotConfig] SquareBot drive motors found: " + squareBotCount + "/2");
-
-      if (squareBotCount >= 2) {
-        System.out.println("[RobotConfig] *** DETECTED SQUAREBOT ***");
+      // Read RobotPreferences from RoboRIO for the RobotName
+      if (Preferences.getString("RobotName", "nullBot").equals("SquareBot")) {
+        System.out.println("[RobotConfig] Detected SquareBot");
         return RobotType.SQUAREBOT;
-      }
-
-      // Check for MainBot drive motors (CAN IDs 11, 21)
-      int mainBotCount = 0;
-      if (isSparkMaxPresent(11)) mainBotCount++;
-      if (isSparkMaxPresent(21)) mainBotCount++;
-      System.out.println("[RobotConfig] MainBot drive motors found: " + mainBotCount + "/2");
-
-      if (mainBotCount >= 2) {
-        System.out.println("[RobotConfig] *** DETECTED MAINBOT ***");
+      } else {
+        System.out.println("[RobotConfig] Assuming MainBot");
         return RobotType.MAINBOT;
       }
-
-      // Check for TurretBot turret motor (CAN ID 60)
-      if (isSparkMaxPresent(60)) {
-        System.out.println("[RobotConfig] *** DETECTED TURRETBOT *** (CAN ID 60 responded)");
-        return RobotType.TURRETBOT;
-      }
-
-      // Nothing matched, default to MAINBOT
-      System.out.println("[RobotConfig] No robot detected, defaulting to MAINBOT");
-      return RobotType.MAINBOT;
     } catch (Exception e) {
       System.out.println(
-          "[RobotConfig] Error during detection, defaulting to MAINBOT: " + e.getMessage());
+          "[RobotConfig] Error during detection, defaulting to MainBot: " + e.getMessage());
       return RobotType.MAINBOT;
-    }
-  }
-
-  /** Probe a SparkMax at the given CAN ID. Returns true if a motor responds with valid firmware. */
-  private static boolean isSparkMaxPresent(int canId) {
-    try {
-      SparkMax motor = new SparkMax(canId, MotorType.kBrushless);
-      int firmware = motor.getFirmwareVersion();
-      motor.close();
-      System.out.println("[RobotConfig] CAN ID " + canId + " firmware: " + firmware);
-      return firmware != 0;
-    } catch (Exception e) {
-      System.out.println("[RobotConfig] CAN ID " + canId + " error: " + e.getMessage());
-      return false;
     }
   }
 
