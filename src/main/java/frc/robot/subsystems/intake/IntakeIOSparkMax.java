@@ -26,11 +26,11 @@ public class IntakeIOSparkMax implements IntakeIO {
 
   // Tunable PID for deploy motor
   private static final LoggedTunableNumber deployKP =
-      new LoggedTunableNumber("Intake/Deploy/kP", IntakeConstants.DEPLOY_KP);
+      new LoggedTunableNumber("Tuning/Intake/Deploy_kP", IntakeConstants.DEPLOY_KP);
   private static final LoggedTunableNumber deployKI =
-      new LoggedTunableNumber("Intake/Deploy/kI", IntakeConstants.DEPLOY_KI);
+      new LoggedTunableNumber("Tuning/Intake/Deploy_kI", IntakeConstants.DEPLOY_KI);
   private static final LoggedTunableNumber deployKD =
-      new LoggedTunableNumber("Intake/Deploy/kD", IntakeConstants.DEPLOY_KD);
+      new LoggedTunableNumber("Tuning/Intake/Deploy_kD", IntakeConstants.DEPLOY_KD);
 
   // Connection debouncers
   private final Debouncer deployConnectedDebounce =

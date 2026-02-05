@@ -25,15 +25,15 @@ public class Motivator extends SubsystemBase {
 
   // Tunable duty cycles for different operations
   private static final LoggedTunableNumber feedDutyCycle =
-      new LoggedTunableNumber("Motivator/FeedDutyCycle", 0.8);
+      new LoggedTunableNumber("Tuning/Motivator/FeedDutyCycle", 0.8);
   private static final LoggedTunableNumber prefeedDutyCycle =
-      new LoggedTunableNumber("Motivator/PrefeedDutyCycle", 0.6);
+      new LoggedTunableNumber("Tuning/Motivator/PrefeedDutyCycle", 0.6);
   private static final LoggedTunableNumber ejectDutyCycle =
-      new LoggedTunableNumber("Motivator/EjectDutyCycle", -0.5);
+      new LoggedTunableNumber("Tuning/Motivator/EjectDutyCycle", -0.5);
 
   // Velocity threshold for "at speed" check (RPM)
   private static final LoggedTunableNumber atSpeedThresholdRPM =
-      new LoggedTunableNumber("Motivator/AtSpeedThresholdRPM", 3000.0);
+      new LoggedTunableNumber("Tuning/Motivator/AtSpeedThresholdRPM", 3000.0);
 
   // Mechanism2d visualization
   private final LoggedMechanism2d mechanism = new LoggedMechanism2d(4, 3);
@@ -94,8 +94,45 @@ public class Motivator extends SubsystemBase {
     motor2Wheel.setAngle(motor2Angle);
     prefeedWheel.setAngle(prefeedAngle);
 
+    // Update wheel colors based on motor status
+    motor1Wheel.setColor(
+        getStatusColor(
+            inputs.motivator1VelocityRPM,
+            inputs.motivator1TargetVelocityRPM,
+            inputs.motivator1AtSetpoint));
+    motor2Wheel.setColor(
+        getStatusColor(
+            inputs.motivator2VelocityRPM,
+            inputs.motivator2TargetVelocityRPM,
+            inputs.motivator2AtSetpoint));
+    prefeedWheel.setColor(
+        getStatusColor(
+            inputs.prefeedVelocityRPM, inputs.prefeedTargetVelocityRPM, inputs.prefeedAtSetpoint));
+
     // Log the mechanism visualization
     Logger.recordOutput("Motivator/Mechanism2d", mechanism);
+  }
+
+  /**
+   * Get the color for a wheel status indicator based on operational state.
+   *
+   * @param velocityRPM Current velocity in RPM
+   * @param targetVelocityRPM Target velocity in RPM
+   * @param atSetpoint Whether the motor is at setpoint
+   * @return Color8Bit: Red=unpowered, Yellow=spinning up, Green=at setpoint
+   */
+  private Color8Bit getStatusColor(
+      double velocityRPM, double targetVelocityRPM, boolean atSetpoint) {
+    final double VELOCITY_THRESHOLD = 50.0; // Avoid flickering near zero
+
+    if (Math.abs(velocityRPM) < VELOCITY_THRESHOLD
+        && Math.abs(targetVelocityRPM) < VELOCITY_THRESHOLD) {
+      return new Color8Bit(Color.kRed); // Unpowered
+    } else if (atSetpoint) {
+      return new Color8Bit(Color.kGreen); // At setpoint
+    } else {
+      return new Color8Bit(Color.kYellow); // Powered, spinning up
+    }
   }
 
   // ========== Duty Cycle Control Methods ==========

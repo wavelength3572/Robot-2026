@@ -50,11 +50,11 @@ public class TurretIOTalonFX implements TurretIO {
     config = Constants.getRobotConfig();
 
     // Initialize tunable numbers from config
-    kP = new LoggedTunableNumber("Turret/kP", config.getTurretKp());
-    kI = new LoggedTunableNumber("Turret/kI", config.getTurretKi());
-    kD = new LoggedTunableNumber("Turret/kD", config.getTurretKd());
-    kS = new LoggedTunableNumber("Turret/kS", 0.0);
-    kV = new LoggedTunableNumber("Turret/kV", config.getTurretKff());
+    kP = new LoggedTunableNumber("Tuning/Turret/kP", config.getTurretKp());
+    kI = new LoggedTunableNumber("Tuning/Turret/kI", config.getTurretKi());
+    kD = new LoggedTunableNumber("Tuning/Turret/kD", config.getTurretKd());
+    kS = new LoggedTunableNumber("Tuning/Turret/kS", 0.0);
+    kV = new LoggedTunableNumber("Tuning/Turret/kV", config.getTurretKff());
 
     // Store angle limits
     maxAngleDegrees = config.getTurretMaxAngleDegrees();

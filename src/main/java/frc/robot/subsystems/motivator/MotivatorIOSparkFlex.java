@@ -59,37 +59,37 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
 
   // Tunable PID gains for motivator 1
   private final LoggedTunableNumber motivator1Kp =
-      new LoggedTunableNumber("Motivator/Motor1_kP", 0.0001);
+      new LoggedTunableNumber("Tuning/Motivator/Motor1_kP", 0.0001);
   private final LoggedTunableNumber motivator1Ki =
-      new LoggedTunableNumber("Motivator/Motor1_kI", 0.0);
+      new LoggedTunableNumber("Tuning/Motivator/Motor1_kI", 0.0);
   private final LoggedTunableNumber motivator1Kd =
-      new LoggedTunableNumber("Motivator/Motor1_kD", 0.0);
+      new LoggedTunableNumber("Tuning/Motivator/Motor1_kD", 0.0);
   private final LoggedTunableNumber motivator1Kff =
-      new LoggedTunableNumber("Motivator/Motor1_kFF", 0.00018);
+      new LoggedTunableNumber("Tuning/Motivator/Motor1_kFF", 0.00018);
 
   // Tunable PID gains for motivator 2
   private final LoggedTunableNumber motivator2Kp =
-      new LoggedTunableNumber("Motivator/Motor2_kP", 0.0001);
+      new LoggedTunableNumber("Tuning/Motivator/Motor2_kP", 0.0001);
   private final LoggedTunableNumber motivator2Ki =
-      new LoggedTunableNumber("Motivator/Motor2_kI", 0.0);
+      new LoggedTunableNumber("Tuning/Motivator/Motor2_kI", 0.0);
   private final LoggedTunableNumber motivator2Kd =
-      new LoggedTunableNumber("Motivator/Motor2_kD", 0.0);
+      new LoggedTunableNumber("Tuning/Motivator/Motor2_kD", 0.0);
   private final LoggedTunableNumber motivator2Kff =
-      new LoggedTunableNumber("Motivator/Motor2_kFF", 0.00018);
+      new LoggedTunableNumber("Tuning/Motivator/Motor2_kFF", 0.00018);
 
   // Tunable PID gains for prefeed
   private final LoggedTunableNumber prefeedKp =
-      new LoggedTunableNumber("Motivator/Prefeed_kP", 0.0001);
+      new LoggedTunableNumber("Tuning/Motivator/Prefeed_kP", 0.0001);
   private final LoggedTunableNumber prefeedKi =
-      new LoggedTunableNumber("Motivator/Prefeed_kI", 0.0);
+      new LoggedTunableNumber("Tuning/Motivator/Prefeed_kI", 0.0);
   private final LoggedTunableNumber prefeedKd =
-      new LoggedTunableNumber("Motivator/Prefeed_kD", 0.0);
+      new LoggedTunableNumber("Tuning/Motivator/Prefeed_kD", 0.0);
   private final LoggedTunableNumber prefeedKff =
-      new LoggedTunableNumber("Motivator/Prefeed_kFF", 0.00018);
+      new LoggedTunableNumber("Tuning/Motivator/Prefeed_kFF", 0.00018);
 
   // Velocity tolerance for at-setpoint check
   private static final LoggedTunableNumber velocityToleranceRPM =
-      new LoggedTunableNumber("Motivator/VelocityToleranceRPM", 100.0);
+      new LoggedTunableNumber("Tuning/Motivator/VelocityToleranceRPM", 100.0);
 
   // Target tracking
   private double motivator1TargetRPM = 0.0;

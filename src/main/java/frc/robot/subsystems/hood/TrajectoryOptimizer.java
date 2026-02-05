@@ -33,27 +33,27 @@ public class TrajectoryOptimizer {
   // PRIMARY TUNABLE: Descent angle (angle of line from hub edge to hub center)
   // Tune this to match the hub wall angle visually (60° matches well)
   private static final LoggedTunableNumber descentAngleDeg =
-      new LoggedTunableNumber("Trajectory/DescentAngleDeg", 60.0);
+      new LoggedTunableNumber("Shooting/Auto/Trajectory/DescentAngleDeg", 60.0);
 
   // Clearance constraints (inches above the lip)
   private static final LoggedTunableNumber minClearanceInches =
-      new LoggedTunableNumber("Trajectory/MinClearanceInches", 2.0); // Safety margin
+      new LoggedTunableNumber("Shooting/Auto/Trajectory/MinClearanceInches", 2.0); // Safety margin
   private static final LoggedTunableNumber maxClearanceInches =
-      new LoggedTunableNumber("Trajectory/MaxClearanceInches", 24.0); // Sanity check
+      new LoggedTunableNumber("Shooting/Auto/Trajectory/MaxClearanceInches", 24.0); // Sanity check
 
   // RPM limits
   private static final LoggedTunableNumber minRPM =
-      new LoggedTunableNumber("Trajectory/MinRPM", 1500.0);
+      new LoggedTunableNumber("Shooting/Auto/Trajectory/MinRPM", 1500.0);
   private static final LoggedTunableNumber maxRPM =
-      new LoggedTunableNumber("Trajectory/MaxRPM", 4000.0);
+      new LoggedTunableNumber("Shooting/Auto/Trajectory/MaxRPM", 4000.0);
   private static final LoggedTunableNumber maxPeakHeightM =
-      new LoggedTunableNumber("Trajectory/MaxPeakHeightM", 4.0);
+      new LoggedTunableNumber("Shooting/Auto/Trajectory/MaxPeakHeightM", 4.0);
 
   // Hood/launch angle limits (tunable)
   private static final LoggedTunableNumber hoodMinAngleDeg =
-      new LoggedTunableNumber("Trajectory/LaunchAngleMinDeg", 15.0);
+      new LoggedTunableNumber("Shooting/Auto/Trajectory/LaunchAngleMinDeg", 15.0);
   private static final LoggedTunableNumber hoodMaxAngleDeg =
-      new LoggedTunableNumber("Trajectory/LaunchAngleMaxDeg", 85.0);
+      new LoggedTunableNumber("Shooting/Auto/Trajectory/LaunchAngleMaxDeg", 85.0);
 
   /** Result of trajectory optimization. */
   public static class OptimalShot {

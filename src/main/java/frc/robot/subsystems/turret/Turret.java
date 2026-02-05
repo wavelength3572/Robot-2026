@@ -71,9 +71,9 @@ public class Turret extends SubsystemBase {
     double defaultCenter = (configMax + configMin) / 2.0;
     double defaultFlipAngle = (configMax - configMin) / 2.0;
 
-    flipAngleDeg = new LoggedTunableNumber("Turret/Tuning/FlipAngleDeg", defaultFlipAngle);
-    centerOffsetDeg = new LoggedTunableNumber("Turret/Tuning/CenterOffsetDeg", defaultCenter);
-    warningZoneDeg = new LoggedTunableNumber("Turret/Tuning/WarningZoneDeg", 20.0);
+    flipAngleDeg = new LoggedTunableNumber("Tuning/Turret/FlipAngleDeg", defaultFlipAngle);
+    centerOffsetDeg = new LoggedTunableNumber("Tuning/Turret/CenterOffsetDeg", defaultCenter);
+    warningZoneDeg = new LoggedTunableNumber("Tuning/Turret/WarningZoneDeg", 20.0);
 
     // Calculate initial effective limits
     updateEffectiveLimits();
@@ -281,8 +281,11 @@ public class Turret extends SubsystemBase {
     if (visualizer != null) {
       visualizer.logFuelStatus();
 
-      // Continuously calculate shot to hub for real-time trajectory visualization
-      if (robotPoseSupplier != null && fieldSpeedsSupplier != null) {
+      // Only auto-calculate shot in COMPETITION mode
+      // In TEST mode, manual parameters are set by testLaunchCommand
+      if (robotPoseSupplier != null
+          && fieldSpeedsSupplier != null
+          && !frc.robot.commands.ShootingCommands.isTestMode()) {
         // Auto-calculate shot every periodic cycle for live trajectory display
         boolean isBlue =
             edu.wpi.first.wpilibj.DriverStation.getAlliance()
@@ -460,6 +463,77 @@ public class Turret extends SubsystemBase {
    */
   public TurretCalculator.ShotData getCurrentShot() {
     return currentShot;
+  }
+
+  /**
+   * Set manual shot parameters for test mode. This overrides the auto-calculated shot and uses the
+   * provided RPM and hood angle for trajectory visualization and fuel launching.
+   *
+   * @param launcherRPM Launcher wheel RPM (converted to exit velocity internally)
+   * @param hoodAngleDeg Hood/launch angle in degrees
+   * @param targetTurretAngleDeg Target turret angle in degrees (for trajectory direction)
+   */
+  public void setManualShotParameters(
+      double launcherRPM, double hoodAngleDeg, double targetTurretAngleDeg) {
+    // Convert RPM to exit velocity
+    double exitVelocity = TurretCalculator.calculateExitVelocityFromRPM(launcherRPM);
+
+    // Convert hood angle to radians
+    double launchAngleRad = Math.toRadians(hoodAngleDeg);
+
+    // Calculate target position based on TARGET turret angle (not current)
+    // This shows where the shot WILL go once turret reaches position
+    if (robotPoseSupplier != null) {
+      Pose2d robotPose = robotPoseSupplier.get();
+      double robotHeadingRad = robotPose.getRotation().getRadians();
+
+      // Calculate turret's actual position on the field
+      double turretX =
+          robotPose.getX()
+              + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotHeadingRad)
+                  - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotHeadingRad));
+      double turretY =
+          robotPose.getY()
+              + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotHeadingRad)
+                  + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotHeadingRad));
+
+      // Calculate field-relative turret aim direction using TARGET angle
+      double turretAimRad = robotHeadingRad + Math.toRadians(targetTurretAngleDeg);
+
+      // Project target 5 meters in aim direction at appropriate height
+      double targetDistance = 5.0;
+      double targetX = turretX + targetDistance * Math.cos(turretAimRad);
+      double targetY = turretY + targetDistance * Math.sin(turretAimRad);
+
+      // Calculate target height based on trajectory (where ball would be at that distance)
+      double timeOfFlight =
+          TurretCalculator.calculateTimeOfFlight(exitVelocity, launchAngleRad, targetDistance);
+      double verticalVelocity = exitVelocity * Math.sin(launchAngleRad);
+      double targetZ =
+          turretHeightMeters
+              + verticalVelocity * timeOfFlight
+              - 0.5 * 9.81 * timeOfFlight * timeOfFlight;
+      targetZ = Math.max(0, targetZ); // Don't go below ground
+
+      Translation3d target = new Translation3d(targetX, targetY, targetZ);
+      currentShot = new TurretCalculator.ShotData(exitVelocity, launchAngleRad, target);
+
+      // Also update the TurretCalculator's target RPM for consistency
+      TurretCalculator.setTargetLauncherRPM(launcherRPM);
+
+      // Log manual shot parameters
+      Logger.recordOutput("Turret/ManualShot/LauncherRPM", launcherRPM);
+      Logger.recordOutput("Turret/ManualShot/HoodAngleDeg", hoodAngleDeg);
+      Logger.recordOutput("Turret/ManualShot/ExitVelocityMps", exitVelocity);
+    }
+  }
+
+  /** Clear manual shot parameters and return to auto-calculated shots. */
+  public void clearManualShotParameters() {
+    // The next periodic() call will recalculate the shot automatically
+    currentShot = null;
+    Logger.recordOutput("Turret/ManualShot/LauncherRPM", 0.0);
+    Logger.recordOutput("Turret/ManualShot/HoodAngleDeg", 0.0);
   }
 
   /**

@@ -104,8 +104,8 @@ public class TurretIOSparkMax implements TurretIO {
     config = Constants.getRobotConfig();
 
     // Initialize tunable numbers from config
-    kP = new LoggedTunableNumber("Turret/kP", config.getTurretKp());
-    kD = new LoggedTunableNumber("Turret/kD", config.getTurretKd());
+    kP = new LoggedTunableNumber("Tuning/Turret/kP", config.getTurretKp());
+    kD = new LoggedTunableNumber("Tuning/Turret/kD", config.getTurretKd());
 
     // Store config values
     maxAngleDegrees = config.getTurretMaxAngleDegrees();

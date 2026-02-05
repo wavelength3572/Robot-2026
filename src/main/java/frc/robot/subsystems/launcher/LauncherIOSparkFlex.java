@@ -73,7 +73,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
   // Shared tunable tolerance (same instance as LauncherIOSim for consistency)
   private static final LoggedTunableNumber velocityToleranceRPM =
-      new LoggedTunableNumber("Launcher/VelocityToleranceRPM", 50.0);
+      new LoggedTunableNumber("Tuning/Launcher/VelocityToleranceRPM", 50.0);
 
   public LauncherIOSparkFlex() {
     config = Constants.getRobotConfig();
@@ -83,16 +83,16 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
     // Initialize tunable PID gains from config
     // Note: kFF is set to 0 because we use SysId feedforward (kS, kV, kA) instead
-    kP = new LoggedTunableNumber("Launcher/kP", config.getLauncherKp());
-    kI = new LoggedTunableNumber("Launcher/kI", config.getLauncherKi());
-    kD = new LoggedTunableNumber("Launcher/kD", config.getLauncherKd());
-    kFF = new LoggedTunableNumber("Launcher/kFF", 0.0);
+    kP = new LoggedTunableNumber("Tuning/Launcher/kP", config.getLauncherKp());
+    kI = new LoggedTunableNumber("Tuning/Launcher/kI", config.getLauncherKi());
+    kD = new LoggedTunableNumber("Tuning/Launcher/kD", config.getLauncherKd());
+    kFF = new LoggedTunableNumber("Tuning/Launcher/kFF", 0.0);
 
     // SysId feedforward gains (from characterization)
     // Units: kS = volts, kV = volts per (rad/s), kA = volts per (rad/s^2)
-    kS = new LoggedTunableNumber("Launcher/kS", 0.84);
-    kV = new LoggedTunableNumber("Launcher/kV", 0.0118);
-    kA = new LoggedTunableNumber("Launcher/kA", 0.003);
+    kS = new LoggedTunableNumber("Tuning/Launcher/kS", 0.84);
+    kV = new LoggedTunableNumber("Tuning/Launcher/kV", 0.0118);
+    kA = new LoggedTunableNumber("Tuning/Launcher/kA", 0.003);
 
     // Create feedforward controller
     feedforward = new SimpleMotorFeedforward(kS.get(), kV.get(), kA.get());

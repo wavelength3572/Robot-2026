@@ -1,400 +1,505 @@
 package frc.robot.commands;
 
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.turret.Turret;
-import frc.robot.subsystems.turret.TurretCalculator;
 import frc.robot.subsystems.turret.TurretVisualizer;
+import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
-import frc.robot.util.MatchPhaseTracker;
-import java.util.function.BooleanSupplier;
 import org.littletonrobotics.junction.Logger;
 
 /**
- * Factory class for coordinated shooting commands. Provides commands that coordinate the launcher,
- * turret, and match phase tracking to automatically shoot fuel into the active hub.
+ * Factory class for shooting commands. Provides a unified launch command that works for both
+ * simulation (spawns fuel balls) and physical robot (runs motivator/prefeed).
  *
- * <p>Shooting logic requires ALL conditions to be met:
+ * <p>Supports two modes:
+ *
+ * <ul>
+ *   <li>COMPETITION: Auto-calculates optimal trajectory to hub (Shooting/Auto/*)
+ *   <li>TEST: Uses manual Shooting/Test/* dashboard values for controlled testing
+ * </ul>
+ *
+ * <p>The launch command:
  *
  * <ol>
- *   <li>Hub is active (via MatchPhaseTracker)
- *   <li>Turret is at target (within 2°)
- *   <li>Launcher is at setpoint (within 50 RPM)
- *   <li>Fuel is available (fuelCount > 0)
- *   <li>Minimum delay since last shot has elapsed
+ *   <li>Spins up launcher (and motivator if present)
+ *   <li>Waits for launcher to reach setpoint
+ *   <li>Fires balls repeatedly until button released or out of fuel
  * </ol>
  */
 public class ShootingCommands {
 
-  // Tunable shoot delay (seconds between shots)
-  // Default conservative 0.25s, tune down as build team validates (target: 0.1s = 10 fuel/sec)
-  private static final LoggedTunableNumber shootDelaySeconds =
-      new LoggedTunableNumber("Shooting/DelaySeconds", 0.25);
+  /** Shooting mode determines trajectory calculation and parameter source. */
+  public enum ShootingMode {
+    /** Auto-calculated trajectory to hub, optimized RPM/angle for distance (Shooting/Auto/*). */
+    COMPETITION,
+    /** Manual parameters from Shooting/Test/* dashboard values. */
+    TEST
+  }
 
-  // Tunable launcher velocity for shooting (RPM)
+  // Current shooting mode - defaults to competition
+  private static ShootingMode currentMode = ShootingMode.COMPETITION;
+
+  /**
+   * Get the current shooting mode.
+   *
+   * @return Current ShootingMode
+   */
+  public static ShootingMode getMode() {
+    return currentMode;
+  }
+
+  /**
+   * Set the shooting mode.
+   *
+   * @param mode The mode to set
+   */
+  public static void setMode(ShootingMode mode) {
+    if (currentMode != mode) {
+      currentMode = mode;
+      // Use SmartDashboard for dashboard-visible status
+      SmartDashboard.putString("Shooting/Status/Mode", mode.toString());
+      SmartDashboard.putBoolean("Shooting/Status/Active", mode == ShootingMode.TEST);
+      System.out.println("[Shooting] Mode changed to: " + mode);
+    }
+  }
+
+  /**
+   * Check if currently in test mode.
+   *
+   * @return True if in TEST mode
+   */
+  public static boolean isTestMode() {
+    return currentMode == ShootingMode.TEST;
+  }
+
+  // ===== Robot Tuning (affects real robot behavior) =====
+
+  // Target velocities for shooting
   private static final LoggedTunableNumber launchVelocityRPM =
-      new LoggedTunableNumber("Shooting/LaunchVelocityRPM", 500.0);
+      new LoggedTunableNumber("Shooting/Auto/LaunchVelocityRPM", 2000.0);
 
-  // Tunable motivator velocity for shooting (RPM)
   private static final LoggedTunableNumber motivatorVelocityRPM =
-      new LoggedTunableNumber("Shooting/MotivatorVelocityRPM", 500.0);
+      new LoggedTunableNumber("Shooting/Auto/MotivatorVelocityRPM", 3000.0);
 
-  // Tunable prefeed velocity for shooting (RPM)
   private static final LoggedTunableNumber prefeedVelocityRPM =
-      new LoggedTunableNumber("Shooting/PrefeedVelocityRPM", 500.0);
+      new LoggedTunableNumber("Shooting/Auto/PrefeedVelocityRPM", 2000.0);
 
-  // Tolerance for turret angle (degrees)
-  private static final double TURRET_ANGLE_TOLERANCE_DEG = 2.0;
+  // ===== Shooting/Test/* Override Values (for controlled manual testing) =====
+  // These allow manually setting all mechanism parameters while obeying safety limits
+
+  private static final LoggedTunableNumber testLauncherRPM =
+      new LoggedTunableNumber("Shooting/Test/LauncherRPM", 2000.0);
+
+  private static final LoggedTunableNumber testMotivatorRPM =
+      new LoggedTunableNumber("Shooting/Test/MotivatorRPM", 3000.0);
+
+  private static final LoggedTunableNumber testPrefeedRPM =
+      new LoggedTunableNumber("Shooting/Test/PrefeedRPM", 2000.0);
+
+  private static final LoggedTunableNumber testTurretAngleDeg =
+      new LoggedTunableNumber("Shooting/Test/AngleDegTurret", 0.0);
+
+  private static final LoggedTunableNumber testHoodAngleDeg =
+      new LoggedTunableNumber("Shooting/Test/AngleDegHood", 45.0);
+
+  // ===== Command Behavior Constants =====
+
+  // Minimum time between shots (prevents multiple fires per frame)
+  private static final double MIN_SHOT_INTERVAL_SECONDS = 0.05;
+
+  // Always wait for setpoint recovery before firing next shot
+  private static final boolean WAIT_FOR_RECOVERY = true;
 
   private ShootingCommands() {
     // Static factory class
   }
 
-  /**
-   * Initialize tunables so they appear in the dashboard immediately. Call this at robot startup to
-   * ensure all shooting-related tunables are visible in NetworkTables/Elastic.
-   */
+  /** Initialize tunables so they appear in the dashboard immediately. */
   public static void initTunables() {
-    // Accessing the tunables forces them to register with NetworkTables
+    // Normal shooting tunables
     launchVelocityRPM.get();
     motivatorVelocityRPM.get();
     prefeedVelocityRPM.get();
-    shootDelaySeconds.get();
+
+    // TestShooting override tunables
+    testLauncherRPM.get();
+    testMotivatorRPM.get();
+    testPrefeedRPM.get();
+    testTurretAngleDeg.get();
+    testHoodAngleDeg.get();
+
+    // Initialize all shooting status values so they appear on dashboard immediately
+    SmartDashboard.putString("Shooting/Status/Mode", currentMode.toString());
+    SmartDashboard.putBoolean("Shooting/Status/Active", currentMode == ShootingMode.TEST);
+    SmartDashboard.putNumber("Shooting/Status/CurrentRPM", 0.0);
+    SmartDashboard.putBoolean("Shooting/Status/ReadyAll", false);
+    SmartDashboard.putBoolean("Shooting/Status/ReadyHood", false);
+    SmartDashboard.putBoolean("Shooting/Status/ReadyLauncher", false);
+    SmartDashboard.putBoolean("Shooting/Status/ReadyMotivators", false);
+    SmartDashboard.putBoolean("Shooting/Status/ReadyTurret", false);
+    SmartDashboard.putString("Shooting/Status/State", "Idle");
   }
 
   /**
-   * Phase 1: Basic coordinated shooting until empty. Robot stands still, launcher spins up, turret
-   * aims at active hub, shoots until fuel is depleted.
+   * Main launch command. Spins up, waits for setpoint, then fires repeatedly.
+   *
+   * <p>Sequence:
+   *
+   * <ol>
+   *   <li>Spin up launcher + motivator feeder wheels (no prefeed yet)
+   *   <li>Wait for launcher AND motivator feeders to reach setpoint
+   *   <li>Start prefeed and begin firing balls
+   * </ol>
+   *
+   * <p>Works for both simulation (calls turret.launchFuel()) and physical robot (runs motivator
+   * prefeed to feed balls).
    *
    * @param launcher The launcher subsystem
-   * @param turret The turret subsystem
-   * @param hubActiveSupplier Supplier that returns true when our hub is active
-   * @return Command that shoots until empty or hub becomes inactive
+   * @param turret The turret subsystem (for sim fuel launching)
+   * @param motivator The motivator subsystem (can be null if not present)
+   * @return Command that launches while held
    */
-  public static Command shootUntilEmpty(
-      Launcher launcher, Turret turret, BooleanSupplier hubActiveSupplier) {
-
+  public static Command launchCommand(Launcher launcher, Turret turret, Motivator motivator) {
     return Commands.sequence(
-            // Log that we're starting
+            // Set competition mode for auto-calculated trajectories
+            Commands.runOnce(() -> setMode(ShootingMode.COMPETITION)),
+
+            // Phase 1: Spin up launcher and motivator feeder wheels (NO prefeed yet)
             Commands.runOnce(
                 () -> {
-                  System.out.println(
-                      "[Shooting] Starting - spinning up launcher to "
-                          + launchVelocityRPM.get()
-                          + " RPM");
-                  Logger.recordOutput("Shooting/State", "Spinning Up");
-                  launcher.setVelocity(launchVelocityRPM.get());
+                  double targetRPM = launchVelocityRPM.get();
+                  launcher.setVelocity(targetRPM);
+                  if (motivator != null) {
+                    // Only spin up the two feeder wheels, not prefeed
+                    motivator.setMotivatorsVelocity(motivatorVelocityRPM.get());
+                  }
+                  SmartDashboard.putString("Shooting/Status/State", "Spinning Up");
+                  Logger.recordOutput("Shooting/TargetRPM", targetRPM);
+                  System.out.println("[Launch] Spinning up launcher to " + targetRPM + " RPM");
                 }),
 
-            // Wait for launcher to reach setpoint and stabilize (debounce)
+            // Phase 2: Wait for launcher AND motivator feeders to reach setpoint
             Commands.race(
+                // Wait for all wheels at setpoint, then debounce for stability
                 Commands.sequence(
-                    Commands.waitUntil(launcher::atSetpoint),
-                    Commands.waitSeconds(0.15), // Must stay at setpoint for 150ms
-                    Commands.waitUntil(launcher::atSetpoint)), // Verify still stable
+                    Commands.waitUntil(
+                        () -> {
+                          boolean launcherReady = launcher.atSetpoint();
+                          boolean motivatorReady =
+                              motivator == null || motivator.areMotivatorsAtSetpoint();
+                          boolean allReady = launcherReady && motivatorReady;
+                          SmartDashboard.putBoolean("Shooting/Status/ReadyLauncher", launcherReady);
+                          SmartDashboard.putBoolean(
+                              "Shooting/Status/ReadyMotivators", motivatorReady);
+                          SmartDashboard.putBoolean("Shooting/Status/ReadyAll", allReady);
+                          return allReady;
+                        }),
+                    Commands.waitSeconds(0.1), // Debounce - must stay at setpoint for 100ms
+                    Commands.waitUntil(
+                        () -> {
+                          boolean launcherReady = launcher.atSetpoint();
+                          boolean motivatorReady =
+                              motivator == null || motivator.areMotivatorsAtSetpoint();
+                          return launcherReady && motivatorReady;
+                        })),
+                // Timeout after 3 seconds
                 Commands.sequence(
                     Commands.waitSeconds(3.0),
                     Commands.runOnce(
-                        () ->
-                            System.out.println(
-                                "[Shooting] Launcher spinup timeout - continuing anyway")))),
+                        () -> System.out.println("[Launch] Spinup timeout - continuing anyway")))),
+
+            // Log that we're ready to fire
             Commands.runOnce(
                 () -> {
-                  System.out.println(
-                      "[Shooting] Launcher ready and stable, entering shooting loop");
-                  Logger.recordOutput("Shooting/State", "Launcher Ready");
+                  SmartDashboard.putString("Shooting/Status/State", "Firing");
+                  System.out.println("[Launch] At setpoint, starting prefeed and firing");
                 }),
 
-            // Then repeatedly shoot while conditions are met
-            createShootingLoop(launcher, turret, hubActiveSupplier))
-        .finallyDo(
-            () -> {
-              launcher.stop();
-              Logger.recordOutput("Shooting/State", "Stopped");
-            })
-        // Require both subsystems so the command properly interlocks
-        .withName("Shoot Until Empty");
-  }
-
-  /**
-   * Phase 2: Continuous shooting with intake integration. Continues shooting while picking up balls
-   * during active periods; stops when hub becomes inactive.
-   *
-   * @param launcher The launcher subsystem
-   * @param turret The turret subsystem
-   * @param hubActiveSupplier Supplier that returns true when our hub is active
-   * @return Command that continuously shoots while hub is active and fuel is available
-   */
-  public static Command continuousShooting(
-      Launcher launcher, Turret turret, BooleanSupplier hubActiveSupplier) {
-
-    return Commands.sequence(
-            // Spin up launcher
-            Commands.runOnce(() -> launcher.setVelocity(launchVelocityRPM.get())),
-
-            // Continuous shooting loop - keeps running and waits for fuel
-            Commands.run(
+            // Phase 3: Start prefeed and fire repeatedly
+            Commands.parallel(
+                // Keep launcher at speed continuously
+                Commands.run(
                     () -> {
-                      // Keep launcher at speed
                       launcher.setVelocity(launchVelocityRPM.get());
-                    })
-                .until(() -> !hubActiveSupplier.getAsBoolean())
-                .deadlineWith(createShootingLoop(launcher, turret, hubActiveSupplier)))
+                      SmartDashboard.putNumber(
+                          "Shooting/Status/CurrentRPM", launcher.getVelocity());
+                    },
+                    launcher),
+
+                // Keep motivator feeders running AND now add prefeed
+                motivator != null
+                    ? Commands.run(
+                        () ->
+                            motivator.setVelocities(
+                                motivatorVelocityRPM.get(), prefeedVelocityRPM.get()),
+                        motivator)
+                    : Commands.none(),
+
+                // Fire balls repeatedly in simulation
+                createFiringLoop(turret, launcher)))
         .finallyDo(
             () -> {
               launcher.stop();
-              Logger.recordOutput("Shooting/State", "Stopped");
+              if (motivator != null) {
+                motivator.stop();
+              }
+              SmartDashboard.putString("Shooting/Status/State", "Stopped");
+              System.out.println("[Launch] Stopped");
             })
-        .withName("Continuous Shooting");
+        .withName("Launch");
   }
 
   /**
-   * Phase 3: Shoot while moving. Driver controls the robot, turret auto-aims and shoots when
-   * conditions are met.
+   * Creates the firing loop that repeatedly launches fuel balls. Firing rate is naturally limited
+   * by recovery time (if waitForRecovery is enabled) or by minShotInterval.
    *
-   * @param launcher The launcher subsystem
    * @param turret The turret subsystem
-   * @param hubActiveSupplier Supplier that returns true when our hub is active
-   * @return Command that shoots while moving (driver drives, turret auto-aims)
+   * @param launcher The launcher subsystem (for recovery notification in sim)
+   * @return Command that fires repeatedly until out of fuel
    */
-  public static Command shootWhileMoving(
-      Launcher launcher, Turret turret, BooleanSupplier hubActiveSupplier) {
-
-    // Continuously update launcher RPM based on ideal trajectory calculation
-    // The turret recalculates the shot every cycle, so we read the ideal velocity
-    // and convert it to RPM for the launcher
+  private static Command createFiringLoop(Turret turret, Launcher launcher) {
     return Commands.sequence(
-            Commands.runOnce(
-                () -> {
-                  Logger.recordOutput("Shooting/State", "Spinning Up (Moving)");
-                }),
-            createShootingLoop(launcher, turret, hubActiveSupplier))
-        .finallyDo(
-            () -> {
-              launcher.stop();
-              Logger.recordOutput("Shooting/State", "Stopped");
-            })
-        .withName("Shoot While Moving");
-  }
+            // Wait for launcher recovery before firing next shot
+            WAIT_FOR_RECOVERY
+                ? Commands.waitUntil(launcher::atSetpoint)
+                : Commands.waitSeconds(MIN_SHOT_INTERVAL_SECONDS),
 
-  /**
-   * Create the core shooting loop that checks conditions and fires.
-   *
-   * @param launcher The launcher subsystem
-   * @param turret The turret subsystem
-   * @param hubActiveSupplier Supplier that returns true when our hub is active
-   * @return Command that repeatedly checks conditions and shoots
-   */
-  private static Command createShootingLoop(
-      Launcher launcher, Turret turret, BooleanSupplier hubActiveSupplier) {
-
-    return Commands.sequence(
-            // Wait for all conditions to be met
-            Commands.waitUntil(
-                () -> {
-                  // Continuously update launcher RPM based on ideal trajectory
-                  TurretCalculator.ShotData currentShot = turret.getCurrentShot();
-                  if (currentShot != null) {
-                    double idealRPM =
-                        TurretCalculator.calculateRPMForVelocity(currentShot.getExitVelocity());
-                    launcher.setVelocity(idealRPM);
-                    Logger.recordOutput("Shooting/IdealRPM", idealRPM);
-                  }
-
-                  boolean hubActive = hubActiveSupplier.getAsBoolean();
-                  boolean turretReady = turret.atTarget();
-                  boolean launcherReady = launcher.atSetpoint();
-                  TurretVisualizer visualizer = turret.getVisualizer();
-                  boolean hasFuel = visualizer != null && visualizer.getFuelCount() > 0;
-
-                  // Log current state
-                  Logger.recordOutput("Shooting/Conditions/HubActive", hubActive);
-                  Logger.recordOutput("Shooting/Conditions/TurretReady", turretReady);
-                  Logger.recordOutput("Shooting/Conditions/LauncherReady", launcherReady);
-                  Logger.recordOutput("Shooting/Conditions/HasFuel", hasFuel);
-
-                  if (hubActive && turretReady && launcherReady && hasFuel) {
-                    Logger.recordOutput("Shooting/State", "Ready to Fire");
-                    return true;
-                  }
-
-                  Logger.recordOutput("Shooting/State", "Waiting for Conditions");
-                  return false;
-                }),
-
-            // Fire!
+            // Fire one ball
             Commands.runOnce(
                 () -> {
                   turret.launchFuel();
-                  Logger.recordOutput("Shooting/State", "Fired!");
                   Logger.recordOutput("Shooting/LastShotTime", Timer.getFPGATimestamp());
+
+                  // Notify launcher of shot (triggers recovery in sim, no-op on real robot)
+                  launcher.notifyBallFired();
+
+                  // Log fuel count
+                  TurretVisualizer visualizer = turret.getVisualizer();
+                  int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
+                  Logger.recordOutput("Shooting/FuelRemaining", fuelRemaining);
                 }),
 
-            // Wait for tunable delay before next shot
-            Commands.waitSeconds(shootDelaySeconds.get()))
-
-        // Repeat while hub is active and we have fuel
+            // Small delay to prevent multiple fires in same frame
+            Commands.waitSeconds(MIN_SHOT_INTERVAL_SECONDS))
         .repeatedly()
         .until(
             () -> {
               TurretVisualizer visualizer = turret.getVisualizer();
               boolean outOfFuel = visualizer == null || visualizer.getFuelCount() <= 0;
-              boolean hubInactive = !hubActiveSupplier.getAsBoolean();
-
               if (outOfFuel) {
                 Logger.recordOutput("Shooting/State", "Out of Fuel");
-                return true;
+                System.out.println("[Launch] Out of fuel");
               }
-              if (hubInactive) {
-                Logger.recordOutput("Shooting/State", "Hub Inactive");
-                return true;
-              }
-              return false;
+              return outOfFuel;
             });
   }
 
   /**
-   * Get a supplier that checks if our hub is active using MatchPhaseTracker.
-   *
-   * @return BooleanSupplier that returns true when our hub is active
-   */
-  public static BooleanSupplier getHubActiveSupplier() {
-    return () -> {
-      boolean isBlue =
-          DriverStation.getAlliance()
-              .orElse(DriverStation.Alliance.Blue)
-              .equals(DriverStation.Alliance.Blue);
-      return MatchPhaseTracker.getInstance().isOurHubActive(isBlue);
-    };
-  }
-
-  /**
-   * Command to reset fuel count to full (25). Useful for testing.
+   * Command to reset the simulation for testing. Clears all balls from the field and puts 50 in the
+   * hopper.
    *
    * @param turret The turret subsystem (to access visualizer)
-   * @return Command that resets fuel count
+   * @return Command that resets simulation state
    */
-  public static Command resetFuelCommand(Turret turret) {
+  public static Command resetSimulationCommand(Turret turret) {
     return Commands.runOnce(
             () -> {
+              // Clear field and reset hub scores
+              FuelSim.getInstance().clearFuel();
+              FuelSim.Hub.BLUE_HUB.resetScore();
+              FuelSim.Hub.RED_HUB.resetScore();
+
+              // Put 50 balls in hopper
               TurretVisualizer visualizer = turret.getVisualizer();
               if (visualizer != null) {
-                visualizer.setFuelCount(25);
-                Logger.recordOutput("Shooting/FuelReset", true);
+                visualizer.setFuelCount(50);
+                Logger.recordOutput("Shooting/FuelRemaining", 50);
               }
+
+              Logger.recordOutput("Shooting/SimReset", true);
+              System.out.println("[Shooting] Simulation reset: field cleared, 50 balls in hopper");
             })
         .ignoringDisable(true)
-        .withName("Reset Fuel to 25");
+        .withName("Reset Simulation");
   }
 
   /**
-   * Command to set hub override to ON (always active).
+   * Manual test launch command using Shooting/Test/* dashboard values. Positions all mechanisms to
+   * the specified values (obeying safety limits), waits for everything to reach setpoint, then
+   * fires.
    *
-   * @return Command that sets hub override
-   */
-  public static Command setHubOverrideOn() {
-    return Commands.runOnce(
-            () -> MatchPhaseTracker.getInstance().setHubOverride(MatchPhaseTracker.HubOverride.ON))
-        .ignoringDisable(true)
-        .withName("Hub Override: ON");
-  }
-
-  /**
-   * Command to set hub override to OFF (always inactive).
+   * <p>Use this for controlled testing where you want to specify exact values for:
    *
-   * @return Command that sets hub override
-   */
-  public static Command setHubOverrideOff() {
-    return Commands.runOnce(
-            () -> MatchPhaseTracker.getInstance().setHubOverride(MatchPhaseTracker.HubOverride.OFF))
-        .ignoringDisable(true)
-        .withName("Hub Override: OFF");
-  }
-
-  /**
-   * Command to set hub override to AUTO (use match phase logic).
-   *
-   * @return Command that sets hub override
-   */
-  public static Command setHubOverrideAuto() {
-    return Commands.runOnce(
-            () ->
-                MatchPhaseTracker.getInstance().setHubOverride(MatchPhaseTracker.HubOverride.AUTO))
-        .ignoringDisable(true)
-        .withName("Hub Override: AUTO");
-  }
-
-  /**
-   * Command to toggle "we won auto" setting.
-   *
-   * @return Command that toggles the setting
-   */
-  public static Command toggleWeWonAuto() {
-    return Commands.runOnce(
-            () -> {
-              MatchPhaseTracker tracker = MatchPhaseTracker.getInstance();
-              tracker.setWeWonAuto(!tracker.getWeWonAuto());
-            })
-        .ignoringDisable(true)
-        .withName("Toggle We Won Auto");
-  }
-
-  /**
-   * Full physical shooting sequence: spins up launcher and motivator wheels together using velocity
-   * control, waits for both to reach speed, then runs prefeed to push balls through.
+   * <ul>
+   *   <li>Launcher RPM (Shooting/Test/LauncherRPM)
+   *   <li>Motivator RPM (Shooting/Test/MotivatorRPM)
+   *   <li>Prefeed RPM (Shooting/Test/PrefeedRPM)
+   *   <li>Turret angle in degrees (Shooting/Test/AngleDegTurret)
+   *   <li>Hood angle in degrees (Shooting/Test/AngleDegHood)
+   * </ul>
    *
    * <p>Sequence:
    *
    * <ol>
-   *   <li>Launcher and motivator main wheels spin up simultaneously to target RPM
-   *   <li>Wait for BOTH to reach their velocity setpoints
-   *   <li>Prefeed runs at target RPM to push balls into the spinning wheels
+   *   <li>Set turret and hood angles (they clamp internally to safety limits)
+   *   <li>Spin up launcher and motivator wheels
+   *   <li>Wait for launcher, motivator, turret, AND hood to reach setpoint
+   *   <li>Start prefeed and begin firing
    * </ol>
    *
-   * <p>Tunables:
-   *
-   * <ul>
-   *   <li>Shooting/LaunchVelocityRPM - Launcher wheel speed
-   *   <li>Shooting/MotivatorVelocityRPM - Main motivator wheel speed
-   *   <li>Shooting/PrefeedVelocityRPM - Prefeed roller speed
-   * </ul>
-   *
    * @param launcher The launcher subsystem
-   * @param motivator The motivator subsystem
-   * @return Command that runs full shoot sequence while held
+   * @param turret The turret subsystem
+   * @param motivator The motivator subsystem (can be null)
+   * @param hood The hood subsystem (can be null)
+   * @return Command that positions, spins up, and fires while held
    */
-  public static Command launchWithMotivator(Launcher launcher, Motivator motivator) {
-    return Commands.parallel(
-            // Keep launcher spinning at target velocity
-            Commands.run(() -> launcher.setVelocity(launchVelocityRPM.get()), launcher),
-            // Spin up motivator main wheels, wait for both at speed, then add prefeed
-            Commands.sequence(
-                Commands.runOnce(
-                    () ->
-                        Logger.recordOutput("Shooting/State", "Spinning Up Launcher + Motivator")),
-                // Run both motivator wheels at target velocity (no prefeed yet)
+  public static Command testLaunchCommand(
+      Launcher launcher, Turret turret, Motivator motivator, Hood hood) {
+    return Commands.sequence(
+            // Set test mode for manual trajectory parameters
+            Commands.runOnce(() -> setMode(ShootingMode.TEST)),
+
+            // Phase 1: Start positioning turret and hood, spin up wheels
+            Commands.runOnce(
+                () -> {
+                  // Set turret angle (subsystem clamps to limits)
+                  double turretAngle = testTurretAngleDeg.get();
+                  turret.setAngle(turretAngle);
+
+                  // Set hood angle if available (subsystem clamps to limits)
+                  double hoodAngle = testHoodAngleDeg.get();
+                  if (hood != null) {
+                    hood.setAngle(hoodAngle);
+                  }
+
+                  // Spin up launcher
+                  double launcherRPM = testLauncherRPM.get();
+                  launcher.setVelocity(launcherRPM);
+
+                  // Set manual shot parameters for trajectory visualization
+                  // This makes the sim trajectory match our test parameters
+                  // Use TARGET turret angle so trajectory shows where shot WILL go
+                  turret.setManualShotParameters(launcherRPM, hoodAngle, turretAngle);
+
+                  // Spin up motivator feeders (no prefeed yet)
+                  if (motivator != null) {
+                    motivator.setMotivatorsVelocity(testMotivatorRPM.get());
+                  }
+
+                  SmartDashboard.putString("Shooting/Status/State", "Positioning & Spinning Up");
+                  System.out.println(
+                      "[ManualFire] Positioning turret to "
+                          + turretAngle
+                          + "° and spinning up to "
+                          + launcherRPM
+                          + " RPM");
+                }),
+
+            // Phase 2: Wait for everything to reach setpoint
+            Commands.race(
+                Commands.sequence(
+                    Commands.waitUntil(
+                        () -> {
+                          boolean launcherReady = launcher.atSetpoint();
+                          boolean motivatorReady =
+                              motivator == null || motivator.areMotivatorsAtSetpoint();
+                          boolean turretReady = turret.atTarget();
+                          boolean hoodReady = hood == null || hood.atTarget();
+
+                          boolean allReady =
+                              launcherReady && motivatorReady && turretReady && hoodReady;
+
+                          SmartDashboard.putBoolean("Shooting/Status/ReadyLauncher", launcherReady);
+                          SmartDashboard.putBoolean(
+                              "Shooting/Status/ReadyMotivators", motivatorReady);
+                          SmartDashboard.putBoolean("Shooting/Status/ReadyTurret", turretReady);
+                          SmartDashboard.putBoolean("Shooting/Status/ReadyHood", hoodReady);
+                          SmartDashboard.putBoolean("Shooting/Status/ReadyAll", allReady);
+
+                          return allReady;
+                        }),
+                    // Debounce - must stay at setpoint for 100ms
+                    Commands.waitSeconds(0.1),
+                    Commands.waitUntil(
+                        () -> {
+                          boolean launcherReady = launcher.atSetpoint();
+                          boolean motivatorReady =
+                              motivator == null || motivator.areMotivatorsAtSetpoint();
+                          boolean turretReady = turret.atTarget();
+                          boolean hoodReady = hood == null || hood.atTarget();
+                          return launcherReady && motivatorReady && turretReady && hoodReady;
+                        })),
+                // Timeout after 5 seconds (longer than normal to allow positioning)
+                Commands.sequence(
+                    Commands.waitSeconds(5.0),
+                    Commands.runOnce(
+                        () -> {
+                          System.out.println(
+                              "[ManualFire] WARNING: Setup timeout - check turret/hood positions!");
+                          SmartDashboard.putString(
+                              "Shooting/Status/State", "TIMEOUT - continuing anyway");
+                        }))),
+
+            // Log ready state
+            Commands.runOnce(
+                () -> {
+                  SmartDashboard.putString("Shooting/Status/State", "Ready - Starting Prefeed");
+                  System.out.println("[ManualFire] All mechanisms ready, starting prefeed");
+                }),
+
+            // Phase 3: Start prefeed and fire repeatedly
+            Commands.parallel(
+                // Keep launcher at speed and update manual shot parameters for trajectory
                 Commands.run(
-                        () -> motivator.setMotivatorsVelocity(motivatorVelocityRPM.get()),
+                    () -> {
+                      double rpm = testLauncherRPM.get();
+                      double hoodAngle = testHoodAngleDeg.get();
+                      double turretAngle = testTurretAngleDeg.get();
+                      launcher.setVelocity(rpm);
+                      turret.setManualShotParameters(rpm, hoodAngle, turretAngle);
+                      SmartDashboard.putNumber(
+                          "Shooting/Status/CurrentRPM", launcher.getVelocity());
+                    },
+                    launcher),
+
+                // Keep turret positioned
+                Commands.run(() -> turret.setAngle(testTurretAngleDeg.get()), turret),
+
+                // Keep hood positioned
+                hood != null
+                    ? Commands.run(() -> hood.setAngle(testHoodAngleDeg.get()), hood)
+                    : Commands.none(),
+
+                // Keep motivator feeders running AND add prefeed
+                motivator != null
+                    ? Commands.run(
+                        () -> motivator.setVelocities(testMotivatorRPM.get(), testPrefeedRPM.get()),
                         motivator)
-                    .until(() -> launcher.atSetpoint() && motivator.areMotivatorsAtSetpoint()),
-                Commands.runOnce(
-                    () -> Logger.recordOutput("Shooting/State", "At Speed - Running Prefeed")),
-                // Now run both motivator wheels AND prefeed at target velocities
-                Commands.run(
-                    () ->
-                        motivator.setVelocities(
-                            motivatorVelocityRPM.get(), prefeedVelocityRPM.get()),
-                    motivator)))
+                    : Commands.none(),
+
+                // Fire balls repeatedly
+                createFiringLoop(turret, launcher)))
         .finallyDo(
             () -> {
               launcher.stop();
-              motivator.stop();
-              Logger.recordOutput("Shooting/State", "Stopped");
+              if (motivator != null) {
+                motivator.stop();
+              }
+              if (hood != null) {
+                hood.stop();
+              }
+              // Clear manual shot parameters and return to competition mode
+              turret.clearManualShotParameters();
+              setMode(ShootingMode.COMPETITION);
+              SmartDashboard.putString("Shooting/Status/State", "Stopped");
+              System.out.println("[ManualFire] Stopped");
             })
-        .withName("Launch With Motivator");
+        .withName("ManualFire");
   }
 }

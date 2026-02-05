@@ -24,7 +24,7 @@ public class Launcher extends SubsystemBase {
 
   // Dashboard-tunable target velocity (starts at 0 for safety)
   private static final LoggedTunableNumber targetVelocity =
-      new LoggedTunableNumber("Launcher/TargetVelocityRPM", 0.0);
+      new LoggedTunableNumber("Tuning/Launcher/TargetVelocityRPM", 0.0);
 
   // Safety threshold for velocity mismatch between motors
   private static final double VELOCITY_MISMATCH_THRESHOLD_RPM = 200.0;
@@ -36,7 +36,7 @@ public class Launcher extends SubsystemBase {
   // Set min velocity to focus characterization on your actual shooting range
   // e.g., if you shoot at 2000-2800 RPM, set min to ~1500 to bias the fit
   private static final LoggedTunableNumber sysIdMinVelocityRPM =
-      new LoggedTunableNumber("Launcher/SysIdMinVelocityRPM", 1000.0);
+      new LoggedTunableNumber("Tuning/Launcher/SysIdMinVelocityRPM", 1000.0);
 
   private final List<Double> sysIdVoltages = new ArrayList<>();
   private final List<Double> sysIdVelocities = new ArrayList<>();
@@ -129,6 +129,15 @@ public class Launcher extends SubsystemBase {
   public void stop() {
     io.stop();
     TurretCalculator.setTargetLauncherRPM(0.0);
+  }
+
+  /**
+   * Signal that a ball was fired (simulation only). In sim, this triggers a recovery period where
+   * atSetpoint returns false until the configured recovery time elapses. Does nothing on real
+   * hardware.
+   */
+  public void notifyBallFired() {
+    io.notifyBallFired();
   }
 
   /**
