@@ -4,7 +4,6 @@ import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.mechanism.LoggedMechanism2d;
 import org.littletonrobotics.junction.mechanism.LoggedMechanismLigament2d;
@@ -21,19 +20,9 @@ import org.littletonrobotics.junction.mechanism.LoggedMechanismRoot2d;
  */
 public class Motivator extends SubsystemBase {
   private final MotivatorIO io;
-  private final MotivatorIOInputsAutoLogged inputs = new MotivatorIOInputsAutoLogged();
-
-  // Tunable duty cycles for different operations
-  private static final LoggedTunableNumber feedDutyCycle =
-      new LoggedTunableNumber("Tuning/Motivator/FeedDutyCycle", 0.8);
-  private static final LoggedTunableNumber prefeedDutyCycle =
-      new LoggedTunableNumber("Tuning/Motivator/PrefeedDutyCycle", 0.6);
-  private static final LoggedTunableNumber ejectDutyCycle =
-      new LoggedTunableNumber("Tuning/Motivator/EjectDutyCycle", -0.5);
-
-  // Velocity threshold for "at speed" check (RPM)
-  private static final LoggedTunableNumber atSpeedThresholdRPM =
-      new LoggedTunableNumber("Tuning/Motivator/AtSpeedThresholdRPM", 3000.0);
+  private final MotorInputsAutoLogged motor1Inputs = new MotorInputsAutoLogged();
+  private final MotorInputsAutoLogged motor2Inputs = new MotorInputsAutoLogged();
+  private final MotorInputsAutoLogged prefeedInputs = new MotorInputsAutoLogged();
 
   // Mechanism2d visualization
   private final LoggedMechanism2d mechanism = new LoggedMechanism2d(4, 3);
@@ -72,14 +61,16 @@ public class Motivator extends SubsystemBase {
 
   @Override
   public void periodic() {
-    io.updateInputs(inputs);
-    Logger.processInputs("Motivator", inputs);
+    io.updateInputs(motor1Inputs, motor2Inputs, prefeedInputs);
+    Logger.processInputs("Motivator/Motivator1", motor1Inputs);
+    Logger.processInputs("Motivator/Motivator2", motor2Inputs);
+    Logger.processInputs("Motivator/PreFeed", prefeedInputs);
 
     // Update mechanism visualization based on motor velocities
     // Convert RPM to degrees per cycle (assuming 50Hz loop = 0.02s per cycle)
-    double motor1DegreesPerCycle = inputs.motivator1VelocityRPM / 60.0 * 360.0 * 0.02;
-    double motor2DegreesPerCycle = inputs.motivator2VelocityRPM / 60.0 * 360.0 * 0.02;
-    double prefeedDegreesPerCycle = inputs.prefeedVelocityRPM / 60.0 * 360.0 * 0.02;
+    double motor1DegreesPerCycle = motor1Inputs.velocityRPM / 60.0 * 360.0 * 0.02;
+    double motor2DegreesPerCycle = motor2Inputs.velocityRPM / 60.0 * 360.0 * 0.02;
+    double prefeedDegreesPerCycle = prefeedInputs.velocityRPM / 60.0 * 360.0 * 0.02;
 
     motor1Angle += motor1DegreesPerCycle;
     motor2Angle += motor2DegreesPerCycle;
@@ -97,17 +88,13 @@ public class Motivator extends SubsystemBase {
     // Update wheel colors based on motor status
     motor1Wheel.setColor(
         getStatusColor(
-            inputs.motivator1VelocityRPM,
-            inputs.motivator1TargetVelocityRPM,
-            inputs.motivator1AtSetpoint));
+            motor1Inputs.velocityRPM, motor1Inputs.targetVelocityRPM, motor1Inputs.atSetpoint));
     motor2Wheel.setColor(
         getStatusColor(
-            inputs.motivator2VelocityRPM,
-            inputs.motivator2TargetVelocityRPM,
-            inputs.motivator2AtSetpoint));
+            motor2Inputs.velocityRPM, motor2Inputs.targetVelocityRPM, motor2Inputs.atSetpoint));
     prefeedWheel.setColor(
         getStatusColor(
-            inputs.prefeedVelocityRPM, inputs.prefeedTargetVelocityRPM, inputs.prefeedAtSetpoint));
+            prefeedInputs.velocityRPM, prefeedInputs.targetVelocityRPM, prefeedInputs.atSetpoint));
 
     // Log the mechanism visualization
     Logger.recordOutput("Motivator/Mechanism2d", mechanism);
@@ -162,31 +149,6 @@ public class Motivator extends SubsystemBase {
    */
   public void setPrefeedDutyCycle(double dutyCycle) {
     io.setPrefeedDutyCycle(dutyCycle);
-  }
-
-  /** Run both motivator motors at the default feed duty cycle. */
-  public void feed() {
-    io.setMotivator1DutyCycle(feedDutyCycle.get());
-    io.setMotivator2DutyCycle(feedDutyCycle.get());
-  }
-
-  /** Run the prefeed roller at the default prefeed duty cycle. */
-  public void prefeed() {
-    io.setPrefeedDutyCycle(prefeedDutyCycle.get());
-  }
-
-  /** Run all three motors at their default duty cycles. */
-  public void feedAndPrefeed() {
-    io.setMotivator1DutyCycle(feedDutyCycle.get());
-    io.setMotivator2DutyCycle(feedDutyCycle.get());
-    io.setPrefeedDutyCycle(prefeedDutyCycle.get());
-  }
-
-  /** Run all motors in reverse to eject balls. */
-  public void eject() {
-    io.setMotivator1DutyCycle(ejectDutyCycle.get());
-    io.setMotivator2DutyCycle(ejectDutyCycle.get());
-    io.setPrefeedDutyCycle(ejectDutyCycle.get());
   }
 
   // ========== Velocity Control Methods ==========
@@ -275,7 +237,7 @@ public class Motivator extends SubsystemBase {
    * @return Motor 1 velocity in RPM
    */
   public double getMotivator1Velocity() {
-    return inputs.motivator1VelocityRPM;
+    return motor1Inputs.velocityRPM;
   }
 
   /**
@@ -284,7 +246,7 @@ public class Motivator extends SubsystemBase {
    * @return Motor 2 velocity in RPM
    */
   public double getMotivator2Velocity() {
-    return inputs.motivator2VelocityRPM;
+    return motor2Inputs.velocityRPM;
   }
 
   /**
@@ -293,7 +255,7 @@ public class Motivator extends SubsystemBase {
    * @return Prefeed motor velocity in RPM
    */
   public double getPrefeedVelocity() {
-    return inputs.prefeedVelocityRPM;
+    return prefeedInputs.velocityRPM;
   }
 
   /**
@@ -302,7 +264,7 @@ public class Motivator extends SubsystemBase {
    * @return True if ball detected
    */
   public boolean isBallDetected() {
-    return inputs.ballDetected;
+    return false; // Future: ball detection sensor
   }
 
   /**
@@ -311,17 +273,7 @@ public class Motivator extends SubsystemBase {
    * @return True if all motors are responding
    */
   public boolean isConnected() {
-    return inputs.motivator1Connected && inputs.motivator2Connected && inputs.prefeedConnected;
-  }
-
-  /**
-   * Check if both motivator motors are up to speed (threshold-based check).
-   *
-   * @return True if both motor velocities exceed the threshold
-   */
-  public boolean isAtSpeed() {
-    return Math.abs(inputs.motivator1VelocityRPM) >= atSpeedThresholdRPM.get()
-        && Math.abs(inputs.motivator2VelocityRPM) >= atSpeedThresholdRPM.get();
+    return motor1Inputs.connected && motor2Inputs.connected && prefeedInputs.connected;
   }
 
   /**
@@ -330,7 +282,7 @@ public class Motivator extends SubsystemBase {
    * @return True if motor 1 is at setpoint
    */
   public boolean isMotivator1AtSetpoint() {
-    return inputs.motivator1AtSetpoint;
+    return motor1Inputs.atSetpoint;
   }
 
   /**
@@ -339,7 +291,7 @@ public class Motivator extends SubsystemBase {
    * @return True if motor 2 is at setpoint
    */
   public boolean isMotivator2AtSetpoint() {
-    return inputs.motivator2AtSetpoint;
+    return motor2Inputs.atSetpoint;
   }
 
   /**
@@ -348,7 +300,7 @@ public class Motivator extends SubsystemBase {
    * @return True if both motors are at setpoint
    */
   public boolean areMotivatorsAtSetpoint() {
-    return inputs.motivator1AtSetpoint && inputs.motivator2AtSetpoint;
+    return motor1Inputs.atSetpoint && motor2Inputs.atSetpoint;
   }
 
   /**
@@ -357,46 +309,10 @@ public class Motivator extends SubsystemBase {
    * @return True if prefeed is at setpoint
    */
   public boolean isPrefeedAtSetpoint() {
-    return inputs.prefeedAtSetpoint;
+    return prefeedInputs.atSetpoint;
   }
 
   // ========== Commands ==========
-
-  /**
-   * Command to run both motivator motors while held.
-   *
-   * @return Command that feeds balls until interrupted
-   */
-  public Command feedCommand() {
-    return run(this::feed).finallyDo(this::stopMotivators).withName("Motivator: Feed");
-  }
-
-  /**
-   * Command to run the prefeed roller while held.
-   *
-   * @return Command that prefeeds balls until interrupted
-   */
-  public Command prefeedCommand() {
-    return run(this::prefeed).finallyDo(this::stopPrefeed).withName("Motivator: Prefeed");
-  }
-
-  /**
-   * Command to run all motors while held.
-   *
-   * @return Command that feeds and prefeeds until interrupted
-   */
-  public Command feedAndPrefeedCommand() {
-    return run(this::feedAndPrefeed).finallyDo(this::stop).withName("Motivator: Feed+Prefeed");
-  }
-
-  /**
-   * Command to eject balls (reverse) while held.
-   *
-   * @return Command that ejects balls until interrupted
-   */
-  public Command ejectCommand() {
-    return run(this::eject).finallyDo(this::stop).withName("Motivator: Eject");
-  }
 
   /**
    * Command to stop all motors.

@@ -110,9 +110,9 @@ public class MainBotConfig implements RobotConfig {
   private static final int launcherFollowerCanId = 59;
   private static final double launcherGearRatio = 1.5; // 1 motor rot = 1.5 wheel rot
   private static final int launcherCurrentLimitAmps = 60;
-  private static final double launcherKp = 0.000001;
+  private static final double launcherKp = 0.0001;
   private static final double launcherKi = 0.0;
-  private static final double launcherKd = 0.00001;
+  private static final double launcherKd = 0.0002;
   private static final double launcherKff = 0.0;
 
   // Performance

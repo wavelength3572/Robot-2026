@@ -59,37 +59,39 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
 
   // Tunable PID gains for motivator 1
   private final LoggedTunableNumber motivator1Kp =
-      new LoggedTunableNumber("Tuning/Motivator/Motor1_kP", 0.0001);
+      new LoggedTunableNumber("Tuning/Motivator/Motivator1/kP", 0.000056);
   private final LoggedTunableNumber motivator1Ki =
-      new LoggedTunableNumber("Tuning/Motivator/Motor1_kI", 0.0);
+      new LoggedTunableNumber("Tuning/Motivator/Motivator1/kI", 0.0);
   private final LoggedTunableNumber motivator1Kd =
-      new LoggedTunableNumber("Tuning/Motivator/Motor1_kD", 0.0);
+      new LoggedTunableNumber("Tuning/Motivator/Motivator1/kD", 0.00275);
   private final LoggedTunableNumber motivator1Kff =
-      new LoggedTunableNumber("Tuning/Motivator/Motor1_kFF", 0.00018);
+      new LoggedTunableNumber("Tuning/Motivator/Motivator1/kFF", 0.00015);
 
   // Tunable PID gains for motivator 2
   private final LoggedTunableNumber motivator2Kp =
-      new LoggedTunableNumber("Tuning/Motivator/Motor2_kP", 0.0001);
+      new LoggedTunableNumber("Tuning/Motivator/Motivator2/kP", 0.000056);
   private final LoggedTunableNumber motivator2Ki =
-      new LoggedTunableNumber("Tuning/Motivator/Motor2_kI", 0.0);
+      new LoggedTunableNumber("Tuning/Motivator/Motivator2/kI", 0.0);
   private final LoggedTunableNumber motivator2Kd =
-      new LoggedTunableNumber("Tuning/Motivator/Motor2_kD", 0.0);
+      new LoggedTunableNumber("Tuning/Motivator/Motivator2/kD", 0.00275);
   private final LoggedTunableNumber motivator2Kff =
-      new LoggedTunableNumber("Tuning/Motivator/Motor2_kFF", 0.00018);
+      new LoggedTunableNumber("Tuning/Motivator/Motivator2/kFF", 0.0001526);
 
   // Tunable PID gains for prefeed
   private final LoggedTunableNumber prefeedKp =
-      new LoggedTunableNumber("Tuning/Motivator/Prefeed_kP", 0.0001);
+      new LoggedTunableNumber("Tuning/Motivator/PreFeed/kP", 0.000101);
   private final LoggedTunableNumber prefeedKi =
-      new LoggedTunableNumber("Tuning/Motivator/Prefeed_kI", 0.0);
+      new LoggedTunableNumber("Tuning/Motivator/PreFeed/kI", 0.0);
   private final LoggedTunableNumber prefeedKd =
-      new LoggedTunableNumber("Tuning/Motivator/Prefeed_kD", 0.0);
+      new LoggedTunableNumber("Tuning/Motivator/PreFeed/kD", 0.005);
   private final LoggedTunableNumber prefeedKff =
-      new LoggedTunableNumber("Tuning/Motivator/Prefeed_kFF", 0.00018);
+      new LoggedTunableNumber("Tuning/Motivator/PreFeed/kFF", 0.00015);
 
   // Velocity tolerance for at-setpoint check
-  private static final LoggedTunableNumber velocityToleranceRPM =
-      new LoggedTunableNumber("Tuning/Motivator/VelocityToleranceRPM", 100.0);
+  private static final LoggedTunableNumber motivatorToleranceRPM =
+      new LoggedTunableNumber("Tuning/Motivator/Motivator1/ToleranceRPM", 100.0);
+  private static final LoggedTunableNumber prefeedToleranceRPM =
+      new LoggedTunableNumber("Tuning/Motivator/PreFeed/ToleranceRPM", 100.0);
 
   // Target tracking
   private double motivator1TargetRPM = 0.0;
@@ -215,7 +217,8 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
   }
 
   @Override
-  public void updateInputs(MotivatorIOInputs inputs) {
+  public void updateInputs(
+      MotorInputs motor1Inputs, MotorInputs motor2Inputs, MotorInputs prefeedInputs) {
     // Check for tunable PID changes and apply to motivator 1
     if (LoggedTunableNumber.hasChanged(motivator1Kp, motivator1Ki, motivator1Kd, motivator1Kff)) {
       var pidConfig = new SparkFlexConfig();
@@ -245,72 +248,57 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
 
     // Update motivator 1 inputs
     sparkStickyFault = false;
-    ifOk(
-        motivator1,
-        motivator1Encoder::getVelocity,
-        (value) -> inputs.motivator1VelocityRPM = value);
+    ifOk(motivator1, motivator1Encoder::getVelocity, (value) -> motor1Inputs.velocityRPM = value);
     ifOk(
         motivator1,
         new DoubleSupplier[] {motivator1::getAppliedOutput, motivator1::getBusVoltage},
-        (values) -> inputs.motivator1AppliedVolts = values[0] * values[1]);
-    ifOk(motivator1, motivator1::getOutputCurrent, (value) -> inputs.motivator1CurrentAmps = value);
-    ifOk(
-        motivator1,
-        motivator1::getMotorTemperature,
-        (value) -> inputs.motivator1TempCelsius = value);
-    inputs.motivator1Connected = motivator1ConnectedDebounce.calculate(!sparkStickyFault);
+        (values) -> motor1Inputs.appliedVolts = values[0] * values[1]);
+    ifOk(motivator1, motivator1::getOutputCurrent, (value) -> motor1Inputs.currentAmps = value);
+    ifOk(motivator1, motivator1::getMotorTemperature, (value) -> motor1Inputs.tempCelsius = value);
+    motor1Inputs.connected = motivator1ConnectedDebounce.calculate(!sparkStickyFault);
 
     // Update motivator 2 inputs
     sparkStickyFault = false;
-    ifOk(
-        motivator2,
-        motivator2Encoder::getVelocity,
-        (value) -> inputs.motivator2VelocityRPM = value);
+    ifOk(motivator2, motivator2Encoder::getVelocity, (value) -> motor2Inputs.velocityRPM = value);
     ifOk(
         motivator2,
         new DoubleSupplier[] {motivator2::getAppliedOutput, motivator2::getBusVoltage},
-        (values) -> inputs.motivator2AppliedVolts = values[0] * values[1]);
-    ifOk(motivator2, motivator2::getOutputCurrent, (value) -> inputs.motivator2CurrentAmps = value);
-    ifOk(
-        motivator2,
-        motivator2::getMotorTemperature,
-        (value) -> inputs.motivator2TempCelsius = value);
-    inputs.motivator2Connected = motivator2ConnectedDebounce.calculate(!sparkStickyFault);
+        (values) -> motor2Inputs.appliedVolts = values[0] * values[1]);
+    ifOk(motivator2, motivator2::getOutputCurrent, (value) -> motor2Inputs.currentAmps = value);
+    ifOk(motivator2, motivator2::getMotorTemperature, (value) -> motor2Inputs.tempCelsius = value);
+    motor2Inputs.connected = motivator2ConnectedDebounce.calculate(!sparkStickyFault);
 
     // Update prefeed inputs
     sparkStickyFault = false;
-    ifOk(prefeedMotor, prefeedEncoder::getVelocity, (value) -> inputs.prefeedVelocityRPM = value);
+    ifOk(prefeedMotor, prefeedEncoder::getVelocity, (value) -> prefeedInputs.velocityRPM = value);
     ifOk(
         prefeedMotor,
         new DoubleSupplier[] {prefeedMotor::getAppliedOutput, prefeedMotor::getBusVoltage},
-        (values) -> inputs.prefeedAppliedVolts = values[0] * values[1]);
+        (values) -> prefeedInputs.appliedVolts = values[0] * values[1]);
     ifOk(
-        prefeedMotor, prefeedMotor::getOutputCurrent, (value) -> inputs.prefeedCurrentAmps = value);
+        prefeedMotor, prefeedMotor::getOutputCurrent, (value) -> prefeedInputs.currentAmps = value);
     ifOk(
         prefeedMotor,
         prefeedMotor::getMotorTemperature,
-        (value) -> inputs.prefeedTempCelsius = value);
-    inputs.prefeedConnected = prefeedConnectedDebounce.calculate(!sparkStickyFault);
+        (value) -> prefeedInputs.tempCelsius = value);
+    prefeedInputs.connected = prefeedConnectedDebounce.calculate(!sparkStickyFault);
 
     // Velocity control status
-    inputs.motivator1TargetVelocityRPM = motivator1TargetRPM;
-    inputs.motivator2TargetVelocityRPM = motivator2TargetRPM;
-    inputs.prefeedTargetVelocityRPM = prefeedTargetRPM;
+    motor1Inputs.targetVelocityRPM = motivator1TargetRPM;
+    motor2Inputs.targetVelocityRPM = motivator2TargetRPM;
+    prefeedInputs.targetVelocityRPM = prefeedTargetRPM;
 
-    inputs.motivator1AtSetpoint =
+    motor1Inputs.atSetpoint =
         motivator1VelocityMode
-            && Math.abs(inputs.motivator1VelocityRPM - motivator1TargetRPM)
-                < velocityToleranceRPM.get();
-    inputs.motivator2AtSetpoint =
+            && Math.abs(motor1Inputs.velocityRPM - motivator1TargetRPM)
+                < motivatorToleranceRPM.get();
+    motor2Inputs.atSetpoint =
         motivator2VelocityMode
-            && Math.abs(inputs.motivator2VelocityRPM - motivator2TargetRPM)
-                < velocityToleranceRPM.get();
-    inputs.prefeedAtSetpoint =
+            && Math.abs(motor2Inputs.velocityRPM - motivator2TargetRPM)
+                < motivatorToleranceRPM.get();
+    prefeedInputs.atSetpoint =
         prefeedVelocityMode
-            && Math.abs(inputs.prefeedVelocityRPM - prefeedTargetRPM) < velocityToleranceRPM.get();
-
-    // Future: ball detection sensor
-    inputs.ballDetected = false;
+            && Math.abs(prefeedInputs.velocityRPM - prefeedTargetRPM) < prefeedToleranceRPM.get();
   }
 
   // ========== Duty Cycle Control ==========

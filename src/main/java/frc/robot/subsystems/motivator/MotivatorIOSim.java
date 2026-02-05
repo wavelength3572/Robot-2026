@@ -47,8 +47,9 @@ public class MotivatorIOSim implements MotivatorIO {
   private double prefeedCurrentRPM = 0.0;
   private boolean prefeedVelocityMode = false;
 
-  // Velocity tolerance for atSetpoint (matches MotivatorIOSparkFlex default)
-  private static final double VELOCITY_TOLERANCE_RPM = 100.0;
+  // Velocity tolerance for atSetpoint (matches MotivatorIOSparkFlex defaults)
+  private static final double MOTIVATOR_TOLERANCE_RPM = 100.0;
+  private static final double PREFEED_TOLERANCE_RPM = 100.0;
 
   public MotivatorIOSim() {
     // Motivator motor 1: 1 NEO Vortex motor
@@ -71,7 +72,8 @@ public class MotivatorIOSim implements MotivatorIO {
   }
 
   @Override
-  public void updateInputs(MotivatorIOInputs inputs) {
+  public void updateInputs(
+      MotorInputs motor1Inputs, MotorInputs motor2Inputs, MotorInputs prefeedInputs) {
     // Update motivator 1 simulation
     if (motivator1VelocityMode) {
       motivator1CurrentRPM += (motivator1TargetRPM - motivator1CurrentRPM) * SIM_RESPONSE_RATE;
@@ -99,48 +101,43 @@ public class MotivatorIOSim implements MotivatorIO {
       prefeedCurrentRPM = prefeedSim.getAngularVelocityRPM();
     }
 
-    // All motors connected in sim
-    inputs.motivator1Connected = true;
-    inputs.motivator2Connected = true;
-    inputs.prefeedConnected = true;
-
     // Motivator 1 data
+    motor1Inputs.connected = true;
     double motivator1Volts =
         motivator1VelocityMode ? motivator1CurrentRPM * 0.002 : motivator1DutyCycle * 12.0;
-    inputs.motivator1VelocityRPM = motivator1CurrentRPM;
-    inputs.motivator1AppliedVolts = motivator1Volts;
-    inputs.motivator1CurrentAmps = Math.abs(motivator1CurrentRPM) * 0.005;
-    inputs.motivator1TempCelsius = 25.0;
-    inputs.motivator1TargetVelocityRPM = motivator1TargetRPM;
-    inputs.motivator1AtSetpoint =
+    motor1Inputs.velocityRPM = motivator1CurrentRPM;
+    motor1Inputs.appliedVolts = motivator1Volts;
+    motor1Inputs.currentAmps = Math.abs(motivator1CurrentRPM) * 0.005;
+    motor1Inputs.tempCelsius = 25.0;
+    motor1Inputs.targetVelocityRPM = motivator1TargetRPM;
+    motor1Inputs.atSetpoint =
         motivator1VelocityMode
-            && Math.abs(motivator1CurrentRPM - motivator1TargetRPM) < VELOCITY_TOLERANCE_RPM;
+            && Math.abs(motivator1CurrentRPM - motivator1TargetRPM) < MOTIVATOR_TOLERANCE_RPM;
 
     // Motivator 2 data
+    motor2Inputs.connected = true;
     double motivator2Volts =
         motivator2VelocityMode ? motivator2CurrentRPM * 0.002 : motivator2DutyCycle * 12.0;
-    inputs.motivator2VelocityRPM = motivator2CurrentRPM;
-    inputs.motivator2AppliedVolts = motivator2Volts;
-    inputs.motivator2CurrentAmps = Math.abs(motivator2CurrentRPM) * 0.005;
-    inputs.motivator2TempCelsius = 25.0;
-    inputs.motivator2TargetVelocityRPM = motivator2TargetRPM;
-    inputs.motivator2AtSetpoint =
+    motor2Inputs.velocityRPM = motivator2CurrentRPM;
+    motor2Inputs.appliedVolts = motivator2Volts;
+    motor2Inputs.currentAmps = Math.abs(motivator2CurrentRPM) * 0.005;
+    motor2Inputs.tempCelsius = 25.0;
+    motor2Inputs.targetVelocityRPM = motivator2TargetRPM;
+    motor2Inputs.atSetpoint =
         motivator2VelocityMode
-            && Math.abs(motivator2CurrentRPM - motivator2TargetRPM) < VELOCITY_TOLERANCE_RPM;
+            && Math.abs(motivator2CurrentRPM - motivator2TargetRPM) < MOTIVATOR_TOLERANCE_RPM;
 
     // Prefeed data
+    prefeedInputs.connected = true;
     double prefeedVolts = prefeedVelocityMode ? prefeedCurrentRPM * 0.002 : prefeedDutyCycle * 12.0;
-    inputs.prefeedVelocityRPM = prefeedCurrentRPM;
-    inputs.prefeedAppliedVolts = prefeedVolts;
-    inputs.prefeedCurrentAmps = Math.abs(prefeedCurrentRPM) * 0.005;
-    inputs.prefeedTempCelsius = 25.0;
-    inputs.prefeedTargetVelocityRPM = prefeedTargetRPM;
-    inputs.prefeedAtSetpoint =
+    prefeedInputs.velocityRPM = prefeedCurrentRPM;
+    prefeedInputs.appliedVolts = prefeedVolts;
+    prefeedInputs.currentAmps = Math.abs(prefeedCurrentRPM) * 0.005;
+    prefeedInputs.tempCelsius = 25.0;
+    prefeedInputs.targetVelocityRPM = prefeedTargetRPM;
+    prefeedInputs.atSetpoint =
         prefeedVelocityMode
-            && Math.abs(prefeedCurrentRPM - prefeedTargetRPM) < VELOCITY_TOLERANCE_RPM;
-
-    // Future: ball detection
-    inputs.ballDetected = false;
+            && Math.abs(prefeedCurrentRPM - prefeedTargetRPM) < PREFEED_TOLERANCE_RPM;
   }
 
   // ========== Duty Cycle Control ==========

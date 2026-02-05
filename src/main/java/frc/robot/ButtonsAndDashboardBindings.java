@@ -225,19 +225,6 @@ public class ButtonsAndDashboardBindings {
 
     // === Motivator Test Controls ===
     if (motivator != null) {
-      // Feed (main motivator)
-      SmartDashboard.putData("TestSubsystems/Motivator/Feed", motivator.feedCommand());
-
-      // Prefeed (staging roller)
-      SmartDashboard.putData("TestSubsystems/Motivator/Prefeed", motivator.prefeedCommand());
-
-      // Feed + Prefeed together
-      SmartDashboard.putData(
-          "TestSubsystems/Motivator/FeedAndPrefeed", motivator.feedAndPrefeedCommand());
-
-      // Eject (reverse)
-      SmartDashboard.putData("TestSubsystems/Motivator/Eject", motivator.ejectCommand());
-
       // Stop
       SmartDashboard.putData("TestSubsystems/Motivator/Stop", motivator.stopCommand());
 

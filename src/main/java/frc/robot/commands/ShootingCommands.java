@@ -85,10 +85,10 @@ public class ShootingCommands {
       new LoggedTunableNumber("Shooting/Auto/LaunchVelocityRPM", 2000.0);
 
   private static final LoggedTunableNumber motivatorVelocityRPM =
-      new LoggedTunableNumber("Shooting/Auto/MotivatorVelocityRPM", 3000.0);
+      new LoggedTunableNumber("Shooting/Auto/MotivatorVelocityRPM", 1000.0);
 
   private static final LoggedTunableNumber prefeedVelocityRPM =
-      new LoggedTunableNumber("Shooting/Auto/PrefeedVelocityRPM", 2000.0);
+      new LoggedTunableNumber("Shooting/Auto/PrefeedVelocityRPM", 500.0);
 
   // ===== Shooting/Test/* Override Values (for controlled manual testing) =====
   // These allow manually setting all mechanism parameters while obeying safety limits

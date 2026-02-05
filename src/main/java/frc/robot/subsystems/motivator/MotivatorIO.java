@@ -15,43 +15,22 @@ import org.littletonrobotics.junction.AutoLog;
  * </ul>
  */
 public interface MotivatorIO {
+  /**
+   * Reusable per-motor input class. Each motor gets its own instance logged under a subcategory.
+   */
   @AutoLog
-  public static class MotivatorIOInputs {
-    // Connection status
-    public boolean motivator1Connected = false;
-    public boolean motivator2Connected = false;
-    public boolean prefeedConnected = false;
-
-    // Motivator motor 1 data (CAN ID 55)
-    public double motivator1VelocityRPM = 0.0;
-    public double motivator1AppliedVolts = 0.0;
-    public double motivator1CurrentAmps = 0.0;
-    public double motivator1TempCelsius = 0.0;
-    public double motivator1TargetVelocityRPM = 0.0;
-    public boolean motivator1AtSetpoint = false;
-
-    // Motivator motor 2 data (CAN ID 56)
-    public double motivator2VelocityRPM = 0.0;
-    public double motivator2AppliedVolts = 0.0;
-    public double motivator2CurrentAmps = 0.0;
-    public double motivator2TempCelsius = 0.0;
-    public double motivator2TargetVelocityRPM = 0.0;
-    public boolean motivator2AtSetpoint = false;
-
-    // Prefeed motor data (CAN ID 57)
-    public double prefeedVelocityRPM = 0.0;
-    public double prefeedAppliedVolts = 0.0;
-    public double prefeedCurrentAmps = 0.0;
-    public double prefeedTempCelsius = 0.0;
-    public double prefeedTargetVelocityRPM = 0.0;
-    public boolean prefeedAtSetpoint = false;
-
-    // Future: ball detection sensor
-    public boolean ballDetected = false;
+  public static class MotorInputs {
+    public boolean connected = false;
+    public double velocityRPM = 0.0;
+    public double appliedVolts = 0.0;
+    public double currentAmps = 0.0;
+    public double tempCelsius = 0.0;
+    public double targetVelocityRPM = 0.0;
+    public boolean atSetpoint = false;
   }
 
-  /** Updates the set of loggable inputs. */
-  default void updateInputs(MotivatorIOInputs inputs) {}
+  /** Updates the set of loggable inputs for all three motors. */
+  default void updateInputs(MotorInputs motivator1, MotorInputs motivator2, MotorInputs prefeed) {}
 
   // ========== Duty Cycle Control ==========
 

@@ -48,9 +48,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
   private final LoggedTunableNumber kP;
   private final LoggedTunableNumber kI;
   private final LoggedTunableNumber kD;
-  private final LoggedTunableNumber kFF; // Simple velocity feedforward (output = kFF * velocity)
-
-  // Tunable feedforward gains (from SysId characterization - for future use)
+  // Tunable feedforward gains (from SysId characterization)
   // kS = static friction voltage, kV = velocity voltage (V/(rad/s)), kA = acceleration voltage
   private final LoggedTunableNumber kS;
   private final LoggedTunableNumber kV;
@@ -82,16 +80,15 @@ public class LauncherIOSparkFlex implements LauncherIO {
     gearRatio = config.getLauncherGearRatio();
 
     // Initialize tunable PID gains from config
-    // Note: kFF is set to 0 because we use SysId feedforward (kS, kV, kA) instead
+    // kFF is 0 because we use SysId feedforward (kS, kV, kA) instead
     kP = new LoggedTunableNumber("Tuning/Launcher/kP", config.getLauncherKp());
     kI = new LoggedTunableNumber("Tuning/Launcher/kI", config.getLauncherKi());
     kD = new LoggedTunableNumber("Tuning/Launcher/kD", config.getLauncherKd());
-    kFF = new LoggedTunableNumber("Tuning/Launcher/kFF", 0.0);
 
     // SysId feedforward gains (from characterization)
     // Units: kS = volts, kV = volts per (rad/s), kA = volts per (rad/s^2)
     kS = new LoggedTunableNumber("Tuning/Launcher/kS", 0.84);
-    kV = new LoggedTunableNumber("Tuning/Launcher/kV", 0.0118);
+    kV = new LoggedTunableNumber("Tuning/Launcher/kV", 0.0135);
     kA = new LoggedTunableNumber("Tuning/Launcher/kA", 0.003);
 
     // Create feedforward controller
@@ -116,11 +113,10 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
     // PID control using motor's relative encoder (units: motor RPM)
     // No conversion factors - all conversions done in software
-    // kFF provides simple velocity feedforward (output = kFF * velocity setpoint)
     leaderConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pidf(kP.get(), kI.get(), kD.get(), kFF.get());
+        .pidf(kP.get(), kI.get(), kD.get(), 0.0);
 
     // Signal update rates
     leaderConfig
@@ -190,9 +186,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
   @Override
   public void updateInputs(LauncherIOInputs inputs) {
     // Check for tunable PID/FF changes and apply
-    if (LoggedTunableNumber.hasChanged(kP, kI, kD, kFF)) {
+    if (LoggedTunableNumber.hasChanged(kP, kI, kD)) {
       var pidConfig = new SparkFlexConfig();
-      pidConfig.closedLoop.pidf(kP.get(), kI.get(), kD.get(), kFF.get());
+      pidConfig.closedLoop.pidf(kP.get(), kI.get(), kD.get(), 0.0);
       leaderMotor.configure(
           pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
     }
