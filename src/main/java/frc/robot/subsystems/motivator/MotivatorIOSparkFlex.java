@@ -118,7 +118,7 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
     // Configure motivator 1 (CAN ID 55)
     var motor1Config = new SparkFlexConfig();
     motor1Config
-        .inverted(true)
+        .inverted(false) // TODO: Make robot-specific when MainBot is ready
         .idleMode(IdleMode.kBrake)
         .smartCurrentLimit(config.getMotivatorCurrentLimit())
         .voltageCompensation(12.0);
@@ -146,7 +146,7 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
     // Configure motivator 2 (CAN ID 56) - independent, not a follower
     var motor2Config = new SparkFlexConfig();
     motor2Config
-        .inverted(false) // Inverted since it faces opposite direction
+        .inverted(true) // TODO: Make robot-specific when MainBot is ready
         .idleMode(IdleMode.kBrake)
         .smartCurrentLimit(config.getMotivatorCurrentLimit())
         .voltageCompensation(12.0);
@@ -174,7 +174,7 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
     // Configure prefeed motor (CAN ID 57)
     var prefeedConfig = new SparkFlexConfig();
     prefeedConfig
-        .inverted(false)
+        .inverted(false) // TODO: Make robot-specific when MainBot is ready
         .idleMode(IdleMode.kBrake)
         .smartCurrentLimit(config.getPrefeedCurrentLimit())
         .voltageCompensation(12.0);
