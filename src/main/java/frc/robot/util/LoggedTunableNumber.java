@@ -8,12 +8,14 @@ import java.util.Map;
 
 /**
  * A tunable number that can be adjusted via NetworkTables during tuning mode. Values are published
- * under /Tuning/{key} and can be modified from Shuffleboard, AdvantageScope, or other NT clients.
+ * under /SmartDashboard/{key} and can be modified from Shuffleboard, AdvantageScope, or other NT
+ * clients. Using SmartDashboard path allows tunables to appear alongside command buttons in the
+ * same hierarchy.
  *
  * <p>In competition mode (non-tuning), values are fixed at their defaults for performance.
  */
 public class LoggedTunableNumber {
-  private static final String TABLE_KEY = "/Tuning";
+  private static final String TABLE_KEY = "/SmartDashboard";
 
   private final String key;
   private final double defaultValue;

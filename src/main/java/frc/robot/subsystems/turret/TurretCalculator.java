@@ -9,7 +9,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import frc.robot.util.LoggedTunableNumber;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Utility class for turret ballistics calculations. Provides methods to calculate optimal launch
@@ -19,30 +19,22 @@ public class TurretCalculator {
   // Physical constants
   private static final double GRAVITY = 9.81; // m/s^2
 
-  // Tunable shooter parameters
   // Launcher wheel radius in meters (4" diameter = 2" radius = 0.0508m)
-  private static final LoggedTunableNumber wheelRadiusMeters =
-      new LoggedTunableNumber("Shooter/WheelRadiusMeters", 0.0508);
+  private static final double WHEEL_RADIUS_METERS = 0.0508;
 
   // Efficiency factor: how much of wheel surface velocity transfers to ball (0.0-1.0)
-  // Accounts for slip, compression, etc. Typical values: 0.6-0.9
-  private static final LoggedTunableNumber launchEfficiency =
-      new LoggedTunableNumber("Shooter/LaunchEfficiency", 0.70);
+  // Accounts for slip, compression, etc. Calibrated value.
+  private static final double LAUNCH_EFFICIENCY = 0.70;
+
+  // Velocity limits for safety
+  private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
+  private static final double MAX_EXIT_VELOCITY = 15.0; // m/s
 
   // Launcher RPM tracking
   // currentLauncherRPM = what the launcher is actually doing right now
   // targetLauncherRPM = what we're commanding the launcher to do (setpoint)
   private static double currentLauncherRPM = 0.0;
   private static double targetLauncherRPM = 0.0;
-
-  // Launch angle override: set to override the physics-calculated angle
-  // -1 = use physics calculation (default), any other value = use that fixed angle in degrees
-  private static final LoggedTunableNumber launchAngleOverrideDeg =
-      new LoggedTunableNumber("Shooter/LaunchAngleOverrideDeg", -1.0);
-
-  // Velocity limits for safety
-  private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
-  private static final double MAX_EXIT_VELOCITY = 15.0; // m/s
 
   /**
    * Set the current launcher wheel RPM. Call this from the shooting system so trajectory
@@ -70,6 +62,15 @@ public class TurretCalculator {
    * @return Current launcher wheel RPM
    */
   public static double getCurrentLauncherRPM() {
+    return currentLauncherRPM;
+  }
+
+  /**
+   * Get the current launcher RPM (alias for getCurrentLauncherRPM).
+   *
+   * @return Current launcher wheel RPM
+   */
+  public static double getLauncherRPM() {
     return currentLauncherRPM;
   }
 
@@ -111,14 +112,11 @@ public class TurretCalculator {
    * @return Exit velocity in m/s
    */
   public static double calculateExitVelocityFromRPM(double rpm) {
-    double radius = wheelRadiusMeters.get();
-    double efficiency = launchEfficiency.get();
-
     // Wheel surface velocity in m/s
-    double surfaceVelocity = (rpm * 2.0 * Math.PI * radius) / 60.0;
+    double surfaceVelocity = (rpm * 2.0 * Math.PI * WHEEL_RADIUS_METERS) / 60.0;
 
     // Apply efficiency factor
-    return surfaceVelocity * efficiency;
+    return surfaceVelocity * LAUNCH_EFFICIENCY;
   }
 
   /**
@@ -128,12 +126,9 @@ public class TurretCalculator {
    * @return Required wheel RPM
    */
   public static double calculateRPMForVelocity(double targetExitVelocity) {
-    double radius = wheelRadiusMeters.get();
-    double efficiency = launchEfficiency.get();
-
     // Reverse the formula: RPM = (velocity / efficiency) × 60 / (2π × radius)
-    double surfaceVelocity = targetExitVelocity / efficiency;
-    return (surfaceVelocity * 60.0) / (2.0 * Math.PI * radius);
+    double surfaceVelocity = targetExitVelocity / LAUNCH_EFFICIENCY;
+    return (surfaceVelocity * 60.0) / (2.0 * Math.PI * WHEEL_RADIUS_METERS);
   }
 
   /**
@@ -233,26 +228,20 @@ public class TurretCalculator {
     double velocity = calculateExitVelocityFromRPM();
 
     // Debug logging
-    org.littletonrobotics.junction.Logger.recordOutput(
-        "Shooter/Debug/CurrentRPM", currentLauncherRPM);
-    org.littletonrobotics.junction.Logger.recordOutput("Shooter/Debug/RawExitVelocity", velocity);
-    org.littletonrobotics.junction.Logger.recordOutput(
-        "Shooter/Debug/WheelRadius", wheelRadiusMeters.get());
-    org.littletonrobotics.junction.Logger.recordOutput(
-        "Shooter/Debug/Efficiency", launchEfficiency.get());
+    Logger.recordOutput("Launcher/Debug/CurrentRPM", currentLauncherRPM);
+    Logger.recordOutput("Launcher/Debug/RawExitVelocity", velocity);
+    Logger.recordOutput("Launcher/Debug/WheelRadius", WHEEL_RADIUS_METERS);
+    Logger.recordOutput("Launcher/Debug/Efficiency", LAUNCH_EFFICIENCY);
 
     double clampedVelocity = MathUtil.clamp(velocity, MIN_EXIT_VELOCITY, MAX_EXIT_VELOCITY);
-    org.littletonrobotics.junction.Logger.recordOutput(
-        "Shooter/Debug/ClampedVelocity", clampedVelocity);
-    org.littletonrobotics.junction.Logger.recordOutput(
-        "Shooter/Debug/WasClamped", velocity != clampedVelocity);
+    Logger.recordOutput("Launcher/Debug/ClampedVelocity", clampedVelocity);
+    Logger.recordOutput("Launcher/Debug/WasClamped", velocity != clampedVelocity);
 
     return clampedVelocity;
   }
 
   /**
-   * Get the launch angle for shots. If override is set (>= 0), uses that fixed angle. Otherwise
-   * calculates optimal angle from physics.
+   * Get the launch angle for shots. Calculates optimal angle from physics.
    *
    * @param robot Current robot pose
    * @param velocity Exit velocity in m/s
@@ -262,12 +251,6 @@ public class TurretCalculator {
    */
   public static double getLaunchAngle(
       Pose2d robot, double velocity, Translation3d target, double turretHeightMeters) {
-    double overrideAngle = launchAngleOverrideDeg.get();
-    if (overrideAngle >= 0) {
-      // Use override angle (convert degrees to radians)
-      return Math.toRadians(overrideAngle);
-    }
-    // Calculate optimal angle from physics
     return calculateAngleFromVelocity(robot, velocity, target, turretHeightMeters);
   }
 

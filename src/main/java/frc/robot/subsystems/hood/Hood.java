@@ -1,7 +1,6 @@
 package frc.robot.subsystems.hood;
 
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
@@ -13,25 +12,19 @@ public class Hood extends SubsystemBase {
   private final HoodIO io;
   private final HoodIOInputsAutoLogged inputs = new HoodIOInputsAutoLogged();
 
-  // Tunable limits
-  private static final LoggedTunableNumber minAngleDeg =
-      new LoggedTunableNumber("Hood/MinAngleDeg", 15.0);
-  private static final LoggedTunableNumber maxAngleDeg =
-      new LoggedTunableNumber("Hood/MaxAngleDeg", 85.0);
-  private static final LoggedTunableNumber toleranceDeg =
-      new LoggedTunableNumber("Hood/ToleranceDeg", 1.0);
-
-  // Default/home position
-  private static final LoggedTunableNumber homeAngleDeg =
-      new LoggedTunableNumber("Hood/HomeAngleDeg", 45.0);
+  // Physical limits (constants - these are hardware constraints)
+  private static final double MIN_ANGLE_DEG = 15.0;
+  private static final double MAX_ANGLE_DEG = 85.0;
+  private static final double TOLERANCE_DEG = 1.0;
+  private static final double HOME_ANGLE_DEG = 45.0;
 
   public Hood(HoodIO io) {
     this.io = io;
 
     System.out.println("[Hood] ========== STARTUP ==========");
-    System.out.println("[Hood] Min angle: " + minAngleDeg.get() + " deg");
-    System.out.println("[Hood] Max angle: " + maxAngleDeg.get() + " deg");
-    System.out.println("[Hood] Home angle: " + homeAngleDeg.get() + " deg");
+    System.out.println("[Hood] Min angle: " + MIN_ANGLE_DEG + " deg");
+    System.out.println("[Hood] Max angle: " + MAX_ANGLE_DEG + " deg");
+    System.out.println("[Hood] Home angle: " + HOME_ANGLE_DEG + " deg");
     System.out.println("[Hood] ==============================");
   }
 
@@ -42,8 +35,8 @@ public class Hood extends SubsystemBase {
 
     // Log additional useful values
     Logger.recordOutput("Hood/AngleError", inputs.targetAngleDeg - inputs.currentAngleDeg);
-    Logger.recordOutput("Hood/MinLimit", minAngleDeg.get());
-    Logger.recordOutput("Hood/MaxLimit", maxAngleDeg.get());
+    Logger.recordOutput("Hood/MinLimit", MIN_ANGLE_DEG);
+    Logger.recordOutput("Hood/MaxLimit", MAX_ANGLE_DEG);
   }
 
   /**
@@ -62,7 +55,7 @@ public class Hood extends SubsystemBase {
 
   /** Move hood to home position. */
   public void goToHome() {
-    setAngle(homeAngleDeg.get());
+    setAngle(HOME_ANGLE_DEG);
   }
 
   /** Stop the hood and hold current position. */
@@ -113,7 +106,7 @@ public class Hood extends SubsystemBase {
    * @return Min angle in degrees
    */
   public double getMinAngle() {
-    return minAngleDeg.get();
+    return MIN_ANGLE_DEG;
   }
 
   /**
@@ -122,7 +115,7 @@ public class Hood extends SubsystemBase {
    * @return Max angle in degrees
    */
   public double getMaxAngle() {
-    return maxAngleDeg.get();
+    return MAX_ANGLE_DEG;
   }
 
   /**
@@ -132,7 +125,7 @@ public class Hood extends SubsystemBase {
    * @return True if achievable
    */
   public boolean isAngleAchievable(double angleDeg) {
-    return angleDeg >= minAngleDeg.get() && angleDeg <= maxAngleDeg.get();
+    return angleDeg >= MIN_ANGLE_DEG && angleDeg <= MAX_ANGLE_DEG;
   }
 
   /**
@@ -142,7 +135,7 @@ public class Hood extends SubsystemBase {
    * @return Clamped angle
    */
   public double clampToLimits(double angleDeg) {
-    return Math.max(minAngleDeg.get(), Math.min(maxAngleDeg.get(), angleDeg));
+    return Math.max(MIN_ANGLE_DEG, Math.min(MAX_ANGLE_DEG, angleDeg));
   }
 
   // ========== Commands ==========

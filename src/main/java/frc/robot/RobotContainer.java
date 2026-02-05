@@ -277,22 +277,18 @@ public class RobotContainer {
                     new VisionIOPhotonVisionSim(
                         VisionConstants.frontLeftCam,
                         VisionConstants.robotToFrontLeftCam,
-                        VisionConstants.recommendedFrontLeftCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
                         VisionConstants.frontRightCam,
                         VisionConstants.robotToFrontRightCam,
-                        VisionConstants.recommendedFrontRightCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
                         VisionConstants.backLeftCam,
                         VisionConstants.robotToBackLeftCam,
-                        VisionConstants.recommendedBackLeftCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
                         VisionConstants.backRightCam,
                         VisionConstants.robotToBackRightCam,
-                        VisionConstants.recommendedBackRightCam,
                         RobotStatus::getRobotPose));
           } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
             // MainBot uses corner-mounted cameras aimed diagonally outward + front center for
@@ -303,27 +299,22 @@ public class RobotContainer {
                     new VisionIOPhotonVisionSim(
                         VisionConstants.frontLeftCam,
                         VisionConstants.mainBotToFrontLeftCam,
-                        VisionConstants.mainBotRecommendedFrontLeftCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
                         VisionConstants.frontRightCam,
                         VisionConstants.mainBotToFrontRightCam,
-                        VisionConstants.mainBotRecommendedFrontRightCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
                         VisionConstants.backLeftCam,
                         VisionConstants.mainBotToBackLeftCam,
-                        VisionConstants.mainBotRecommendedBackLeftCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
                         VisionConstants.backRightCam,
                         VisionConstants.mainBotToBackRightCam,
-                        VisionConstants.mainBotRecommendedBackRightCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
                         VisionConstants.frontCenterCam,
                         VisionConstants.mainBotToFrontCenterCam,
-                        VisionConstants.mainBotRecommendedFrontCenterCam,
                         RobotStatus::getRobotPose));
           } else {
             vision = null;
@@ -434,7 +425,7 @@ public class RobotContainer {
     CommandScheduler.getInstance().getActiveButtonLoop().clear();
     oi = OISelector.findOperatorInterface();
     ButtonsAndDashboardBindings.configureBindings(
-        oi, drive, vision, intake, turret, launcher, motivator);
+        oi, drive, vision, intake, turret, launcher, motivator, hood);
   }
 
   /**

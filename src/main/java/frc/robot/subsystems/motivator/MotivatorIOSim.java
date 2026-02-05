@@ -3,11 +3,13 @@ package frc.robot.subsystems.motivator;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.wpilibj.simulation.FlywheelSim;
-import frc.robot.util.LoggedTunableNumber;
 
 /**
  * Simulation implementation of MotivatorIO using WPILib's FlywheelSim. All three motors are
  * simulated independently with velocity control support.
+ *
+ * <p>Note: Velocity tolerance is defined in MotivatorIOSparkFlex.java as the tunable source of
+ * truth. This sim uses a matching constant.
  */
 public class MotivatorIOSim implements MotivatorIO {
   // Simulation for motivator motor 1
@@ -45,9 +47,8 @@ public class MotivatorIOSim implements MotivatorIO {
   private double prefeedCurrentRPM = 0.0;
   private boolean prefeedVelocityMode = false;
 
-  // Shared tunable tolerance (same as SparkFlex implementation)
-  private static final LoggedTunableNumber velocityToleranceRPM =
-      new LoggedTunableNumber("Motivator/VelocityToleranceRPM", 100.0);
+  // Velocity tolerance for atSetpoint (matches MotivatorIOSparkFlex default)
+  private static final double VELOCITY_TOLERANCE_RPM = 100.0;
 
   public MotivatorIOSim() {
     // Motivator motor 1: 1 NEO Vortex motor
@@ -113,7 +114,7 @@ public class MotivatorIOSim implements MotivatorIO {
     inputs.motivator1TargetVelocityRPM = motivator1TargetRPM;
     inputs.motivator1AtSetpoint =
         motivator1VelocityMode
-            && Math.abs(motivator1CurrentRPM - motivator1TargetRPM) < velocityToleranceRPM.get();
+            && Math.abs(motivator1CurrentRPM - motivator1TargetRPM) < VELOCITY_TOLERANCE_RPM;
 
     // Motivator 2 data
     double motivator2Volts =
@@ -125,7 +126,7 @@ public class MotivatorIOSim implements MotivatorIO {
     inputs.motivator2TargetVelocityRPM = motivator2TargetRPM;
     inputs.motivator2AtSetpoint =
         motivator2VelocityMode
-            && Math.abs(motivator2CurrentRPM - motivator2TargetRPM) < velocityToleranceRPM.get();
+            && Math.abs(motivator2CurrentRPM - motivator2TargetRPM) < VELOCITY_TOLERANCE_RPM;
 
     // Prefeed data
     double prefeedVolts = prefeedVelocityMode ? prefeedCurrentRPM * 0.002 : prefeedDutyCycle * 12.0;
@@ -136,7 +137,7 @@ public class MotivatorIOSim implements MotivatorIO {
     inputs.prefeedTargetVelocityRPM = prefeedTargetRPM;
     inputs.prefeedAtSetpoint =
         prefeedVelocityMode
-            && Math.abs(prefeedCurrentRPM - prefeedTargetRPM) < velocityToleranceRPM.get();
+            && Math.abs(prefeedCurrentRPM - prefeedTargetRPM) < VELOCITY_TOLERANCE_RPM;
 
     // Future: ball detection
     inputs.ballDetected = false;

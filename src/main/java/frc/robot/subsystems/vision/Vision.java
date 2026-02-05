@@ -278,12 +278,6 @@ public class Vision extends SubsystemBase {
     // Get robot pose for camera visualization (transforms cameras to world coordinates)
     Pose3d robotPose3d = new Pose3d(RobotStatus.getRobotPose());
 
-    // Check if using proposed positions (in sim mode)
-    boolean usingProposed =
-        frc.robot.Constants.currentMode == frc.robot.Constants.Mode.SIM
-            && VisionIOPhotonVisionSim.isUsingRecommendedPositions();
-    Logger.recordOutput("Vision/CameraViz/UsingProposedPositions", usingProposed);
-
     // Select camera transforms based on robot type
     Transform3d frontLeftCamTransform;
     Transform3d frontRightCamTransform;

@@ -530,4 +530,11 @@ public class MainBotConfig implements RobotConfig {
   public double getHoodMaxAngleDeg() {
     return 65.0;
   }
+
+  // ========== Motivator Configuration ==========
+
+  @Override
+  public boolean hasMotivator() {
+    return true; // MainBot has motivator for feeding balls to launcher
+  }
 }

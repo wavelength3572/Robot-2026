@@ -15,6 +15,13 @@ import frc.robot.util.FuelSim;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
 
+/** Launcher status for trajectory color coding. */
+enum LauncherStatus {
+  UNPOWERED, // Red - launcher not running
+  SPINNING_UP, // Yellow - powered but not at setpoint
+  AT_SETPOINT // Green - at setpoint, ready to fire
+}
+
 /**
  * Handles visualization of turret trajectory and fuel simulation integration. Calculates and logs
  * trajectory points for AdvantageScope visualization.
@@ -29,6 +36,17 @@ public class TurretVisualizer {
   // - Actual: Where the ball would really go with current launcher RPM and turret angle
   private Translation3d[] idealTrajectory = new Translation3d[TRAJECTORY_POINTS];
   private Translation3d[] actualTrajectory = new Translation3d[TRAJECTORY_POINTS];
+
+  // Color-coded trajectory arrays (only one populated at a time based on launcher status)
+  private Translation3d[] redTrajectory = new Translation3d[TRAJECTORY_POINTS];
+  private Translation3d[] yellowTrajectory = new Translation3d[TRAJECTORY_POINTS];
+  private Translation3d[] greenTrajectory = new Translation3d[TRAJECTORY_POINTS];
+  private static final Translation3d[] EMPTY_TRAJECTORY = new Translation3d[0];
+
+  // Threshold for determining launcher status
+  private static final double RPM_VELOCITY_THRESHOLD = 50.0;
+  private static final double RPM_SETPOINT_TOLERANCE = 100.0; // RPM tolerance for "at setpoint"
+
   private final Supplier<Pose3d> robotPoseSupplier;
   private final Supplier<ChassisSpeeds> fieldSpeedsSupplier;
   private final double turretHeightMeters;
@@ -69,6 +87,9 @@ public class TurretVisualizer {
     for (int i = 0; i < TRAJECTORY_POINTS; i++) {
       idealTrajectory[i] = new Translation3d();
       actualTrajectory[i] = new Translation3d();
+      redTrajectory[i] = new Translation3d();
+      yellowTrajectory[i] = new Translation3d();
+      greenTrajectory[i] = new Translation3d();
     }
   }
 
@@ -254,8 +275,33 @@ public class TurretVisualizer {
   }
 
   /**
+   * Determine the launcher status based on current and target RPM.
+   *
+   * @return LauncherStatus indicating ready state
+   */
+  private LauncherStatus getLauncherStatus() {
+    double currentRPM = TurretCalculator.getCurrentLauncherRPM();
+    double targetRPM = TurretCalculator.getTargetLauncherRPM();
+
+    // Unpowered: both current and target near zero
+    if (Math.abs(currentRPM) < RPM_VELOCITY_THRESHOLD
+        && Math.abs(targetRPM) < RPM_VELOCITY_THRESHOLD) {
+      return LauncherStatus.UNPOWERED;
+    }
+
+    // At setpoint: current RPM within tolerance of target
+    if (Math.abs(currentRPM - targetRPM) < RPM_SETPOINT_TOLERANCE
+        && targetRPM > RPM_VELOCITY_THRESHOLD) {
+      return LauncherStatus.AT_SETPOINT;
+    }
+
+    // Otherwise: spinning up
+    return LauncherStatus.SPINNING_UP;
+  }
+
+  /**
    * Update the ACTUAL trajectory visualization (where we'd REALLY shoot). Uses current launcher RPM
-   * and turret angle.
+   * and turret angle. Also logs color-coded trajectories based on launcher status.
    *
    * @param currentExitVelocity Actual exit velocity based on current launcher RPM
    * @param currentLaunchAngle Current launch angle in radians
@@ -266,6 +312,32 @@ public class TurretVisualizer {
     calculateTrajectoryPoints(
         currentExitVelocity, currentLaunchAngle, currentAzimuthAngle, actualTrajectory);
     Logger.recordOutput("Turret/ActualTrajectory", actualTrajectory);
+
+    // Log color-coded trajectories based on launcher status
+    LauncherStatus status = getLauncherStatus();
+    Logger.recordOutput("Turret/LauncherStatus", status.name());
+
+    // Populate the appropriate color trajectory, empty the others
+    switch (status) {
+      case UNPOWERED:
+        System.arraycopy(actualTrajectory, 0, redTrajectory, 0, TRAJECTORY_POINTS);
+        Logger.recordOutput("Turret/Trajectory/Red", redTrajectory);
+        Logger.recordOutput("Turret/Trajectory/Yellow", EMPTY_TRAJECTORY);
+        Logger.recordOutput("Turret/Trajectory/Green", EMPTY_TRAJECTORY);
+        break;
+      case SPINNING_UP:
+        System.arraycopy(actualTrajectory, 0, yellowTrajectory, 0, TRAJECTORY_POINTS);
+        Logger.recordOutput("Turret/Trajectory/Red", EMPTY_TRAJECTORY);
+        Logger.recordOutput("Turret/Trajectory/Yellow", yellowTrajectory);
+        Logger.recordOutput("Turret/Trajectory/Green", EMPTY_TRAJECTORY);
+        break;
+      case AT_SETPOINT:
+        System.arraycopy(actualTrajectory, 0, greenTrajectory, 0, TRAJECTORY_POINTS);
+        Logger.recordOutput("Turret/Trajectory/Red", EMPTY_TRAJECTORY);
+        Logger.recordOutput("Turret/Trajectory/Yellow", EMPTY_TRAJECTORY);
+        Logger.recordOutput("Turret/Trajectory/Green", greenTrajectory);
+        break;
+    }
   }
 
   /**

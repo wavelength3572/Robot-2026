@@ -44,4 +44,10 @@ public interface LauncherIO {
 
   /** Stop the launcher motors. */
   public default void stop() {}
+
+  /**
+   * Signal that a ball was fired (simulation only). In sim, this triggers a recovery period where
+   * atSetpoint returns false until the configured recovery time elapses.
+   */
+  public default void notifyBallFired() {}
 }

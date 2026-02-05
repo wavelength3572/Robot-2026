@@ -23,7 +23,7 @@ public final class Constants {
    * Robot type for simulation mode. Change this to test different configurations. On real hardware,
    * this is ignored and auto-detection is used.
    */
-  public static final RobotType simRobotType = RobotType.TURRETBOT;
+  public static final RobotType simRobotType = RobotType.MAINBOT;
 
   /**
    * The detected or configured robot type. Set FORCE_ROBOT_TYPE to override auto-detection. Set to

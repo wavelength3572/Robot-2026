@@ -60,7 +60,7 @@ public class MatchPhaseTracker {
 
   // Configuration - dashboard tunable
   private static final LoggedTunableNumber weWonAutoNumber =
-      new LoggedTunableNumber("Shooting/WeWonAuto", 1.0); // 1.0 = true, 0.0 = false
+      new LoggedTunableNumber("Match/WeWonAuto", 1.0); // 1.0 = true, 0.0 = false
 
   // Manual override for testing (null = use match logic)
   private HubOverride hubOverride = HubOverride.AUTO;
@@ -96,7 +96,7 @@ public class MatchPhaseTracker {
   public void setWeWonAuto(boolean won) {
     // Update via dashboard since tunable numbers are read-only at runtime
     // The dashboard value can be changed by the operator
-    Logger.recordOutput("Shooting/WeWonAutoSetting", won);
+    Logger.recordOutput("Match/WeWonAutoSetting", won);
   }
 
   /**
@@ -106,7 +106,7 @@ public class MatchPhaseTracker {
    */
   public void setHubOverride(HubOverride override) {
     this.hubOverride = override;
-    Logger.recordOutput("Shooting/HubOverride", override.toString());
+    Logger.recordOutput("Match/HubOverride", override.toString());
   }
 
   /**
@@ -280,12 +280,12 @@ public class MatchPhaseTracker {
     cachedPhase = getCurrentPhase();
 
     // Log status
-    Logger.recordOutput("Shooting/MatchPhase", cachedPhase.toString());
-    Logger.recordOutput("Shooting/MatchTime", getMatchTime());
-    Logger.recordOutput("Shooting/OurHubActive", isOurHubActive(isBlue));
-    Logger.recordOutput("Shooting/WeWonAuto", getWeWonAuto());
-    Logger.recordOutput("Shooting/HubOverride", hubOverride.toString());
-    Logger.recordOutput("Shooting/TimeUntilActive", getTimeUntilActive(isBlue));
-    Logger.recordOutput("Shooting/TimeRemainingActive", getTimeRemainingActive(isBlue));
+    Logger.recordOutput("Match/MatchPhase", cachedPhase.toString());
+    Logger.recordOutput("Match/MatchTime", getMatchTime());
+    Logger.recordOutput("Match/OurHubActive", isOurHubActive(isBlue));
+    Logger.recordOutput("Match/WeWonAuto", getWeWonAuto());
+    Logger.recordOutput("Match/HubOverride", hubOverride.toString());
+    Logger.recordOutput("Match/TimeUntilActive", getTimeUntilActive(isBlue));
+    Logger.recordOutput("Match/TimeRemainingActive", getTimeRemainingActive(isBlue));
   }
 }
