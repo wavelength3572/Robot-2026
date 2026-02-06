@@ -9,7 +9,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import frc.robot.Constants.FieldPositions;
+import frc.robot.FieldConstants;
 import java.util.ArrayList;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
@@ -682,21 +682,29 @@ public class FuelSim {
     registerIntake(xMin, xMax, yMin, yMax, () -> true, () -> {});
   }
 
-  /** Hub scoring zones - positions from Constants.FieldPositions (welded field measurements) */
+  /** Hub scoring zones - positions from FieldConstants.Hub (AprilTag-derived measurements) */
   public static class Hub {
     private static final double EXIT_OFFSET = 0.69; // Distance from hub center to exit point
 
     public static final Hub BLUE_HUB =
         new Hub(
-            new Translation2d(FieldPositions.BLUE_HUB_X, FieldPositions.BLUE_HUB_Y),
+            new Translation2d(
+                FieldConstants.Hub.innerCenterPoint.getX(),
+                FieldConstants.Hub.innerCenterPoint.getY()),
             new Translation3d(
-                FieldPositions.BLUE_HUB_X + EXIT_OFFSET, FieldPositions.BLUE_HUB_Y, 0.89),
+                FieldConstants.Hub.innerCenterPoint.getX() + EXIT_OFFSET,
+                FieldConstants.Hub.innerCenterPoint.getY(),
+                0.89),
             1);
     public static final Hub RED_HUB =
         new Hub(
-            new Translation2d(FieldPositions.RED_HUB_X, FieldPositions.RED_HUB_Y),
+            new Translation2d(
+                FieldConstants.Hub.oppInnerCenterPoint.getX(),
+                FieldConstants.Hub.oppInnerCenterPoint.getY()),
             new Translation3d(
-                FieldPositions.RED_HUB_X - EXIT_OFFSET, FieldPositions.RED_HUB_Y, 0.89),
+                FieldConstants.Hub.oppInnerCenterPoint.getX() - EXIT_OFFSET,
+                FieldConstants.Hub.oppInnerCenterPoint.getY(),
+                0.89),
             -1);
 
     private static final double ENTRY_HEIGHT = 1.83; // meters

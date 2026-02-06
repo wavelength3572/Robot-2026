@@ -116,19 +116,8 @@ public final class Constants {
     TURRETBOT
   }
 
-  /** Field positions for targeting (in meters). */
-  public static final class FieldPositions {
-    /** Field dimensions. */
-    public static final double FIELD_LENGTH = 16.54;
-
-    public static final double FIELD_WIDTH = 8.07; // 317.69 inches (welded field)
-
-    /** Zone boundaries. */
-    public static final double ALLIANCE_ZONE_DEPTH = 4.03;
-
-    /** Hub center height - the smallest opening where balls should land (below the lip). */
-    public static final double HUB_HEIGHT = 1.43; // ~56.4 inches - center of hub opening
-
+  /** Team-specific strategy constants (pass targets, trench positions). */
+  public static final class StrategyConstants {
     /** Pass target X positions (1/3 into alliance zone from wall). */
     public static final double BLUE_PASS_TARGET_X = 1.34;
 
@@ -138,14 +127,5 @@ public final class Constants {
     public static final double LEFT_TRENCH_Y = 1.5;
 
     public static final double RIGHT_TRENCH_Y = 6.73;
-
-    /** Blue alliance speaker position. */
-    public static final double BLUE_HUB_X = 4.625594; // 182.11 = 4.625594 OLD 4.575
-
-    public static final double BLUE_HUB_Y = 4.034536; // 158.84 = 4.034536 OLD 4.115
-    /** Red alliance speaker position. */
-    public static final double RED_HUB_X = 11.915394; // 469.11 = 11.915394 OLD 11.9865
-
-    public static final double RED_HUB_Y = 4.034536;
   }
 }

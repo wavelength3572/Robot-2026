@@ -2,6 +2,7 @@ package frc.robot.util;
 
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
+import frc.robot.FieldConstants;
 
 /** Utility class for detecting which field zone the robot is in. */
 public class ZoneDetector {
@@ -14,8 +15,8 @@ public class ZoneDetector {
 
   /** Determine which zone the robot is in based on X position and alliance. */
   public static Zone getCurrentZone(double robotX, Alliance alliance) {
-    double allianceZoneEnd = Constants.FieldPositions.ALLIANCE_ZONE_DEPTH;
-    double opponentZoneStart = Constants.FieldPositions.FIELD_LENGTH - allianceZoneEnd;
+    double allianceZoneEnd = FieldConstants.LinesVertical.allianceZone;
+    double opponentZoneStart = FieldConstants.fieldLength - allianceZoneEnd;
 
     if (alliance == Alliance.Blue) {
       if (robotX < allianceZoneEnd) return Zone.ALLIANCE;
@@ -30,11 +31,11 @@ public class ZoneDetector {
 
   /** Get the appropriate pass target Y based on robot's Y position. */
   public static double getPassTargetY(double robotY) {
-    double fieldCenter = Constants.FieldPositions.FIELD_WIDTH / 2.0;
+    double fieldCenter = FieldConstants.fieldWidth / 2.0;
     if (robotY < fieldCenter) {
-      return Constants.FieldPositions.LEFT_TRENCH_Y;
+      return Constants.StrategyConstants.LEFT_TRENCH_Y;
     } else {
-      return Constants.FieldPositions.RIGHT_TRENCH_Y;
+      return Constants.StrategyConstants.RIGHT_TRENCH_Y;
     }
   }
 }

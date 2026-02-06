@@ -11,7 +11,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
-import frc.robot.Constants.FieldPositions;
+import frc.robot.FieldConstants;
 import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.TurretAimingHelper;
@@ -206,8 +206,14 @@ public class Turret extends SubsystemBase {
           edu.wpi.first.wpilibj.DriverStation.getAlliance()
               .orElse(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue)
               .equals(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue);
-      double hubX = isBlueAlliance ? FieldPositions.BLUE_HUB_X : FieldPositions.RED_HUB_X;
-      double hubY = isBlueAlliance ? FieldPositions.BLUE_HUB_Y : FieldPositions.RED_HUB_Y;
+      double hubX =
+          isBlueAlliance
+              ? FieldConstants.Hub.innerCenterPoint.getX()
+              : FieldConstants.Hub.oppInnerCenterPoint.getX();
+      double hubY =
+          isBlueAlliance
+              ? FieldConstants.Hub.innerCenterPoint.getY()
+              : FieldConstants.Hub.oppInnerCenterPoint.getY();
       double distanceToHub = Math.sqrt(Math.pow(hubX - turretX, 2) + Math.pow(hubY - turretY, 2));
       Logger.recordOutput(
           "Turret/Overlay/Aim",
@@ -502,16 +508,10 @@ public class Turret extends SubsystemBase {
    * @param isBlueAlliance True if targeting blue hub, false for red
    */
   public void calculateShotToHub(boolean isBlueAlliance) {
-    Translation3d hubTarget;
-    if (isBlueAlliance) {
-      hubTarget =
-          new Translation3d(
-              FieldPositions.BLUE_HUB_X, FieldPositions.BLUE_HUB_Y, FieldPositions.HUB_HEIGHT);
-    } else {
-      hubTarget =
-          new Translation3d(
-              FieldPositions.RED_HUB_X, FieldPositions.RED_HUB_Y, FieldPositions.HUB_HEIGHT);
-    }
+    Translation3d hubTarget =
+        isBlueAlliance
+            ? FieldConstants.Hub.innerCenterPoint
+            : FieldConstants.Hub.oppInnerCenterPoint;
     calculateShotToTarget(hubTarget);
   }
 

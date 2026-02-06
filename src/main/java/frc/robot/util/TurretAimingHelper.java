@@ -10,6 +10,7 @@ package frc.robot.util;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
+import frc.robot.FieldConstants;
 
 /** Helper class for turret aiming calculations. */
 public class TurretAimingHelper {
@@ -45,19 +46,19 @@ public class TurretAimingHelper {
       // In our zone - aim at hub to shoot
       double targetX =
           (alliance == Alliance.Blue)
-              ? Constants.FieldPositions.BLUE_HUB_X
-              : Constants.FieldPositions.RED_HUB_X;
+              ? FieldConstants.Hub.innerCenterPoint.getX()
+              : FieldConstants.Hub.oppInnerCenterPoint.getX();
       double targetY =
           (alliance == Alliance.Blue)
-              ? Constants.FieldPositions.BLUE_HUB_Y
-              : Constants.FieldPositions.RED_HUB_Y;
+              ? FieldConstants.Hub.innerCenterPoint.getY()
+              : FieldConstants.Hub.oppInnerCenterPoint.getY();
       return new AimResult(new Translation2d(targetX, targetY), AimMode.SHOOT);
     } else {
       // In neutral/opponent zone - aim at pass target
       double targetX =
           (alliance == Alliance.Blue)
-              ? Constants.FieldPositions.BLUE_PASS_TARGET_X
-              : Constants.FieldPositions.RED_PASS_TARGET_X;
+              ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
+              : Constants.StrategyConstants.RED_PASS_TARGET_X;
       double targetY = ZoneDetector.getPassTargetY(robotY);
       return new AimResult(new Translation2d(targetX, targetY), AimMode.PASS);
     }
@@ -71,8 +72,8 @@ public class TurretAimingHelper {
    * @return The aim mode after applying hysteresis
    */
   private static AimMode calculateModeWithHysteresis(double robotX, Alliance alliance) {
-    double allianceZoneEnd = Constants.FieldPositions.ALLIANCE_ZONE_DEPTH;
-    double fieldLength = Constants.FieldPositions.FIELD_LENGTH;
+    double allianceZoneEnd = FieldConstants.LinesVertical.allianceZone;
+    double fieldLength = FieldConstants.fieldLength;
 
     if (alliance == Alliance.Blue) {
       // Blue alliance zone is at low X values
