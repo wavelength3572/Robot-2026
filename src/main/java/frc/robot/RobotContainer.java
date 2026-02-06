@@ -473,9 +473,10 @@ public class RobotContainer {
                   if (turret != null && turret.getVisualizer() != null) {
                     turret.getVisualizer().setFuelCount((int) autoStartFuelCount.get());
                   }
-                  // Clear field fuel
+                  // Clear field fuel and respawn starting fuel for auto
                   if (Constants.currentMode == Constants.Mode.SIM) {
                     frc.robot.util.FuelSim.getInstance().clearFuel();
+                    frc.robot.util.FuelSim.getInstance().spawnStartingFuel();
                   }
                   // Spin up launcher and motivator
                   if (launcher != null) {
@@ -667,10 +668,34 @@ public class RobotContainer {
             .withTimeout(5.0) // 5 second timeout in case of jams
             .withName("WaitUntilFuelEmpty"));
 
-    // Reset simulation command
+    // Reset simulation commands
     if (turret != null) {
       NamedCommands.registerCommand("resetSim", ShootingCommands.resetSimulationCommand(turret));
+      NamedCommands.registerCommand(
+          "resetStartingField", ShootingCommands.resetStartingFieldCommand(turret));
     }
+
+    // RunIntake: deploy intake and start rollers (used by Depot auto)
+    if (intake != null) {
+      NamedCommands.registerCommand(
+          "RunIntake",
+          Commands.runOnce(
+              () -> {
+                intake.deploy();
+                intake.runIntake();
+              },
+              intake));
+    }
+
+    // StartLauncher: spin up launcher + motivator + enable auto-shoot
+    NamedCommands.registerCommand(
+        "StartLauncher",
+        Commands.runOnce(
+            () -> {
+              if (launcher != null) launcher.setVelocity(1700.0);
+              if (motivator != null) motivator.setMotivatorsVelocity(1000.0);
+              if (turret != null) turret.enableAutoShoot();
+            }));
   }
 
   // Track last alliance to detect changes
@@ -744,6 +769,25 @@ public class RobotContainer {
     // Register the robot with the simulation
     fuelSim.registerRobot(
         robotWidth, robotLength, bumperHeight, drive::getPose, () -> drive.getChassisSpeeds());
+
+    // Register intake with fuel simulation for pickup collision detection
+    // Intake zone: 10 inches (0.254m) from front frame, 30 inches (0.762m) wide centered
+    if (intake != null && turret != null) {
+      fuelSim.registerIntake(
+          0.35,
+          0.604, // xMin, xMax (front bumper edge to 10" past it)
+          -0.381,
+          0.381, // yMin, yMax (30" wide, centered)
+          () ->
+              intake.isDeployed()
+                  && turret.getVisualizer() != null
+                  && turret.getVisualizer().canIntake(),
+          () -> {
+            if (turret.getVisualizer() != null) {
+              turret.getVisualizer().intakeFuel();
+            }
+          });
+    }
 
     // Spawn the full match fuel layout
     fuelSim.spawnStartingFuel();

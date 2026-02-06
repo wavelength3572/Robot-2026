@@ -46,7 +46,7 @@ public class FuelSim {
 
   // Dashboard toggle to disable neutral zone ball spawning (reduces physics load for testing)
   private static final LoggedNetworkBoolean spawnNeutralZoneBalls =
-      new LoggedNetworkBoolean("FuelSim/SpawnNeutralZoneBalls", false);
+      new LoggedNetworkBoolean("FuelSim/SpawnNeutralZoneBalls", true);
 
   // Field obstacle line segments (start and end points for collision detection)
   // These model the ramps/bumps and trench geometry on the field
