@@ -202,10 +202,10 @@ public class Drive extends SubsystemBase {
 
       // Log aiming data for AdvantageScope (zone-based target selection)
       Logger.recordOutput("Turret/Aim/Mode", aimResult.mode().toString());
-      Logger.recordOutput("Turret/Aim/TargetX", aimResult.target().getX());
-      Logger.recordOutput("Turret/Aim/TargetY", aimResult.target().getY());
-      Logger.recordOutput("Turret/Aim/ProjectedPoseX", projectedPose.getX());
-      Logger.recordOutput("Turret/Aim/ProjectedPoseY", projectedPose.getY());
+      Logger.recordOutput(
+          "Turret/Aim/Target",
+          new Pose2d(aimResult.target(), new edu.wpi.first.math.geometry.Rotation2d()));
+      Logger.recordOutput("Turret/Aim/ProjectedPose", projectedPose);
 
       turret.aimAtFieldPosition(
           projectedPose.getX(),

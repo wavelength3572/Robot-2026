@@ -142,6 +142,11 @@ public class Robot extends LoggedRobot {
       autonomousCommand.cancel();
     }
 
+    // Disable auto-shoot when entering teleop (safety: prevent autonomous firing)
+    if (robotContainer.getTurret() != null) {
+      robotContainer.getTurret().disableAutoShoot();
+    }
+
     // Force OI rebind on teleop init to ensure controls are bound
     // This fixes the issue where going directly to teleop without
     // being disabled first would leave controls unbound

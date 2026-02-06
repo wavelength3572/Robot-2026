@@ -8,10 +8,13 @@
 package frc.robot;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
+import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
@@ -47,6 +50,7 @@ import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.FuelSim;
+import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.MatchPhaseTracker;
 import frc.robot.util.RobotStatus;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
@@ -388,6 +392,14 @@ public class RobotContainer {
       turret.initializeVisualizer(drive::getPose, () -> drive.getChassisSpeeds());
     }
 
+    // Configure auto-shoot (turret fires automatically during autonomous when conditions are met)
+    if (turret != null && launcher != null) {
+      turret.configureAutoShoot(launcher::atSetpoint, launcher::notifyBallFired);
+    }
+
+    // Register NamedCommands for PathPlanner autos (must be BEFORE buildAutoChooser)
+    registerNamedCommands();
+
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
 
@@ -437,13 +449,61 @@ public class RobotContainer {
         oi, drive, vision, intake, turret, launcher, motivator, hood);
   }
 
+  // Tunable starting fuel count for autonomous
+  private static final LoggedTunableNumber autoStartFuelCount =
+      new LoggedTunableNumber("Auto/StartFuelCount", 8);
+
   /**
-   * Use this to pass the autonomous command to the main {@link Robot} class.
+   * Use this to pass the autonomous command to the main {@link Robot} class. Wraps the selected
+   * auto with setup (fuel, launcher spin-up, auto-shoot enable) and teardown (disable auto-shoot,
+   * stop motors).
    *
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    return autoChooser.get();
+    Command selectedAuto = autoChooser.get();
+    if (selectedAuto == null) return null;
+
+    // Wrap with auto-shoot setup and teardown
+    return Commands.sequence(
+            // Setup: load fuel, clear field, spin up, enable auto-shoot
+            Commands.runOnce(
+                () -> {
+                  // Set fuel count
+                  if (turret != null && turret.getVisualizer() != null) {
+                    turret.getVisualizer().setFuelCount((int) autoStartFuelCount.get());
+                  }
+                  // Clear field fuel
+                  if (Constants.currentMode == Constants.Mode.SIM) {
+                    frc.robot.util.FuelSim.getInstance().clearFuel();
+                  }
+                  // Spin up launcher and motivator
+                  if (launcher != null) {
+                    launcher.setVelocity(1700.0);
+                  }
+                  if (motivator != null) {
+                    motivator.setMotivatorsVelocity(1000.0);
+                  }
+                  // Enable auto-shoot
+                  if (turret != null) {
+                    turret.enableAutoShoot();
+                  }
+                }),
+            // Run the selected auto path (asProxy avoids "command already composed" on re-run)
+            selectedAuto.asProxy())
+        .finallyDo(
+            () -> {
+              // Teardown: disable auto-shoot, stop motors
+              if (turret != null) {
+                turret.disableAutoShoot();
+              }
+              if (launcher != null) {
+                launcher.stop();
+              }
+              if (motivator != null) {
+                motivator.stop();
+              }
+            });
   }
 
   /**
@@ -552,6 +612,65 @@ public class RobotContainer {
    */
   public Motivator getMotivator() {
     return motivator;
+  }
+
+  /** Register NamedCommands for PathPlanner autos. Must be called before buildAutoChooser. */
+  private void registerNamedCommands() {
+    // Enable auto-shoot: spins up launcher + motivator, enables auto-shoot on turret
+    NamedCommands.registerCommand(
+        "enableAutoShoot",
+        Commands.runOnce(
+            () -> {
+              if (launcher != null) launcher.setVelocity(1700.0);
+              if (motivator != null) motivator.setMotivatorsVelocity(1000.0);
+              if (turret != null) turret.enableAutoShoot();
+            }));
+
+    // Disable auto-shoot: stops auto-shoot and motors
+    NamedCommands.registerCommand(
+        "disableAutoShoot",
+        Commands.runOnce(
+            () -> {
+              if (turret != null) turret.disableAutoShoot();
+              if (launcher != null) launcher.stop();
+              if (motivator != null) motivator.stop();
+            }));
+
+    // Set fuel count commands for testing
+    NamedCommands.registerCommand(
+        "setFuel40",
+        Commands.runOnce(
+            () -> {
+              if (turret != null && turret.getVisualizer() != null) {
+                turret.getVisualizer().setFuelCount(40);
+              }
+            }));
+
+    NamedCommands.registerCommand(
+        "setFuel25",
+        Commands.runOnce(
+            () -> {
+              if (turret != null && turret.getVisualizer() != null) {
+                turret.getVisualizer().setFuelCount(25);
+              }
+            }));
+
+    // Wait until all fuel has been fired (with timeout for jams)
+    // Use in autos that should empty their hopper before driving
+    NamedCommands.registerCommand(
+        "waitUntilFuelEmpty",
+        Commands.waitUntil(
+                () -> {
+                  if (turret == null || turret.getVisualizer() == null) return true;
+                  return turret.getVisualizer().getFuelCount() <= 0;
+                })
+            .withTimeout(5.0) // 5 second timeout in case of jams
+            .withName("WaitUntilFuelEmpty"));
+
+    // Reset simulation command
+    if (turret != null) {
+      NamedCommands.registerCommand("resetSim", ShootingCommands.resetSimulationCommand(turret));
+    }
   }
 
   // Track last alliance to detect changes

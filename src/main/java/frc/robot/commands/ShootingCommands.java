@@ -175,6 +175,7 @@ public class ShootingCommands {
                 () -> {
                   double targetRPM = launchVelocityRPM.get();
                   launcher.setVelocity(targetRPM);
+                  turret.enableLaunchMode();
                   if (motivator != null) {
                     // Only spin up the two feeder wheels, not prefeed
                     motivator.setMotivatorsVelocity(motivatorVelocityRPM.get());
@@ -248,6 +249,7 @@ public class ShootingCommands {
             () -> {
               launcher.setFeedingActive(false);
               launcher.stop();
+              turret.disableLaunchMode();
               if (motivator != null) {
                 motivator.stop();
               }
@@ -370,6 +372,9 @@ public class ShootingCommands {
             // Phase 1: Start positioning turret and hood, spin up wheels
             Commands.runOnce(
                 () -> {
+                  // Enable full turret range for test shooting
+                  turret.enableLaunchMode();
+
                   // Set turret angle (subsystem clamps to limits)
                   double turretAngle = testTurretAngleDeg.get();
                   turret.setAngle(turretAngle);
@@ -498,8 +503,9 @@ public class ShootingCommands {
               if (hood != null) {
                 hood.stop();
               }
-              // Clear manual shot parameters and return to competition mode
+              // Clear manual shot parameters, disable launch mode, and return to competition mode
               turret.clearManualShotParameters();
+              turret.disableLaunchMode();
               setMode(ShootingMode.COMPETITION);
               SmartDashboard.putString("Shooting/Status/State", "Stopped");
               System.out.println("[ManualFire] Stopped");

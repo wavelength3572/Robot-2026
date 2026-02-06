@@ -6,12 +6,15 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.Constants.FieldPositions;
 import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import frc.robot.util.LoggedTunableNumber;
+import frc.robot.util.TurretAimingHelper;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -47,6 +50,14 @@ public class Turret extends SubsystemBase {
   // Cached effective limits (updated when tunables change or mode switches)
   private double effectiveMinAngleDeg;
   private double effectiveMaxAngleDeg;
+
+  // Auto-shoot: fires automatically when conditions are met (for autonomous)
+  private boolean autoShootEnabled = false;
+  private Supplier<Boolean> launcherReadySupplier = null;
+  private Runnable onShotFiredCallback = null;
+  private double lastShotTimestamp = 0.0;
+  private final LoggedTunableNumber autoShootMinInterval =
+      new LoggedTunableNumber("Tuning/Turret/AutoShootMinInterval", 0.15);
 
   // Startup safety - turret locked until operator confirms position
   private boolean operatorConfirmed = false;
@@ -85,9 +96,6 @@ public class Turret extends SubsystemBase {
 
     // Calculate initial effective limits
     updateEffectiveLimits();
-
-    // Print startup information
-    printStartupDiagnostics();
   }
 
   /** Update effective min/max limits from tunable flip angle, center offset, and active mode. */
@@ -124,23 +132,6 @@ public class Turret extends SubsystemBase {
       poses[i] = new Pose3d(x, y, height, rotation);
     }
     return poses;
-  }
-
-  /** Print startup diagnostics to console. */
-  private void printStartupDiagnostics() {
-    System.out.println();
-    System.out.println("+====================================================================+");
-    System.out.println("|                      TURRET SUBSYSTEM                              |");
-    System.out.println("+====================================================================+");
-    System.out.printf(
-        "|  Hard Limits:  %+.0f deg to %+.0f deg (mechanical stops)%n",
-        TurretConstants.HARD_LIMIT_MIN_DEG, TurretConstants.HARD_LIMIT_MAX_DEG);
-    System.out.printf(
-        "|  Soft Limits:  %+.1f deg to %+.1f deg (%.0f deg usable range)%n",
-        effectiveMinAngleDeg, effectiveMaxAngleDeg, effectiveMaxAngleDeg - effectiveMinAngleDeg);
-    System.out.printf("|  Warning Zone: %.0f deg%n", warningZoneDeg.get());
-    System.out.println("+====================================================================+");
-    System.out.println();
   }
 
   @Override
@@ -312,6 +303,59 @@ public class Turret extends SubsystemBase {
         visualizer.visualizeShot(currentShot, currentTurretAngleRad, robotHeadingRad);
       }
     }
+
+    // ========== Auto-Shoot Logic ==========
+    Logger.recordOutput("Turret/AutoShootEnabled", autoShootEnabled);
+    if (autoShootEnabled && launcherReadySupplier != null && robotPoseSupplier != null) {
+      boolean launcherReady = launcherReadySupplier.get();
+      boolean hasShot = currentShot != null;
+      boolean aimed = atTarget();
+      boolean hasFuel = visualizer != null && visualizer.getFuelCount() > 0;
+      double now = Timer.getFPGATimestamp();
+      boolean intervalElapsed = (now - lastShotTimestamp) >= autoShootMinInterval.get();
+
+      // Zone check: only fire when in alliance zone (uses hysteresis to prevent flickering)
+      Pose2d robotPose = robotPoseSupplier.get();
+      DriverStation.Alliance alliance =
+          DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue);
+      TurretAimingHelper.AimResult aimResult =
+          TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
+      boolean inAllianceZone = aimResult.mode() == TurretAimingHelper.AimMode.SHOOT;
+
+      Logger.recordOutput("Turret/AutoShoot/LauncherReady", launcherReady);
+      Logger.recordOutput("Turret/AutoShoot/Aimed", aimed);
+      Logger.recordOutput("Turret/AutoShoot/HasFuel", hasFuel);
+      Logger.recordOutput("Turret/AutoShoot/ZoneOk", inAllianceZone);
+      Logger.recordOutput(
+          "Turret/AutoShoot/FuelRemaining", visualizer != null ? visualizer.getFuelCount() : 0);
+
+      if (launcherReady && hasShot && aimed && hasFuel && intervalElapsed && inAllianceZone) {
+        // Snapshot key calibration data at the instant of firing (for future LUT tuning)
+        double distAtFire =
+            Math.sqrt(
+                Math.pow(currentShot.getTarget().getX() - robotPose.getX(), 2)
+                    + Math.pow(currentShot.getTarget().getY() - robotPose.getY(), 2));
+        Logger.recordOutput("Turret/ShotLog/Timestamp", now);
+        Logger.recordOutput("Turret/ShotLog/DistanceM", distAtFire);
+        Logger.recordOutput(
+            "Turret/ShotLog/RobotSpeedMps",
+            Math.hypot(
+                fieldSpeedsSupplier.get().vxMetersPerSecond,
+                fieldSpeedsSupplier.get().vyMetersPerSecond));
+        Logger.recordOutput("Turret/ShotLog/ExitVelocityMps", currentShot.getExitVelocity());
+        Logger.recordOutput("Turret/ShotLog/LaunchAngleDeg", currentShot.getLaunchAngleDegrees());
+        Logger.recordOutput("Turret/ShotLog/TurretAngleDeg", inputs.currentAngleDegrees);
+
+        launchFuel();
+        lastShotTimestamp = now;
+        if (onShotFiredCallback != null) {
+          onShotFiredCallback.run();
+        }
+        Logger.recordOutput("Turret/AutoShoot/Fired", true);
+      } else {
+        Logger.recordOutput("Turret/AutoShoot/Fired", false);
+      }
+    }
   }
 
   /**
@@ -368,23 +412,63 @@ public class Turret extends SubsystemBase {
                 + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotHeadingRad));
     Translation3d turretPos = new Translation3d(turretX, turretY, turretHeightMeters);
 
-    // Use TrajectoryOptimizer to calculate optimal shot (RPM + angle)
-    TrajectoryOptimizer.OptimalShot optimalShot =
-        TrajectoryOptimizer.calculateOptimalShot(turretPos, target);
+    // Velocity compensation: adjust aim point to counteract robot movement during flight.
+    // The ball inherits robot velocity, so we "lead" the target in the opposite direction.
+    // Uses iterative refinement (3 iterations) since time-of-flight depends on distance
+    // which changes as we adjust the aim point.
+    ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
+    Translation3d aimTarget = target;
 
-    // Create shot data from optimal shot
+    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+    if (robotSpeed > 0.1) { // Only compensate when moving meaningfully
+      // Initial estimate: calculate time-of-flight to the real target
+      TrajectoryOptimizer.OptimalShot initialShot =
+          TrajectoryOptimizer.calculateOptimalShot(turretPos, target);
+      double distanceToTarget =
+          Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
+      double tof =
+          TurretCalculator.calculateTimeOfFlight(
+              initialShot.exitVelocityMps,
+              Math.toRadians(initialShot.launchAngleDeg),
+              distanceToTarget);
+
+      // Iteratively refine: adjust aim point, recalculate shot, update time-of-flight
+      for (int i = 0; i < 3; i++) {
+        aimTarget = TurretCalculator.predictTargetPos(target, fieldSpeeds, tof);
+        double aimDistance =
+            Math.sqrt(
+                Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));
+        TrajectoryOptimizer.OptimalShot refinedShot =
+            TrajectoryOptimizer.calculateOptimalShot(turretPos, aimTarget);
+        tof =
+            TurretCalculator.calculateTimeOfFlight(
+                refinedShot.exitVelocityMps,
+                Math.toRadians(refinedShot.launchAngleDeg),
+                aimDistance);
+      }
+    }
+
+    // Calculate optimal shot to the compensated aim target
+    TrajectoryOptimizer.OptimalShot optimalShot =
+        TrajectoryOptimizer.calculateOptimalShot(turretPos, aimTarget);
+
+    // Create shot data pointing at the compensated aim target so trajectory and ball match
     currentShot =
         new TurretCalculator.ShotData(
-            optimalShot.exitVelocityMps, Math.toRadians(optimalShot.launchAngleDeg), target);
+            optimalShot.exitVelocityMps, Math.toRadians(optimalShot.launchAngleDeg), aimTarget);
 
-    // Aim turret at the target (from turret position, not robot center)
-    double azimuthRad = Math.atan2(target.getY() - turretY, target.getX() - turretX);
+    // Aim turret at the compensated target (from turret position, not robot center)
+    double azimuthRad = Math.atan2(aimTarget.getY() - turretY, aimTarget.getX() - turretX);
     double azimuthDeg = Math.toDegrees(azimuthRad);
     // Convert to robot-relative angle using closest-offset strategy
     double robotHeadingDeg = robotPose.getRotation().getDegrees();
     double relativeAngleDeg =
         calculateTurretAngle(
-            robotPose.getX(), robotPose.getY(), robotHeadingDeg, target.getX(), target.getY());
+            robotPose.getX(),
+            robotPose.getY(),
+            robotHeadingDeg,
+            aimTarget.getX(),
+            aimTarget.getY());
     setAngle(relativeAngleDeg);
 
     // Log shot data
@@ -394,6 +478,17 @@ public class Turret extends SubsystemBase {
     Logger.recordOutput("Turret/Shot/Achievable", optimalShot.achievable);
     Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
     Logger.recordOutput("Turret/Shot/RelativeAngleDeg", relativeAngleDeg);
+
+    // Log velocity compensation
+    double aimOffsetM =
+        Math.sqrt(
+            Math.pow(aimTarget.getX() - target.getX(), 2)
+                + Math.pow(aimTarget.getY() - target.getY(), 2));
+    Logger.recordOutput("Turret/Shot/VelocityCompensation/AimOffsetM", aimOffsetM);
+    Logger.recordOutput("Turret/Shot/VelocityCompensation/RobotSpeedMps", robotSpeed);
+
+    // Log real hub position (before compensation) — visible as field marker in AdvantageScope
+    Logger.recordOutput("Turret/Shot/Hub", new Pose3d(target, new Rotation3d()));
 
     // Log distance to target
     double distanceToTarget =
@@ -602,6 +697,42 @@ public class Turret extends SubsystemBase {
    */
   public boolean isLaunchModeActive() {
     return launchModeActive;
+  }
+
+  // ========== Auto-Shoot Methods ==========
+
+  /**
+   * Configure auto-shoot with external dependencies. Must be called before enableAutoShoot().
+   * Follows the same Supplier pattern used by robotPoseSupplier/fieldSpeedsSupplier.
+   *
+   * @param launcherReady Supplier that returns true when the launcher is at setpoint
+   * @param onShotFired Callback invoked after each auto-shot (e.g., to notify launcher for recovery
+   *     sim)
+   */
+  public void configureAutoShoot(Supplier<Boolean> launcherReady, Runnable onShotFired) {
+    this.launcherReadySupplier = launcherReady;
+    this.onShotFiredCallback = onShotFired;
+  }
+
+  /** Enable auto-shoot mode. Turret will fire automatically when all conditions are met. */
+  public void enableAutoShoot() {
+    autoShootEnabled = true;
+    enableLaunchMode();
+  }
+
+  /** Disable auto-shoot mode. Returns turret to normal tracking range. */
+  public void disableAutoShoot() {
+    autoShootEnabled = false;
+    disableLaunchMode();
+  }
+
+  /**
+   * Check if auto-shoot is currently enabled.
+   *
+   * @return True if auto-shoot is active
+   */
+  public boolean isAutoShootEnabled() {
+    return autoShootEnabled;
   }
 
   // ========== Safety Control Methods ==========

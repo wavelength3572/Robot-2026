@@ -10,7 +10,6 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import frc.robot.util.FuelSim;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
@@ -31,10 +30,7 @@ public class TurretVisualizer {
   private static final double TRAJECTORY_TIME_STEP = 0.04; // seconds between points
   private static final double GRAVITY = 9.81; // m/s^2
 
-  // Two trajectories:
-  // - Ideal: The physics-optimal arc that would actually HIT the target
-  // - Actual: Where the ball would really go with current launcher RPM and turret angle
-  private Translation3d[] idealTrajectory = new Translation3d[TRAJECTORY_POINTS];
+  // Trajectory for visualization (where the ball would actually go)
   private Translation3d[] actualTrajectory = new Translation3d[TRAJECTORY_POINTS];
 
   // Color-coded trajectory arrays (only one populated at a time based on launcher status)
@@ -56,7 +52,7 @@ public class TurretVisualizer {
   private final double turretYOffset;
 
   // Fuel inventory management
-  private static final int FUEL_CAPACITY = 30;
+  private static final int FUEL_CAPACITY = 50;
   private int fuelStored = 25;
 
   // Current azimuth angle for launching (set by visualizeShot)
@@ -85,7 +81,6 @@ public class TurretVisualizer {
 
     // Initialize trajectory arrays
     for (int i = 0; i < TRAJECTORY_POINTS; i++) {
-      idealTrajectory[i] = new Translation3d();
       actualTrajectory[i] = new Translation3d();
       redTrajectory[i] = new Translation3d();
       yellowTrajectory[i] = new Translation3d();
@@ -249,32 +244,6 @@ public class TurretVisualizer {
   }
 
   /**
-   * Update the IDEAL trajectory visualization using the trajectory optimizer. Shows the optimal
-   * RPM+hood combination that achieves desired clearance above the hub lip.
-   *
-   * @param target The hub center position
-   * @param azimuthAngle Direction to target in radians (field-relative)
-   */
-  public void updateIdealTrajectory(Translation3d target, double azimuthAngle) {
-    // Use trajectory optimizer with turret position (where ball actually launches from)
-    Translation3d turretPos = getTurretFieldPosition();
-    TrajectoryOptimizer.OptimalShot optimalShot =
-        TrajectoryOptimizer.calculateOptimalShot(turretPos, target);
-
-    double idealVelocity = optimalShot.exitVelocityMps;
-    double idealAngleDeg = optimalShot.launchAngleDeg;
-    double idealAngleRad = Math.toRadians(idealAngleDeg);
-
-    calculateTrajectoryPoints(idealVelocity, idealAngleRad, azimuthAngle, idealTrajectory);
-    Logger.recordOutput("Turret/IdealTrajectory", idealTrajectory);
-    Logger.recordOutput("Turret/Ideal/VelocityMps", idealVelocity);
-    Logger.recordOutput("Turret/Ideal/LaunchAngleDeg", idealAngleDeg);
-    Logger.recordOutput("Turret/Ideal/RPM", optimalShot.rpm);
-    Logger.recordOutput("Turret/Ideal/PeakHeightM", optimalShot.peakHeightM);
-    Logger.recordOutput("Turret/Ideal/Achievable", optimalShot.achievable);
-  }
-
-  /**
    * Determine the launcher status based on current and target RPM.
    *
    * @return LauncherStatus indicating ready state
@@ -311,7 +280,6 @@ public class TurretVisualizer {
       double currentExitVelocity, double currentLaunchAngle, double currentAzimuthAngle) {
     calculateTrajectoryPoints(
         currentExitVelocity, currentLaunchAngle, currentAzimuthAngle, actualTrajectory);
-    Logger.recordOutput("Turret/ActualTrajectory", actualTrajectory);
 
     // Log color-coded trajectories based on launcher status
     LauncherStatus status = getLauncherStatus();
@@ -340,16 +308,6 @@ public class TurretVisualizer {
     }
   }
 
-  /**
-   * Legacy method - updates actual trajectory with given parameters.
-   *
-   * @deprecated Use updateActualTrajectory instead
-   */
-  @Deprecated
-  public void updateTrajectory(double exitVelocity, double launchAngle, double azimuthAngle) {
-    updateActualTrajectory(exitVelocity, launchAngle, azimuthAngle);
-  }
-
   /** Log fuel inventory status. */
   public void logFuelStatus() {
     Logger.recordOutput("Intake/Fuel/Stored", fuelStored);
@@ -357,7 +315,8 @@ public class TurretVisualizer {
   }
 
   /**
-   * Calculate and visualize trajectories for a target. Updates BOTH ideal and actual trajectories.
+   * Calculate and visualize the trajectory for a target. Updates the color-coded trajectory
+   * (red/yellow/green based on launcher status).
    *
    * @param shotData The calculated shot parameters (used for target position)
    * @param currentTurretAngleRad Current turret angle in radians (for actual trajectory)
@@ -375,81 +334,15 @@ public class TurretVisualizer {
     // Store azimuth for use by launchFuel
     this.currentAzimuthAngle = targetAzimuthAngle;
 
-    // IDEAL trajectory: Uses trajectory optimizer for optimal RPM+hood combination
-    // Uses turret position (where ball launches from), not robot center
-    updateIdealTrajectory(target, targetAzimuthAngle);
+    // Update trajectory visualization (color-coded by launcher status)
+    updateActualTrajectory(
+        shotData.getExitVelocity(), shotData.getLaunchAngle(), targetAzimuthAngle);
 
-    // ACTUAL trajectory: What we'll actually launch with (same as launchFuel uses)
-    // Uses the shot data's ideal parameters since that's what launchFuel() uses
-    double actualExitVelocity = shotData.getExitVelocity();
-    double actualLaunchAngle = shotData.getLaunchAngle();
-
-    updateActualTrajectory(actualExitVelocity, actualLaunchAngle, targetAzimuthAngle);
-
-    // Log for debugging
-    Logger.recordOutput("Turret/Shot/TargetRPM", TurretCalculator.getTargetLauncherRPM());
+    // Log current launcher RPM (Turret.java owns the other Shot/ values)
     Logger.recordOutput("Turret/Shot/CurrentRPM", TurretCalculator.getCurrentLauncherRPM());
-    Logger.recordOutput("Turret/Shot/ExitVelocityMps", actualExitVelocity);
-    Logger.recordOutput("Turret/Shot/LaunchAngleDeg", Math.toDegrees(actualLaunchAngle));
-    Logger.recordOutput("Turret/Shot/AzimuthDeg", Math.toDegrees(targetAzimuthAngle));
 
-    // Log target marker
+    // Log compensated target marker (offset from hub when robot is moving)
     Logger.recordOutput(
-        "Turret/TargetPosition", new Pose3d(shotData.getTarget(), new Rotation3d()));
-  }
-
-  /**
-   * Calculate the optimal launch angle for a given exit velocity to hit the target. Uses higher
-   * angle solution for arc shots that drop into the hub.
-   *
-   * @param exitVelocity Exit velocity in m/s
-   * @param target Target position
-   * @return Launch angle in radians
-   */
-  private double calculateLaunchAngleForVelocity(double exitVelocity, Translation3d target) {
-    Translation3d turretPos = getTurretFieldPosition();
-
-    double dx = target.getX() - turretPos.getX();
-    double dy = target.getY() - turretPos.getY();
-    double horizontalDistance = Math.sqrt(dx * dx + dy * dy);
-    double heightDiff = target.getZ() - turretPos.getZ();
-
-    double v2 = exitVelocity * exitVelocity;
-    double v4 = v2 * v2;
-    double g = GRAVITY;
-    double x = horizontalDistance;
-    double y = heightDiff;
-
-    double discriminant = v4 - g * (g * x * x + 2 * y * v2);
-    if (discriminant >= 0) {
-      // Use higher angle for arc shot
-      return Math.atan((v2 + Math.sqrt(discriminant)) / (g * x));
-    } else {
-      // Target unreachable - use 45 degrees
-      return Math.PI / 4;
-    }
-  }
-
-  /**
-   * Legacy method - updates ideal trajectory only.
-   *
-   * @deprecated Use visualizeShot(ShotData, currentTurretAngleRad, robotHeadingRad) instead
-   */
-  @Deprecated
-  public void visualizeShot(TurretCalculator.ShotData shotData) {
-    Translation3d turretPos = getTurretFieldPosition();
-    Translation3d target = shotData.getTarget();
-    double azimuthAngle =
-        Math.atan2(target.getY() - turretPos.getY(), target.getX() - turretPos.getX());
-
-    // Store azimuth for use by launchFuel
-    this.currentAzimuthAngle = azimuthAngle;
-
-    // Uses turret position (where ball launches from), not robot center
-    updateIdealTrajectory(target, azimuthAngle);
-
-    // Log target marker
-    Logger.recordOutput(
-        "Turret/TargetPosition", new Pose3d(shotData.getTarget(), new Rotation3d()));
+        "Turret/Shot/CompensatedTarget", new Pose3d(shotData.getTarget(), new Rotation3d()));
   }
 }
