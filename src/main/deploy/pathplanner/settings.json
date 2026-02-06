@@ -3,10 +3,11 @@
   "robotLength": 0.787,
   "holonomicMode": true,
   "pathFolders": [
-    "Human Player"
+    "Auto Paths",
+    "Test Paths"
   ],
   "autoFolders": [
-    "Basic Maneuvers"
+    "Test Maneuvers"
   ],
   "defaultMaxVel": 2.5,
   "defaultMaxAccel": 2.5,

@@ -72,7 +72,7 @@
     "rotation": 1.041626676009992
   },
   "reversed": false,
-  "folder": "Human Player",
+  "folder": "Auto Paths",
   "idealStartingState": {
     "velocity": 0,
     "rotation": 180.0

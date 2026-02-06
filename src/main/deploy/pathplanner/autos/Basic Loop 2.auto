@@ -14,6 +14,6 @@
     }
   },
   "resetOdom": true,
-  "folder": "Basic Maneuvers",
+  "folder": "Test Maneuvers",
   "choreoAuto": false
 }

@@ -5,9 +5,15 @@
     "data": {
       "commands": [
         {
+          "type": "named",
+          "data": {
+            "name": "waitUntilFuelEmpty"
+          }
+        },
+        {
           "type": "path",
           "data": {
-            "pathName": "Trench on Right Side"
+            "pathName": "TrenchRight"
           }
         }
       ]

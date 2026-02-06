@@ -7,25 +7,13 @@
         {
           "type": "named",
           "data": {
-            "name": " AutoAimTurret"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "StartLauncher"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "RunIntake"
+            "name": "waitUntilFuelEmpty"
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "Trench"
+            "pathName": "TrenchLeft"
           }
         }
       ]
