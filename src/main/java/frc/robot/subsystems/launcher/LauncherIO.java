@@ -39,6 +39,18 @@ public interface LauncherIO {
   /** Set the target velocity in wheel RPM. */
   public default void setVelocity(double velocityRPM) {}
 
+  /**
+   * Set the target velocity with recovery boost parameters.
+   *
+   * @param velocityRPM Target velocity in wheel RPM
+   * @param boostVolts Extra feedforward voltage to add during recovery
+   * @param recoveryActive True to use recovery PID gains (higher P for faster response)
+   */
+  public default void setVelocityWithBoost(
+      double velocityRPM, double boostVolts, boolean recoveryActive) {
+    setVelocity(velocityRPM);
+  }
+
   /** Run the launcher at the specified voltage (for characterization). */
   public default void setVoltage(double volts) {}
 

@@ -82,25 +82,25 @@ public class ShootingCommands {
 
   // Target velocities for shooting
   private static final LoggedTunableNumber launchVelocityRPM =
-      new LoggedTunableNumber("Shooting/Auto/LaunchVelocityRPM", 2000.0);
+      new LoggedTunableNumber("Shooting/Auto/LaunchVelocityRPM", 1700.0);
 
   private static final LoggedTunableNumber motivatorVelocityRPM =
       new LoggedTunableNumber("Shooting/Auto/MotivatorVelocityRPM", 1000.0);
 
   private static final LoggedTunableNumber prefeedVelocityRPM =
-      new LoggedTunableNumber("Shooting/Auto/PrefeedVelocityRPM", 500.0);
+      new LoggedTunableNumber("Shooting/Auto/PrefeedVelocityRPM", 1000.0);
 
   // ===== Shooting/Test/* Override Values (for controlled manual testing) =====
   // These allow manually setting all mechanism parameters while obeying safety limits
 
   private static final LoggedTunableNumber testLauncherRPM =
-      new LoggedTunableNumber("Shooting/Test/LauncherRPM", 2000.0);
+      new LoggedTunableNumber("Shooting/Test/LauncherRPM", 1700.0);
 
   private static final LoggedTunableNumber testMotivatorRPM =
       new LoggedTunableNumber("Shooting/Test/MotivatorRPM", 1000.0);
 
   private static final LoggedTunableNumber testPrefeedRPM =
-      new LoggedTunableNumber("Shooting/Test/PrefeedRPM", 500.0);
+      new LoggedTunableNumber("Shooting/Test/PrefeedRPM", 1000.0);
 
   private static final LoggedTunableNumber testTurretAngleDeg =
       new LoggedTunableNumber("Shooting/Test/AngleDegTurret", 0.0);
@@ -219,6 +219,7 @@ public class ShootingCommands {
                 () -> {
                   SmartDashboard.putString("Shooting/Status/State", "Firing");
                   System.out.println("[Launch] At setpoint, starting prefeed and firing");
+                  launcher.setFeedingActive(true);
                 }),
 
             // Phase 3: Start prefeed and fire repeatedly
@@ -245,6 +246,7 @@ public class ShootingCommands {
                 createFiringLoop(turret, launcher)))
         .finallyDo(
             () -> {
+              launcher.setFeedingActive(false);
               launcher.stop();
               if (motivator != null) {
                 motivator.stop();
@@ -451,6 +453,7 @@ public class ShootingCommands {
                 () -> {
                   SmartDashboard.putString("Shooting/Status/State", "Ready - Starting Prefeed");
                   System.out.println("[ManualFire] All mechanisms ready, starting prefeed");
+                  launcher.setFeedingActive(true);
                 }),
 
             // Phase 3: Start prefeed and fire repeatedly
@@ -487,6 +490,7 @@ public class ShootingCommands {
                 createFiringLoop(turret, launcher)))
         .finallyDo(
             () -> {
+              launcher.setFeedingActive(false);
               launcher.stop();
               if (motivator != null) {
                 motivator.stop();

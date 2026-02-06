@@ -138,6 +138,12 @@ public class LauncherIOSim implements LauncherIO {
   }
 
   @Override
+  public void setVelocityWithBoost(double velocityRPM, double boostVolts, boolean recoveryActive) {
+    // Sim doesn't need boost - delegate to normal setVelocity
+    setVelocity(velocityRPM);
+  }
+
+  @Override
   public void setVoltage(double volts) {
     voltageMode = true;
     targetWheelRPM = 0.0;

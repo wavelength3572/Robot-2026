@@ -198,10 +198,10 @@ public class ButtonsAndDashboardBindings {
 
     // === Launcher Test Controls ===
     if (launcher != null) {
-      // Run launcher at tunable velocity (hold this button in dashboard)
+      // Run launcher at default launch velocity (hold this button in dashboard)
       SmartDashboard.putData(
           "TestSubsystems/Launcher/Run",
-          launcher.runAtTunableVelocityCommand().withName("Run Launcher"));
+          launcher.runAtVelocityCommand(1700).withName("Run Launcher"));
 
       // Stop launcher
       SmartDashboard.putData(

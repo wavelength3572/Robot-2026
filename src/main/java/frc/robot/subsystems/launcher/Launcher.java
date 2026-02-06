@@ -22,21 +22,23 @@ public class Launcher extends SubsystemBase {
   private final LauncherIOInputsAutoLogged inputs = new LauncherIOInputsAutoLogged();
   private final SysIdRoutine sysId;
 
-  // Dashboard-tunable target velocity (starts at 0 for safety)
-  private static final LoggedTunableNumber targetVelocity =
-      new LoggedTunableNumber("Tuning/Launcher/TargetVelocityRPM", 0.0);
+  // Recovery boost tunables
+  private static final LoggedTunableNumber recoveryBoostThresholdRPM =
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostThresholdRPM", 50.0);
+  private static final LoggedTunableNumber recoveryBoostVolts =
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostVolts", 0.0);
+
+  // Feeding flag - set by ShootingCommands when prefeed starts
+  private boolean feedingActive = false;
+
+  // Tracks whether recovery mode is currently active (for hysteresis)
+  private boolean recoveryActive = false;
 
   // Safety threshold for velocity mismatch between motors
   private static final double VELOCITY_MISMATCH_THRESHOLD_RPM = 200.0;
 
   // SysId safety: end test when velocity reaches this threshold
   private static final double SYSID_MAX_VELOCITY_RPM = 3000.0;
-
-  // SysId data collection for automatic kS/kV calculation
-  // Set min velocity to focus characterization on your actual shooting range
-  // e.g., if you shoot at 2000-2800 RPM, set min to ~1500 to bias the fit
-  private static final LoggedTunableNumber sysIdMinVelocityRPM =
-      new LoggedTunableNumber("Tuning/Launcher/SysIdMinVelocityRPM", 1000.0);
 
   private final List<Double> sysIdVoltages = new ArrayList<>();
   private final List<Double> sysIdVelocities = new ArrayList<>();
@@ -67,8 +69,7 @@ public class Launcher extends SubsystemBase {
                       .angularVelocity(RadiansPerSecond.of(velocityRadPerSec));
 
                   // Collect data for automatic kS/kV calculation
-                  // Only collect above min threshold to focus on operating velocity range
-                  if (collectingSysIdData && inputs.wheelVelocityRPM > sysIdMinVelocityRPM.get()) {
+                  if (collectingSysIdData && inputs.wheelVelocityRPM > 1000.0) {
                     sysIdVoltages.add(inputs.leaderAppliedVolts);
                     sysIdVelocities.add(velocityRadPerSec);
                   }
@@ -110,23 +111,51 @@ public class Launcher extends SubsystemBase {
   }
 
   /**
-   * Set the launcher wheel velocity.
+   * Set the launcher wheel velocity. Computes recovery boost if feeding is active and RPM has
+   * dipped below threshold.
    *
    * @param velocityRPM Target velocity in wheel RPM
    */
   public void setVelocity(double velocityRPM) {
-    io.setVelocity(velocityRPM);
+    // Determine if recovery is active with hysteresis:
+    // - Activate when error exceeds threshold
+    // - Deactivate only when error drops below half the threshold
+    double boost = 0.0;
+    if (feedingActive && velocityRPM > 100.0) {
+      double error = velocityRPM - inputs.wheelVelocityRPM;
+      double threshold = recoveryBoostThresholdRPM.get();
+      if (!recoveryActive && error > threshold) {
+        recoveryActive = true;
+      } else if (recoveryActive && error < threshold * 0.5) {
+        recoveryActive = false;
+      }
+      if (recoveryActive) {
+        boost = recoveryBoostVolts.get();
+      }
+    } else {
+      recoveryActive = false;
+    }
+    Logger.recordOutput("Launcher/RecoveryBoostActive", recoveryActive);
+    Logger.recordOutput("Launcher/RecoveryBoostVolts", boost);
+
+    io.setVelocityWithBoost(velocityRPM, boost, recoveryActive);
     // Update TurretCalculator with target RPM for setpoint trajectory
     TurretCalculator.setTargetLauncherRPM(velocityRPM);
   }
 
-  /** Run the launcher at the dashboard-tunable velocity. Useful for PID tuning. */
-  public void runAtTunableVelocity() {
-    io.setVelocity(targetVelocity.get());
+  /**
+   * Set whether feeding is actively pushing balls into the launcher. Used by ShootingCommands to
+   * enable recovery boost only during actual shooting.
+   *
+   * @param active True when prefeed is running
+   */
+  public void setFeedingActive(boolean active) {
+    this.feedingActive = active;
   }
 
   /** Stop the launcher. */
   public void stop() {
+    feedingActive = false;
     io.stop();
     TurretCalculator.setTargetLauncherRPM(0.0);
   }
@@ -288,16 +317,6 @@ public class Launcher extends SubsystemBase {
     return run(() -> setVelocity(velocityRPM))
         .finallyDo(this::stop)
         .withName("Launcher: Run at " + velocityRPM + " RPM");
-  }
-
-  /**
-   * Command to run the launcher at the dashboard-tunable velocity. Updates continuously so you can
-   * change the velocity via Elastic while running.
-   *
-   * @return Command that runs until interrupted
-   */
-  public Command runAtTunableVelocityCommand() {
-    return run(this::runAtTunableVelocity).finallyDo(this::stop).withName("Launcher: Tunable");
   }
 
   /**

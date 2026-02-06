@@ -74,6 +74,10 @@ public class LauncherIOSparkFlex implements LauncherIO {
   private static final LoggedTunableNumber velocityToleranceRPM =
       new LoggedTunableNumber("Tuning/Launcher/VelocityToleranceRPM", 50.0);
 
+  // Recovery P boost - extra P gain added to Slot 1 for faster recovery during shooting
+  private final LoggedTunableNumber recoveryKpBoost =
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.0001);
+
   public LauncherIOSparkFlex() {
     config = Constants.getRobotConfig();
 
@@ -114,10 +118,13 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
     // PID control using motor's relative encoder (units: motor RPM)
     // No conversion factors - all conversions done in software
+    // Slot 0: Normal PID gains
+    // Slot 1: Recovery PID gains (higher P for faster recovery during shooting)
     leaderConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pidf(kP.get(), kI.get(), kD.get(), 0.0);
+        .pidf(kP.get(), kI.get(), kD.get(), 0.0)
+        .pidf(kP.get() + recoveryKpBoost.get(), kI.get(), kD.get(), 0.0, ClosedLoopSlot.kSlot1);
 
     // Signal update rates
     leaderConfig
@@ -186,10 +193,13 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
   @Override
   public void updateInputs(LauncherIOInputs inputs) {
-    // Check for tunable PID/FF changes and apply
-    if (LoggedTunableNumber.hasChanged(kP, kI, kD)) {
+    // Check for tunable PID/FF changes and apply to both slots
+    if (LoggedTunableNumber.hasChanged(kP, kI, kD, recoveryKpBoost)) {
       var pidConfig = new SparkFlexConfig();
-      pidConfig.closedLoop.pidf(kP.get(), kI.get(), kD.get(), 0.0);
+      pidConfig
+          .closedLoop
+          .pidf(kP.get(), kI.get(), kD.get(), 0.0)
+          .pidf(kP.get() + recoveryKpBoost.get(), kI.get(), kD.get(), 0.0, ClosedLoopSlot.kSlot1);
       leaderMotor.configure(
           pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
     }
@@ -240,6 +250,11 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
   @Override
   public void setVelocity(double velocityRPM) {
+    setVelocityWithBoost(velocityRPM, 0.0, false);
+  }
+
+  @Override
+  public void setVelocityWithBoost(double velocityRPM, double boostVolts, boolean recoveryActive) {
     // Clamp to max velocity (wheel RPM)
     currentTargetWheelRPM = Math.min(Math.abs(velocityRPM), MAX_VELOCITY_RPM);
 
@@ -249,11 +264,17 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Calculate feedforward using WHEEL velocity (SysId was characterized with wheel velocity)
     double wheelRadPerSec = Units.rotationsPerMinuteToRadiansPerSecond(currentTargetWheelRPM);
     double arbFFVolts = feedforward.calculate(wheelRadPerSec);
+    double totalFFVolts = arbFFVolts + boostVolts;
     Logger.recordOutput("Launcher/FeedforwardVolts", arbFFVolts);
+    Logger.recordOutput("Launcher/TotalFeedforwardVolts", totalFFVolts);
+
+    // Select PID slot: Slot 1 has boosted P for faster recovery during shooting
+    ClosedLoopSlot slot = recoveryActive ? ClosedLoopSlot.kSlot1 : ClosedLoopSlot.kSlot0;
+    Logger.recordOutput("Launcher/UsingRecoveryPID", recoveryActive);
 
     // Command leader with PID + feedforward - follower follows automatically in hardware
     leaderController.setReference(
-        motorRPM, ControlType.kVelocity, ClosedLoopSlot.kSlot0, arbFFVolts, ArbFFUnits.kVoltage);
+        motorRPM, ControlType.kVelocity, slot, totalFFVolts, ArbFFUnits.kVoltage);
   }
 
   @Override
