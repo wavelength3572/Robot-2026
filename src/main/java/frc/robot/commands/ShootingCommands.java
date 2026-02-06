@@ -334,6 +334,40 @@ public class ShootingCommands {
   }
 
   /**
+   * Resets the simulation AND spawns all starting fuel on the field. Use this to set up a
+   * game-accurate field for autonomous testing. Clears existing fuel, resets hub scores, spawns all
+   * 408 starting fuel (neutral zone + depots), and loads 50 balls in hopper.
+   *
+   * @param turret The turret subsystem (to access visualizer)
+   * @return Command that resets simulation with full field fuel
+   */
+  public static Command resetStartingFieldCommand(Turret turret) {
+    return Commands.runOnce(
+            () -> {
+              // Clear field and reset hub scores
+              FuelSim.getInstance().clearFuel();
+              FuelSim.Hub.BLUE_HUB.resetScore();
+              FuelSim.Hub.RED_HUB.resetScore();
+
+              // Spawn all starting fuel (neutral zone + depots)
+              FuelSim.getInstance().spawnStartingFuel();
+
+              // Put 50 balls in hopper
+              TurretVisualizer visualizer = turret.getVisualizer();
+              if (visualizer != null) {
+                visualizer.setFuelCount(50);
+                Logger.recordOutput("Shooting/FuelRemaining", 50);
+              }
+
+              Logger.recordOutput("Shooting/SimReset", true);
+              System.out.println(
+                  "[Shooting] Field reset: all starting fuel spawned, 50 balls in hopper");
+            })
+        .ignoringDisable(true)
+        .withName("Reset Starting Field");
+  }
+
+  /**
    * Manual test launch command using Shooting/Test/* dashboard values. Positions all mechanisms to
    * the specified values (obeying safety limits), waits for everything to reach setpoint, then
    * fires.

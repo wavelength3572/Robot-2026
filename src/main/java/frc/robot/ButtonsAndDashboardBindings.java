@@ -100,6 +100,17 @@ public class ButtonsAndDashboardBindings {
       SmartDashboard.putData(
           "TestSubsystems/Intake/Stop",
           Commands.runOnce(intake::stopRollers, intake).withName("Stop Intake"));
+
+      // Combined deploy + activate intake button
+      SmartDashboard.putData(
+          "TestSubsystems/Intake/DeployAndRun",
+          Commands.runOnce(
+                  () -> {
+                    intake.deploy();
+                    intake.runIntake();
+                  },
+                  intake)
+              .withName("Deploy & Run Intake"));
     }
 
     // TurretBot-specific testing controls
