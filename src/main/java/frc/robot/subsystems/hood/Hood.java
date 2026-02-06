@@ -20,12 +20,6 @@ public class Hood extends SubsystemBase {
 
   public Hood(HoodIO io) {
     this.io = io;
-
-    System.out.println("[Hood] ========== STARTUP ==========");
-    System.out.println("[Hood] Min angle: " + MIN_ANGLE_DEG + " deg");
-    System.out.println("[Hood] Max angle: " + MAX_ANGLE_DEG + " deg");
-    System.out.println("[Hood] Home angle: " + HOME_ANGLE_DEG + " deg");
-    System.out.println("[Hood] ==============================");
   }
 
   @Override

@@ -41,24 +41,6 @@ public class TurretIOSim implements TurretIO {
     // Create motion profile constraints
     constraints =
         new TrapezoidProfile.Constraints(MAX_VELOCITY_DEG_PER_SEC, MAX_ACCEL_DEG_PER_SEC_SQ);
-
-    // Print startup info
-    System.out.println();
-    System.out.println(
-        "+=========================================================================+");
-    System.out.println(
-        "|              TURRET SIMULATION INITIALIZED                              |");
-    System.out.println(
-        "+=========================================================================+");
-    System.out.printf(
-        "|  Soft Limits: %.1f deg to %+.1f deg                                    %n",
-        minAngleDegrees, maxAngleDegrees);
-    System.out.printf(
-        "|  Max Velocity: %.0f deg/sec  |  Max Accel: %.0f deg/sec^2              %n",
-        MAX_VELOCITY_DEG_PER_SEC, MAX_ACCEL_DEG_PER_SEC_SQ);
-    System.out.println(
-        "+=========================================================================+");
-    System.out.println();
   }
 
   @Override
