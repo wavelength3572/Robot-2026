@@ -4,7 +4,6 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -33,11 +32,15 @@ public class Turret extends SubsystemBase {
   // Current shot data
   private TurretCalculator.ShotData currentShot = null;
 
-  // Pass target offset tunables (adjustable in AdvantageScope during any mode including auto)
-  private final LoggedTunableNumber passAdjustX =
-      new LoggedTunableNumber("Shooting/Auto/Pass/AdjustX", 0.0);
-  private final LoggedTunableNumber passAdjustY =
-      new LoggedTunableNumber("Shooting/Auto/Pass/AdjustY", 0.0);
+  // Pass target offset tunables — separate for left and right trench
+  private final LoggedTunableNumber passLeftAdjustX =
+      new LoggedTunableNumber("Shooting/Auto/Pass/Left/AdjustX", 0.0);
+  private final LoggedTunableNumber passLeftAdjustY =
+      new LoggedTunableNumber("Shooting/Auto/Pass/Left/AdjustY", 0.0);
+  private final LoggedTunableNumber passRightAdjustX =
+      new LoggedTunableNumber("Shooting/Auto/Pass/Right/AdjustX", 0.0);
+  private final LoggedTunableNumber passRightAdjustY =
+      new LoggedTunableNumber("Shooting/Auto/Pass/Right/AdjustY", 0.0);
 
   // ========== Tunable Limits (adjust in AdvantageScope without recompiling!) ==========
   // FlipAngleDeg: How far can the turret rotate before it must "flip" (go the other way)
@@ -321,35 +324,56 @@ public class Turret extends SubsystemBase {
             TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
         Logger.recordOutput("Turret/Aim/Mode", aimResult.mode().name());
 
+        // Always compute and log both pass targets so they're visible in AdvantageScope
+        double allianceZoneX = FieldConstants.LinesVertical.allianceZone;
+        double fieldW = FieldConstants.fieldWidth;
+        double minX, maxX;
+        if (alliance == DriverStation.Alliance.Blue) {
+          minX = 0.5;
+          maxX = allianceZoneX - 0.5;
+        } else {
+          minX = FieldConstants.fieldLength - allianceZoneX + 0.5;
+          maxX = FieldConstants.fieldLength - 0.5;
+        }
+        double minY = 0.5;
+        double maxY = fieldW - 0.5;
+
+        double baseX =
+            isBlue
+                ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
+                : Constants.StrategyConstants.RED_PASS_TARGET_X;
+
+        // Left trench target (with offsets, clamped to alliance zone)
+        double leftRawX = baseX + passLeftAdjustX.get() * (maxX - minX) / 2.0;
+        double leftRawY =
+            Constants.StrategyConstants.LEFT_TRENCH_Y + passLeftAdjustY.get() * (maxY - minY) / 2.0;
+        Translation3d leftTarget =
+            new Translation3d(
+                Math.max(minX, Math.min(maxX, leftRawX)),
+                Math.max(minY, Math.min(maxY, leftRawY)),
+                0.0);
+        Logger.recordOutput("Turret/Pass/Left/Target", new Pose3d(leftTarget, new Rotation3d()));
+
+        // Right trench target (with offsets, clamped to alliance zone)
+        double rightRawX = baseX + passRightAdjustX.get() * (maxX - minX) / 2.0;
+        double rightRawY =
+            Constants.StrategyConstants.RIGHT_TRENCH_Y
+                + passRightAdjustY.get() * (maxY - minY) / 2.0;
+        Translation3d rightTarget =
+            new Translation3d(
+                Math.max(minX, Math.min(maxX, rightRawX)),
+                Math.max(minY, Math.min(maxY, rightRawY)),
+                0.0);
+        Logger.recordOutput("Turret/Pass/Right/Target", new Pose3d(rightTarget, new Rotation3d()));
+
         if (aimResult.mode() == TurretAimingHelper.AimMode.SHOOT) {
           calculateShotToHub(isBlue);
         } else {
-          Translation2d passTarget2d = aimResult.target();
-          // Apply joystick offsets, clamped to alliance zone bounds
-          double allianceZoneX = FieldConstants.LinesVertical.allianceZone;
-          double fieldW = FieldConstants.fieldWidth;
-          double minX, maxX;
-          if (alliance == DriverStation.Alliance.Blue) {
-            minX = 0.5; // keep off the wall
-            maxX = allianceZoneX - 0.5;
-          } else {
-            minX = FieldConstants.fieldLength - allianceZoneX + 0.5;
-            maxX = FieldConstants.fieldLength - 0.5;
-          }
-          double minY = 0.5;
-          double maxY = fieldW - 0.5;
-
-          // Tunables map base target across the full alliance zone area
-          double rawX = passTarget2d.getX() + passAdjustX.get() * (maxX - minX) / 2.0;
-          double rawY = passTarget2d.getY() + passAdjustY.get() * (maxY - minY) / 2.0;
-          double clampedX = Math.max(minX, Math.min(maxX, rawX));
-          double clampedY = Math.max(minY, Math.min(maxY, rawY));
-
-          Logger.recordOutput("Turret/Pass/OffsetX", clampedX - passTarget2d.getX());
-          Logger.recordOutput("Turret/Pass/OffsetY", clampedY - passTarget2d.getY());
-          Translation3d passTarget3d = new Translation3d(clampedX, clampedY, 0.0);
-          Logger.recordOutput("Turret/Pass/Target", new Pose3d(passTarget3d, new Rotation3d()));
-          calculatePassToTarget(passTarget3d);
+          // Pick the active pass target based on which trench side the robot is on
+          boolean isLeftTrench = robotPose.getY() < fieldW / 2.0;
+          Translation3d activeTarget = isLeftTrench ? leftTarget : rightTarget;
+          Logger.recordOutput("Turret/Pass/Active", isLeftTrench ? "LEFT" : "RIGHT");
+          calculatePassToTarget(activeTarget);
         }
       }
 
