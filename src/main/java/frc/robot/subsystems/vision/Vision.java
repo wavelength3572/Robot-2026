@@ -316,7 +316,7 @@ public class Vision extends SubsystemBase {
     Transform3d frontRightCamTransform;
     Transform3d backLeftCamTransform;
     Transform3d backRightCamTransform;
-    Transform3d frontCenterCamTransform = null; // Only for MainBot
+    Transform3d objDetFrontLeftCamTransform = null; // Only for MainBot
 
     if (frc.robot.Constants.currentRobot == frc.robot.Constants.RobotType.MAINBOT) {
       // MainBot camera transforms (5 cameras)
@@ -324,7 +324,7 @@ public class Vision extends SubsystemBase {
       frontRightCamTransform = VisionConstants.mainBotToFrontRightCam;
       backLeftCamTransform = VisionConstants.mainBotToBackLeftCam;
       backRightCamTransform = VisionConstants.mainBotToBackRightCam;
-      frontCenterCamTransform = VisionConstants.mainBotToFrontCenterCam;
+      objDetFrontLeftCamTransform = VisionConstants.mainBotToObjectDetectionFrontLeftCam;
     } else {
       // SquareBot camera transforms (4 cameras)
       frontLeftCamTransform = robotToFrontLeftCam;
@@ -340,13 +340,13 @@ public class Vision extends SubsystemBase {
     Pose3d backRightPose = robotPose3d.transformBy(backRightCamTransform);
 
     if (frc.robot.Constants.currentRobot == frc.robot.Constants.RobotType.MAINBOT
-        && frontCenterCamTransform != null) {
+        && objDetFrontLeftCamTransform != null) {
       // MainBot has 5 cameras
-      Pose3d frontCenterPose = robotPose3d.transformBy(frontCenterCamTransform);
+      Pose3d objDetFrontLeftPose = robotPose3d.transformBy(objDetFrontLeftCamTransform);
       Logger.recordOutput(
           "Vision/CameraViz/AllCameras",
           new Pose3d[] {
-            frontLeftPose, frontRightPose, backLeftPose, backRightPose, frontCenterPose
+            frontLeftPose, frontRightPose, backLeftPose, backRightPose, objDetFrontLeftPose
           });
     } else {
       // SquareBot has 4 cameras

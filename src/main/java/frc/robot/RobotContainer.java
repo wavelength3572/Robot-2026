@@ -241,7 +241,8 @@ public class RobotContainer {
                     new VisionIOPhotonVision(
                         VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam),
                     new VisionIOPhotonVision(
-                        VisionConstants.frontCenterCam, VisionConstants.mainBotToFrontCenterCam));
+                        VisionConstants.objectDetectionFrontLeftCam,
+                        VisionConstants.mainBotToObjectDetectionFrontLeftCam));
           } else {
             vision = null;
           }
@@ -317,8 +318,8 @@ public class RobotContainer {
                         VisionConstants.mainBotToBackRightCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
-                        VisionConstants.frontCenterCam,
-                        VisionConstants.mainBotToFrontCenterCam,
+                        VisionConstants.objectDetectionFrontLeftCam,
+                        VisionConstants.mainBotToObjectDetectionFrontLeftCam,
                         RobotStatus::getRobotPose));
           } else {
             vision = null;

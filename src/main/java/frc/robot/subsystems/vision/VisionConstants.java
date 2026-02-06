@@ -34,7 +34,8 @@ public final class VisionConstants {
   public static String backRightCam = "BackRight";
   public static String frontLeftCam = "FrontLeft";
   public static String backLeftCam = "BackLeft";
-  public static String frontCenterCam = "FrontCenter"; // Intake/object detection camera
+  public static String objectDetectionFrontLeftCam =
+      "ObjectDetectionFrontLeft"; // Object detection camera
 
   // Robot to camera transforms
   // TODO: Calibrate these transforms for your 2026 robot - these are placeholders
@@ -84,14 +85,15 @@ public final class VisionConstants {
 
   // Standard deviation multipliers for each camera
   // (Adjust to trust some cameras more than others)
-  // Order matches camera instantiation: FrontLeft, FrontRight, BackLeft, BackRight, FrontCenter
+  // Order matches camera instantiation: FrontLeft, FrontRight, BackLeft, BackRight,
+  // ObjectDetectionFrontLeft
   public static double[] cameraStdDevFactors =
       new double[] {
         1.0, // FrontLeft
         1.0, // FrontRight
         1.0, // BackLeft
         1.0, // BackRight
-        1.0 // FrontCenter - MainBot only
+        1.0 // ObjectDetectionFrontLeft - MainBot only
       };
 
   // Multipliers to apply for MegaTag 2 observations
@@ -145,16 +147,16 @@ public final class VisionConstants {
               Rotation2d.fromDegrees(-10).getRadians(), // Pitch down 10°
               Rotation2d.fromDegrees(180).getRadians())); // Yaw straight backward
 
-  // MainBot front center camera - for intake/object detection
-  // Positioned at front center, looking straight ahead with downward pitch
-  public static Transform3d mainBotToFrontCenterCam =
+  // MainBot object detection camera - front left
+  // Mounted just below frame near front left swerve pod, looking straight ahead
+  public static Transform3d mainBotToObjectDetectionFrontLeftCam =
       new Transform3d(
-          0.298, // X: front of robot
-          0.0, // Y: centered
-          0.5144, // Z: 20.25 inches
+          0.2726, // X: 1" back from front of robot
+          0.1744, // Y: ~6.9" left of center
+          0.0381, // Z: 1.5 inches off ground (just below bumper line for intake detection)
           new Rotation3d(
               0.0,
-              Rotation2d.fromDegrees(25).getRadians(), // Pitch DOWN 25° (positive = down)
+              Rotation2d.fromDegrees(0).getRadians(), // Pitch level
               Rotation2d.fromDegrees(0).getRadians())); // Yaw straight ahead
 
   private VisionConstants() {}
