@@ -360,6 +360,15 @@ public class RobotContainer {
     // Initialize RobotStatus with subsystem references (vision may be null for RectangleBot)
     RobotStatus.initialize(drive, vision);
 
+    // Connect vision to drive for adaptive std dev scaling based on robot speed
+    if (vision != null) {
+      vision.setRobotSpeedSupplier(
+          () -> {
+            var speeds = drive.getChassisSpeeds();
+            return Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
+          });
+    }
+
     // Connect intake to drive for velocity-based roller speed
     if (intake != null) {
       intake.setRobotVelocitySupplier(

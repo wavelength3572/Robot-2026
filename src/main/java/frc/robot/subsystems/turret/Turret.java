@@ -39,7 +39,12 @@ public class Turret extends SubsystemBase {
   private final LoggedTunableNumber centerOffsetDeg;
   private final LoggedTunableNumber warningZoneDeg;
 
-  // Cached effective limits (updated when tunables change)
+  // Dual-mode range: narrower range when tracking (idle) to reduce cable wear,
+  // full range only when actively launching. Inspired by 6328's tracking/launch mode.
+  private final LoggedTunableNumber trackingFlipAngleDeg;
+  private boolean launchModeActive = false;
+
+  // Cached effective limits (updated when tunables change or mode switches)
   private double effectiveMinAngleDeg;
   private double effectiveMaxAngleDeg;
 
@@ -74,6 +79,9 @@ public class Turret extends SubsystemBase {
     flipAngleDeg = new LoggedTunableNumber("Tuning/Turret/FlipAngleDeg", defaultFlipAngle);
     centerOffsetDeg = new LoggedTunableNumber("Tuning/Turret/CenterOffsetDeg", defaultCenter);
     warningZoneDeg = new LoggedTunableNumber("Tuning/Turret/WarningZoneDeg", 20.0);
+    // Tracking mode uses a narrower range (10° less each side) to reduce cable stress
+    trackingFlipAngleDeg =
+        new LoggedTunableNumber("Tuning/Turret/TrackingFlipAngleDeg", defaultFlipAngle - 10.0);
 
     // Calculate initial effective limits
     updateEffectiveLimits();
@@ -82,10 +90,11 @@ public class Turret extends SubsystemBase {
     printStartupDiagnostics();
   }
 
-  /** Update effective min/max limits from tunable flip angle and center offset. */
+  /** Update effective min/max limits from tunable flip angle, center offset, and active mode. */
   private void updateEffectiveLimits() {
     double center = centerOffsetDeg.get();
-    double flipAngle = flipAngleDeg.get();
+    double flipAngle =
+        launchModeActive ? flipAngleDeg.get() : trackingFlipAngleDeg.get();
     // Clamp to hard limits (mechanical stops)
     effectiveMinAngleDeg = Math.max(TurretConstants.HARD_LIMIT_MIN_DEG, center - flipAngle);
     effectiveMaxAngleDeg = Math.min(TurretConstants.HARD_LIMIT_MAX_DEG, center + flipAngle);
@@ -141,9 +150,12 @@ public class Turret extends SubsystemBase {
     Logger.processInputs("Turret", inputs);
 
     // Check if tunable limits have changed
-    if (LoggedTunableNumber.hasChanged(flipAngleDeg, centerOffsetDeg)) {
+    if (LoggedTunableNumber.hasChanged(flipAngleDeg, centerOffsetDeg, trackingFlipAngleDeg)) {
       updateEffectiveLimits();
     }
+
+    // Log dual-mode state
+    Logger.recordOutput("Turret/LaunchModeActive", launchModeActive);
 
     // Log additional useful debugging values
     double angleError = inputs.targetAngleDegrees - inputs.currentAngleDegrees;
@@ -369,15 +381,15 @@ public class Turret extends SubsystemBase {
     // Aim turret at the target (from turret position, not robot center)
     double azimuthRad = Math.atan2(target.getY() - turretY, target.getX() - turretX);
     double azimuthDeg = Math.toDegrees(azimuthRad);
-    // Convert to robot-relative angle
+    // Convert to robot-relative angle using closest-offset strategy
     double robotHeadingDeg = robotPose.getRotation().getDegrees();
-    double relativeAngleDeg = azimuthDeg - robotHeadingDeg;
-    // Normalize to -180 to 180 range
-    if (relativeAngleDeg > 180) {
-      relativeAngleDeg -= 360;
-    } else if (relativeAngleDeg < -180) {
-      relativeAngleDeg += 360;
-    }
+    double relativeAngleDeg =
+        calculateTurretAngle(
+            robotPose.getX(),
+            robotPose.getY(),
+            robotHeadingDeg,
+            target.getX(),
+            target.getY());
     setAngle(relativeAngleDeg);
 
     // Log shot data
@@ -564,6 +576,39 @@ public class Turret extends SubsystemBase {
     io.setTargetAngle(new Rotation2d(Rotation2d.fromDegrees(clampedAngle).getRadians()));
   }
 
+  // ========== Dual-Mode Range Methods ==========
+
+  /**
+   * Enable launch mode (full turret range). Call when actively shooting to allow the turret to use
+   * its full mechanical range.
+   */
+  public void enableLaunchMode() {
+    if (!launchModeActive) {
+      launchModeActive = true;
+      updateEffectiveLimits();
+    }
+  }
+
+  /**
+   * Disable launch mode (narrower tracking range). Call when done shooting to constrain the turret
+   * to a narrower range that reduces cable wear and avoids hard-stop collisions.
+   */
+  public void disableLaunchMode() {
+    if (launchModeActive) {
+      launchModeActive = false;
+      updateEffectiveLimits();
+    }
+  }
+
+  /**
+   * Check if launch mode is active.
+   *
+   * @return True if turret is using full launch range
+   */
+  public boolean isLaunchModeActive() {
+    return launchModeActive;
+  }
+
   // ========== Safety Control Methods ==========
 
   /**
@@ -648,15 +693,18 @@ public class Turret extends SubsystemBase {
 
   /**
    * Calculate the turret angle needed to point at a target location on the field, accounting for
-   * the turret's offset from the robot's center.
+   * the turret's offset from the robot's center. Uses closest-offset strategy: instead of
+   * normalizing to [-180, +180], tries the target angle ±360° and picks whichever is closest to
+   * the current turret position AND within the legal range. This avoids unnecessary 340°+ sweeps
+   * when a short rotation in the opposite direction is legal.
    *
    * @param robotX Robot center's X position on field (meters)
    * @param robotY Robot center's Y position on field (meters)
    * @param robotOmega Robot's heading in degrees (0-360, counter-clockwise from +X axis)
    * @param targetX Target X position on field (meters)
    * @param targetY Target Y position on field (meters)
-   * @return Angle in degrees the turret needs to rotate relative to robot heading Range: -180 to
-   *     +180 degrees
+   * @return Angle in degrees the turret needs to rotate relative to robot heading, within legal
+   *     range
    */
   private double calculateTurretAngle(
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
@@ -680,25 +728,48 @@ public class Turret extends SubsystemBase {
     double deltaX = targetX - turretFieldX;
     double deltaY = targetY - turretFieldY;
 
-    // Calculate absolute angle to target from field coordinates
+    // Calculate field-relative angle to target
     double absoluteAngle = Math.toDegrees(Math.atan2(deltaY, deltaX));
 
-    // Normalize to 0-360 range
-    if (absoluteAngle < 0) {
-      absoluteAngle += 360;
+    // Calculate robot-relative angle (raw, not yet wrapped)
+    double baseAngle = absoluteAngle - robotOmega;
+
+    // Closest-offset strategy: try baseAngle at multiple 360° offsets and pick
+    // the one closest to our current position that is within the legal range.
+    double currentAngle = inputs.currentAngleDegrees;
+    double bestAngle = Double.NaN;
+    double bestDistance = Double.MAX_VALUE;
+
+    for (int offset = -2; offset <= 2; offset++) {
+      double candidate = baseAngle + offset * 360.0;
+      // Check if candidate is within legal turret range
+      if (candidate >= effectiveMinAngleDeg && candidate <= effectiveMaxAngleDeg) {
+        double distance = Math.abs(candidate - currentAngle);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestAngle = candidate;
+        }
+      }
     }
 
-    // Calculate relative angle (turret angle relative to robot heading)
-    double relativeAngle = absoluteAngle - robotOmega;
-
-    // Normalize to -180 to +180 range for shortest rotation
-    if (relativeAngle > 180) {
-      relativeAngle -= 360;
-    } else if (relativeAngle < -180) {
-      relativeAngle += 360;
+    // If no offset was in range, fall back to clamping the closest candidate
+    if (Double.isNaN(bestAngle)) {
+      // Find the candidate closest to center of legal range and clamp
+      double rangeCenter = (effectiveMinAngleDeg + effectiveMaxAngleDeg) / 2.0;
+      bestAngle = baseAngle;
+      bestDistance = Double.MAX_VALUE;
+      for (int offset = -2; offset <= 2; offset++) {
+        double candidate = baseAngle + offset * 360.0;
+        double distance = Math.abs(candidate - rangeCenter);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestAngle = candidate;
+        }
+      }
+      bestAngle = Math.max(effectiveMinAngleDeg, Math.min(effectiveMaxAngleDeg, bestAngle));
     }
 
-    return relativeAngle;
+    return bestAngle;
   }
 
   /**

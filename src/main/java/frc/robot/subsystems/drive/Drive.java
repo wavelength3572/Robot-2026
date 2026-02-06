@@ -47,6 +47,11 @@ import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase {
+  // Phase delay: time between computing a shot and the ball actually leaving the turret.
+  // Accounts for control loop latency, mechanical response, and ball transit time.
+  // At 3 m/s this projects the aim point ~6-9 cm forward — significant at long range.
+  private static final double AIM_PHASE_DELAY_SECONDS = 0.02; // One control loop cycle (20ms)
+
   static final Lock odometryLock = new ReentrantLock();
   private final GyroIO gyroIO;
   private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
@@ -176,23 +181,37 @@ public class Drive extends SubsystemBase {
       poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
     }
 
-    // Update turret to aim based on zone: shoot in alliance zone, pass otherwise
+    // Update turret to aim based on zone: shoot in alliance zone, pass otherwise.
+    // Project robot position forward by phase delay to compensate for control latency.
     if (turret != null) {
       Pose2d currentPose = getPose();
       Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
 
+      // Project pose forward using Twist2d to account for phase delay.
+      // This compensates for the time between computing the aim angle and the ball leaving.
+      ChassisSpeeds speeds = getChassisSpeeds();
+      Twist2d twist =
+          new Twist2d(
+              speeds.vxMetersPerSecond * AIM_PHASE_DELAY_SECONDS,
+              speeds.vyMetersPerSecond * AIM_PHASE_DELAY_SECONDS,
+              speeds.omegaRadiansPerSecond * AIM_PHASE_DELAY_SECONDS);
+      Pose2d projectedPose = currentPose.exp(twist);
+
       TurretAimingHelper.AimResult aimResult =
-          TurretAimingHelper.getAimTarget(currentPose.getX(), currentPose.getY(), alliance);
+          TurretAimingHelper.getAimTarget(
+              projectedPose.getX(), projectedPose.getY(), alliance);
 
       // Log aiming data for AdvantageScope (zone-based target selection)
       Logger.recordOutput("Turret/Aim/Mode", aimResult.mode().toString());
       Logger.recordOutput("Turret/Aim/TargetX", aimResult.target().getX());
       Logger.recordOutput("Turret/Aim/TargetY", aimResult.target().getY());
+      Logger.recordOutput("Turret/Aim/ProjectedPoseX", projectedPose.getX());
+      Logger.recordOutput("Turret/Aim/ProjectedPoseY", projectedPose.getY());
 
       turret.aimAtFieldPosition(
-          currentPose.getX(),
-          currentPose.getY(),
-          currentPose.getRotation().getDegrees(),
+          projectedPose.getX(),
+          projectedPose.getY(),
+          projectedPose.getRotation().getDegrees(),
           aimResult.target().getX(),
           aimResult.target().getY());
     }
@@ -314,6 +333,21 @@ public class Drive extends SubsystemBase {
   /** Returns the current odometry rotation. */
   public Rotation2d getRotation() {
     return getPose().getRotation();
+  }
+
+  /**
+   * Returns the pose projected forward by the aim phase delay, accounting for current velocity.
+   * Use this for aiming calculations that need to compensate for control loop latency.
+   */
+  public Pose2d getProjectedPose() {
+    Pose2d currentPose = getPose();
+    ChassisSpeeds speeds = getChassisSpeeds();
+    Twist2d twist =
+        new Twist2d(
+            speeds.vxMetersPerSecond * AIM_PHASE_DELAY_SECONDS,
+            speeds.vyMetersPerSecond * AIM_PHASE_DELAY_SECONDS,
+            speeds.omegaRadiansPerSecond * AIM_PHASE_DELAY_SECONDS);
+    return currentPose.exp(twist);
   }
 
   /** Resets the current odometry pose. */

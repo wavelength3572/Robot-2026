@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
 
 public class Vision extends SubsystemBase {
@@ -41,6 +42,10 @@ public class Vision extends SubsystemBase {
   private final Alert[] disconnectedAlerts;
 
   private boolean isVisionOn = true;
+
+  // Robot speed supplier for adaptive std dev scaling.
+  // Higher speeds increase measurement uncertainty from motion blur.
+  private Supplier<Double> robotSpeedSupplier = () -> 0.0;
 
   private final Map<Integer, Double> aprilTagTimestamps = new ConcurrentHashMap<>();
 
@@ -132,6 +137,16 @@ public class Vision extends SubsystemBase {
     isVisionOn = false;
   }
 
+  /**
+   * Set the robot speed supplier for adaptive standard deviation scaling. Higher robot speeds
+   * increase vision measurement uncertainty due to motion blur.
+   *
+   * @param speedSupplier Supplies robot speed in m/s (magnitude of chassis velocity)
+   */
+  public void setRobotSpeedSupplier(Supplier<Double> speedSupplier) {
+    this.robotSpeedSupplier = speedSupplier;
+  }
+
   private void updateMainPipeline() {
     // In simulation, update the vision sim ONCE before processing any cameras
     // (VisionSystemSim.update() simulates ALL cameras at once)
@@ -218,9 +233,25 @@ public class Vision extends SubsystemBase {
         }
         robotPosesAccepted.add(observation.pose());
 
-        // Calculate standard deviations
+        // Calculate standard deviations using adaptive scaling:
+        // - Base: distance² / tagCount (existing heuristic)
+        // - Ambiguity: scale up for ambiguous single-tag observations
+        // - Speed: scale up at high robot speeds (motion blur degrades image quality)
         double stdDevFactor =
             Math.pow(observation.closestTagDistance(), 2.0) / observation.tagCount();
+
+        // Ambiguity scaling: observations with higher ambiguity are less trustworthy.
+        // For multi-tag (ambiguity ~0), this adds ~0%. For single-tag at 0.25 ambiguity,
+        // this adds ~50% uncertainty. Scales linearly from 0 to 2x at maxAmbiguity.
+        double ambiguityScale = 1.0 + (observation.ambiguity() / maxAmbiguity) * 2.0;
+        stdDevFactor *= ambiguityScale;
+
+        // Speed scaling: at high speeds, camera images are blurred and less reliable.
+        // Adds up to 50% uncertainty at 3+ m/s. No effect when stationary.
+        double robotSpeed = robotSpeedSupplier.get();
+        double speedScale = 1.0 + Math.min(robotSpeed / 3.0, 1.0) * 0.5;
+        stdDevFactor *= speedScale;
+
         double linearStdDev = linearStdDevBaseline * stdDevFactor;
         double angularStdDev = angularStdDevBaseline * stdDevFactor;
         if (cameraIndex < cameraStdDevFactors.length) {
@@ -230,6 +261,8 @@ public class Vision extends SubsystemBase {
 
         Logger.recordOutput("Vision/StdDev/LinearStdDev" + cameraIndex, linearStdDev);
         Logger.recordOutput("Vision/StdDev/AngularStdDev" + cameraIndex, angularStdDev);
+        Logger.recordOutput("Vision/StdDev/AmbiguityScale" + cameraIndex, ambiguityScale);
+        Logger.recordOutput("Vision/StdDev/SpeedScale" + cameraIndex, speedScale);
 
         // Send vision observation
         consumer.accept(
