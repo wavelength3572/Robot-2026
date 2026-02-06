@@ -198,8 +198,7 @@ public class Drive extends SubsystemBase {
       Pose2d projectedPose = currentPose.exp(twist);
 
       TurretAimingHelper.AimResult aimResult =
-          TurretAimingHelper.getAimTarget(
-              projectedPose.getX(), projectedPose.getY(), alliance);
+          TurretAimingHelper.getAimTarget(projectedPose.getX(), projectedPose.getY(), alliance);
 
       // Log aiming data for AdvantageScope (zone-based target selection)
       Logger.recordOutput("Turret/Aim/Mode", aimResult.mode().toString());
@@ -336,8 +335,8 @@ public class Drive extends SubsystemBase {
   }
 
   /**
-   * Returns the pose projected forward by the aim phase delay, accounting for current velocity.
-   * Use this for aiming calculations that need to compensate for control loop latency.
+   * Returns the pose projected forward by the aim phase delay, accounting for current velocity. Use
+   * this for aiming calculations that need to compensate for control loop latency.
    */
   public Pose2d getProjectedPose() {
     Pose2d currentPose = getPose();

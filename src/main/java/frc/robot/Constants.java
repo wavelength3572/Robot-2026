@@ -29,8 +29,8 @@ public final class Constants {
    * The detected or configured robot type. Set FORCE_ROBOT_TYPE to override auto-detection. Set to
    * null to use auto-detection.
    */
-  public static final RobotType FORCE_ROBOT_TYPE =
-      RobotType.TURRETBOT; // TODO: Remove this and add TurretBot to auto-detect logic
+  public static final RobotType FORCE_ROBOT_TYPE = null;
+  // RobotType.TURRETBOT; // TODO: Remove this and add TurretBot to auto-detect logic
 
   public static final RobotType currentRobot = initRobotType();
 

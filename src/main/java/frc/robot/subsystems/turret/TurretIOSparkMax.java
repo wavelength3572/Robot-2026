@@ -3,11 +3,11 @@ package frc.robot.subsystems.turret;
 import static frc.robot.util.SparkUtil.*;
 
 import com.revrobotics.AbsoluteEncoder;
+import com.revrobotics.PersistMode;
 import com.revrobotics.RelativeEncoder;
+import com.revrobotics.ResetMode;
 import com.revrobotics.spark.FeedbackSensor;
 import com.revrobotics.spark.SparkBase.ControlType;
-import com.revrobotics.spark.SparkBase.PersistMode;
-import com.revrobotics.spark.SparkBase.ResetMode;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
@@ -136,7 +136,7 @@ public class TurretIOSparkMax implements TurretIO {
     motorConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pidf(kP.get(), 0.0, kD.get(), 0.0);
+        .pid(kP.get(), 0.0, kD.get());
 
     // ========== HARDWARE SOFT LIMITS (Critical Safety Feature) ==========
     // These limits are enforced by the SparkMax itself, providing protection even if
@@ -263,7 +263,7 @@ public class TurretIOSparkMax implements TurretIO {
     // Check if PID values have changed and apply new configuration
     if (LoggedTunableNumber.hasChanged(kP, kD)) {
       var pidConfig = new SparkMaxConfig();
-      pidConfig.closedLoop.pidf(kP.get(), 0.0, kD.get(), 0.0);
+      pidConfig.closedLoop.pid(kP.get(), 0.0, kD.get());
       motorSpark.configure(
           pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
     }
@@ -313,6 +313,6 @@ public class TurretIOSparkMax implements TurretIO {
     targetRotation = Rotation2d.fromDegrees(clampedDegrees);
 
     // Convert degrees to motor rotations for the PID controller
-    motorController.setReference(degreesToMotorRotations(clampedDegrees), ControlType.kPosition);
+    motorController.setSetpoint(degreesToMotorRotations(clampedDegrees), ControlType.kPosition);
   }
 }

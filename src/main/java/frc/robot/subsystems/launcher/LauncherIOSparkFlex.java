@@ -2,12 +2,12 @@ package frc.robot.subsystems.launcher;
 
 import static frc.robot.util.SparkUtil.*;
 
+import com.revrobotics.PersistMode;
 import com.revrobotics.RelativeEncoder;
+import com.revrobotics.ResetMode;
 import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.FeedbackSensor;
 import com.revrobotics.spark.SparkBase.ControlType;
-import com.revrobotics.spark.SparkBase.PersistMode;
-import com.revrobotics.spark.SparkBase.ResetMode;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkClosedLoopController.ArbFFUnits;
 import com.revrobotics.spark.SparkFlex;
@@ -123,8 +123,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
     leaderConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pidf(kP.get(), kI.get(), kD.get(), 0.0)
-        .pidf(kP.get() + recoveryKpBoost.get(), kI.get(), kD.get(), 0.0, ClosedLoopSlot.kSlot1);
+        .pid(kP.get(), kI.get(), kD.get())
+        .pid(kP.get() + recoveryKpBoost.get(), kI.get(), kD.get(), ClosedLoopSlot.kSlot1);
 
     // Signal update rates
     leaderConfig
@@ -198,8 +198,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
       var pidConfig = new SparkFlexConfig();
       pidConfig
           .closedLoop
-          .pidf(kP.get(), kI.get(), kD.get(), 0.0)
-          .pidf(kP.get() + recoveryKpBoost.get(), kI.get(), kD.get(), 0.0, ClosedLoopSlot.kSlot1);
+          .pid(kP.get(), kI.get(), kD.get())
+          .pid(kP.get() + recoveryKpBoost.get(), kI.get(), kD.get(), ClosedLoopSlot.kSlot1);
       leaderMotor.configure(
           pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
     }
@@ -273,7 +273,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
     Logger.recordOutput("Launcher/UsingRecoveryPID", recoveryActive);
 
     // Command leader with PID + feedforward - follower follows automatically in hardware
-    leaderController.setReference(
+    leaderController.setSetpoint(
         motorRPM, ControlType.kVelocity, slot, totalFFVolts, ArbFFUnits.kVoltage);
   }
 

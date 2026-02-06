@@ -93,8 +93,7 @@ public class Turret extends SubsystemBase {
   /** Update effective min/max limits from tunable flip angle, center offset, and active mode. */
   private void updateEffectiveLimits() {
     double center = centerOffsetDeg.get();
-    double flipAngle =
-        launchModeActive ? flipAngleDeg.get() : trackingFlipAngleDeg.get();
+    double flipAngle = launchModeActive ? flipAngleDeg.get() : trackingFlipAngleDeg.get();
     // Clamp to hard limits (mechanical stops)
     effectiveMinAngleDeg = Math.max(TurretConstants.HARD_LIMIT_MIN_DEG, center - flipAngle);
     effectiveMaxAngleDeg = Math.min(TurretConstants.HARD_LIMIT_MAX_DEG, center + flipAngle);
@@ -385,11 +384,7 @@ public class Turret extends SubsystemBase {
     double robotHeadingDeg = robotPose.getRotation().getDegrees();
     double relativeAngleDeg =
         calculateTurretAngle(
-            robotPose.getX(),
-            robotPose.getY(),
-            robotHeadingDeg,
-            target.getX(),
-            target.getY());
+            robotPose.getX(), robotPose.getY(), robotHeadingDeg, target.getX(), target.getY());
     setAngle(relativeAngleDeg);
 
     // Log shot data
@@ -694,9 +689,9 @@ public class Turret extends SubsystemBase {
   /**
    * Calculate the turret angle needed to point at a target location on the field, accounting for
    * the turret's offset from the robot's center. Uses closest-offset strategy: instead of
-   * normalizing to [-180, +180], tries the target angle ±360° and picks whichever is closest to
-   * the current turret position AND within the legal range. This avoids unnecessary 340°+ sweeps
-   * when a short rotation in the opposite direction is legal.
+   * normalizing to [-180, +180], tries the target angle ±360° and picks whichever is closest to the
+   * current turret position AND within the legal range. This avoids unnecessary 340°+ sweeps when a
+   * short rotation in the opposite direction is legal.
    *
    * @param robotX Robot center's X position on field (meters)
    * @param robotY Robot center's Y position on field (meters)

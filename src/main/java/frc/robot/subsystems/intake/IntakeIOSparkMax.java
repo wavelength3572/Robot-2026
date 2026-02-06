@@ -162,7 +162,7 @@ public class IntakeIOSparkMax implements IntakeIO {
         Math.max(
             IntakeConstants.DEPLOY_RETRACTED_POSITION,
             Math.min(IntakeConstants.DEPLOY_EXTENDED_POSITION, positionRotations));
-    deployController.setReference(deployTargetPosition, ControlType.kPosition);
+    deployController.setSetpoint(deployTargetPosition, ControlType.kPosition);
   }
 
   @Override
