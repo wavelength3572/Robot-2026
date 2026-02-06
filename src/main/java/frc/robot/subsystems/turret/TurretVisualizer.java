@@ -8,9 +8,12 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.util.FuelSim;
+import frc.robot.util.LoggedTunableNumber;
+import java.util.LinkedList;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
 
@@ -52,8 +55,15 @@ public class TurretVisualizer {
   private final double turretYOffset;
 
   // Fuel inventory management
-  private static final int FUEL_CAPACITY = 50;
+  private static final int FUEL_CAPACITY = 40;
   private int fuelStored = 25;
+
+  // Intake-to-prefeed transit delay simulation
+  private final LinkedList<Double> pendingFuelTimestamps = new LinkedList<>();
+  private static final LoggedTunableNumber transitDelay =
+      new LoggedTunableNumber("Sim/Intake/TransitDelaySeconds", 0.6);
+  private static final LoggedTunableNumber transitDelayRandom =
+      new LoggedTunableNumber("Sim/Intake/TransitDelayRandomSeconds", 0.15);
 
   // Current azimuth angle for launching (set by visualizeShot)
   private double currentAzimuthAngle = 0.0;
@@ -147,10 +157,29 @@ public class TurretVisualizer {
     return fuelStored < FUEL_CAPACITY;
   }
 
-  /** Add a fuel to the robot's inventory (called when intake picks up fuel). */
+  /** Add a fuel to the robot's inventory immediately (bypasses transit delay). */
   public void intakeFuel() {
     if (fuelStored < FUEL_CAPACITY) {
       fuelStored++;
+    }
+  }
+
+  /** Queue a fuel pickup with simulated intake-to-prefeed transit delay. */
+  public void queueFuel() {
+    double baseDelay = transitDelay.get();
+    double randomRange = transitDelayRandom.get();
+    double delay = baseDelay + (Math.random() * 2.0 - 1.0) * randomRange;
+    pendingFuelTimestamps.add(Timer.getFPGATimestamp() + delay);
+  }
+
+  /** Process pending fuel queue, moving fuel to stored when transit delay has elapsed. */
+  private void processPendingFuel() {
+    double now = Timer.getFPGATimestamp();
+    while (!pendingFuelTimestamps.isEmpty() && pendingFuelTimestamps.peek() <= now) {
+      pendingFuelTimestamps.poll();
+      if (fuelStored < FUEL_CAPACITY) {
+        fuelStored++;
+      }
     }
   }
 
@@ -308,9 +337,11 @@ public class TurretVisualizer {
     }
   }
 
-  /** Log fuel inventory status. */
+  /** Log fuel inventory status and process pending fuel arrivals. */
   public void logFuelStatus() {
+    processPendingFuel();
     Logger.recordOutput("Intake/Fuel/Stored", fuelStored);
+    Logger.recordOutput("Intake/Fuel/InTransit", pendingFuelTimestamps.size());
     Logger.recordOutput("Intake/Fuel/CanIntake", canIntake());
   }
 

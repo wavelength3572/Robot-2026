@@ -484,7 +484,7 @@ public class RobotContainer {
                     launcher.setVelocity(1700.0);
                   }
                   if (motivator != null) {
-                    motivator.setMotivatorsVelocity(1000.0);
+                    motivator.setVelocities(1000.0, 1000.0); // motivators + prefeed
                   }
                   // Enable auto-shoot
                   if (turret != null) {
@@ -785,7 +785,7 @@ public class RobotContainer {
                   && turret.getVisualizer().canIntake(),
           () -> {
             if (turret.getVisualizer() != null) {
-              turret.getVisualizer().intakeFuel();
+              turret.getVisualizer().queueFuel();
             }
           });
     }

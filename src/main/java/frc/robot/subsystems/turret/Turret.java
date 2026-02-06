@@ -4,6 +4,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -32,6 +33,12 @@ public class Turret extends SubsystemBase {
   // Current shot data
   private TurretCalculator.ShotData currentShot = null;
 
+  // Pass target offset tunables (adjustable in AdvantageScope during any mode including auto)
+  private final LoggedTunableNumber passAdjustX =
+      new LoggedTunableNumber("Shooting/Auto/Pass/AdjustX", 0.0);
+  private final LoggedTunableNumber passAdjustY =
+      new LoggedTunableNumber("Shooting/Auto/Pass/AdjustY", 0.0);
+
   // ========== Tunable Limits (adjust in AdvantageScope without recompiling!) ==========
   // FlipAngleDeg: How far can the turret rotate before it must "flip" (go the other way)
   //               Example: 185 means turret can go from -185° to +185° before flipping
@@ -58,6 +65,14 @@ public class Turret extends SubsystemBase {
   private double lastShotTimestamp = 0.0;
   private final LoggedTunableNumber autoShootMinInterval =
       new LoggedTunableNumber("Tuning/Turret/AutoShootMinInterval", 0.15);
+
+  // Pass shot launch angle (tunable for adjusting pass arc)
+  private final LoggedTunableNumber passLaunchAngleDeg =
+      new LoggedTunableNumber("Shooting/Auto/Pass/LaunchAngleDeg", 65.0);
+
+  // Minimum fuel % before auto-shoot fires in PASS mode (0.0-1.0, default 0.8 = 80%)
+  private final LoggedTunableNumber passFuelThreshold =
+      new LoggedTunableNumber("Shooting/Auto/Pass/FuelThresholdPct", 0.8);
 
   // Startup safety - turret locked until operator confirms position
   private boolean operatorConfirmed = false;
@@ -299,7 +314,43 @@ public class Turret extends SubsystemBase {
             edu.wpi.first.wpilibj.DriverStation.getAlliance()
                 .orElse(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue)
                 .equals(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue);
-        calculateShotToHub(isBlue);
+        Pose2d robotPose = robotPoseSupplier.get();
+        DriverStation.Alliance alliance =
+            DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue);
+        TurretAimingHelper.AimResult aimResult =
+            TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
+        Logger.recordOutput("Turret/Aim/Mode", aimResult.mode().name());
+
+        if (aimResult.mode() == TurretAimingHelper.AimMode.SHOOT) {
+          calculateShotToHub(isBlue);
+        } else {
+          Translation2d passTarget2d = aimResult.target();
+          // Apply joystick offsets, clamped to alliance zone bounds
+          double allianceZoneX = FieldConstants.LinesVertical.allianceZone;
+          double fieldW = FieldConstants.fieldWidth;
+          double minX, maxX;
+          if (alliance == DriverStation.Alliance.Blue) {
+            minX = 0.5; // keep off the wall
+            maxX = allianceZoneX - 0.5;
+          } else {
+            minX = FieldConstants.fieldLength - allianceZoneX + 0.5;
+            maxX = FieldConstants.fieldLength - 0.5;
+          }
+          double minY = 0.5;
+          double maxY = fieldW - 0.5;
+
+          // Tunables map base target across the full alliance zone area
+          double rawX = passTarget2d.getX() + passAdjustX.get() * (maxX - minX) / 2.0;
+          double rawY = passTarget2d.getY() + passAdjustY.get() * (maxY - minY) / 2.0;
+          double clampedX = Math.max(minX, Math.min(maxX, rawX));
+          double clampedY = Math.max(minY, Math.min(maxY, rawY));
+
+          Logger.recordOutput("Turret/Pass/OffsetX", clampedX - passTarget2d.getX());
+          Logger.recordOutput("Turret/Pass/OffsetY", clampedY - passTarget2d.getY());
+          Translation3d passTarget3d = new Translation3d(clampedX, clampedY, 0.0);
+          Logger.recordOutput("Turret/Pass/Target", new Pose3d(passTarget3d, new Rotation3d()));
+          calculatePassToTarget(passTarget3d);
+        }
       }
 
       // Update trajectory visualization if we have a current shot
@@ -328,14 +379,23 @@ public class Turret extends SubsystemBase {
           TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
       boolean inAllianceZone = aimResult.mode() == TurretAimingHelper.AimMode.SHOOT;
 
+      // In PASS mode, wait until fuel exceeds threshold before firing
+      boolean fuelThresholdMet = true;
+      if (!inAllianceZone && visualizer != null) {
+        int capacity = 40; // matches TurretVisualizer.FUEL_CAPACITY
+        double threshold = passFuelThreshold.get();
+        fuelThresholdMet = visualizer.getFuelCount() >= (int) (capacity * threshold);
+      }
+
       Logger.recordOutput("Turret/AutoShoot/LauncherReady", launcherReady);
       Logger.recordOutput("Turret/AutoShoot/Aimed", aimed);
       Logger.recordOutput("Turret/AutoShoot/HasFuel", hasFuel);
       Logger.recordOutput("Turret/AutoShoot/ZoneOk", inAllianceZone);
+      Logger.recordOutput("Turret/AutoShoot/FuelThresholdMet", fuelThresholdMet);
       Logger.recordOutput(
           "Turret/AutoShoot/FuelRemaining", visualizer != null ? visualizer.getFuelCount() : 0);
 
-      if (launcherReady && hasShot && aimed && hasFuel && intervalElapsed && inAllianceZone) {
+      if (launcherReady && hasShot && aimed && hasFuel && intervalElapsed && fuelThresholdMet) {
         // Snapshot key calibration data at the instant of firing (for future LUT tuning)
         double distAtFire =
             Math.sqrt(
@@ -513,6 +573,103 @@ public class Turret extends SubsystemBase {
             ? FieldConstants.Hub.innerCenterPoint
             : FieldConstants.Hub.oppInnerCenterPoint;
     calculateShotToTarget(hubTarget);
+  }
+
+  /**
+   * Calculate shot parameters for a pass to a ground-level target. Uses simple projectile physics
+   * with a tunable launch angle instead of the hub-specific TrajectoryOptimizer.
+   *
+   * @param target Target position (3D, Z=0 for ground level)
+   */
+  public void calculatePassToTarget(Translation3d target) {
+    if (robotPoseSupplier == null || fieldSpeedsSupplier == null) return;
+
+    Pose2d robotPose = robotPoseSupplier.get();
+    double robotHeadingRad = robotPose.getRotation().getRadians();
+
+    // Calculate turret's actual position on the field (offset from robot center)
+    double turretX =
+        robotPose.getX()
+            + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotHeadingRad)
+                - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotHeadingRad));
+    double turretY =
+        robotPose.getY()
+            + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotHeadingRad)
+                + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotHeadingRad));
+
+    double launchAngleRad = Math.toRadians(passLaunchAngleDeg.get());
+    double h = turretHeightMeters - target.getZ(); // height difference (turret above target)
+    double horizontalDist =
+        Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
+
+    // Solve for velocity: v² = g*D² / (2*cos²(θ) * (D*tan(θ) + h))
+    double cosTheta = Math.cos(launchAngleRad);
+    double tanTheta = Math.tan(launchAngleRad);
+    double denominator = 2.0 * cosTheta * cosTheta * (horizontalDist * tanTheta + h);
+
+    double exitVelocity;
+    if (denominator > 0) {
+      exitVelocity = Math.sqrt(9.81 * horizontalDist * horizontalDist / denominator);
+    } else {
+      exitVelocity = 10.0; // fallback
+    }
+
+    // Velocity compensation for robot movement (same pattern as calculateShotToTarget)
+    ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
+    Translation3d aimTarget = target;
+
+    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+    if (robotSpeed > 0.1) {
+      double tof =
+          TurretCalculator.calculateTimeOfFlight(exitVelocity, launchAngleRad, horizontalDist);
+      for (int i = 0; i < 3; i++) {
+        aimTarget = TurretCalculator.predictTargetPos(target, fieldSpeeds, tof);
+        double aimDist =
+            Math.sqrt(
+                Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));
+        double aimH = turretHeightMeters - aimTarget.getZ();
+        double aimDenom = 2.0 * cosTheta * cosTheta * (aimDist * tanTheta + aimH);
+        if (aimDenom > 0) {
+          exitVelocity = Math.sqrt(9.81 * aimDist * aimDist / aimDenom);
+        }
+        tof = TurretCalculator.calculateTimeOfFlight(exitVelocity, launchAngleRad, aimDist);
+      }
+    }
+
+    // Create shot data
+    currentShot = new TurretCalculator.ShotData(exitVelocity, launchAngleRad, aimTarget);
+
+    // Aim turret at the compensated target
+    double robotHeadingDeg = robotPose.getRotation().getDegrees();
+    double relativeAngleDeg =
+        calculateTurretAngle(
+            robotPose.getX(),
+            robotPose.getY(),
+            robotHeadingDeg,
+            aimTarget.getX(),
+            aimTarget.getY());
+    setAngle(relativeAngleDeg);
+
+    // Log pass shot data
+    Logger.recordOutput("Turret/Shot/ExitVelocityMps", currentShot.getExitVelocity());
+    Logger.recordOutput("Turret/Shot/LaunchAngleDeg", currentShot.getLaunchAngleDegrees());
+    Logger.recordOutput("Turret/Shot/Achievable", true);
+    double azimuthDeg =
+        Math.toDegrees(Math.atan2(aimTarget.getY() - turretY, aimTarget.getX() - turretX));
+    Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
+    Logger.recordOutput("Turret/Shot/RelativeAngleDeg", relativeAngleDeg);
+    Logger.recordOutput("Turret/Shot/DistanceToTargetM", horizontalDist);
+
+    // Log pass target marker
+    Logger.recordOutput("Turret/Shot/Hub", new Pose3d(target, new Rotation3d()));
+
+    // Log velocity compensation
+    double aimOffsetM =
+        Math.sqrt(
+            Math.pow(aimTarget.getX() - target.getX(), 2)
+                + Math.pow(aimTarget.getY() - target.getY(), 2));
+    Logger.recordOutput("Turret/Shot/VelocityCompensation/AimOffsetM", aimOffsetM);
+    Logger.recordOutput("Turret/Shot/VelocityCompensation/RobotSpeedMps", robotSpeed);
   }
 
   /** Launch a fuel ball using the current shot parameters. */

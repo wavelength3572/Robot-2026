@@ -195,4 +195,14 @@ public class InterLinkDXOI implements OperatorInterface {
   public Trigger getLauncherButton() {
     return interLinkJoystickJoystickButtons[24]; // Button 24 - slider below right axis push right
   }
+
+  @Override
+  public double getPassAdjustX() {
+    return interLinkJoystick.getRawAxis(2); // Right stick X axis
+  }
+
+  @Override
+  public double getPassAdjustY() {
+    return interLinkJoystick.getRawAxis(5); // Top right dial/slider
+  }
 }
