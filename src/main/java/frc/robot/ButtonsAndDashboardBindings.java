@@ -15,6 +15,7 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.vision.Vision;
+import frc.robot.util.BenchTestMetrics;
 
 public class ButtonsAndDashboardBindings {
 
@@ -71,13 +72,14 @@ public class ButtonsAndDashboardBindings {
     // Vision toggle on dashboard
     if (vision != null) {
       // Vision ON by default in simulation (use SmartDashboard toggle to disable if needed)
-      SmartDashboard.putBoolean("TestSubsystems/Vision/Enable", vision.isVisionOn());
+      SmartDashboard.putBoolean("BenchTest/Subsystems/Vision/Enable", vision.isVisionOn());
       SmartDashboard.putData(
-          "TestSubsystems/Vision/Toggle",
+          "BenchTest/Subsystems/Vision/Toggle",
           Commands.runOnce(
                   () -> {
                     vision.toggleVision();
-                    SmartDashboard.putBoolean("TestSubsystems/Vision/Enable", vision.isVisionOn());
+                    SmartDashboard.putBoolean(
+                        "BenchTest/Subsystems/Vision/Enable", vision.isVisionOn());
                   })
               .ignoringDisable(true)
               .withName("Toggle Vision"));
@@ -87,23 +89,23 @@ public class ButtonsAndDashboardBindings {
     if (intake != null) {
       // Deploy/Retract buttons
       SmartDashboard.putData(
-          "TestSubsystems/Intake/Deploy",
+          "BenchTest/Subsystems/Intake/Deploy",
           Commands.runOnce(intake::deploy, intake).withName("Deploy Intake"));
       SmartDashboard.putData(
-          "TestSubsystems/Intake/Retract",
+          "BenchTest/Subsystems/Intake/Retract",
           Commands.runOnce(intake::retract, intake).withName("Retract Intake"));
 
       // Roller on/off toggle
       SmartDashboard.putData(
-          "TestSubsystems/Intake/Run",
+          "BenchTest/Subsystems/Intake/Run",
           Commands.runOnce(intake::runIntake, intake).withName("Run Intake"));
       SmartDashboard.putData(
-          "TestSubsystems/Intake/Stop",
+          "BenchTest/Subsystems/Intake/Stop",
           Commands.runOnce(intake::stopRollers, intake).withName("Stop Intake"));
 
       // Combined deploy + activate intake button
       SmartDashboard.putData(
-          "TestSubsystems/Intake/DeployAndRun",
+          "BenchTest/Subsystems/Intake/DeployAndRun",
           Commands.runOnce(
                   () -> {
                     intake.deploy();
@@ -130,18 +132,33 @@ public class ButtonsAndDashboardBindings {
     ShootingCommands.initTunables();
 
     // === Simulation Reset ===
-    SmartDashboard.putData("Sim/SimReset", ShootingCommands.resetSimulationCommand(turret));
+    SmartDashboard.putData("Sim/FuelReset", ShootingCommands.resetSimulationCommand(turret));
+    SmartDashboard.putData(
+        "Sim/ResetStartOfMatch", ShootingCommands.resetStartingFieldCommand(turret));
 
     // === Auto Launch Command ===
     // Auto-calculated trajectory - works for both sim and physical
     SmartDashboard.putData(
-        "Shooting/Auto/AutoLaunch", ShootingCommands.launchCommand(launcher, turret, motivator));
+        "Match/SmartLaunch", ShootingCommands.launchCommand(launcher, turret, motivator));
 
     // === Manual Launch Command ===
-    // Manual test mode using Shooting/Test/* dashboard values for controlled testing
+    // Manual test mode using BenchTest/Shooting/* dashboard values for controlled testing
     SmartDashboard.putData(
-        "Shooting/Test/ManualLaunch",
+        "BenchTest/Shooting/Launch",
         ShootingCommands.testLaunchCommand(launcher, turret, motivator, hood));
+
+    // === Bench Test Controls ===
+    // Stripped-down launch for bench testing (no turret/hood wait)
+    SmartDashboard.putData(
+        "BenchTest/Shooting/LauncherOnly",
+        ShootingCommands.benchTestLaunchCommand(launcher, turret, motivator));
+
+    // Reset metrics button (works while disabled)
+    SmartDashboard.putData(
+        "BenchTest/Shooting/ResetMetrics",
+        Commands.runOnce(() -> BenchTestMetrics.getInstance().reset())
+            .ignoringDisable(true)
+            .withName("Reset BenchTest Metrics"));
 
     System.out.println("[Shooting] Shooting controls configured on SmartDashboard");
   }
@@ -211,24 +228,24 @@ public class ButtonsAndDashboardBindings {
     if (launcher != null) {
       // Run launcher at default launch velocity (hold this button in dashboard)
       SmartDashboard.putData(
-          "TestSubsystems/Launcher/Run",
+          "BenchTest/Subsystems/Launcher/Run",
           launcher.runAtVelocityCommand(1700).withName("Run Launcher"));
 
       // Stop launcher
       SmartDashboard.putData(
-          "TestSubsystems/Launcher/Stop", launcher.stopCommand().withName("Stop Launcher"));
+          "BenchTest/Subsystems/Launcher/Stop", launcher.stopCommand().withName("Stop Launcher"));
 
       // Quick test velocities
       SmartDashboard.putData(
-          "TestSubsystems/Launcher/100RPM",
+          "BenchTest/Subsystems/Launcher/100RPM",
           launcher.runAtVelocityCommand(100).withName("Launcher 100 RPM"));
 
       SmartDashboard.putData(
-          "TestSubsystems/Launcher/500RPM",
+          "BenchTest/Subsystems/Launcher/500RPM",
           launcher.runAtVelocityCommand(500).withName("Launcher 500 RPM"));
 
       SmartDashboard.putData(
-          "TestSubsystems/Launcher/1000RPM",
+          "BenchTest/Subsystems/Launcher/1000RPM",
           launcher.runAtVelocityCommand(1000).withName("Launcher 1000 RPM"));
 
       System.out.println("[TestSubsystems] Launcher test controls configured");
@@ -237,7 +254,7 @@ public class ButtonsAndDashboardBindings {
     // === Motivator Test Controls ===
     if (motivator != null) {
       // Stop
-      SmartDashboard.putData("TestSubsystems/Motivator/Stop", motivator.stopCommand());
+      SmartDashboard.putData("BenchTest/Subsystems/Motivator/Stop", motivator.stopCommand());
 
       System.out.println("[TestSubsystems] Motivator test controls configured");
     }
@@ -274,7 +291,7 @@ public class ButtonsAndDashboardBindings {
                       () -> {
                         vision.toggleVision();
                         SmartDashboard.putBoolean(
-                            "TestSubsystems/Vision/Enable", vision.isVisionOn());
+                            "BenchTest/Subsystems/Vision/Enable", vision.isVisionOn());
                       })
                   .ignoringDisable(true));
     }
@@ -295,9 +312,15 @@ public class ButtonsAndDashboardBindings {
                       turret)
                   .ignoringDisable(true));
 
-      // Shoot button - unified launch command
+      // Shoot button - bench test launch for TURRETBOT, normal launch for others
       if (launcher != null) {
-        oi.getShootButton().whileTrue(ShootingCommands.launchCommand(launcher, turret, motivator));
+        if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
+          oi.getShootButton()
+              .whileTrue(ShootingCommands.benchTestLaunchCommand(launcher, turret, motivator));
+        } else {
+          oi.getShootButton()
+              .whileTrue(ShootingCommands.launchCommand(launcher, turret, motivator));
+        }
       } else {
         // No launcher - just launch fuel visually
         oi.getShootButton().whileTrue(turret.repeatedlyLaunchFuelCommand());
