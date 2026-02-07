@@ -33,27 +33,27 @@ public class TrajectoryOptimizer {
   // PRIMARY TUNABLE: Descent angle (angle of line from hub edge to hub center)
   // Tune this to match the hub wall angle visually (60° matches well)
   private static final LoggedTunableNumber descentAngleDeg =
-      new LoggedTunableNumber("Shooting/Auto/Trajectory/DescentAngleDeg", 60.0);
+      new LoggedTunableNumber("Tuning/Trajectory/DescentAngleDeg", 60.0);
 
   // Clearance constraints (inches above the lip)
   private static final LoggedTunableNumber minClearanceInches =
-      new LoggedTunableNumber("Shooting/Auto/Trajectory/MinClearanceInches", 2.0); // Safety margin
+      new LoggedTunableNumber("Tuning/Trajectory/MinClearanceInches", 2.0); // Safety margin
   private static final LoggedTunableNumber maxClearanceInches =
-      new LoggedTunableNumber("Shooting/Auto/Trajectory/MaxClearanceInches", 24.0); // Sanity check
+      new LoggedTunableNumber("Tuning/Trajectory/MaxClearanceInches", 24.0); // Sanity check
 
   // RPM limits
   private static final LoggedTunableNumber minRPM =
-      new LoggedTunableNumber("Shooting/Auto/Trajectory/MinRPM", 1500.0);
+      new LoggedTunableNumber("Tuning/Trajectory/MinRPM", 1500.0);
   private static final LoggedTunableNumber maxRPM =
-      new LoggedTunableNumber("Shooting/Auto/Trajectory/MaxRPM", 4000.0);
+      new LoggedTunableNumber("Tuning/Trajectory/MaxRPM", 4000.0);
   private static final LoggedTunableNumber maxPeakHeightM =
-      new LoggedTunableNumber("Shooting/Auto/Trajectory/MaxPeakHeightM", 4.0);
+      new LoggedTunableNumber("Tuning/Trajectory/MaxPeakHeightM", 4.0);
 
   // Hood/launch angle limits (tunable)
   private static final LoggedTunableNumber hoodMinAngleDeg =
-      new LoggedTunableNumber("Shooting/Auto/Trajectory/LaunchAngleMinDeg", 15.0);
+      new LoggedTunableNumber("Tuning/Trajectory/LaunchAngleMinDeg", 15.0);
   private static final LoggedTunableNumber hoodMaxAngleDeg =
-      new LoggedTunableNumber("Shooting/Auto/Trajectory/LaunchAngleMaxDeg", 85.0);
+      new LoggedTunableNumber("Tuning/Trajectory/LaunchAngleMaxDeg", 85.0);
 
   /** Result of trajectory optimization. */
   public static class OptimalShot {
@@ -118,12 +118,12 @@ public class TrajectoryOptimizer {
     double clearanceInchesComputed = clearanceM / 0.0254;
 
     // Log inputs
-    Logger.recordOutput("Trajectory/Input/HorizontalDistanceM", D);
-    Logger.recordOutput("Trajectory/Input/TurretHeightM", turretHeightM);
-    Logger.recordOutput("Trajectory/Input/HubEdgeDistanceM", D_edge);
-    Logger.recordOutput("Trajectory/Input/DescentAngleDeg", descentAngleDeg.get());
-    Logger.recordOutput("Trajectory/Input/HeightAtEdgeM", heightAtEdge);
-    Logger.recordOutput("Trajectory/Input/ClearanceInches", clearanceInchesComputed);
+    Logger.recordOutput("Match/Trajectory/Input/HorizontalDistanceM", D);
+    Logger.recordOutput("Match/Trajectory/Input/TurretHeightM", turretHeightM);
+    Logger.recordOutput("Match/Trajectory/Input/HubEdgeDistanceM", D_edge);
+    Logger.recordOutput("Match/Trajectory/Input/DescentAngleDeg", descentAngleDeg.get());
+    Logger.recordOutput("Match/Trajectory/Input/HeightAtEdgeM", heightAtEdge);
+    Logger.recordOutput("Match/Trajectory/Input/ClearanceInches", clearanceInchesComputed);
 
     // Check clearance bounds
     if (clearanceInchesComputed < minClearanceInches.get()) {
@@ -295,13 +295,13 @@ public class TrajectoryOptimizer {
   }
 
   private static void logResult(OptimalShot shot) {
-    Logger.recordOutput("Trajectory/Ideal/RPM", shot.rpm);
-    Logger.recordOutput("Trajectory/Ideal/LaunchAngleDeg", shot.launchAngleDeg);
-    Logger.recordOutput("Trajectory/Ideal/ExitVelocityMps", shot.exitVelocityMps);
-    Logger.recordOutput("Trajectory/Ideal/PeakHeightM", shot.peakHeightM);
-    Logger.recordOutput("Trajectory/Ideal/DescentAngleDeg", shot.descentAngleDeg);
-    Logger.recordOutput("Trajectory/Ideal/Achievable", shot.achievable);
-    Logger.recordOutput("Trajectory/Ideal/Notes", shot.notes);
+    Logger.recordOutput("Match/Trajectory/Ideal/RPM", shot.rpm);
+    Logger.recordOutput("Match/Trajectory/Ideal/LaunchAngleDeg", shot.launchAngleDeg);
+    Logger.recordOutput("Match/Trajectory/Ideal/ExitVelocityMps", shot.exitVelocityMps);
+    Logger.recordOutput("Match/Trajectory/Ideal/PeakHeightM", shot.peakHeightM);
+    Logger.recordOutput("Match/Trajectory/Ideal/DescentAngleDeg", shot.descentAngleDeg);
+    Logger.recordOutput("Match/Trajectory/Ideal/Achievable", shot.achievable);
+    Logger.recordOutput("Match/Trajectory/Ideal/Notes", shot.notes);
   }
 
   /** Get the current descent angle setting in degrees. */

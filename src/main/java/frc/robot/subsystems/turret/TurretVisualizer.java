@@ -340,9 +340,9 @@ public class TurretVisualizer {
   /** Log fuel inventory status and process pending fuel arrivals. */
   public void logFuelStatus() {
     processPendingFuel();
-    Logger.recordOutput("Intake/Fuel/Stored", fuelStored);
-    Logger.recordOutput("Intake/Fuel/InTransit", pendingFuelTimestamps.size());
-    Logger.recordOutput("Intake/Fuel/CanIntake", canIntake());
+    Logger.recordOutput("Match/Fuel/Stored", fuelStored);
+    Logger.recordOutput("Match/Fuel/InTransit", pendingFuelTimestamps.size());
+    Logger.recordOutput("Match/Fuel/CanIntake", canIntake());
   }
 
   /**

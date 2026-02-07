@@ -7,6 +7,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.subsystems.turret.TurretCalculator;
+import frc.robot.util.BenchTestMetrics;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,7 +57,7 @@ public class Launcher extends SubsystemBase {
                 Volts.per(Second).of(0.5), // Ramp rate: 0.5 V/s for quasistatic
                 Volts.of(4), // Step voltage: 4V for dynamic (limited for safety)
                 Seconds.of(10), // Timeout: 10 seconds
-                (state) -> Logger.recordOutput("Launcher/SysIdState", state.toString())),
+                (state) -> Logger.recordOutput("Shooter/Launcher/SysIdState", state.toString())),
             new SysIdRoutine.Mechanism(
                 (voltage) -> io.setVoltage(voltage.in(Volts)),
                 (log) -> {
@@ -80,25 +81,25 @@ public class Launcher extends SubsystemBase {
   @Override
   public void periodic() {
     io.updateInputs(inputs);
-    Logger.processInputs("Launcher", inputs);
+    Logger.processInputs("Shooter/Launcher", inputs);
 
     // Update TurretCalculator with current wheel RPM for trajectory calculations
     TurretCalculator.setLauncherRPM(inputs.wheelVelocityRPM);
 
     // Log velocity error
     double velocityError = inputs.targetVelocityRPM - inputs.wheelVelocityRPM;
-    Logger.recordOutput("Launcher/velocityError", velocityError);
+    Logger.recordOutput("Shooter/Launcher/velocityError", velocityError);
 
     // Safety: detect velocity mismatch between motors
     // Both encoders read motor RPM, so compare directly
     double velocityMismatch =
         Math.abs(Math.abs(inputs.leaderVelocityRPM) - Math.abs(inputs.followerVelocityRPM));
-    Logger.recordOutput("Launcher/velocityMismatch", velocityMismatch);
+    Logger.recordOutput("Shooter/Launcher/velocityMismatch", velocityMismatch);
 
     // Alert if mismatch exceeds threshold while running
     boolean mismatchAlert =
         velocityMismatch > VELOCITY_MISMATCH_THRESHOLD_RPM && inputs.targetVelocityRPM > 100;
-    Logger.recordOutput("Launcher/velocityMismatchAlert", mismatchAlert);
+    Logger.recordOutput("Shooter/Launcher/velocityMismatchAlert", mismatchAlert);
 
     if (mismatchAlert) {
       System.err.println(
@@ -108,6 +109,14 @@ public class Launcher extends SubsystemBase {
               + inputs.followerVelocityRPM
               + " RPM");
     }
+
+    // Update bench test metrics with current state
+    BenchTestMetrics.getInstance()
+        .periodic(
+            inputs.wheelVelocityRPM,
+            inputs.targetVelocityRPM,
+            inputs.leaderTempCelsius,
+            inputs.followerTempCelsius);
   }
 
   /**
@@ -135,8 +144,8 @@ public class Launcher extends SubsystemBase {
     } else {
       recoveryActive = false;
     }
-    Logger.recordOutput("Launcher/RecoveryBoostActive", recoveryActive);
-    Logger.recordOutput("Launcher/RecoveryBoostVolts", boost);
+    Logger.recordOutput("Shooter/Launcher/RecoveryBoostActive", recoveryActive);
+    Logger.recordOutput("Shooter/Launcher/RecoveryBoostVolts", boost);
 
     io.setVelocityWithBoost(velocityRPM, boost, recoveryActive);
     // Update TurretCalculator with target RPM for setpoint trajectory
@@ -174,7 +183,7 @@ public class Launcher extends SubsystemBase {
    *
    * @return Current velocity in wheel RPM
    */
-  @AutoLogOutput(key = "Launcher/currentVelocity")
+  @AutoLogOutput(key = "Shooter/Launcher/currentVelocity")
   public double getVelocity() {
     return inputs.wheelVelocityRPM;
   }
@@ -270,11 +279,11 @@ public class Launcher extends SubsystemBase {
     System.out.println("[Launcher SysId] To use these values, update Launcher/kS and Launcher/kV");
 
     // Also log to AdvantageKit for dashboard viewing
-    Logger.recordOutput("Launcher/SysId/CalculatedKs", kS);
-    Logger.recordOutput("Launcher/SysId/CalculatedKv", kV);
-    Logger.recordOutput("Launcher/SysId/DataPoints", n);
-    Logger.recordOutput("Launcher/SysId/MinVelocityRPM", minRPM);
-    Logger.recordOutput("Launcher/SysId/MaxVelocityRPM", maxRPM);
+    Logger.recordOutput("Shooter/Launcher/SysId/CalculatedKs", kS);
+    Logger.recordOutput("Shooter/Launcher/SysId/CalculatedKv", kV);
+    Logger.recordOutput("Shooter/Launcher/SysId/DataPoints", n);
+    Logger.recordOutput("Shooter/Launcher/SysId/MinVelocityRPM", minRPM);
+    Logger.recordOutput("Shooter/Launcher/SysId/MaxVelocityRPM", maxRPM);
   }
 
   /**

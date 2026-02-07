@@ -62,9 +62,9 @@ public class Motivator extends SubsystemBase {
   @Override
   public void periodic() {
     io.updateInputs(motor1Inputs, motor2Inputs, prefeedInputs);
-    Logger.processInputs("Motivator/Motivator1", motor1Inputs);
-    Logger.processInputs("Motivator/Motivator2", motor2Inputs);
-    Logger.processInputs("Motivator/PreFeed", prefeedInputs);
+    Logger.processInputs("Shooter/Motivator/Motor1", motor1Inputs);
+    Logger.processInputs("Shooter/Motivator/Motor2", motor2Inputs);
+    Logger.processInputs("Shooter/Motivator/PreFeed", prefeedInputs);
 
     // Update mechanism visualization based on motor velocities
     // Convert RPM to degrees per cycle (assuming 50Hz loop = 0.02s per cycle)
@@ -97,7 +97,7 @@ public class Motivator extends SubsystemBase {
             prefeedInputs.velocityRPM, prefeedInputs.targetVelocityRPM, prefeedInputs.atSetpoint));
 
     // Log the mechanism visualization
-    Logger.recordOutput("Motivator/Mechanism2d", mechanism);
+    Logger.recordOutput("Shooter/Motivator/Mechanism2d", mechanism);
   }
 
   /**

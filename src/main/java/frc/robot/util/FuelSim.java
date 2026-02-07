@@ -45,7 +45,7 @@ public class FuelSim {
 
   // Dashboard toggle to disable neutral zone ball spawning (reduces physics load for testing)
   private static final LoggedNetworkBoolean spawnNeutralZoneBalls =
-      new LoggedNetworkBoolean("FuelSim/SpawnNeutralZoneBalls", true);
+      new LoggedNetworkBoolean("Sim/SpawnNeutralZoneBalls", true);
 
   // Field obstacle line segments (start and end points for collision detection)
   // These model the ramps/bumps and trench geometry on the field
@@ -388,7 +388,7 @@ public class FuelSim {
 
   /**
    * Spawns fuel in the neutral zone and depots. The neutral zone spawning is controlled by the
-   * FuelSim/SpawnNeutralZoneBalls dashboard toggle (default: false to reduce physics load).
+   * Sim/SpawnNeutralZoneBalls dashboard toggle (default: false to reduce physics load).
    */
   public void spawnStartingFuel() {
     // Center fuel grid - only spawn if enabled (360 balls causes physics chain reactions)

@@ -228,14 +228,14 @@ public class TurretCalculator {
     double velocity = calculateExitVelocityFromRPM();
 
     // Debug logging
-    Logger.recordOutput("Launcher/Debug/CurrentRPM", currentLauncherRPM);
-    Logger.recordOutput("Launcher/Debug/RawExitVelocity", velocity);
-    Logger.recordOutput("Launcher/Debug/WheelRadius", WHEEL_RADIUS_METERS);
-    Logger.recordOutput("Launcher/Debug/Efficiency", LAUNCH_EFFICIENCY);
+    Logger.recordOutput("Shooter/Launcher/Debug/CurrentRPM", currentLauncherRPM);
+    Logger.recordOutput("Shooter/Launcher/Debug/RawExitVelocity", velocity);
+    Logger.recordOutput("Shooter/Launcher/Debug/WheelRadius", WHEEL_RADIUS_METERS);
+    Logger.recordOutput("Shooter/Launcher/Debug/Efficiency", LAUNCH_EFFICIENCY);
 
     double clampedVelocity = MathUtil.clamp(velocity, MIN_EXIT_VELOCITY, MAX_EXIT_VELOCITY);
-    Logger.recordOutput("Launcher/Debug/ClampedVelocity", clampedVelocity);
-    Logger.recordOutput("Launcher/Debug/WasClamped", velocity != clampedVelocity);
+    Logger.recordOutput("Shooter/Launcher/Debug/ClampedVelocity", clampedVelocity);
+    Logger.recordOutput("Shooter/Launcher/Debug/WasClamped", velocity != clampedVelocity);
 
     return clampedVelocity;
   }

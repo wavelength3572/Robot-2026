@@ -265,12 +265,12 @@ public class LauncherIOSparkFlex implements LauncherIO {
     double wheelRadPerSec = Units.rotationsPerMinuteToRadiansPerSecond(currentTargetWheelRPM);
     double arbFFVolts = feedforward.calculate(wheelRadPerSec);
     double totalFFVolts = arbFFVolts + boostVolts;
-    Logger.recordOutput("Launcher/FeedforwardVolts", arbFFVolts);
-    Logger.recordOutput("Launcher/TotalFeedforwardVolts", totalFFVolts);
+    Logger.recordOutput("Shooter/Launcher/FeedforwardVolts", arbFFVolts);
+    Logger.recordOutput("Shooter/Launcher/TotalFeedforwardVolts", totalFFVolts);
 
     // Select PID slot: Slot 1 has boosted P for faster recovery during shooting
     ClosedLoopSlot slot = recoveryActive ? ClosedLoopSlot.kSlot1 : ClosedLoopSlot.kSlot0;
-    Logger.recordOutput("Launcher/UsingRecoveryPID", recoveryActive);
+    Logger.recordOutput("Shooter/Launcher/UsingRecoveryPID", recoveryActive);
 
     // Command leader with PID + feedforward - follower follows automatically in hardware
     leaderController.setSetpoint(

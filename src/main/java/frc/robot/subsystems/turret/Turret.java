@@ -34,13 +34,13 @@ public class Turret extends SubsystemBase {
 
   // Pass target offset tunables — separate for left and right trench
   private final LoggedTunableNumber passLeftAdjustX =
-      new LoggedTunableNumber("Shooting/Auto/Pass/Left/AdjustX", 0.0);
+      new LoggedTunableNumber("Tuning/Pass/Left/AdjustX", 0.0);
   private final LoggedTunableNumber passLeftAdjustY =
-      new LoggedTunableNumber("Shooting/Auto/Pass/Left/AdjustY", 0.0);
+      new LoggedTunableNumber("Tuning/Pass/Left/AdjustY", 0.0);
   private final LoggedTunableNumber passRightAdjustX =
-      new LoggedTunableNumber("Shooting/Auto/Pass/Right/AdjustX", 0.0);
+      new LoggedTunableNumber("Tuning/Pass/Right/AdjustX", 0.0);
   private final LoggedTunableNumber passRightAdjustY =
-      new LoggedTunableNumber("Shooting/Auto/Pass/Right/AdjustY", 0.0);
+      new LoggedTunableNumber("Tuning/Pass/Right/AdjustY", 0.0);
 
   // ========== Tunable Limits (adjust in AdvantageScope without recompiling!) ==========
   // FlipAngleDeg: How far can the turret rotate before it must "flip" (go the other way)
@@ -71,11 +71,11 @@ public class Turret extends SubsystemBase {
 
   // Pass shot launch angle (tunable for adjusting pass arc)
   private final LoggedTunableNumber passLaunchAngleDeg =
-      new LoggedTunableNumber("Shooting/Auto/Pass/LaunchAngleDeg", 65.0);
+      new LoggedTunableNumber("Tuning/Pass/LaunchAngleDeg", 65.0);
 
   // Minimum fuel % before auto-shoot fires in PASS mode (0.0-1.0, default 0.8 = 80%)
   private final LoggedTunableNumber passFuelThreshold =
-      new LoggedTunableNumber("Shooting/Auto/Pass/FuelThresholdPct", 0.8);
+      new LoggedTunableNumber("Tuning/Pass/FuelThresholdPct", 0.8);
 
   // Startup safety - turret locked until operator confirms position
   private boolean operatorConfirmed = false;
