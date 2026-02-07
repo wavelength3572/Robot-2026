@@ -114,7 +114,7 @@ public class TurretBotConfig implements RobotConfig {
   // Gear ratio: 1 motor rotation = 1.0 wheel rotations (direct drive)
   private static final int launcherLeaderCanId = 58;
   private static final int launcherFollowerCanId = 59;
-  private static final double launcherGearRatio = 1.0; // 1 motor rot = 1.0 wheel rot (direct drive)
+  private static final double launcherGearRatio = 1.5; // 1.5:1 reduction (matches bench hardware)
   private static final int launcherCurrentLimitAmps = 80;
   private static final double launcherKp = 0.00006;
   private static final double launcherKi = 0.0;

@@ -42,7 +42,6 @@ import frc.robot.subsystems.motivator.MotivatorIOSparkFlex;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
 import frc.robot.subsystems.turret.TurretIOSim;
-import frc.robot.subsystems.turret.TurretIOSparkMax;
 import frc.robot.subsystems.turret.TurretIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
@@ -50,7 +49,6 @@ import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.FuelSim;
-import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.MatchPhaseTracker;
 import frc.robot.util.RobotStatus;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
@@ -84,8 +82,8 @@ public class RobotContainer {
     switch (Constants.currentMode) {
       case REAL:
         if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
-          // TurretBot uses SparkMax + NEO 550
-          turret = new Turret(new TurretIOSparkMax());
+          // TurretBot bench test: turret motor not connected, use no-op IO
+          turret = new Turret(new TurretIO() {});
         } else {
           // SquareBot and MainBot use TalonFX
           turret = new Turret(new TurretIOTalonFX());
@@ -450,9 +448,8 @@ public class RobotContainer {
         oi, drive, vision, intake, turret, launcher, motivator, hood);
   }
 
-  // Tunable starting fuel count for autonomous
-  private static final LoggedTunableNumber autoStartFuelCount =
-      new LoggedTunableNumber("Auto/StartFuelCount", 8);
+  // Starting fuel count for autonomous (always 8)
+  private static final int AUTO_START_FUEL_COUNT = 8;
 
   /**
    * Use this to pass the autonomous command to the main {@link Robot} class. Wraps the selected
@@ -472,7 +469,7 @@ public class RobotContainer {
                 () -> {
                   // Set fuel count
                   if (turret != null && turret.getVisualizer() != null) {
-                    turret.getVisualizer().setFuelCount((int) autoStartFuelCount.get());
+                    turret.getVisualizer().setFuelCount(AUTO_START_FUEL_COUNT);
                   }
                   // Clear field fuel and respawn starting fuel for auto
                   if (Constants.currentMode == Constants.Mode.SIM) {
