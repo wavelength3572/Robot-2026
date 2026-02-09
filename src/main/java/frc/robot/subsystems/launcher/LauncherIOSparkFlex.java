@@ -17,6 +17,7 @@ import com.revrobotics.spark.config.SparkFlexConfig;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.PowerDistribution;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
 import java.util.function.DoubleSupplier;
@@ -37,6 +38,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
   // Hardware
   private final SparkFlex leaderMotor;
   private final SparkFlex followerMotor;
+  private final PowerDistribution pdh;
   private final RelativeEncoder leaderEncoder;
   private final RelativeEncoder followerEncoder;
   private final SparkClosedLoopController leaderController;
@@ -70,6 +72,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
     // Create feedforward controller with defaults (updated via configureFeedforward)
     feedforward = new SimpleMotorFeedforward(0.29, 0.0165, 0.003);
+
+    // Create PDH for independent current monitoring
+    pdh = new PowerDistribution();
 
     // Create SparkFlex controllers
     leaderMotor = new SparkFlex(config.getLauncherLeaderCanId(), MotorType.kBrushless);
@@ -177,6 +182,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
         new DoubleSupplier[] {leaderMotor::getAppliedOutput, leaderMotor::getBusVoltage},
         (values) -> inputs.leaderAppliedVolts = values[0] * values[1]);
     ifOk(leaderMotor, leaderMotor::getOutputCurrent, (value) -> inputs.leaderCurrentAmps = value);
+    inputs.leaderPdhCurrentAmps = pdh.getCurrent(0);
     ifOk(
         leaderMotor, leaderMotor::getMotorTemperature, (value) -> inputs.leaderTempCelsius = value);
     inputs.leaderConnected = leaderConnectedDebounce.calculate(!sparkStickyFault);
@@ -193,6 +199,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
         followerMotor,
         followerMotor::getOutputCurrent,
         (value) -> inputs.followerCurrentAmps = value);
+    inputs.followerPdhCurrentAmps = pdh.getCurrent(16);
     ifOk(
         followerMotor,
         followerMotor::getMotorTemperature,
