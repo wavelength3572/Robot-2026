@@ -219,9 +219,7 @@ public class ButtonsAndDashboardBindings {
                   Translation2d outpost = FieldConstants.Outpost.centerPoint;
                   drive.setPose(
                       new Pose2d(
-                          robotCenterToIntakeTip,
-                          outpost.getY(),
-                          Rotation2d.fromDegrees(180.0)));
+                          robotCenterToIntakeTip, outpost.getY(), Rotation2d.fromDegrees(180.0)));
                 },
                 drive)
             .ignoringDisable(true)
@@ -325,7 +323,8 @@ public class ButtonsAndDashboardBindings {
                   if (vis == null) return;
                   whatIfVisible = !whatIfVisible;
                   if (whatIfVisible) {
-                    double rpm = SmartDashboard.getNumber("TrajectoryCalculators/WhatIf/RPM", 2500.0);
+                    double rpm =
+                        SmartDashboard.getNumber("TrajectoryCalculators/WhatIf/RPM", 2500.0);
                     double angleDeg =
                         SmartDashboard.getNumber("TrajectoryCalculators/WhatIf/HoodAngleDeg", 45.0);
                     double exitVelocity = TurretCalculator.calculateExitVelocityFromRPM(rpm);
@@ -348,7 +347,8 @@ public class ButtonsAndDashboardBindings {
         "TrajectoryCalculators/Distance/SetPose",
         Commands.runOnce(
                 () -> {
-                  double inches = SmartDashboard.getNumber("TrajectoryCalculators/Distance/Inches", 118.0);
+                  double inches =
+                      SmartDashboard.getNumber("TrajectoryCalculators/Distance/Inches", 118.0);
                   double meters = inches * 0.0254;
                   Translation3d hub = FieldConstants.Hub.innerCenterPoint;
                   // Place robot directly in front of hub (toward blue alliance wall)

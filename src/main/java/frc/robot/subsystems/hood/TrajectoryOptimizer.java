@@ -264,8 +264,7 @@ public class TrajectoryOptimizer {
           descentAngleDeg,
           false,
           String.format(
-              "Peak %.1fft exceeds max %.1fft",
-              peakHeight / 0.3048, maxPeakHeightFt.get()));
+              "Peak %.1fft exceeds max %.1fft", peakHeight / 0.3048, maxPeakHeightFt.get()));
     }
 
     // Check that peak is before hub edge (ball should be descending at point A)
