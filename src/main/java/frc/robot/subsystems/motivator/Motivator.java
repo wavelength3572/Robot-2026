@@ -1,14 +1,9 @@
 package frc.robot.subsystems.motivator;
 
-import edu.wpi.first.wpilibj.util.Color;
-import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
-import org.littletonrobotics.junction.mechanism.LoggedMechanism2d;
-import org.littletonrobotics.junction.mechanism.LoggedMechanismLigament2d;
-import org.littletonrobotics.junction.mechanism.LoggedMechanismRoot2d;
 
 /**
  * Motivator subsystem for feeding balls to the launcher. Controls three independent motors:
@@ -61,39 +56,8 @@ public class Motivator extends SubsystemBase {
   private static final LoggedTunableNumber prefeedToleranceRPM =
       new LoggedTunableNumber("Tuning/Motivator/PreFeed/ToleranceRPM", 100.0);
 
-  // Mechanism2d visualization
-  private final LoggedMechanism2d mechanism = new LoggedMechanism2d(4, 3);
-  // Motor 1 wheel - orange
-  private final LoggedMechanismRoot2d motor1Root = mechanism.getRoot("motor1", 0.75, 1.5);
-  private final LoggedMechanismLigament2d motor1Wheel;
-  // Motor 2 wheel - yellow
-  private final LoggedMechanismRoot2d motor2Root = mechanism.getRoot("motor2", 1.75, 1.5);
-  private final LoggedMechanismLigament2d motor2Wheel;
-  // Prefeed wheel - cyan
-  private final LoggedMechanismRoot2d prefeedRoot = mechanism.getRoot("prefeed", 3.0, 1.5);
-  private final LoggedMechanismLigament2d prefeedWheel;
-  // Track cumulative angles for smooth rotation
-  private double motor1Angle = 0.0;
-  private double motor2Angle = 0.0;
-  private double prefeedAngle = 0.0;
-
   public Motivator(MotivatorIO io) {
     this.io = io;
-
-    // Create motor 1 wheel visualization (orange)
-    motor1Wheel =
-        motor1Root.append(
-            new LoggedMechanismLigament2d("motor1Wheel", 0.35, 0, 8, new Color8Bit(Color.kOrange)));
-
-    // Create motor 2 wheel visualization (yellow)
-    motor2Wheel =
-        motor2Root.append(
-            new LoggedMechanismLigament2d("motor2Wheel", 0.35, 0, 8, new Color8Bit(Color.kYellow)));
-
-    // Create prefeed wheel visualization (cyan)
-    prefeedWheel =
-        prefeedRoot.append(
-            new LoggedMechanismLigament2d("prefeedWheel", 0.25, 0, 6, new Color8Bit(Color.kCyan)));
 
     // Push initial velocity tolerances to IO
     io.setVelocityTolerances(motivatorToleranceRPM.get(), prefeedToleranceRPM.get());
@@ -118,61 +82,6 @@ public class Motivator extends SubsystemBase {
     }
     if (LoggedTunableNumber.hasChanged(motivatorToleranceRPM, prefeedToleranceRPM)) {
       io.setVelocityTolerances(motivatorToleranceRPM.get(), prefeedToleranceRPM.get());
-    }
-
-    // Update mechanism visualization based on motor velocities
-    // Convert RPM to degrees per cycle (assuming 50Hz loop = 0.02s per cycle)
-    double motor1DegreesPerCycle = motor1Inputs.velocityRPM / 60.0 * 360.0 * 0.02;
-    double motor2DegreesPerCycle = motor2Inputs.velocityRPM / 60.0 * 360.0 * 0.02;
-    double prefeedDegreesPerCycle = prefeedInputs.velocityRPM / 60.0 * 360.0 * 0.02;
-
-    motor1Angle += motor1DegreesPerCycle;
-    motor2Angle += motor2DegreesPerCycle;
-    prefeedAngle += prefeedDegreesPerCycle;
-
-    // Keep angles in reasonable range to avoid overflow
-    motor1Angle = motor1Angle % 360.0;
-    motor2Angle = motor2Angle % 360.0;
-    prefeedAngle = prefeedAngle % 360.0;
-
-    motor1Wheel.setAngle(motor1Angle);
-    motor2Wheel.setAngle(motor2Angle);
-    prefeedWheel.setAngle(prefeedAngle);
-
-    // Update wheel colors based on motor status
-    motor1Wheel.setColor(
-        getStatusColor(
-            motor1Inputs.velocityRPM, motor1Inputs.targetVelocityRPM, motor1Inputs.atSetpoint));
-    motor2Wheel.setColor(
-        getStatusColor(
-            motor2Inputs.velocityRPM, motor2Inputs.targetVelocityRPM, motor2Inputs.atSetpoint));
-    prefeedWheel.setColor(
-        getStatusColor(
-            prefeedInputs.velocityRPM, prefeedInputs.targetVelocityRPM, prefeedInputs.atSetpoint));
-
-    // Log the mechanism visualization
-    Logger.recordOutput("Motivator/Mechanism2d", mechanism);
-  }
-
-  /**
-   * Get the color for a wheel status indicator based on operational state.
-   *
-   * @param velocityRPM Current velocity in RPM
-   * @param targetVelocityRPM Target velocity in RPM
-   * @param atSetpoint Whether the motor is at setpoint
-   * @return Color8Bit: Red=unpowered, Yellow=spinning up, Green=at setpoint
-   */
-  private Color8Bit getStatusColor(
-      double velocityRPM, double targetVelocityRPM, boolean atSetpoint) {
-    final double VELOCITY_THRESHOLD = 50.0; // Avoid flickering near zero
-
-    if (Math.abs(velocityRPM) < VELOCITY_THRESHOLD
-        && Math.abs(targetVelocityRPM) < VELOCITY_THRESHOLD) {
-      return new Color8Bit(Color.kRed); // Unpowered
-    } else if (atSetpoint) {
-      return new Color8Bit(Color.kGreen); // At setpoint
-    } else {
-      return new Color8Bit(Color.kYellow); // Powered, spinning up
     }
   }
 
