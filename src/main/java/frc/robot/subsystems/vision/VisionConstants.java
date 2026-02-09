@@ -15,9 +15,13 @@ package frc.robot.subsystems.vision;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
+import edu.wpi.first.math.Matrix;
+import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.numbers.N1;
+import edu.wpi.first.math.numbers.N3;
 
 public final class VisionConstants {
 
@@ -30,7 +34,8 @@ public final class VisionConstants {
   // _________________________________________________________________________________________________
 
   // Camera names, must match names configured on coprocessor
-  // TODO: Update these camera names to match your PhotonVision coprocessor configuration
+  // TODO: Update these camera names to match your PhotonVision coprocessor
+  // configuration
   public static String frontRightCam = "CAMERA_B";
   public static String backRightCam = "CAMERA_D";
   public static String frontLeftCam = "CAMERA_A";
@@ -84,7 +89,8 @@ public final class VisionConstants {
 
   // Standard deviation multipliers for each camera
   // (Adjust to trust some cameras more than others)
-  // Order matches camera instantiation: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
+  // Order matches camera instantiation: A (FrontLeft), B (FrontRight), C
+  // (BackLeft), D (BackRight)
   public static double[] cameraStdDevFactors =
       new double[] {
         1.0, // FrontLeft (CAMERA_A)
@@ -98,8 +104,15 @@ public final class VisionConstants {
   public static double angularStdDevMegatag2Factor =
       Double.POSITIVE_INFINITY; // No rotation data available
 
+  // The standard deviations of our vision estimated poses, which affect
+  // correction rate
+  // (Fake values. Experiment and determine estimation noise on an actual robot.)
+  public static final Matrix<N3, N1> kSingleTagStdDevs = VecBuilder.fill(4, 4, 8);
+  public static final Matrix<N3, N1> kMultiTagStdDevs = VecBuilder.fill(0.5, 0.5, 1);
+
   // _________________________________________________________________________________________________
-  // RECOMMENDED camera transforms for 2026 Rebuilt field (for visualization/comparison)
+  // RECOMMENDED camera transforms for 2026 Rebuilt field (for
+  // visualization/comparison)
   // These are positioned to maximize AprilTag visibility across the field:
   // - Front cameras: pitched UP (+10°) to see HUB tags at 1.12m height
   // - Rear cameras: pitched DOWN (-10°) to see OUTPOST/TOWER tags at 0.55m height
