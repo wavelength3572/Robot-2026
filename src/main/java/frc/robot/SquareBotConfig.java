@@ -20,6 +20,10 @@ import edu.wpi.first.math.util.Units;
 public class SquareBotConfig implements RobotConfig {
 
   // Physical dimensions
+  // Square frame: 21.25in track + ~3.25in bumpers each side = ~27.75in
+  private static final double bumperLength = Units.inchesToMeters(27.75);
+  private static final double bumperWidth = Units.inchesToMeters(27.75);
+
   private static final double trackWidth = Units.inchesToMeters(21.25);
   private static final double wheelBase = Units.inchesToMeters(21.25);
   private static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
@@ -129,6 +133,16 @@ public class SquareBotConfig implements RobotConfig {
               driveMotorCurrentLimit,
               1),
           moduleTranslations);
+
+  @Override
+  public double getBumperLength() {
+    return bumperLength;
+  }
+
+  @Override
+  public double getBumperWidth() {
+    return bumperWidth;
+  }
 
   @Override
   public double getTrackWidth() {

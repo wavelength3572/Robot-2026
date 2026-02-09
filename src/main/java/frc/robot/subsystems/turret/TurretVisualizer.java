@@ -40,6 +40,7 @@ public class TurretVisualizer {
   private Translation3d[] redTrajectory = new Translation3d[TRAJECTORY_POINTS];
   private Translation3d[] yellowTrajectory = new Translation3d[TRAJECTORY_POINTS];
   private Translation3d[] greenTrajectory = new Translation3d[TRAJECTORY_POINTS];
+  private Translation3d[] whatIfTrajectory = new Translation3d[TRAJECTORY_POINTS];
   private static final Translation3d[] EMPTY_TRAJECTORY = new Translation3d[0];
 
   // Threshold for determining launcher status
@@ -95,6 +96,7 @@ public class TurretVisualizer {
       redTrajectory[i] = new Translation3d();
       yellowTrajectory[i] = new Translation3d();
       greenTrajectory[i] = new Translation3d();
+      whatIfTrajectory[i] = new Translation3d();
     }
   }
 
@@ -375,5 +377,31 @@ public class TurretVisualizer {
     // Log compensated target marker (offset from hub when robot is moving)
     Logger.recordOutput(
         "Turret/Shot/CompensatedTarget", new Pose3d(shotData.getTarget(), new Rotation3d()));
+  }
+
+  /**
+   * Get the current azimuth angle used for trajectory visualization.
+   *
+   * @return Current azimuth angle in radians (field-relative direction to target)
+   */
+  public double getCurrentAzimuthAngle() {
+    return currentAzimuthAngle;
+  }
+
+  /**
+   * Update the what-if trajectory visualization with user-specified parameters.
+   *
+   * @param exitVelocity Exit velocity in m/s
+   * @param launchAngle Launch angle in radians
+   * @param azimuthAngle Turret azimuth angle in radians (field-relative direction to target)
+   */
+  public void updateWhatIfTrajectory(double exitVelocity, double launchAngle, double azimuthAngle) {
+    calculateTrajectoryPoints(exitVelocity, launchAngle, azimuthAngle, whatIfTrajectory);
+    Logger.recordOutput("Turret/Trajectory/WhatIf", whatIfTrajectory);
+  }
+
+  /** Clear the what-if trajectory visualization. */
+  public void clearWhatIfTrajectory() {
+    Logger.recordOutput("Turret/Trajectory/WhatIf", EMPTY_TRAJECTORY);
   }
 }

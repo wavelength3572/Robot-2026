@@ -2,6 +2,7 @@ package frc.robot;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -11,11 +12,12 @@ import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.hood.Hood;
-import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.turret.Turret;
+import frc.robot.subsystems.turret.TurretCalculator;
+import frc.robot.subsystems.turret.TurretVisualizer;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.BenchTestMetrics;
 import frc.robot.util.LoggedTunableNumber;
@@ -118,7 +120,7 @@ public class ButtonsAndDashboardBindings {
     // Per-subsystem tuning run buttons (always, for all robot types)
     configureTuningControls();
 
-    // Distance-to-shot calculator
+    // Trajectory calculators (what-if arc and distance-to-pose)
     if (turret != null) {
       configureShotCalculator();
     }
@@ -202,6 +204,45 @@ public class ButtonsAndDashboardBindings {
               .withName("Preset " + label));
     }
 
+    // === Key Field Location Poses ===
+    // Robot faces 180° (intake toward alliance wall) — turret aims independently.
+    // Offset = half bumper length + intake extension past bumpers (from PathPlanner features).
+    double halfBumperLength = Constants.getRobotConfig().getBumperLength() / 2.0;
+    double intakeExtensionPastBumper = 0.21; // meters (~8.3in)
+    double robotCenterToIntakeTip = halfBumperLength + intakeExtensionPastBumper;
+
+    // Outpost: robot centered on human player drop path, intake reaching the wall
+    SmartDashboard.putData(
+        "Sim/Pose/Outpost",
+        Commands.runOnce(
+                () -> {
+                  Translation2d outpost = FieldConstants.Outpost.centerPoint;
+                  drive.setPose(
+                      new Pose2d(
+                          robotCenterToIntakeTip,
+                          outpost.getY(),
+                          Rotation2d.fromDegrees(180.0)));
+                },
+                drive)
+            .ignoringDisable(true)
+            .withName("Pose: Outpost"));
+
+    // Depot: robot positioned with intake reaching the depot
+    SmartDashboard.putData(
+        "Sim/Pose/Depot",
+        Commands.runOnce(
+                () -> {
+                  Translation3d depot = FieldConstants.Depot.depotCenter;
+                  drive.setPose(
+                      new Pose2d(
+                          depot.getX() + robotCenterToIntakeTip,
+                          depot.getY(),
+                          Rotation2d.fromDegrees(180.0)));
+                },
+                drive)
+            .ignoringDisable(true)
+            .withName("Pose: Depot"));
+
     // Initialize shooting velocity tunables so they appear in dashboard immediately
     // Just accessing them triggers LoggedTunableNumber to register with NetworkTables
     if (launcher != null || motivator != null) {
@@ -259,106 +300,81 @@ public class ButtonsAndDashboardBindings {
         "BenchTest/Intake/DeployAndRun", intake.deployAndRunCommand(testIntakeSpeed::get));
   }
 
-  /** Configure distance-to-shot calculator on dashboard. */
+  /** Whether the what-if trajectory arc is currently displayed. */
+  private static boolean whatIfVisible = false;
+
+  /**
+   * Configure trajectory calculator controls on the dashboard. Two independent tools:
+   *
+   * <p><b>What-If:</b> Render a hypothetical trajectory arc for user-specified RPM and hood angle,
+   * using the turret's current azimuth. Logged to {@code Turret/Trajectory/WhatIf}.
+   *
+   * <p><b>Distance:</b> Place the robot at a given distance from the hub so the turret's periodic
+   * loop auto-computes the optimized trajectory, then read back the resulting RPM and hood angle.
+   */
   private static void configureShotCalculator() {
-    SmartDashboard.putNumber("BenchTest/Calculator/DistanceInches", 118.0);
+    // === What-If: hypothetical trajectory for arbitrary RPM + hood angle ===
+    SmartDashboard.putNumber("TrajectoryCalculators/WhatIf/RPM", 2500.0);
+    SmartDashboard.putNumber("TrajectoryCalculators/WhatIf/HoodAngleDeg", 45.0);
 
     SmartDashboard.putData(
-        "BenchTest/Calculator/Calculate",
-        Commands.runOnce(ButtonsAndDashboardBindings::runShotCalculation)
-            .ignoringDisable(true)
-            .withName("Calculate Shot"));
-
-    // CalcFromPose: read robot pose, compute distance to hub, then calculate
-    SmartDashboard.putData(
-        "BenchTest/Calculator/CalcFromPose",
+        "TrajectoryCalculators/WhatIf/Toggle",
         Commands.runOnce(
                 () -> {
-                  Pose2d robotPose = drive.getPose();
-                  Translation3d hubTarget = FieldConstants.Hub.innerCenterPoint;
-                  double distMeters =
-                      robotPose.getTranslation().getDistance(hubTarget.toTranslation2d());
-                  double distInches = distMeters / 0.0254;
-                  SmartDashboard.putNumber(
-                      "BenchTest/Calculator/DistanceInches",
-                      Math.round(distInches * 100.0) / 100.0);
-                  runShotCalculation();
+                  TurretVisualizer vis = turret.getVisualizer();
+                  if (vis == null) return;
+                  whatIfVisible = !whatIfVisible;
+                  if (whatIfVisible) {
+                    double rpm = SmartDashboard.getNumber("TrajectoryCalculators/WhatIf/RPM", 2500.0);
+                    double angleDeg =
+                        SmartDashboard.getNumber("TrajectoryCalculators/WhatIf/HoodAngleDeg", 45.0);
+                    double exitVelocity = TurretCalculator.calculateExitVelocityFromRPM(rpm);
+                    double launchAngleRad = Math.toRadians(angleDeg);
+                    double azimuth = vis.getCurrentAzimuthAngle();
+                    vis.updateWhatIfTrajectory(exitVelocity, launchAngleRad, azimuth);
+                  } else {
+                    vis.clearWhatIfTrajectory();
+                  }
                 })
             .ignoringDisable(true)
-            .withName("Calc From Pose"));
+            .withName("Toggle What-If"));
 
-    // Calculate all presets button
+    // === Distance: move robot to a distance from hub, read back the optimized shot ===
+    SmartDashboard.putNumber("TrajectoryCalculators/Distance/Inches", 118.0);
+    SmartDashboard.putNumber("TrajectoryCalculators/Distance/OptimalRPM", 0.0);
+    SmartDashboard.putNumber("TrajectoryCalculators/Distance/OptimalHoodAngleDeg", 0.0);
+
     SmartDashboard.putData(
-        "BenchTest/Calculator/CalculateAll",
-        Commands.runOnce(ButtonsAndDashboardBindings::runAllPositionsCalculation)
+        "TrajectoryCalculators/Distance/SetPose",
+        Commands.runOnce(
+                () -> {
+                  double inches = SmartDashboard.getNumber("TrajectoryCalculators/Distance/Inches", 118.0);
+                  double meters = inches * 0.0254;
+                  Translation3d hub = FieldConstants.Hub.innerCenterPoint;
+                  // Place robot directly in front of hub (toward blue alliance wall)
+                  drive.setPose(
+                      new Pose2d(hub.getX() - meters, hub.getY(), Rotation2d.fromDegrees(0)));
+                },
+                drive)
             .ignoringDisable(true)
-            .withName("Calculate All"));
+            .withName("Set Pose From Distance"));
 
-    // Run once at init so output values appear on dashboard immediately
-    runShotCalculation();
-    runAllPositionsCalculation();
-  }
-
-  /** Runs the shot calculator and publishes results to SmartDashboard. */
-  private static void runShotCalculation() {
-    double distanceInches = SmartDashboard.getNumber("BenchTest/Calculator/DistanceInches", 118.0);
-    double distanceMeters = distanceInches * 0.0254;
-    double turretHeight = turret.getTurretHeightMeters();
-    Translation3d turretPos = new Translation3d(0, 0, turretHeight);
-    Translation3d hubTarget = new Translation3d(distanceMeters, 0, 1.43);
-    TrajectoryOptimizer.OptimalShot shot =
-        TrajectoryOptimizer.calculateOptimalShot(turretPos, hubTarget);
-    SmartDashboard.putNumber(
-        "BenchTest/Calculator/CalcLauncherRPM", Math.round(shot.rpm * 100.0) / 100.0);
-    SmartDashboard.putNumber(
-        "BenchTest/Calculator/CalcHoodAngleDeg", Math.round(shot.launchAngleDeg * 100.0) / 100.0);
-    SmartDashboard.putNumber(
-        "BenchTest/Calculator/CalcExitVelocityMps",
-        Math.round(shot.exitVelocityMps * 100.0) / 100.0);
-    SmartDashboard.putNumber(
-        "BenchTest/Calculator/CalcExitVelocityFps",
-        Math.round(shot.exitVelocityMps * 3.28084 * 100.0) / 100.0);
-    SmartDashboard.putBoolean("BenchTest/Calculator/Achievable", shot.achievable);
-    SmartDashboard.putString("BenchTest/Calculator/Notes", shot.notes);
-  }
-
-  /** Calculates all preset positions and publishes a pipe-separated summary. */
-  private static void runAllPositionsCalculation() {
-    double turretHeight = turret.getTurretHeightMeters();
-    Translation3d hubTarget3d = FieldConstants.Hub.innerCenterPoint;
-    StringBuilder sb = new StringBuilder();
-    for (String[] preset : PRESET_POSITIONS) {
-      String label = preset[0];
-      double x = Double.parseDouble(preset[1]);
-      double y = Double.parseDouble(preset[2]);
-      // Compute horizontal distance from this position to the hub
-      double distMeters =
-          new edu.wpi.first.math.geometry.Translation2d(x, y)
-              .getDistance(hubTarget3d.toTranslation2d());
-      double distInches = distMeters / 0.0254;
-      // Use simplified 1D model: turret at origin with height, hub at distance with hub height
-      Translation3d turretPos = new Translation3d(0, 0, turretHeight);
-      Translation3d target = new Translation3d(distMeters, 0, hubTarget3d.getZ());
-      TrajectoryOptimizer.OptimalShot shot =
-          TrajectoryOptimizer.calculateOptimalShot(turretPos, target);
-      double rpm = Math.round(shot.rpm * 100.0) / 100.0;
-      double angleDeg = Math.round(shot.launchAngleDeg * 100.0) / 100.0;
-      double fps = Math.round(shot.exitVelocityMps * 3.28084 * 100.0) / 100.0;
-      if (sb.length() > 0) {
-        sb.append(" | ");
-      }
-      sb.append(label)
-          .append(" ")
-          .append((int) Math.round(distInches))
-          .append("in: ")
-          .append(rpm)
-          .append("rpm ")
-          .append(angleDeg)
-          .append("deg ")
-          .append(fps)
-          .append("fps");
-    }
-    SmartDashboard.putString("BenchTest/Calculator/AllPositions", sb.toString());
+    // Read back the turret's optimized shot (press after SetPose to populate RPM/angle)
+    SmartDashboard.putData(
+        "TrajectoryCalculators/Distance/ReadShot",
+        Commands.runOnce(
+                () -> {
+                  TurretCalculator.ShotData shot = turret.getCurrentShot();
+                  if (shot == null) return;
+                  double rpm = TurretCalculator.calculateRPMForVelocity(shot.getExitVelocity());
+                  SmartDashboard.putNumber(
+                      "TrajectoryCalculators/Distance/OptimalRPM", Math.round(rpm * 10.0) / 10.0);
+                  SmartDashboard.putNumber(
+                      "TrajectoryCalculators/Distance/OptimalHoodAngleDeg",
+                      Math.round(shot.getLaunchAngleDegrees() * 10.0) / 10.0);
+                })
+            .ignoringDisable(true)
+            .withName("Read Optimized Shot"));
   }
 
   /****************************** */

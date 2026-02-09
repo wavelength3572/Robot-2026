@@ -759,9 +759,10 @@ public class RobotContainer {
   private void initializeFuelSim() {
     FuelSim fuelSim = FuelSim.getInstance();
 
-    // Robot dimensions (adjust for your robot)
-    double robotWidth = 0.7; // meters (with bumpers)
-    double robotLength = 0.7; // meters (with bumpers)
+    // Robot dimensions from config (bumper-to-bumper)
+    RobotConfig robotConfig = Constants.getRobotConfig();
+    double robotWidth = robotConfig.getBumperWidth();
+    double robotLength = robotConfig.getBumperLength();
     double bumperHeight = 0.2; // meters
 
     // Register the robot with the simulation

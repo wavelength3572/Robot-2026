@@ -46,8 +46,8 @@ public class TrajectoryOptimizer {
       new LoggedTunableNumber("Tuning/Trajectory/MinRPM", 1500.0);
   private static final LoggedTunableNumber maxRPM =
       new LoggedTunableNumber("Tuning/Trajectory/MaxRPM", 4000.0);
-  private static final LoggedTunableNumber maxPeakHeightM =
-      new LoggedTunableNumber("Tuning/Trajectory/MaxPeakHeightM", 4.0);
+  private static final LoggedTunableNumber maxPeakHeightFt =
+      new LoggedTunableNumber("Tuning/Trajectory/MaxPeakHeightFt", 13.0);
 
   // Hood/launch angle limits (tunable)
   private static final LoggedTunableNumber hoodMinAngleDeg =
@@ -254,7 +254,8 @@ public class TrajectoryOptimizer {
     double peakHeight = turretHeightM + (vy0 * vy0) / (2 * GRAVITY);
 
     // Check peak height limit
-    if (peakHeight > maxPeakHeightM.get()) {
+    double maxPeakHeightM = maxPeakHeightFt.get() * 0.3048;
+    if (peakHeight > maxPeakHeightM) {
       return new OptimalShot(
           rpm,
           thetaDeg,
@@ -262,7 +263,9 @@ public class TrajectoryOptimizer {
           peakHeight,
           descentAngleDeg,
           false,
-          String.format("Peak %.2fm exceeds max %.2fm", peakHeight, maxPeakHeightM.get()));
+          String.format(
+              "Peak %.1fft exceeds max %.1fft",
+              peakHeight / 0.3048, maxPeakHeightFt.get()));
     }
 
     // Check that peak is before hub edge (ball should be descending at point A)

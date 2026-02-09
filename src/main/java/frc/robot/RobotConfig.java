@@ -17,7 +17,13 @@ import edu.wpi.first.math.system.plant.DCMotor;
  */
 public interface RobotConfig {
 
-  // Physical dimensions
+  // Physical dimensions (bumper-to-bumper, from PathPlanner settings)
+  /** Robot length with bumpers, front to back (meters). */
+  double getBumperLength();
+
+  /** Robot width with bumpers, side to side (meters). */
+  double getBumperWidth();
+
   double getTrackWidth();
 
   double getWheelBase();

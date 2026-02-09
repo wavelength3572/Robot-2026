@@ -20,7 +20,11 @@ import edu.wpi.first.math.util.Units;
  */
 public class TurretBotConfig implements RobotConfig {
 
-  // Placeholder physical dimensions (minimal values since no drive base)
+  // Physical dimensions (same frame as MainBot, from PathPlanner settings.json)
+  private static final double bumperLength = 0.787; // meters, front to back with bumpers
+  private static final double bumperWidth = 0.978; // meters, side to side with bumpers
+
+  // Placeholder drive dimensions (minimal values since no drive base)
   private static final double trackWidth = Units.inchesToMeters(12.0);
   private static final double wheelBase = Units.inchesToMeters(12.0);
   private static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
@@ -134,6 +138,16 @@ public class TurretBotConfig implements RobotConfig {
               driveMotorCurrentLimit,
               1),
           moduleTranslations);
+
+  @Override
+  public double getBumperLength() {
+    return bumperLength;
+  }
+
+  @Override
+  public double getBumperWidth() {
+    return bumperWidth;
+  }
 
   @Override
   public double getTrackWidth() {
