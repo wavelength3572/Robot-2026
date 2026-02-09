@@ -6,6 +6,8 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.robot.Constants;
+import frc.robot.RobotConfig;
 import frc.robot.subsystems.turret.TurretCalculator;
 import frc.robot.util.BenchTestMetrics;
 import frc.robot.util.LoggedTunableNumber;
@@ -23,11 +25,36 @@ public class Launcher extends SubsystemBase {
   private final LauncherIOInputsAutoLogged inputs = new LauncherIOInputsAutoLogged();
   private final SysIdRoutine sysId;
 
+  // Tunable PID gains
+  private static final LoggedTunableNumber kP;
+  private static final LoggedTunableNumber kI;
+  private static final LoggedTunableNumber kD;
+  private static final LoggedTunableNumber recoveryKpBoost =
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.0001);
+
+  // Tunable feedforward gains
+  private static final LoggedTunableNumber kS = new LoggedTunableNumber("Tuning/Launcher/kS", 0.29);
+  private static final LoggedTunableNumber kV =
+      new LoggedTunableNumber("Tuning/Launcher/kV", 0.0165);
+  private static final LoggedTunableNumber kA =
+      new LoggedTunableNumber("Tuning/Launcher/kA", 0.003);
+
+  // Tunable velocity tolerance
+  private static final LoggedTunableNumber velocityToleranceRPM =
+      new LoggedTunableNumber("Tuning/Launcher/VelocityToleranceRPM", 50.0);
+
   // Recovery boost tunables
   private static final LoggedTunableNumber recoveryBoostThresholdRPM =
       new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostThresholdRPM", 50.0);
   private static final LoggedTunableNumber recoveryBoostVolts =
       new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostVolts", 0.0);
+
+  static {
+    RobotConfig config = Constants.getRobotConfig();
+    kP = new LoggedTunableNumber("Tuning/Launcher/kP", config.getLauncherKp());
+    kI = new LoggedTunableNumber("Tuning/Launcher/kI", config.getLauncherKi());
+    kD = new LoggedTunableNumber("Tuning/Launcher/kD", config.getLauncherKd());
+  }
 
   // Feeding flag - set by ShootingCommands when prefeed starts
   private boolean feedingActive = false;
@@ -57,7 +84,7 @@ public class Launcher extends SubsystemBase {
                 Volts.per(Second).of(0.5), // Ramp rate: 0.5 V/s for quasistatic
                 Volts.of(4), // Step voltage: 4V for dynamic (limited for safety)
                 Seconds.of(10), // Timeout: 10 seconds
-                (state) -> Logger.recordOutput("Shooter/Launcher/SysIdState", state.toString())),
+                (state) -> Logger.recordOutput("Launcher/SysIdState", state.toString())),
             new SysIdRoutine.Mechanism(
                 (voltage) -> io.setVoltage(voltage.in(Volts)),
                 (log) -> {
@@ -76,30 +103,33 @@ public class Launcher extends SubsystemBase {
                   }
                 },
                 this));
+
+    // Push initial velocity tolerance to IO
+    io.setVelocityTolerance(velocityToleranceRPM.get());
   }
 
   @Override
   public void periodic() {
     io.updateInputs(inputs);
-    Logger.processInputs("Shooter/Launcher", inputs);
+    Logger.processInputs("Launcher", inputs);
 
     // Update TurretCalculator with current wheel RPM for trajectory calculations
     TurretCalculator.setLauncherRPM(inputs.wheelVelocityRPM);
 
     // Log velocity error
     double velocityError = inputs.targetVelocityRPM - inputs.wheelVelocityRPM;
-    Logger.recordOutput("Shooter/Launcher/velocityError", velocityError);
+    Logger.recordOutput("Launcher/velocityError", velocityError);
 
     // Safety: detect velocity mismatch between motors
     // Both encoders read motor RPM, so compare directly
     double velocityMismatch =
         Math.abs(Math.abs(inputs.leaderVelocityRPM) - Math.abs(inputs.followerVelocityRPM));
-    Logger.recordOutput("Shooter/Launcher/velocityMismatch", velocityMismatch);
+    Logger.recordOutput("Launcher/velocityMismatch", velocityMismatch);
 
     // Alert if mismatch exceeds threshold while running
     boolean mismatchAlert =
         velocityMismatch > VELOCITY_MISMATCH_THRESHOLD_RPM && inputs.targetVelocityRPM > 100;
-    Logger.recordOutput("Shooter/Launcher/velocityMismatchAlert", mismatchAlert);
+    Logger.recordOutput("Launcher/velocityMismatchAlert", mismatchAlert);
 
     if (mismatchAlert) {
       System.err.println(
@@ -108,6 +138,17 @@ public class Launcher extends SubsystemBase {
               + " RPM, Follower: "
               + inputs.followerVelocityRPM
               + " RPM");
+    }
+
+    // Push tunable changes to IO
+    if (LoggedTunableNumber.hasChanged(kP, kI, kD, recoveryKpBoost)) {
+      io.configurePID(kP.get(), kI.get(), kD.get(), recoveryKpBoost.get());
+    }
+    if (LoggedTunableNumber.hasChanged(kS, kV, kA)) {
+      io.configureFeedforward(kS.get(), kV.get(), kA.get());
+    }
+    if (LoggedTunableNumber.hasChanged(velocityToleranceRPM)) {
+      io.setVelocityTolerance(velocityToleranceRPM.get());
     }
 
     // Update bench test metrics with current state
@@ -144,8 +185,8 @@ public class Launcher extends SubsystemBase {
     } else {
       recoveryActive = false;
     }
-    Logger.recordOutput("Shooter/Launcher/RecoveryBoostActive", recoveryActive);
-    Logger.recordOutput("Shooter/Launcher/RecoveryBoostVolts", boost);
+    Logger.recordOutput("Launcher/RecoveryBoostActive", recoveryActive);
+    Logger.recordOutput("Launcher/RecoveryBoostVolts", boost);
 
     io.setVelocityWithBoost(velocityRPM, boost, recoveryActive);
     // Update TurretCalculator with target RPM for setpoint trajectory
@@ -183,7 +224,7 @@ public class Launcher extends SubsystemBase {
    *
    * @return Current velocity in wheel RPM
    */
-  @AutoLogOutput(key = "Shooter/Launcher/currentVelocity")
+  @AutoLogOutput(key = "Launcher/currentVelocity")
   public double getVelocity() {
     return inputs.wheelVelocityRPM;
   }
@@ -279,11 +320,11 @@ public class Launcher extends SubsystemBase {
     System.out.println("[Launcher SysId] To use these values, update Launcher/kS and Launcher/kV");
 
     // Also log to AdvantageKit for dashboard viewing
-    Logger.recordOutput("Shooter/Launcher/SysId/CalculatedKs", kS);
-    Logger.recordOutput("Shooter/Launcher/SysId/CalculatedKv", kV);
-    Logger.recordOutput("Shooter/Launcher/SysId/DataPoints", n);
-    Logger.recordOutput("Shooter/Launcher/SysId/MinVelocityRPM", minRPM);
-    Logger.recordOutput("Shooter/Launcher/SysId/MaxVelocityRPM", maxRPM);
+    Logger.recordOutput("Launcher/SysId/CalculatedKs", kS);
+    Logger.recordOutput("Launcher/SysId/CalculatedKv", kV);
+    Logger.recordOutput("Launcher/SysId/DataPoints", n);
+    Logger.recordOutput("Launcher/SysId/MinVelocityRPM", minRPM);
+    Logger.recordOutput("Launcher/SysId/MaxVelocityRPM", maxRPM);
   }
 
   /**
@@ -326,6 +367,19 @@ public class Launcher extends SubsystemBase {
     return run(() -> setVelocity(velocityRPM))
         .finallyDo(this::stop)
         .withName("Launcher: Run at " + velocityRPM + " RPM");
+  }
+
+  /**
+   * Command to run the launcher at a tunable velocity. Reads the tunable each cycle so RPM changes
+   * take effect live.
+   *
+   * @param rpm Tunable RPM source
+   * @return Command that runs until interrupted
+   */
+  public Command runAtTunableVelocityCommand(LoggedTunableNumber rpm) {
+    return run(() -> setVelocity(rpm.get()))
+        .finallyDo(this::stop)
+        .withName("Launcher: Run at Tunable RPM");
   }
 
   /**

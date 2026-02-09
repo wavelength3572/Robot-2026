@@ -108,4 +108,9 @@ public class IntakeIOSim implements IntakeIO {
     rollerAppliedVolts = 0.0;
     rollerTargetSpeed = 0.0;
   }
+
+  @Override
+  public void configureDeployPID(double kP, double kI, double kD) {
+    deployController.setPID(kP, kI, kD);
+  }
 }

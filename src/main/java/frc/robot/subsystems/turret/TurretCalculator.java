@@ -9,6 +9,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -23,8 +24,9 @@ public class TurretCalculator {
   private static final double WHEEL_RADIUS_METERS = 0.0508;
 
   // Efficiency factor: how much of wheel surface velocity transfers to ball (0.0-1.0)
-  // Accounts for slip, compression, etc. Calibrated value.
-  private static final double LAUNCH_EFFICIENCY = 0.70;
+  // Accounts for slip, compression, etc. Tunable for calibration against real-world shots.
+  private static final LoggedTunableNumber launchEfficiency =
+      new LoggedTunableNumber("Tuning/Trajectory/LaunchEfficiency", 0.70);
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -116,7 +118,7 @@ public class TurretCalculator {
     double surfaceVelocity = (rpm * 2.0 * Math.PI * WHEEL_RADIUS_METERS) / 60.0;
 
     // Apply efficiency factor
-    return surfaceVelocity * LAUNCH_EFFICIENCY;
+    return surfaceVelocity * launchEfficiency.get();
   }
 
   /**
@@ -127,7 +129,7 @@ public class TurretCalculator {
    */
   public static double calculateRPMForVelocity(double targetExitVelocity) {
     // Reverse the formula: RPM = (velocity / efficiency) × 60 / (2π × radius)
-    double surfaceVelocity = targetExitVelocity / LAUNCH_EFFICIENCY;
+    double surfaceVelocity = targetExitVelocity / launchEfficiency.get();
     return (surfaceVelocity * 60.0) / (2.0 * Math.PI * WHEEL_RADIUS_METERS);
   }
 
@@ -228,14 +230,14 @@ public class TurretCalculator {
     double velocity = calculateExitVelocityFromRPM();
 
     // Debug logging
-    Logger.recordOutput("Shooter/Launcher/Debug/CurrentRPM", currentLauncherRPM);
-    Logger.recordOutput("Shooter/Launcher/Debug/RawExitVelocity", velocity);
-    Logger.recordOutput("Shooter/Launcher/Debug/WheelRadius", WHEEL_RADIUS_METERS);
-    Logger.recordOutput("Shooter/Launcher/Debug/Efficiency", LAUNCH_EFFICIENCY);
+    Logger.recordOutput("Launcher/Debug/CurrentRPM", currentLauncherRPM);
+    Logger.recordOutput("Launcher/Debug/RawExitVelocity", velocity);
+    Logger.recordOutput("Launcher/Debug/WheelRadius", WHEEL_RADIUS_METERS);
+    Logger.recordOutput("Launcher/Debug/Efficiency", launchEfficiency.get());
 
     double clampedVelocity = MathUtil.clamp(velocity, MIN_EXIT_VELOCITY, MAX_EXIT_VELOCITY);
-    Logger.recordOutput("Shooter/Launcher/Debug/ClampedVelocity", clampedVelocity);
-    Logger.recordOutput("Shooter/Launcher/Debug/WasClamped", velocity != clampedVelocity);
+    Logger.recordOutput("Launcher/Debug/ClampedVelocity", clampedVelocity);
+    Logger.recordOutput("Launcher/Debug/WasClamped", velocity != clampedVelocity);
 
     return clampedVelocity;
   }

@@ -32,4 +32,7 @@ public interface IntakeIO {
 
   /** Stop both motors. */
   public default void stop() {}
+
+  /** Configure PID gains for the deploy motor. */
+  default void configureDeployPID(double kP, double kI, double kD) {}
 }

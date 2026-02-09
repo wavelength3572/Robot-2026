@@ -13,7 +13,6 @@ import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.filter.Debouncer;
-import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
 
 public class IntakeIOSparkMax implements IntakeIO {
@@ -23,14 +22,6 @@ public class IntakeIOSparkMax implements IntakeIO {
   private final RelativeEncoder deployEncoder;
   private final RelativeEncoder rollerEncoder;
   private final SparkClosedLoopController deployController;
-
-  // Tunable PID for deploy motor
-  private static final LoggedTunableNumber deployKP =
-      new LoggedTunableNumber("Tuning/Intake/Deploy_kP", IntakeConstants.DEPLOY_KP);
-  private static final LoggedTunableNumber deployKI =
-      new LoggedTunableNumber("Tuning/Intake/Deploy_kI", IntakeConstants.DEPLOY_KI);
-  private static final LoggedTunableNumber deployKD =
-      new LoggedTunableNumber("Tuning/Intake/Deploy_kD", IntakeConstants.DEPLOY_KD);
 
   // Connection debouncers
   private final Debouncer deployConnectedDebounce =
@@ -66,7 +57,7 @@ public class IntakeIOSparkMax implements IntakeIO {
     deployConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(deployKP.get(), deployKI.get(), deployKD.get());
+        .pid(IntakeConstants.DEPLOY_KP, IntakeConstants.DEPLOY_KI, IntakeConstants.DEPLOY_KD);
     deployConfig
         .softLimit
         .forwardSoftLimitEnabled(true)
@@ -122,14 +113,6 @@ public class IntakeIOSparkMax implements IntakeIO {
 
   @Override
   public void updateInputs(IntakeIOInputs inputs) {
-    // Check for tunable changes and update PID
-    if (LoggedTunableNumber.hasChanged(deployKP, deployKI, deployKD)) {
-      var config = new SparkMaxConfig();
-      config.closedLoop.pid(deployKP.get(), deployKI.get(), deployKD.get());
-      deployMotor.configure(
-          config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-    }
-
     // Update deploy motor inputs
     sparkStickyFault = false;
     ifOk(
@@ -177,5 +160,13 @@ public class IntakeIOSparkMax implements IntakeIO {
     rollerMotor.stopMotor();
     deployTargetPosition = deployEncoder.getPosition();
     rollerTargetSpeed = 0.0;
+  }
+
+  @Override
+  public void configureDeployPID(double kP, double kI, double kD) {
+    var config = new SparkMaxConfig();
+    config.closedLoop.pid(kP, kI, kD);
+    deployMotor.configure(
+        config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 }

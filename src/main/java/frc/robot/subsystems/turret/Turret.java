@@ -34,13 +34,13 @@ public class Turret extends SubsystemBase {
 
   // Pass target offset tunables — separate for left and right trench
   private final LoggedTunableNumber passLeftAdjustX =
-      new LoggedTunableNumber("Tuning/Pass/Left/AdjustX", 0.0);
+      new LoggedTunableNumber("Tuning/Turret/Pass/Left/AdjustX", 0.0);
   private final LoggedTunableNumber passLeftAdjustY =
-      new LoggedTunableNumber("Tuning/Pass/Left/AdjustY", 0.0);
+      new LoggedTunableNumber("Tuning/Turret/Pass/Left/AdjustY", 0.0);
   private final LoggedTunableNumber passRightAdjustX =
-      new LoggedTunableNumber("Tuning/Pass/Right/AdjustX", 0.0);
+      new LoggedTunableNumber("Tuning/Turret/Pass/Right/AdjustX", 0.0);
   private final LoggedTunableNumber passRightAdjustY =
-      new LoggedTunableNumber("Tuning/Pass/Right/AdjustY", 0.0);
+      new LoggedTunableNumber("Tuning/Turret/Pass/Right/AdjustY", 0.0);
 
   // ========== Tunable Limits (adjust in AdvantageScope without recompiling!) ==========
   // FlipAngleDeg: How far can the turret rotate before it must "flip" (go the other way)
@@ -71,11 +71,11 @@ public class Turret extends SubsystemBase {
 
   // Pass shot launch angle (tunable for adjusting pass arc)
   private final LoggedTunableNumber passLaunchAngleDeg =
-      new LoggedTunableNumber("Tuning/Pass/LaunchAngleDeg", 65.0);
+      new LoggedTunableNumber("Tuning/Turret/Pass/LaunchAngleDeg", 65.0);
 
   // Minimum fuel % before auto-shoot fires in PASS mode (0.0-1.0, default 0.8 = 80%)
   private final LoggedTunableNumber passFuelThreshold =
-      new LoggedTunableNumber("Tuning/Pass/FuelThresholdPct", 0.8);
+      new LoggedTunableNumber("Tuning/Turret/Pass/FuelThresholdPct", 0.8);
 
   // Startup safety - turret locked until operator confirms position
   private boolean operatorConfirmed = false;
@@ -425,16 +425,16 @@ public class Turret extends SubsystemBase {
             Math.sqrt(
                 Math.pow(currentShot.getTarget().getX() - robotPose.getX(), 2)
                     + Math.pow(currentShot.getTarget().getY() - robotPose.getY(), 2));
-        Logger.recordOutput("Turret/ShotLog/Timestamp", now);
-        Logger.recordOutput("Turret/ShotLog/DistanceM", distAtFire);
+        Logger.recordOutput("Match/ShotLog/Timestamp", now);
+        Logger.recordOutput("Match/ShotLog/DistanceM", distAtFire);
         Logger.recordOutput(
-            "Turret/ShotLog/RobotSpeedMps",
+            "Match/ShotLog/RobotSpeedMps",
             Math.hypot(
                 fieldSpeedsSupplier.get().vxMetersPerSecond,
                 fieldSpeedsSupplier.get().vyMetersPerSecond));
-        Logger.recordOutput("Turret/ShotLog/ExitVelocityMps", currentShot.getExitVelocity());
-        Logger.recordOutput("Turret/ShotLog/LaunchAngleDeg", currentShot.getLaunchAngleDegrees());
-        Logger.recordOutput("Turret/ShotLog/TurretAngleDeg", inputs.currentAngleDegrees);
+        Logger.recordOutput("Match/ShotLog/ExitVelocityMps", currentShot.getExitVelocity());
+        Logger.recordOutput("Match/ShotLog/LaunchAngleDeg", currentShot.getLaunchAngleDegrees());
+        Logger.recordOutput("Match/ShotLog/TurretAngleDeg", inputs.currentAngleDegrees);
 
         launchFuel();
         lastShotTimestamp = now;

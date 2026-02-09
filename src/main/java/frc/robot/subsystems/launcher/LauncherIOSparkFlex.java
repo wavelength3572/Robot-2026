@@ -19,7 +19,6 @@ import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.util.Units;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
-import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
 
@@ -45,17 +44,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
   // Configuration
   private final double gearRatio; // 1 motor rotation = gearRatio wheel rotations
 
-  // Tunable PID gains
-  private final LoggedTunableNumber kP;
-  private final LoggedTunableNumber kI;
-  private final LoggedTunableNumber kD;
-  // Tunable feedforward gains (from SysId characterization)
-  // kS = static friction voltage, kV = velocity voltage (V/(rad/s)), kA = acceleration voltage
-  private final LoggedTunableNumber kS;
-  private final LoggedTunableNumber kV;
-  private final LoggedTunableNumber kA;
-
-  // Feedforward controller (rebuilt when gains change)
+  // Feedforward controller (rebuilt when gains change via configureFeedforward)
   private SimpleMotorFeedforward feedforward;
 
   // Connection debouncers
@@ -70,13 +59,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
   // Constants
   private static final double MAX_VELOCITY_RPM = 7000.0; // Max wheel RPM (safety limit)
 
-  // Shared tunable tolerance (same instance as LauncherIOSim for consistency)
-  private static final LoggedTunableNumber velocityToleranceRPM =
-      new LoggedTunableNumber("Tuning/Launcher/VelocityToleranceRPM", 50.0);
-
-  // Recovery P boost - extra P gain added to Slot 1 for faster recovery during shooting
-  private final LoggedTunableNumber recoveryKpBoost =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.0001);
+  // Velocity tolerance for at-setpoint check (set by subsystem via setVelocityTolerance)
+  private double velocityToleranceRPM = 50.0;
 
   public LauncherIOSparkFlex() {
     config = Constants.getRobotConfig();
@@ -84,20 +68,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Store gear ratio from config
     gearRatio = config.getLauncherGearRatio();
 
-    // Initialize tunable PID gains from config
-    // kFF is 0 because we use SysId feedforward (kS, kV, kA) instead
-    kP = new LoggedTunableNumber("Tuning/Launcher/kP", config.getLauncherKp());
-    kI = new LoggedTunableNumber("Tuning/Launcher/kI", config.getLauncherKi());
-    kD = new LoggedTunableNumber("Tuning/Launcher/kD", config.getLauncherKd());
-
-    // SysId feedforward gains (from characterization)
-    // Units: kS = volts, kV = volts per (rad/s), kA = volts per (rad/s^2)
-    kS = new LoggedTunableNumber("Tuning/Launcher/kS", 0.29);
-    kV = new LoggedTunableNumber("Tuning/Launcher/kV", 0.0165);
-    kA = new LoggedTunableNumber("Tuning/Launcher/kA", 0.003);
-
-    // Create feedforward controller
-    feedforward = new SimpleMotorFeedforward(kS.get(), kV.get(), kA.get());
+    // Create feedforward controller with defaults (updated via configureFeedforward)
+    feedforward = new SimpleMotorFeedforward(0.29, 0.0165, 0.003);
 
     // Create SparkFlex controllers
     leaderMotor = new SparkFlex(config.getLauncherLeaderCanId(), MotorType.kBrushless);
@@ -120,11 +92,15 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // No conversion factors - all conversions done in software
     // Slot 0: Normal PID gains
     // Slot 1: Recovery PID gains (higher P for faster recovery during shooting)
+    double initKp = config.getLauncherKp();
+    double initKi = config.getLauncherKi();
+    double initKd = config.getLauncherKd();
+    double initRecoveryKpBoost = 0.0001;
     leaderConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(kP.get(), kI.get(), kD.get())
-        .pid(kP.get() + recoveryKpBoost.get(), kI.get(), kD.get(), ClosedLoopSlot.kSlot1);
+        .pid(initKp, initKi, initKd)
+        .pid(initKp + initRecoveryKpBoost, initKi, initKd, ClosedLoopSlot.kSlot1);
 
     // Signal update rates
     leaderConfig
@@ -193,22 +169,6 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
   @Override
   public void updateInputs(LauncherIOInputs inputs) {
-    // Check for tunable PID/FF changes and apply to both slots
-    if (LoggedTunableNumber.hasChanged(kP, kI, kD, recoveryKpBoost)) {
-      var pidConfig = new SparkFlexConfig();
-      pidConfig
-          .closedLoop
-          .pid(kP.get(), kI.get(), kD.get())
-          .pid(kP.get() + recoveryKpBoost.get(), kI.get(), kD.get(), ClosedLoopSlot.kSlot1);
-      leaderMotor.configure(
-          pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-    }
-
-    // Check for tunable feedforward changes and rebuild
-    if (LoggedTunableNumber.hasChanged(kS, kV, kA)) {
-      feedforward = new SimpleMotorFeedforward(kS.get(), kV.get(), kA.get());
-    }
-
     // Update leader motor inputs
     sparkStickyFault = false;
     ifOk(leaderMotor, leaderEncoder::getVelocity, (value) -> inputs.leaderVelocityRPM = value);
@@ -245,7 +205,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Target and at-setpoint status
     inputs.targetVelocityRPM = currentTargetWheelRPM;
     inputs.atSetpoint =
-        Math.abs(inputs.wheelVelocityRPM - currentTargetWheelRPM) < velocityToleranceRPM.get();
+        Math.abs(inputs.wheelVelocityRPM - currentTargetWheelRPM) < this.velocityToleranceRPM;
   }
 
   @Override
@@ -265,12 +225,12 @@ public class LauncherIOSparkFlex implements LauncherIO {
     double wheelRadPerSec = Units.rotationsPerMinuteToRadiansPerSecond(currentTargetWheelRPM);
     double arbFFVolts = feedforward.calculate(wheelRadPerSec);
     double totalFFVolts = arbFFVolts + boostVolts;
-    Logger.recordOutput("Shooter/Launcher/FeedforwardVolts", arbFFVolts);
-    Logger.recordOutput("Shooter/Launcher/TotalFeedforwardVolts", totalFFVolts);
+    Logger.recordOutput("Launcher/FeedforwardVolts", arbFFVolts);
+    Logger.recordOutput("Launcher/TotalFeedforwardVolts", totalFFVolts);
 
     // Select PID slot: Slot 1 has boosted P for faster recovery during shooting
     ClosedLoopSlot slot = recoveryActive ? ClosedLoopSlot.kSlot1 : ClosedLoopSlot.kSlot0;
-    Logger.recordOutput("Shooter/Launcher/UsingRecoveryPID", recoveryActive);
+    Logger.recordOutput("Launcher/UsingRecoveryPID", recoveryActive);
 
     // Command leader with PID + feedforward - follower follows automatically in hardware
     leaderController.setSetpoint(
@@ -293,5 +253,23 @@ public class LauncherIOSparkFlex implements LauncherIO {
     currentTargetWheelRPM = 0.0;
     leaderMotor.stopMotor();
     // Follower stops automatically due to hardware follower mode
+  }
+
+  @Override
+  public void configurePID(double kP, double kI, double kD, double recoveryKpBoost) {
+    var pidConfig = new SparkFlexConfig();
+    pidConfig.closedLoop.pid(kP, kI, kD).pid(kP + recoveryKpBoost, kI, kD, ClosedLoopSlot.kSlot1);
+    leaderMotor.configure(
+        pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void configureFeedforward(double kS, double kV, double kA) {
+    feedforward = new SimpleMotorFeedforward(kS, kV, kA);
+  }
+
+  @Override
+  public void setVelocityTolerance(double toleranceRPM) {
+    this.velocityToleranceRPM = toleranceRPM;
   }
 }

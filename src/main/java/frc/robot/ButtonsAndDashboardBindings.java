@@ -2,6 +2,7 @@ package frc.robot;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -10,12 +11,14 @@ import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.hood.Hood;
+import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.BenchTestMetrics;
+import frc.robot.util.LoggedTunableNumber;
 
 public class ButtonsAndDashboardBindings {
 
@@ -27,6 +30,18 @@ public class ButtonsAndDashboardBindings {
   private static Launcher launcher;
   private static Motivator motivator;
   private static Hood hood;
+
+  // Intake bench test tunable (duty cycle 0-1)
+  private static final LoggedTunableNumber testIntakeSpeed =
+      new LoggedTunableNumber("BenchTest/Intake/RollerSpeed", 0.8);
+
+  // Preset field positions for simulation (label, x_meters, y_meters, rotation_degrees)
+  private static final String[][] PRESET_POSITIONS = {
+    {"DepotStart", "3.50", "6.00", "180.0"},
+    {"HPStart", "3.56", "0.65", "180.0"},
+    {"TrenchLeft", "3.52", "7.54", "-90.28"},
+    {"TrenchRight", "3.53", "0.58", "90.0"},
+  };
 
   public ButtonsAndDashboardBindings() {}
 
@@ -85,34 +100,9 @@ public class ButtonsAndDashboardBindings {
               .withName("Toggle Vision"));
     }
 
-    // Intake controls on dashboard
+    // Intake bench test area
     if (intake != null) {
-      // Deploy/Retract buttons
-      SmartDashboard.putData(
-          "BenchTest/Subsystems/Intake/Deploy",
-          Commands.runOnce(intake::deploy, intake).withName("Deploy Intake"));
-      SmartDashboard.putData(
-          "BenchTest/Subsystems/Intake/Retract",
-          Commands.runOnce(intake::retract, intake).withName("Retract Intake"));
-
-      // Roller on/off toggle
-      SmartDashboard.putData(
-          "BenchTest/Subsystems/Intake/Run",
-          Commands.runOnce(intake::runIntake, intake).withName("Run Intake"));
-      SmartDashboard.putData(
-          "BenchTest/Subsystems/Intake/Stop",
-          Commands.runOnce(intake::stopRollers, intake).withName("Stop Intake"));
-
-      // Combined deploy + activate intake button
-      SmartDashboard.putData(
-          "BenchTest/Subsystems/Intake/DeployAndRun",
-          Commands.runOnce(
-                  () -> {
-                    intake.deploy();
-                    intake.runIntake();
-                  },
-                  intake)
-              .withName("Deploy & Run Intake"));
+      configureIntakeBenchTest();
     }
 
     // TurretBot-specific testing controls
@@ -123,6 +113,14 @@ public class ButtonsAndDashboardBindings {
     // Coordinated shooting controls (requires both turret and launcher)
     if (turret != null && launcher != null) {
       configureShootingControls();
+    }
+
+    // Per-subsystem tuning run buttons (always, for all robot types)
+    configureTuningControls();
+
+    // Distance-to-shot calculator
+    if (turret != null) {
+      configureShotCalculator();
     }
   }
 
@@ -187,76 +185,21 @@ public class ButtonsAndDashboardBindings {
             .ignoringDisable(true)
             .withName("SimSetPose"));
 
-    // === Preset Field Positions ===
-    // Blue alliance zone (should aim at blue hub)
-    SmartDashboard.putData(
-        "Sim/Pose/SimPresetBlue",
-        Commands.runOnce(
-                () -> {
-                  drive.setPose(new Pose2d(2.0, 4.0, Rotation2d.fromDegrees(0)));
-                  System.out.println("[Sim] Set pose to Blue Alliance Zone");
-                },
-                drive)
-            .ignoringDisable(true)
-            .withName("SimPresetBlue"));
-
-    // Red alliance zone (should aim at red hub)
-    SmartDashboard.putData(
-        "Sim/Pose/SimPresetRed",
-        Commands.runOnce(
-                () -> {
-                  drive.setPose(new Pose2d(14.0, 4.0, Rotation2d.fromDegrees(180)));
-                  System.out.println("[Sim] Set pose to Red Alliance Zone");
-                },
-                drive)
-            .ignoringDisable(true)
-            .withName("SimPresetRed"));
-
-    // Field center (neutral zone)
-    SmartDashboard.putData(
-        "Sim/Pose/SimPresetCenter",
-        Commands.runOnce(
-                () -> {
-                  drive.setPose(new Pose2d(8.27, 4.0, Rotation2d.fromDegrees(0)));
-                  System.out.println("[Sim] Set pose to Field Center");
-                },
-                drive)
-            .ignoringDisable(true)
-            .withName("SimPresetCenter"));
-
-    // === Launcher Test Controls ===
-    if (launcher != null) {
-      // Run launcher at default launch velocity (hold this button in dashboard)
+    // === Preset Field Positions (from PathPlanner auto start poses) ===
+    for (String[] preset : PRESET_POSITIONS) {
+      String label = preset[0];
+      double x = Double.parseDouble(preset[1]);
+      double y = Double.parseDouble(preset[2]);
+      double rot = Double.parseDouble(preset[3]);
       SmartDashboard.putData(
-          "BenchTest/Subsystems/Launcher/Run",
-          launcher.runAtVelocityCommand(1700).withName("Run Launcher"));
-
-      // Stop launcher
-      SmartDashboard.putData(
-          "BenchTest/Subsystems/Launcher/Stop", launcher.stopCommand().withName("Stop Launcher"));
-
-      // Quick test velocities
-      SmartDashboard.putData(
-          "BenchTest/Subsystems/Launcher/100RPM",
-          launcher.runAtVelocityCommand(100).withName("Launcher 100 RPM"));
-
-      SmartDashboard.putData(
-          "BenchTest/Subsystems/Launcher/500RPM",
-          launcher.runAtVelocityCommand(500).withName("Launcher 500 RPM"));
-
-      SmartDashboard.putData(
-          "BenchTest/Subsystems/Launcher/1000RPM",
-          launcher.runAtVelocityCommand(1000).withName("Launcher 1000 RPM"));
-
-      System.out.println("[TestSubsystems] Launcher test controls configured");
-    }
-
-    // === Motivator Test Controls ===
-    if (motivator != null) {
-      // Stop
-      SmartDashboard.putData("BenchTest/Subsystems/Motivator/Stop", motivator.stopCommand());
-
-      System.out.println("[TestSubsystems] Motivator test controls configured");
+          "Sim/Pose/Preset" + label,
+          Commands.runOnce(
+                  () -> {
+                    drive.setPose(new Pose2d(x, y, Rotation2d.fromDegrees(rot)));
+                  },
+                  drive)
+              .ignoringDisable(true)
+              .withName("Preset " + label));
     }
 
     // Initialize shooting velocity tunables so they appear in dashboard immediately
@@ -267,6 +210,155 @@ public class ButtonsAndDashboardBindings {
     }
 
     System.out.println("[Sim] Test controls configured on SmartDashboard");
+  }
+
+  /** Configure per-subsystem tuning run buttons. Always called for all robot types. */
+  private static void configureTuningControls() {
+    // Launcher: single Run button, reads BenchTest/Shooting/LauncherRPM
+    if (launcher != null) {
+      SmartDashboard.putData(
+          "Tuning/Launcher/Run",
+          launcher.runAtTunableVelocityCommand(ShootingCommands.getTestLauncherRPM()));
+    }
+
+    // Motivator: 3 isolation buttons
+    if (motivator != null) {
+      SmartDashboard.putData(
+          "Tuning/Motivator/RunLeadMotivator",
+          motivator.runLeadMotivatorCommand(ShootingCommands.getTestMotivatorRPM()));
+      SmartDashboard.putData(
+          "Tuning/Motivator/RunBothMotivators",
+          motivator.runBothMotivatorsCommand(ShootingCommands.getTestMotivatorRPM()));
+      SmartDashboard.putData(
+          "Tuning/Motivator/RunPrefeed",
+          motivator.runPrefeedCommand(ShootingCommands.getTestPrefeedRPM()));
+    }
+
+    // Intake: Run rollers only (no deploy — deploy doesn't use PID)
+    if (intake != null) {
+      SmartDashboard.putData(
+          "Tuning/Intake/Run",
+          Commands.run(() -> intake.setRollerSpeed(testIntakeSpeed.get()), intake)
+              .finallyDo(intake::stopRollers)
+              .withName("Intake: Run Rollers"));
+    }
+  }
+
+  /** Configure BenchTest/Intake area with deploy/retract and coordinated deploy+run. */
+  private static void configureIntakeBenchTest() {
+    // Deploy/Retract — simple operational buttons
+    SmartDashboard.putData(
+        "BenchTest/Intake/Deploy",
+        Commands.runOnce(intake::deploy, intake).withName("Deploy Intake"));
+    SmartDashboard.putData(
+        "BenchTest/Intake/Retract",
+        Commands.runOnce(intake::retract, intake).withName("Retract Intake"));
+
+    // DeployAndRun: click to deploy + run, click again (cancel) to retract + stop
+    SmartDashboard.putData(
+        "BenchTest/Intake/DeployAndRun", intake.deployAndRunCommand(testIntakeSpeed::get));
+  }
+
+  /** Configure distance-to-shot calculator on dashboard. */
+  private static void configureShotCalculator() {
+    SmartDashboard.putNumber("BenchTest/Calculator/DistanceInches", 118.0);
+
+    SmartDashboard.putData(
+        "BenchTest/Calculator/Calculate",
+        Commands.runOnce(ButtonsAndDashboardBindings::runShotCalculation)
+            .ignoringDisable(true)
+            .withName("Calculate Shot"));
+
+    // CalcFromPose: read robot pose, compute distance to hub, then calculate
+    SmartDashboard.putData(
+        "BenchTest/Calculator/CalcFromPose",
+        Commands.runOnce(
+                () -> {
+                  Pose2d robotPose = drive.getPose();
+                  Translation3d hubTarget = FieldConstants.Hub.innerCenterPoint;
+                  double distMeters =
+                      robotPose.getTranslation().getDistance(hubTarget.toTranslation2d());
+                  double distInches = distMeters / 0.0254;
+                  SmartDashboard.putNumber(
+                      "BenchTest/Calculator/DistanceInches",
+                      Math.round(distInches * 100.0) / 100.0);
+                  runShotCalculation();
+                })
+            .ignoringDisable(true)
+            .withName("Calc From Pose"));
+
+    // Calculate all presets button
+    SmartDashboard.putData(
+        "BenchTest/Calculator/CalculateAll",
+        Commands.runOnce(ButtonsAndDashboardBindings::runAllPositionsCalculation)
+            .ignoringDisable(true)
+            .withName("Calculate All"));
+
+    // Run once at init so output values appear on dashboard immediately
+    runShotCalculation();
+    runAllPositionsCalculation();
+  }
+
+  /** Runs the shot calculator and publishes results to SmartDashboard. */
+  private static void runShotCalculation() {
+    double distanceInches = SmartDashboard.getNumber("BenchTest/Calculator/DistanceInches", 118.0);
+    double distanceMeters = distanceInches * 0.0254;
+    double turretHeight = turret.getTurretHeightMeters();
+    Translation3d turretPos = new Translation3d(0, 0, turretHeight);
+    Translation3d hubTarget = new Translation3d(distanceMeters, 0, 1.43);
+    TrajectoryOptimizer.OptimalShot shot =
+        TrajectoryOptimizer.calculateOptimalShot(turretPos, hubTarget);
+    SmartDashboard.putNumber(
+        "BenchTest/Calculator/CalcLauncherRPM", Math.round(shot.rpm * 100.0) / 100.0);
+    SmartDashboard.putNumber(
+        "BenchTest/Calculator/CalcHoodAngleDeg", Math.round(shot.launchAngleDeg * 100.0) / 100.0);
+    SmartDashboard.putNumber(
+        "BenchTest/Calculator/CalcExitVelocityMps",
+        Math.round(shot.exitVelocityMps * 100.0) / 100.0);
+    SmartDashboard.putNumber(
+        "BenchTest/Calculator/CalcExitVelocityFps",
+        Math.round(shot.exitVelocityMps * 3.28084 * 100.0) / 100.0);
+    SmartDashboard.putBoolean("BenchTest/Calculator/Achievable", shot.achievable);
+    SmartDashboard.putString("BenchTest/Calculator/Notes", shot.notes);
+  }
+
+  /** Calculates all preset positions and publishes a pipe-separated summary. */
+  private static void runAllPositionsCalculation() {
+    double turretHeight = turret.getTurretHeightMeters();
+    Translation3d hubTarget3d = FieldConstants.Hub.innerCenterPoint;
+    StringBuilder sb = new StringBuilder();
+    for (String[] preset : PRESET_POSITIONS) {
+      String label = preset[0];
+      double x = Double.parseDouble(preset[1]);
+      double y = Double.parseDouble(preset[2]);
+      // Compute horizontal distance from this position to the hub
+      double distMeters =
+          new edu.wpi.first.math.geometry.Translation2d(x, y)
+              .getDistance(hubTarget3d.toTranslation2d());
+      double distInches = distMeters / 0.0254;
+      // Use simplified 1D model: turret at origin with height, hub at distance with hub height
+      Translation3d turretPos = new Translation3d(0, 0, turretHeight);
+      Translation3d target = new Translation3d(distMeters, 0, hubTarget3d.getZ());
+      TrajectoryOptimizer.OptimalShot shot =
+          TrajectoryOptimizer.calculateOptimalShot(turretPos, target);
+      double rpm = Math.round(shot.rpm * 100.0) / 100.0;
+      double angleDeg = Math.round(shot.launchAngleDeg * 100.0) / 100.0;
+      double fps = Math.round(shot.exitVelocityMps * 3.28084 * 100.0) / 100.0;
+      if (sb.length() > 0) {
+        sb.append(" | ");
+      }
+      sb.append(label)
+          .append(" ")
+          .append((int) Math.round(distInches))
+          .append("in: ")
+          .append(rpm)
+          .append("rpm ")
+          .append(angleDeg)
+          .append("deg ")
+          .append(fps)
+          .append("fps");
+    }
+    SmartDashboard.putString("BenchTest/Calculator/AllPositions", sb.toString());
   }
 
   /****************************** */

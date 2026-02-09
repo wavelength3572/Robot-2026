@@ -25,12 +25,12 @@ public class Hood extends SubsystemBase {
   @Override
   public void periodic() {
     io.updateInputs(inputs);
-    Logger.processInputs("Shooter/Hood", inputs);
+    Logger.processInputs("Hood", inputs);
 
     // Log additional useful values
-    Logger.recordOutput("Shooter/Hood/AngleError", inputs.targetAngleDeg - inputs.currentAngleDeg);
-    Logger.recordOutput("Shooter/Hood/MinLimit", MIN_ANGLE_DEG);
-    Logger.recordOutput("Shooter/Hood/MaxLimit", MAX_ANGLE_DEG);
+    Logger.recordOutput("Hood/AngleError", inputs.targetAngleDeg - inputs.currentAngleDeg);
+    Logger.recordOutput("Hood/MinLimit", MIN_ANGLE_DEG);
+    Logger.recordOutput("Hood/MaxLimit", MAX_ANGLE_DEG);
   }
 
   /**
@@ -43,7 +43,7 @@ public class Hood extends SubsystemBase {
     io.setAngle(clamped);
 
     if (clamped != angleDeg) {
-      Logger.recordOutput("Shooter/Hood/ClampedRequest", angleDeg);
+      Logger.recordOutput("Hood/ClampedRequest", angleDeg);
     }
   }
 
@@ -62,7 +62,7 @@ public class Hood extends SubsystemBase {
    *
    * @return Current angle in degrees
    */
-  @AutoLogOutput(key = "Shooter/Hood/currentAngle")
+  @AutoLogOutput(key = "Hood/currentAngle")
   public double getCurrentAngle() {
     return inputs.currentAngleDeg;
   }

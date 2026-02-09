@@ -4,7 +4,9 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -15,6 +17,14 @@ import org.littletonrobotics.junction.mechanism.LoggedMechanismRoot2d;
 public class Intake extends SubsystemBase {
   private final IntakeIO io;
   private final IntakeIOInputsAutoLogged inputs = new IntakeIOInputsAutoLogged();
+
+  // Tunable PID gains for deploy motor
+  private static final LoggedTunableNumber deployKP =
+      new LoggedTunableNumber("Tuning/Intake/Deploy_kP", IntakeConstants.DEPLOY_KP);
+  private static final LoggedTunableNumber deployKI =
+      new LoggedTunableNumber("Tuning/Intake/Deploy_kI", IntakeConstants.DEPLOY_KI);
+  private static final LoggedTunableNumber deployKD =
+      new LoggedTunableNumber("Tuning/Intake/Deploy_kD", IntakeConstants.DEPLOY_KD);
 
   // Optional: supplier for robot velocity (for velocity-based roller speed)
   private DoubleSupplier robotVelocitySupplier = () -> 0.0;
@@ -58,6 +68,11 @@ public class Intake extends SubsystemBase {
   public void periodic() {
     io.updateInputs(inputs);
     Logger.processInputs("Intake", inputs);
+
+    // Push tunable changes to IO
+    if (LoggedTunableNumber.hasChanged(deployKP, deployKI, deployKD)) {
+      io.configureDeployPID(deployKP.get(), deployKI.get(), deployKD.get());
+    }
 
     // Update deploy arm angle
     // Retracted (0 rotations) = 90° (pointing up)
@@ -174,6 +189,26 @@ public class Intake extends SubsystemBase {
   /** Get the roller current draw (useful for game piece detection). */
   public double getRollerCurrentAmps() {
     return inputs.rollerCurrentAmps;
+  }
+
+  // ========== Commands ==========
+
+  /**
+   * Command to deploy the intake and run rollers at a tunable speed. On cancel, stops rollers and
+   * retracts.
+   *
+   * @param rollerSpeed Supplier for roller duty cycle (read each cycle for live tuning)
+   * @return Command that deploys + runs until interrupted
+   */
+  public Command deployAndRunCommand(DoubleSupplier rollerSpeed) {
+    return runOnce(this::deploy)
+        .andThen(run(() -> setRollerSpeed(rollerSpeed.getAsDouble())))
+        .finallyDo(
+            () -> {
+              stopRollers();
+              retract();
+            })
+        .withName("Intake: Deploy & Run");
   }
 
   // ========== GENERAL CONTROL ==========

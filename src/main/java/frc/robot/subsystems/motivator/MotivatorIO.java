@@ -94,4 +94,18 @@ public interface MotivatorIO {
 
   /** Stop only the prefeed motor. */
   default void stopPrefeed() {}
+
+  // ========== Configuration Methods ==========
+
+  /** Configure PID gains for motivator motor 1. */
+  default void configureMotivator1PID(double kP, double kI, double kD, double kFF) {}
+
+  /** Configure PID gains for motivator motor 2. */
+  default void configureMotivator2PID(double kP, double kI, double kD, double kFF) {}
+
+  /** Configure PID gains for the prefeed motor. */
+  default void configurePrefeedPID(double kP, double kI, double kD, double kFF) {}
+
+  /** Set velocity tolerances for atSetpoint checks. */
+  default void setVelocityTolerances(double motivatorToleranceRPM, double prefeedToleranceRPM) {}
 }

@@ -4,6 +4,7 @@ import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.mechanism.LoggedMechanism2d;
 import org.littletonrobotics.junction.mechanism.LoggedMechanismLigament2d;
@@ -23,6 +24,42 @@ public class Motivator extends SubsystemBase {
   private final MotorInputsAutoLogged motor1Inputs = new MotorInputsAutoLogged();
   private final MotorInputsAutoLogged motor2Inputs = new MotorInputsAutoLogged();
   private final MotorInputsAutoLogged prefeedInputs = new MotorInputsAutoLogged();
+
+  // Tunable PID gains for motivator 1
+  private static final LoggedTunableNumber m1kP =
+      new LoggedTunableNumber("Tuning/Motivator/Motivator1/kP", 0.000056);
+  private static final LoggedTunableNumber m1kI =
+      new LoggedTunableNumber("Tuning/Motivator/Motivator1/kI", 0.0);
+  private static final LoggedTunableNumber m1kD =
+      new LoggedTunableNumber("Tuning/Motivator/Motivator1/kD", 0.00275);
+  private static final LoggedTunableNumber m1kFF =
+      new LoggedTunableNumber("Tuning/Motivator/Motivator1/kFF", 0.00015);
+
+  // Tunable PID gains for motivator 2
+  private static final LoggedTunableNumber m2kP =
+      new LoggedTunableNumber("Tuning/Motivator/Motivator2/kP", 0.000056);
+  private static final LoggedTunableNumber m2kI =
+      new LoggedTunableNumber("Tuning/Motivator/Motivator2/kI", 0.0);
+  private static final LoggedTunableNumber m2kD =
+      new LoggedTunableNumber("Tuning/Motivator/Motivator2/kD", 0.00275);
+  private static final LoggedTunableNumber m2kFF =
+      new LoggedTunableNumber("Tuning/Motivator/Motivator2/kFF", 0.0001526);
+
+  // Tunable PID gains for prefeed
+  private static final LoggedTunableNumber pfkP =
+      new LoggedTunableNumber("Tuning/Motivator/PreFeed/kP", 0.000101);
+  private static final LoggedTunableNumber pfkI =
+      new LoggedTunableNumber("Tuning/Motivator/PreFeed/kI", 0.0);
+  private static final LoggedTunableNumber pfkD =
+      new LoggedTunableNumber("Tuning/Motivator/PreFeed/kD", 0.005);
+  private static final LoggedTunableNumber pfkFF =
+      new LoggedTunableNumber("Tuning/Motivator/PreFeed/kFF", 0.00015);
+
+  // Tunable velocity tolerances
+  private static final LoggedTunableNumber motivatorToleranceRPM =
+      new LoggedTunableNumber("Tuning/Motivator/Motivator1/ToleranceRPM", 100.0);
+  private static final LoggedTunableNumber prefeedToleranceRPM =
+      new LoggedTunableNumber("Tuning/Motivator/PreFeed/ToleranceRPM", 100.0);
 
   // Mechanism2d visualization
   private final LoggedMechanism2d mechanism = new LoggedMechanism2d(4, 3);
@@ -57,14 +94,31 @@ public class Motivator extends SubsystemBase {
     prefeedWheel =
         prefeedRoot.append(
             new LoggedMechanismLigament2d("prefeedWheel", 0.25, 0, 6, new Color8Bit(Color.kCyan)));
+
+    // Push initial velocity tolerances to IO
+    io.setVelocityTolerances(motivatorToleranceRPM.get(), prefeedToleranceRPM.get());
   }
 
   @Override
   public void periodic() {
     io.updateInputs(motor1Inputs, motor2Inputs, prefeedInputs);
-    Logger.processInputs("Shooter/Motivator/Motor1", motor1Inputs);
-    Logger.processInputs("Shooter/Motivator/Motor2", motor2Inputs);
-    Logger.processInputs("Shooter/Motivator/PreFeed", prefeedInputs);
+    Logger.processInputs("Motivator/Motor1", motor1Inputs);
+    Logger.processInputs("Motivator/Motor2", motor2Inputs);
+    Logger.processInputs("Motivator/PreFeed", prefeedInputs);
+
+    // Push tunable changes to IO
+    if (LoggedTunableNumber.hasChanged(m1kP, m1kI, m1kD, m1kFF)) {
+      io.configureMotivator1PID(m1kP.get(), m1kI.get(), m1kD.get(), m1kFF.get());
+    }
+    if (LoggedTunableNumber.hasChanged(m2kP, m2kI, m2kD, m2kFF)) {
+      io.configureMotivator2PID(m2kP.get(), m2kI.get(), m2kD.get(), m2kFF.get());
+    }
+    if (LoggedTunableNumber.hasChanged(pfkP, pfkI, pfkD, pfkFF)) {
+      io.configurePrefeedPID(pfkP.get(), pfkI.get(), pfkD.get(), pfkFF.get());
+    }
+    if (LoggedTunableNumber.hasChanged(motivatorToleranceRPM, prefeedToleranceRPM)) {
+      io.setVelocityTolerances(motivatorToleranceRPM.get(), prefeedToleranceRPM.get());
+    }
 
     // Update mechanism visualization based on motor velocities
     // Convert RPM to degrees per cycle (assuming 50Hz loop = 0.02s per cycle)
@@ -97,7 +151,7 @@ public class Motivator extends SubsystemBase {
             prefeedInputs.velocityRPM, prefeedInputs.targetVelocityRPM, prefeedInputs.atSetpoint));
 
     // Log the mechanism visualization
-    Logger.recordOutput("Shooter/Motivator/Mechanism2d", mechanism);
+    Logger.recordOutput("Motivator/Mechanism2d", mechanism);
   }
 
   /**
@@ -321,5 +375,41 @@ public class Motivator extends SubsystemBase {
    */
   public Command stopCommand() {
     return runOnce(this::stop).withName("Motivator: Stop");
+  }
+
+  /**
+   * Command to run only the lead motivator (motor 1) at a tunable RPM.
+   *
+   * @param rpm Tunable RPM source
+   * @return Command that runs until interrupted
+   */
+  public Command runLeadMotivatorCommand(LoggedTunableNumber rpm) {
+    return run(() -> setMotivator1Velocity(rpm.get()))
+        .finallyDo(this::stopMotivator1)
+        .withName("Motivator: Run Lead");
+  }
+
+  /**
+   * Command to run both motivator motors at a tunable RPM.
+   *
+   * @param rpm Tunable RPM source
+   * @return Command that runs until interrupted
+   */
+  public Command runBothMotivatorsCommand(LoggedTunableNumber rpm) {
+    return run(() -> setMotivatorsVelocity(rpm.get()))
+        .finallyDo(this::stopMotivators)
+        .withName("Motivator: Run Both");
+  }
+
+  /**
+   * Command to run only the prefeed at a tunable RPM.
+   *
+   * @param rpm Tunable RPM source
+   * @return Command that runs until interrupted
+   */
+  public Command runPrefeedCommand(LoggedTunableNumber rpm) {
+    return run(() -> setPrefeedVelocity(rpm.get()))
+        .finallyDo(this::stopPrefeed)
+        .withName("Motivator: Run Prefeed");
   }
 }

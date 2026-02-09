@@ -62,4 +62,13 @@ public interface LauncherIO {
    * atSetpoint returns false until the configured recovery time elapses.
    */
   public default void notifyBallFired() {}
+
+  /** Configure PID gains for velocity control. */
+  default void configurePID(double kP, double kI, double kD, double recoveryKpBoost) {}
+
+  /** Configure feedforward gains for velocity control. */
+  default void configureFeedforward(double kS, double kV, double kA) {}
+
+  /** Set the velocity tolerance for atSetpoint checks. */
+  default void setVelocityTolerance(double toleranceRPM) {}
 }

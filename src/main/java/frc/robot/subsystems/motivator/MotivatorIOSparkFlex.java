@@ -16,7 +16,6 @@ import com.revrobotics.spark.config.SparkFlexConfig;
 import edu.wpi.first.math.filter.Debouncer;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
-import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
 
 /**
@@ -57,41 +56,9 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
   private final Debouncer prefeedConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
-  // Tunable PID gains for motivator 1
-  private final LoggedTunableNumber motivator1Kp =
-      new LoggedTunableNumber("Tuning/Motivator/Motivator1/kP", 0.000056);
-  private final LoggedTunableNumber motivator1Ki =
-      new LoggedTunableNumber("Tuning/Motivator/Motivator1/kI", 0.0);
-  private final LoggedTunableNumber motivator1Kd =
-      new LoggedTunableNumber("Tuning/Motivator/Motivator1/kD", 0.00275);
-  private final LoggedTunableNumber motivator1Kff =
-      new LoggedTunableNumber("Tuning/Motivator/Motivator1/kFF", 0.00015);
-
-  // Tunable PID gains for motivator 2
-  private final LoggedTunableNumber motivator2Kp =
-      new LoggedTunableNumber("Tuning/Motivator/Motivator2/kP", 0.000056);
-  private final LoggedTunableNumber motivator2Ki =
-      new LoggedTunableNumber("Tuning/Motivator/Motivator2/kI", 0.0);
-  private final LoggedTunableNumber motivator2Kd =
-      new LoggedTunableNumber("Tuning/Motivator/Motivator2/kD", 0.00275);
-  private final LoggedTunableNumber motivator2Kff =
-      new LoggedTunableNumber("Tuning/Motivator/Motivator2/kFF", 0.0001526);
-
-  // Tunable PID gains for prefeed
-  private final LoggedTunableNumber prefeedKp =
-      new LoggedTunableNumber("Tuning/Motivator/PreFeed/kP", 0.000101);
-  private final LoggedTunableNumber prefeedKi =
-      new LoggedTunableNumber("Tuning/Motivator/PreFeed/kI", 0.0);
-  private final LoggedTunableNumber prefeedKd =
-      new LoggedTunableNumber("Tuning/Motivator/PreFeed/kD", 0.005);
-  private final LoggedTunableNumber prefeedKff =
-      new LoggedTunableNumber("Tuning/Motivator/PreFeed/kFF", 0.00015);
-
-  // Velocity tolerance for at-setpoint check
-  private static final LoggedTunableNumber motivatorToleranceRPM =
-      new LoggedTunableNumber("Tuning/Motivator/Motivator1/ToleranceRPM", 100.0);
-  private static final LoggedTunableNumber prefeedToleranceRPM =
-      new LoggedTunableNumber("Tuning/Motivator/PreFeed/ToleranceRPM", 100.0);
+  // Velocity tolerance for at-setpoint check (set by subsystem via setVelocityTolerances)
+  private double motivatorToleranceRPM = 100.0;
+  private double prefeedToleranceRPM = 100.0;
 
   // Target tracking
   private double motivator1TargetRPM = 0.0;
@@ -128,9 +95,9 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
     motor1Config
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(motivator1Kp.get(), motivator1Ki.get(), motivator1Kd.get())
+        .pid(0.000056, 0.0, 0.00275)
         .feedForward
-        .kV(motivator1Kff.get());
+        .kV(0.00015);
 
     motor1Config
         .signals
@@ -158,9 +125,9 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
     motor2Config
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(motivator2Kp.get(), motivator2Ki.get(), motivator2Kd.get())
+        .pid(0.000056, 0.0, 0.00275)
         .feedForward
-        .kV(motivator2Kff.get());
+        .kV(0.0001526);
 
     motor2Config
         .signals
@@ -188,9 +155,9 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
     prefeedConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(prefeedKp.get(), prefeedKi.get(), prefeedKd.get())
+        .pid(0.000101, 0.0, 0.005)
         .feedForward
-        .kV(prefeedKff.get());
+        .kV(0.00015);
 
     prefeedConfig
         .signals
@@ -225,42 +192,6 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
   @Override
   public void updateInputs(
       MotorInputs motor1Inputs, MotorInputs motor2Inputs, MotorInputs prefeedInputs) {
-    // Check for tunable PID changes and apply to motivator 1
-    if (LoggedTunableNumber.hasChanged(motivator1Kp, motivator1Ki, motivator1Kd, motivator1Kff)) {
-      var pidConfig = new SparkFlexConfig();
-      pidConfig
-          .closedLoop
-          .pid(motivator1Kp.get(), motivator1Ki.get(), motivator1Kd.get())
-          .feedForward
-          .kV(motivator1Kff.get());
-      motivator1.configure(
-          pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-    }
-
-    // Check for tunable PID changes and apply to motivator 2
-    if (LoggedTunableNumber.hasChanged(motivator2Kp, motivator2Ki, motivator2Kd, motivator2Kff)) {
-      var pidConfig = new SparkFlexConfig();
-      pidConfig
-          .closedLoop
-          .pid(motivator2Kp.get(), motivator2Ki.get(), motivator2Kd.get())
-          .feedForward
-          .kV(motivator2Kff.get());
-      motivator2.configure(
-          pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-    }
-
-    // Check for tunable PID changes and apply to prefeed
-    if (LoggedTunableNumber.hasChanged(prefeedKp, prefeedKi, prefeedKd, prefeedKff)) {
-      var pidConfig = new SparkFlexConfig();
-      pidConfig
-          .closedLoop
-          .pid(prefeedKp.get(), prefeedKi.get(), prefeedKd.get())
-          .feedForward
-          .kV(prefeedKff.get());
-      prefeedMotor.configure(
-          pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-    }
-
     // Update motivator 1 inputs
     sparkStickyFault = false;
     ifOk(motivator1, motivator1Encoder::getVelocity, (value) -> motor1Inputs.velocityRPM = value);
@@ -306,14 +237,14 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
     motor1Inputs.atSetpoint =
         motivator1VelocityMode
             && Math.abs(motor1Inputs.velocityRPM - motivator1TargetRPM)
-                < motivatorToleranceRPM.get();
+                < this.motivatorToleranceRPM;
     motor2Inputs.atSetpoint =
         motivator2VelocityMode
             && Math.abs(motor2Inputs.velocityRPM - motivator2TargetRPM)
-                < motivatorToleranceRPM.get();
+                < this.motivatorToleranceRPM;
     prefeedInputs.atSetpoint =
         prefeedVelocityMode
-            && Math.abs(prefeedInputs.velocityRPM - prefeedTargetRPM) < prefeedToleranceRPM.get();
+            && Math.abs(prefeedInputs.velocityRPM - prefeedTargetRPM) < this.prefeedToleranceRPM;
   }
 
   // ========== Duty Cycle Control ==========
@@ -408,5 +339,37 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
     prefeedVelocityMode = false;
     prefeedTargetRPM = 0.0;
     prefeedMotor.stopMotor();
+  }
+
+  // ========== Configuration Methods ==========
+
+  @Override
+  public void configureMotivator1PID(double kP, double kI, double kD, double kFF) {
+    var pidConfig = new SparkFlexConfig();
+    pidConfig.closedLoop.pid(kP, kI, kD).feedForward.kV(kFF);
+    motivator1.configure(
+        pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void configureMotivator2PID(double kP, double kI, double kD, double kFF) {
+    var pidConfig = new SparkFlexConfig();
+    pidConfig.closedLoop.pid(kP, kI, kD).feedForward.kV(kFF);
+    motivator2.configure(
+        pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void configurePrefeedPID(double kP, double kI, double kD, double kFF) {
+    var pidConfig = new SparkFlexConfig();
+    pidConfig.closedLoop.pid(kP, kI, kD).feedForward.kV(kFF);
+    prefeedMotor.configure(
+        pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void setVelocityTolerances(double motivatorToleranceRPM, double prefeedToleranceRPM) {
+    this.motivatorToleranceRPM = motivatorToleranceRPM;
+    this.prefeedToleranceRPM = prefeedToleranceRPM;
   }
 }

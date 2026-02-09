@@ -47,9 +47,9 @@ public class MotivatorIOSim implements MotivatorIO {
   private double prefeedCurrentRPM = 0.0;
   private boolean prefeedVelocityMode = false;
 
-  // Velocity tolerance for atSetpoint (matches MotivatorIOSparkFlex defaults)
-  private static final double MOTIVATOR_TOLERANCE_RPM = 100.0;
-  private static final double PREFEED_TOLERANCE_RPM = 100.0;
+  // Velocity tolerance for atSetpoint (set by subsystem via setVelocityTolerances)
+  private double motivatorToleranceRPM = 100.0;
+  private double prefeedToleranceRPM = 100.0;
 
   public MotivatorIOSim() {
     // Motivator motor 1: 1 NEO Vortex motor
@@ -112,7 +112,7 @@ public class MotivatorIOSim implements MotivatorIO {
     motor1Inputs.targetVelocityRPM = motivator1TargetRPM;
     motor1Inputs.atSetpoint =
         motivator1VelocityMode
-            && Math.abs(motivator1CurrentRPM - motivator1TargetRPM) < MOTIVATOR_TOLERANCE_RPM;
+            && Math.abs(motivator1CurrentRPM - motivator1TargetRPM) < motivatorToleranceRPM;
 
     // Motivator 2 data
     motor2Inputs.connected = true;
@@ -125,7 +125,7 @@ public class MotivatorIOSim implements MotivatorIO {
     motor2Inputs.targetVelocityRPM = motivator2TargetRPM;
     motor2Inputs.atSetpoint =
         motivator2VelocityMode
-            && Math.abs(motivator2CurrentRPM - motivator2TargetRPM) < MOTIVATOR_TOLERANCE_RPM;
+            && Math.abs(motivator2CurrentRPM - motivator2TargetRPM) < motivatorToleranceRPM;
 
     // Prefeed data
     prefeedInputs.connected = true;
@@ -136,8 +136,7 @@ public class MotivatorIOSim implements MotivatorIO {
     prefeedInputs.tempCelsius = 25.0;
     prefeedInputs.targetVelocityRPM = prefeedTargetRPM;
     prefeedInputs.atSetpoint =
-        prefeedVelocityMode
-            && Math.abs(prefeedCurrentRPM - prefeedTargetRPM) < PREFEED_TOLERANCE_RPM;
+        prefeedVelocityMode && Math.abs(prefeedCurrentRPM - prefeedTargetRPM) < prefeedToleranceRPM;
   }
 
   // ========== Duty Cycle Control ==========
@@ -238,5 +237,11 @@ public class MotivatorIOSim implements MotivatorIO {
     prefeedDutyCycle = 0.0;
     prefeedCurrentRPM = 0.0;
     prefeedSim.setInputVoltage(0.0);
+  }
+
+  @Override
+  public void setVelocityTolerances(double motivatorToleranceRPM, double prefeedToleranceRPM) {
+    this.motivatorToleranceRPM = motivatorToleranceRPM;
+    this.prefeedToleranceRPM = prefeedToleranceRPM;
   }
 }

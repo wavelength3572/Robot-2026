@@ -40,8 +40,8 @@ public class LauncherIOSim implements LauncherIO {
   // Simulation constants
   private static final double FLYWHEEL_MOI = 0.005; // kg*m^2 moment of inertia
 
-  // Velocity tolerance for atSetpoint (matches LauncherIOSparkFlex default)
-  private static final double VELOCITY_TOLERANCE_RPM = 50.0;
+  // Velocity tolerance for atSetpoint (set by subsystem via setVelocityTolerance)
+  private double velocityToleranceRPM = 50.0;
 
   // Tunable timing parameters - set these based on real robot observations
   // Prefixed with Sim to clearly indicate these only affect simulation
@@ -98,7 +98,7 @@ public class LauncherIOSim implements LauncherIO {
     inputs.leaderTempCelsius = 25.0;
     inputs.followerTempCelsius = 25.0;
     inputs.targetVelocityRPM = targetWheelRPM;
-    inputs.atSetpoint = Math.abs(currentWheelRPM - targetWheelRPM) < VELOCITY_TOLERANCE_RPM;
+    inputs.atSetpoint = Math.abs(currentWheelRPM - targetWheelRPM) < velocityToleranceRPM;
   }
 
   /** Update velocity using time-based transitions for realistic behavior. */
@@ -224,5 +224,10 @@ public class LauncherIOSim implements LauncherIO {
     }
 
     inTransition = true;
+  }
+
+  @Override
+  public void setVelocityTolerance(double toleranceRPM) {
+    this.velocityToleranceRPM = toleranceRPM;
   }
 }
