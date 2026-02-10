@@ -111,6 +111,9 @@ Temporary Items
 !.vscode/extensions.json
 
 ### Windows ###
+# Artifact from NUL device redirect on Windows
+nul
+
 # Windows thumbnail cache files
 Thumbs.db
 ehthumbs.db
