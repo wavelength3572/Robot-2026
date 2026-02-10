@@ -29,8 +29,8 @@ public final class Constants {
    * The detected or configured robot type. Set FORCE_ROBOT_TYPE to override auto-detection. Set to
    * null to use auto-detection.
    */
-  public static final RobotType FORCE_ROBOT_TYPE =
-      RobotType.TURRETBOT; // Bench testing: force TURRETBOT to avoid CAN errors from disconnected
+  public static final RobotType FORCE_ROBOT_TYPE = null;
+  // RobotType.SQUAREBOT; // Bench testing: force TURRETBOT to avoid CAN errors from disconnected
   // swerve modules
 
   public static final RobotType currentRobot = initRobotType();

@@ -30,9 +30,15 @@ public interface IntakeIO {
   /** Set the roller motor speed as duty cycle (-1 to 1). */
   public default void setRollerDutyCycle(double dutyCycle) {}
 
+  /** Set the roller motor target velocity in RPM (closed-loop). */
+  public default void setRollerVelocity(double rpm) {}
+
   /** Stop both motors. */
   public default void stop() {}
 
   /** Configure PID gains for the deploy motor. */
   default void configureDeployPID(double kP, double kI, double kD) {}
+
+  /** Configure PID + FF gains for the roller motor velocity control. */
+  default void configureRollerPID(double kP, double kI, double kD, double kFF) {}
 }
