@@ -19,8 +19,14 @@ public class IntakeIOSim implements IntakeIO {
   private double deployAppliedVolts = 0.0;
 
   // Roller control
+  private final PIDController rollerVelocityController =
+      new PIDController(
+          IntakeConstants.ROLLER_KP, IntakeConstants.ROLLER_KI, IntakeConstants.ROLLER_KD);
+  private double rollerKFF = IntakeConstants.ROLLER_KFF;
   private double rollerAppliedVolts = 0.0;
   private double rollerTargetSpeed = 0.0;
+  private boolean rollerVelocityMode = false;
+  private double rollerTargetRPM = 0.0;
 
   // Motor models
   private final DCMotor deployGearbox = DCMotor.getNEO(1);
@@ -54,6 +60,14 @@ public class IntakeIOSim implements IntakeIO {
         || (currentPosition <= IntakeConstants.DEPLOY_RETRACTED_POSITION
             && deployAppliedVolts < 0)) {
       deployAppliedVolts = 0.0;
+    }
+
+    // Run roller velocity closed-loop if in velocity mode
+    if (rollerVelocityMode) {
+      double ffVolts = rollerKFF * rollerTargetRPM;
+      double pidVolts =
+          rollerVelocityController.calculate(rollerSim.getAngularVelocityRPM(), rollerTargetRPM);
+      rollerAppliedVolts = ffVolts + pidVolts;
     }
 
     // Update simulations
@@ -97,8 +111,16 @@ public class IntakeIOSim implements IntakeIO {
 
   @Override
   public void setRollerDutyCycle(double dutyCycle) {
+    rollerVelocityMode = false;
     rollerTargetSpeed = dutyCycle;
     rollerAppliedVolts = dutyCycle * 12.0; // Convert duty cycle to voltage
+  }
+
+  @Override
+  public void setRollerVelocity(double rpm) {
+    rollerVelocityMode = true;
+    rollerTargetSpeed = rpm;
+    rollerTargetRPM = rpm;
   }
 
   @Override
@@ -107,10 +129,18 @@ public class IntakeIOSim implements IntakeIO {
     deployAppliedVolts = 0.0;
     rollerAppliedVolts = 0.0;
     rollerTargetSpeed = 0.0;
+    rollerVelocityMode = false;
+    rollerTargetRPM = 0.0;
   }
 
   @Override
   public void configureDeployPID(double kP, double kI, double kD) {
     deployController.setPID(kP, kI, kD);
+  }
+
+  @Override
+  public void configureRollerPID(double kP, double kI, double kD, double kFF) {
+    rollerVelocityController.setPID(kP, kI, kD);
+    rollerKFF = kFF;
   }
 }

@@ -3,7 +3,7 @@ package frc.robot.subsystems.intake;
 public final class IntakeConstants {
   // Hardware CAN IDs (placeholders - update when known)
   public static final int DEPLOY_MOTOR_CAN_ID = 100;
-  public static final int ROLLER_MOTOR_CAN_ID = 101;
+  public static final int ROLLER_MOTOR_CAN_ID = 20;
 
   // Deploy Motor Configuration
   public static final double DEPLOY_GEAR_RATIO = 25.0; // Motor rotations per mechanism rotation
@@ -25,13 +25,24 @@ public final class IntakeConstants {
   public static final int DEPLOY_CURRENT_LIMIT = 30; // Amps
 
   // Roller Motor Configuration
-  public static final double ROLLER_GEAR_RATIO = 3.0; // Motor rotations per roller rotation
+  public static final double ROLLER_GEAR_RATIO = 1.0; // Motor rotations per roller rotation
   public static final boolean ROLLER_MOTOR_INVERTED = true;
 
   // Roller Speed Constants (duty cycle -1 to 1)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
   public static final double ROLLER_EJECT_SPEED = -0.6;
   public static final double ROLLER_HOLD_SPEED = 0.1;
+
+  // Roller Velocity PID Constants (closed-loop velocity control)
+  public static final double ROLLER_KP = 0.0001;
+  public static final double ROLLER_KI = 0.0;
+  public static final double ROLLER_KD = 0.0;
+  public static final double ROLLER_KFF = 0.0005; // ~1/maxRollerRPM
+
+  // Roller Velocity Targets (RPM at mechanism output)
+  public static final double ROLLER_INTAKE_RPM = 1500.0;
+  public static final double ROLLER_EJECT_RPM = -1000.0;
+  public static final double ROLLER_HOLD_RPM = 200.0;
 
   // Roller Current Limit
   public static final int ROLLER_CURRENT_LIMIT = 40; // Amps

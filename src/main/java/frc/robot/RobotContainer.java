@@ -30,6 +30,8 @@ import frc.robot.subsystems.hood.HoodIOSparkMax;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeIO;
 import frc.robot.subsystems.intake.IntakeIOSim;
+import frc.robot.subsystems.intake.IntakeIOSparkMax;
+import frc.robot.subsystems.intake.IntakeIOSparkMaxRollerOnly;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.launcher.LauncherIO;
 import frc.robot.subsystems.launcher.LauncherIOSim;
@@ -98,13 +100,18 @@ public class RobotContainer {
         break;
     }
 
-    // Instantiate intake only for MainBot (not present on MiniBot)
+    // Instantiate intake only for SquareBot and MainBot
     if (Constants.currentRobot == Constants.RobotType.SQUAREBOT
         || Constants.currentRobot == Constants.RobotType.MAINBOT) {
       switch (Constants.currentMode) {
         case REAL:
-          // Real SquareBot - instantiate intake hardware
-          intake = new Intake(new IntakeIO() {});
+          if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
+            // SquareBot: roller-only intake (no deploy mechanism)
+            intake = new Intake(new IntakeIOSparkMaxRollerOnly());
+          } else {
+            // MainBot: full intake with deploy + rollers
+            intake = new Intake(new IntakeIOSparkMax());
+          }
           break;
 
         case SIM:

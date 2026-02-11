@@ -13,6 +13,7 @@ import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.intake.Intake;
+import frc.robot.subsystems.intake.IntakeConstants;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.turret.Turret;
@@ -33,9 +34,12 @@ public class ButtonsAndDashboardBindings {
   private static Motivator motivator;
   private static Hood hood;
 
-  // Intake bench test tunable (duty cycle 0-1)
+  // Intake bench test tunables
   private static final LoggedTunableNumber testIntakeSpeed =
-      new LoggedTunableNumber("BenchTest/Intake/RollerSpeed", 0.8);
+      new LoggedTunableNumber("BenchTest/IntakePowerControl/Power", 0.8);
+  private static final LoggedTunableNumber testIntakeRPM =
+      new LoggedTunableNumber(
+          "BenchTest/IntakeVelocityControl/RollerRPM", IntakeConstants.ROLLER_INTAKE_RPM);
 
   // Preset field positions for simulation (label, x_meters, y_meters, rotation_degrees)
   private static final String[][] PRESET_POSITIONS = {
@@ -273,19 +277,13 @@ public class ButtonsAndDashboardBindings {
           motivator.runPrefeedCommand(ShootingCommands.getTestPrefeedRPM()));
     }
 
-    // Intake: Run rollers only (no deploy — deploy doesn't use PID)
-    if (intake != null) {
-      SmartDashboard.putData(
-          "Tuning/Intake/Run",
-          Commands.run(() -> intake.setRollerSpeed(testIntakeSpeed.get()), intake)
-              .finallyDo(intake::stopRollers)
-              .withName("Intake: Run Rollers"));
-    }
+    // Intake: PID tunables are under Tuning/Intake/Roller_*, run buttons are in BenchTest
+
   }
 
-  /** Configure BenchTest/Intake area with deploy/retract and coordinated deploy+run. */
+  /** Configure BenchTest intake areas: deploy, power control, and velocity control. */
   private static void configureIntakeBenchTest() {
-    // Deploy/Retract — simple operational buttons
+    // Deploy/Retract
     SmartDashboard.putData(
         "BenchTest/Intake/Deploy",
         Commands.runOnce(intake::deploy, intake).withName("Deploy Intake"));
@@ -293,9 +291,38 @@ public class ButtonsAndDashboardBindings {
         "BenchTest/Intake/Retract",
         Commands.runOnce(intake::retract, intake).withName("Retract Intake"));
 
-    // DeployAndRun: click to deploy + run, click again (cancel) to retract + stop
+    // Open-loop power control (hold to run, release to stop)
+    // Run button reads the Power slider live — adjust slider while running to change speed
     SmartDashboard.putData(
-        "BenchTest/Intake/DeployAndRun", intake.deployAndRunCommand(testIntakeSpeed::get));
+        "BenchTest/IntakePowerControl/Run",
+        Commands.run(() -> intake.setRollerSpeed(testIntakeSpeed.get()), intake)
+            .finallyDo(intake::stopRollers)
+            .withName("Run at Power"));
+    SmartDashboard.putData(
+        "BenchTest/IntakePowerControl/Run80%",
+        Commands.run(() -> intake.setRollerSpeed(IntakeConstants.ROLLER_INTAKE_SPEED), intake)
+            .finallyDo(intake::stopRollers)
+            .withName("Run 80% Power"));
+    SmartDashboard.putData(
+        "BenchTest/IntakePowerControl/Reverse60%",
+        Commands.run(() -> intake.setRollerSpeed(IntakeConstants.ROLLER_EJECT_SPEED), intake)
+            .finallyDo(intake::stopRollers)
+            .withName("Reverse 60%"));
+    SmartDashboard.putData(
+        "BenchTest/IntakePowerControl/HoldSlow10%",
+        Commands.run(() -> intake.setRollerSpeed(IntakeConstants.ROLLER_HOLD_SPEED), intake)
+            .finallyDo(intake::stopRollers)
+            .withName("Hold Slow 10%"));
+
+    // Closed-loop velocity control (hold to run, release to stop)
+    SmartDashboard.putData(
+        "BenchTest/IntakeVelocityControl/Run",
+        Commands.run(() -> intake.setRollerVelocity(testIntakeRPM.get()), intake)
+            .finallyDo(intake::stopRollers)
+            .withName("Run Velocity Control"));
+    SmartDashboard.putData(
+        "BenchTest/IntakeVelocityControl/DeployAndRun",
+        intake.deployAndRunCommand(testIntakeRPM::get));
   }
 
   /** Whether the what-if trajectory arc is currently displayed. */

@@ -22,6 +22,7 @@ public class IntakeIOSparkMax implements IntakeIO {
   private final RelativeEncoder deployEncoder;
   private final RelativeEncoder rollerEncoder;
   private final SparkClosedLoopController deployController;
+  private final SparkClosedLoopController rollerController;
 
   // Connection debouncers
   private final Debouncer deployConnectedDebounce =
@@ -42,6 +43,7 @@ public class IntakeIOSparkMax implements IntakeIO {
     deployEncoder = deployMotor.getEncoder();
     rollerEncoder = rollerMotor.getEncoder();
     deployController = deployMotor.getClosedLoopController();
+    rollerController = rollerMotor.getClosedLoopController();
 
     // Configure deploy motor
     var deployConfig = new SparkMaxConfig();
@@ -95,6 +97,12 @@ public class IntakeIOSparkMax implements IntakeIO {
         .encoder
         .positionConversionFactor(1.0 / IntakeConstants.ROLLER_GEAR_RATIO)
         .velocityConversionFactor(1.0 / IntakeConstants.ROLLER_GEAR_RATIO);
+    rollerConfig
+        .closedLoop
+        .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
+        .pid(IntakeConstants.ROLLER_KP, IntakeConstants.ROLLER_KI, IntakeConstants.ROLLER_KD)
+        .feedForward
+        .kV(IntakeConstants.ROLLER_KFF);
     rollerConfig
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
@@ -155,6 +163,12 @@ public class IntakeIOSparkMax implements IntakeIO {
   }
 
   @Override
+  public void setRollerVelocity(double rpm) {
+    rollerTargetSpeed = rpm;
+    rollerController.setSetpoint(rpm, ControlType.kVelocity);
+  }
+
+  @Override
   public void stop() {
     deployMotor.stopMotor();
     rollerMotor.stopMotor();
@@ -167,6 +181,14 @@ public class IntakeIOSparkMax implements IntakeIO {
     var config = new SparkMaxConfig();
     config.closedLoop.pid(kP, kI, kD);
     deployMotor.configure(
+        config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void configureRollerPID(double kP, double kI, double kD, double kFF) {
+    var config = new SparkMaxConfig();
+    config.closedLoop.pid(kP, kI, kD).feedForward.kV(kFF);
+    rollerMotor.configure(
         config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 }

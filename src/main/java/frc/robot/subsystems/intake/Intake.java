@@ -26,6 +26,19 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber deployKD =
       new LoggedTunableNumber("Tuning/Intake/Deploy_kD", IntakeConstants.DEPLOY_KD);
 
+  // Velocity control toggle (default: velocity control on)
+  private boolean useVelocityControl = true;
+
+  // Tunable PID gains for roller velocity control
+  private static final LoggedTunableNumber rollerKP =
+      new LoggedTunableNumber("Tuning/Intake/Roller_kP", IntakeConstants.ROLLER_KP);
+  private static final LoggedTunableNumber rollerKI =
+      new LoggedTunableNumber("Tuning/Intake/Roller_kI", IntakeConstants.ROLLER_KI);
+  private static final LoggedTunableNumber rollerKD =
+      new LoggedTunableNumber("Tuning/Intake/Roller_kD", IntakeConstants.ROLLER_KD);
+  private static final LoggedTunableNumber rollerKFF =
+      new LoggedTunableNumber("Tuning/Intake/Roller_kFF", IntakeConstants.ROLLER_KFF);
+
   // Optional: supplier for robot velocity (for velocity-based roller speed)
   private DoubleSupplier robotVelocitySupplier = () -> 0.0;
 
@@ -72,6 +85,9 @@ public class Intake extends SubsystemBase {
     // Push tunable changes to IO
     if (LoggedTunableNumber.hasChanged(deployKP, deployKI, deployKD)) {
       io.configureDeployPID(deployKP.get(), deployKI.get(), deployKD.get());
+    }
+    if (LoggedTunableNumber.hasChanged(rollerKP, rollerKI, rollerKD, rollerKFF)) {
+      io.configureRollerPID(rollerKP.get(), rollerKI.get(), rollerKD.get(), rollerKFF.get());
     }
 
     // Update deploy arm angle
@@ -138,19 +154,52 @@ public class Intake extends SubsystemBase {
 
   // ========== ROLLER CONTROL ==========
 
+  /** Returns whether velocity control is active. */
+  @AutoLogOutput(key = "Intake/UseVelocityControl")
+  public boolean isVelocityControlEnabled() {
+    return useVelocityControl;
+  }
+
+  /** Toggle between velocity control and open-loop duty cycle control. */
+  public void toggleVelocityControl() {
+    useVelocityControl = !useVelocityControl;
+  }
+
+  /** Set whether to use velocity control (true) or open-loop (false). */
+  public void setVelocityControlEnabled(boolean enabled) {
+    useVelocityControl = enabled;
+  }
+
+  /** Command that toggles velocity control mode. */
+  public Command toggleVelocityControlCommand() {
+    return runOnce(this::toggleVelocityControl).withName("Intake: Toggle Velocity Control");
+  }
+
   /** Run rollers to intake game pieces. */
   public void runIntake() {
-    io.setRollerDutyCycle(IntakeConstants.ROLLER_INTAKE_SPEED);
+    if (useVelocityControl) {
+      io.setRollerVelocity(IntakeConstants.ROLLER_INTAKE_RPM);
+    } else {
+      io.setRollerDutyCycle(IntakeConstants.ROLLER_INTAKE_SPEED);
+    }
   }
 
   /** Run rollers to eject game pieces. */
   public void runEject() {
-    io.setRollerDutyCycle(IntakeConstants.ROLLER_EJECT_SPEED);
+    if (useVelocityControl) {
+      io.setRollerVelocity(IntakeConstants.ROLLER_EJECT_RPM);
+    } else {
+      io.setRollerDutyCycle(IntakeConstants.ROLLER_EJECT_SPEED);
+    }
   }
 
   /** Run rollers at hold speed. */
   public void runHold() {
-    io.setRollerDutyCycle(IntakeConstants.ROLLER_HOLD_SPEED);
+    if (useVelocityControl) {
+      io.setRollerVelocity(IntakeConstants.ROLLER_HOLD_RPM);
+    } else {
+      io.setRollerDutyCycle(IntakeConstants.ROLLER_HOLD_SPEED);
+    }
   }
 
   /** Stop the rollers. */
@@ -159,12 +208,21 @@ public class Intake extends SubsystemBase {
   }
 
   /**
-   * Set roller speed directly.
+   * Set roller speed directly as duty cycle (always open-loop).
    *
    * @param dutyCycle Duty cycle from -1 to 1
    */
   public void setRollerSpeed(double dutyCycle) {
     io.setRollerDutyCycle(dutyCycle);
+  }
+
+  /**
+   * Set roller velocity directly (closed-loop RPM).
+   *
+   * @param rpm Target roller velocity in RPM
+   */
+  public void setRollerVelocity(double rpm) {
+    io.setRollerVelocity(rpm);
   }
 
   /**
@@ -194,15 +252,15 @@ public class Intake extends SubsystemBase {
   // ========== Commands ==========
 
   /**
-   * Command to deploy the intake and run rollers at a tunable speed. On cancel, stops rollers and
+   * Command to deploy the intake and run rollers at the supplied RPM. On cancel, stops rollers and
    * retracts.
    *
-   * @param rollerSpeed Supplier for roller duty cycle (read each cycle for live tuning)
+   * @param rollerRPM Supplier for roller velocity in RPM (read each cycle for live tuning)
    * @return Command that deploys + runs until interrupted
    */
-  public Command deployAndRunCommand(DoubleSupplier rollerSpeed) {
+  public Command deployAndRunCommand(DoubleSupplier rollerRPM) {
     return runOnce(this::deploy)
-        .andThen(run(() -> setRollerSpeed(rollerSpeed.getAsDouble())))
+        .andThen(run(() -> io.setRollerVelocity(rollerRPM.getAsDouble())))
         .finallyDo(
             () -> {
               stopRollers();
