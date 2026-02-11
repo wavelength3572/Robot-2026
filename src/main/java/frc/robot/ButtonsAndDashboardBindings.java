@@ -21,6 +21,7 @@ import frc.robot.subsystems.turret.TurretCalculator;
 import frc.robot.subsystems.turret.TurretVisualizer;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.BenchTestMetrics;
+import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
 
 public class ButtonsAndDashboardBindings {
@@ -116,6 +117,18 @@ public class ButtonsAndDashboardBindings {
       configureTurretBotTestControls();
     }
 
+    // Simulation fuel management (available for any robot with a turret)
+    if (turret != null) {
+      SmartDashboard.putData("Sim/FuelReset", ShootingCommands.resetSimulationCommand(turret));
+      SmartDashboard.putData(
+          "Sim/ResetStartOfMatch", ShootingCommands.resetStartingFieldCommand(turret));
+      SmartDashboard.putData(
+          "Sim/ToggleOutpostBarriers",
+          Commands.runOnce(() -> FuelSim.getInstance().toggleOutpostBarriers())
+              .ignoringDisable(true)
+              .withName("Toggle Outpost Barriers"));
+    }
+
     // Coordinated shooting controls (requires both turret and launcher)
     if (turret != null && launcher != null) {
       configureShootingControls();
@@ -134,11 +147,6 @@ public class ButtonsAndDashboardBindings {
   private static void configureShootingControls() {
     // Initialize all tunables and status values so they appear on dashboard immediately
     ShootingCommands.initTunables();
-
-    // === Simulation Reset ===
-    SmartDashboard.putData("Sim/FuelReset", ShootingCommands.resetSimulationCommand(turret));
-    SmartDashboard.putData(
-        "Sim/ResetStartOfMatch", ShootingCommands.resetStartingFieldCommand(turret));
 
     // === Auto Launch Command ===
     // Auto-calculated trajectory - works for both sim and physical
