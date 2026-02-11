@@ -315,6 +315,27 @@ public interface RobotConfig {
   default int getHoodCurrentLimitAmps() {
     return 20;
   }
+  /** Hood Kp */
+  default double getHoodKp() {
+    return 0.0;
+  }
+
+  /** Hood Kd */
+  default double getHoodKd() {
+    return 0.0;
+  }
+  /** Hood motor Invert */
+  default boolean getHoodMotorInverted() {
+    return false;
+  }
+  /** Hood max angle */
+  default double getHoodMaxAngleDegrees() {
+    return 0.0;
+  }
+  /** Hood min angle */
+  default double getHoodMinAngleDegrees() {
+    return 0.0;
+  }
 
   // ========== Motivator Configuration ==========
   // Default implementations return 0/false for robots without motivators

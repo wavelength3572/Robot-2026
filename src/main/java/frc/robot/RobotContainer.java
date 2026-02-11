@@ -9,6 +9,7 @@ package frc.robot;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -19,18 +20,16 @@ import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
-import frc.robot.subsystems.drive.GyroIOPigeon2;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
-import frc.robot.subsystems.drive.ModuleIOSpark;
 import frc.robot.subsystems.drive.ModuleIOVirtual;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.hood.HoodIO;
 import frc.robot.subsystems.hood.HoodIOSim;
+import frc.robot.subsystems.hood.HoodIOSparkMax;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeIO;
 import frc.robot.subsystems.intake.IntakeIOSim;
-import frc.robot.subsystems.intake.IntakeIOSparkMax;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.launcher.LauncherIO;
 import frc.robot.subsystems.launcher.LauncherIOSim;
@@ -42,7 +41,6 @@ import frc.robot.subsystems.motivator.MotivatorIOSparkFlex;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
 import frc.robot.subsystems.turret.TurretIOSim;
-import frc.robot.subsystems.turret.TurretIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
@@ -86,7 +84,7 @@ public class RobotContainer {
           turret = new Turret(new TurretIO() {});
         } else {
           // SquareBot and MainBot use TalonFX
-          turret = new Turret(new TurretIOTalonFX());
+          turret = new Turret(new TurretIO() {});
         }
         break;
 
@@ -106,7 +104,7 @@ public class RobotContainer {
       switch (Constants.currentMode) {
         case REAL:
           // Real SquareBot - instantiate intake hardware
-          intake = new Intake(new IntakeIOSparkMax());
+          intake = new Intake(new IntakeIO() {});
           break;
 
         case SIM:
@@ -149,7 +147,15 @@ public class RobotContainer {
       switch (Constants.currentMode) {
         case REAL:
           // TODO: Create HoodIOSparkMax when hardware is ready
-          hood = new Hood(new HoodIOSim()); // Use sim for now
+          hood = new Hood(new HoodIOSparkMax()); // Use sim for now
+
+          SmartDashboard.putData(
+              "Hood/setAngle",
+              Commands.runOnce(
+                  () -> {
+                    hood.setAngle(SmartDashboard.getNumber("Tuning/Hood/Hood Angle", 0.0));
+                  },
+                  hood));
           break;
 
         case SIM:
@@ -204,11 +210,11 @@ public class RobotContainer {
           // SquareBot and MainBot: Full swerve drive
           drive =
               new Drive(
-                  new GyroIOPigeon2(),
-                  new ModuleIOSpark(0),
-                  new ModuleIOSpark(1),
-                  new ModuleIOSpark(2),
-                  new ModuleIOSpark(3),
+                  new GyroIO() {},
+                  new ModuleIOVirtual(),
+                  new ModuleIOVirtual(),
+                  new ModuleIOVirtual(),
+                  new ModuleIOVirtual(),
                   turret);
           // Vision for SquareBot and MainBot
           // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
@@ -225,22 +231,23 @@ public class RobotContainer {
                     new VisionIOPhotonVision(
                         VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
           } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
-            // MainBot uses corner-mounted cameras aimed diagonally outward + front center for
+            // MainBot uses corner-mounted cameras aimed diagonally outward + front center
+            // for
             // intake
-            vision =
-                new Vision(
-                    drive::addVisionMeasurement,
-                    new VisionIOPhotonVision(
-                        VisionConstants.frontLeftCam, VisionConstants.mainBotToFrontLeftCam),
-                    new VisionIOPhotonVision(
-                        VisionConstants.frontRightCam, VisionConstants.mainBotToFrontRightCam),
-                    new VisionIOPhotonVision(
-                        VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
-                    new VisionIOPhotonVision(
-                        VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam),
-                    new VisionIOPhotonVision(
-                        VisionConstants.objectDetectionFrontLeftCam,
-                        VisionConstants.mainBotToObjectDetectionFrontLeftCam));
+            vision = null;
+            // new Vision(
+            // drive::addVisionMeasurement,
+            // new VisionIOPhotonVision(
+            // VisionConstants.frontLeftCam, VisionConstants.mainBotToFrontLeftCam),
+            // new VisionIOPhotonVision(
+            // VisionConstants.frontRightCam, VisionConstants.mainBotToFrontRightCam),
+            // new VisionIOPhotonVision(
+            // VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
+            // new VisionIOPhotonVision(
+            // VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam),
+            // new VisionIOPhotonVision(
+            // VisionConstants.objectDetectionFrontLeftCam,
+            // VisionConstants.mainBotToObjectDetectionFrontLeftCam));
           } else {
             vision = null;
           }
@@ -294,7 +301,8 @@ public class RobotContainer {
                         VisionConstants.robotToBackRightCam,
                         RobotStatus::getRobotPose));
           } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
-            // MainBot uses corner-mounted cameras aimed diagonally outward + front center for
+            // MainBot uses corner-mounted cameras aimed diagonally outward + front center
+            // for
             // intake
             vision =
                 new Vision(
@@ -360,7 +368,8 @@ public class RobotContainer {
         break;
     }
 
-    // Initialize RobotStatus with subsystem references (vision may be null for RectangleBot)
+    // Initialize RobotStatus with subsystem references (vision may be null for
+    // RectangleBot)
     RobotStatus.initialize(drive, vision);
 
     // Connect vision to drive for adaptive std dev scaling based on robot speed
@@ -391,12 +400,14 @@ public class RobotContainer {
       turret.initializeVisualizer(drive::getPose, () -> drive.getChassisSpeeds());
     }
 
-    // Configure auto-shoot (turret fires automatically during autonomous when conditions are met)
+    // Configure auto-shoot (turret fires automatically during autonomous when
+    // conditions are met)
     if (turret != null && launcher != null) {
       turret.configureAutoShoot(launcher::atSetpoint, launcher::notifyBallFired);
     }
 
-    // Register NamedCommands for PathPlanner autos (must be BEFORE buildAutoChooser)
+    // Register NamedCommands for PathPlanner autos (must be BEFORE
+    // buildAutoChooser)
     registerNamedCommands();
 
     // Set up auto routines
@@ -420,7 +431,8 @@ public class RobotContainer {
       autoChooser.addOption(
           "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
-      // Launcher SysId routines (TurretBot only) - forward only since launcher never runs reverse
+      // Launcher SysId routines (TurretBot only) - forward only since launcher never
+      // runs reverse
       if (launcher != null) {
         autoChooser.addOption("Launcher SysId (Quasistatic)", launcher.launcherSysIdQuasistatic());
         autoChooser.addOption("Launcher SysId (Dynamic)", launcher.launcherSysIdDynamic());
@@ -488,7 +500,8 @@ public class RobotContainer {
                     turret.enableAutoShoot();
                   }
                 }),
-            // Run the selected auto path (asProxy avoids "command already composed" on re-run)
+            // Run the selected auto path (asProxy avoids "command already composed" on
+            // re-run)
             selectedAuto.asProxy())
         .finallyDo(
             () -> {
@@ -615,7 +628,8 @@ public class RobotContainer {
 
   /** Register NamedCommands for PathPlanner autos. Must be called before buildAutoChooser. */
   private void registerNamedCommands() {
-    // Enable auto-shoot: spins up launcher + motivator, enables auto-shoot on turret
+    // Enable auto-shoot: spins up launcher + motivator, enables auto-shoot on
+    // turret
     NamedCommands.registerCommand(
         "enableAutoShoot",
         Commands.runOnce(
@@ -733,7 +747,8 @@ public class RobotContainer {
 
       try {
         // Get the starting pose from the PathPlanner auto
-        // PathPlannerAuto.getStartingPose() returns the pose relative to blue alliance origin
+        // PathPlannerAuto.getStartingPose() returns the pose relative to blue alliance
+        // origin
         com.pathplanner.lib.commands.PathPlannerAuto auto =
             new com.pathplanner.lib.commands.PathPlannerAuto(selectedAutoName);
         edu.wpi.first.math.geometry.Pose2d startingPose = auto.getStartingPose();
@@ -770,7 +785,8 @@ public class RobotContainer {
         robotWidth, robotLength, bumperHeight, drive::getPose, () -> drive.getChassisSpeeds());
 
     // Register intake with fuel simulation for pickup collision detection
-    // Intake zone: 10 inches (0.254m) from front frame, 30 inches (0.762m) wide centered
+    // Intake zone: 10 inches (0.254m) from front frame, 30 inches (0.762m) wide
+    // centered
     if (intake != null && turret != null) {
       fuelSim.registerIntake(
           0.35,

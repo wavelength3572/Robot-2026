@@ -145,6 +145,15 @@ public class MainBotConfig implements RobotConfig {
   private static final double TURRET_Y_OFFSET = 0.1819604184; // meters
   private static final double TURRET_HEIGHT_METERS = 0.3597275; // Meters
 
+  // Hood Configuration:
+  // Hood Configuration
+  private static final int hoodMotorCanId = 60;
+  private static final double hoodMaxAngleDegrees = 75;
+  private static final double hoodMinAngleDegrees = 0;
+  private static final int hoodCurrentLimitAmps = 40;
+  private static final double hoodKp = 0.06;
+  private static final double hoodKd = 0;
+
   @Override
   public double getBumperLength() {
     return bumperLength;
@@ -531,19 +540,48 @@ public class MainBotConfig implements RobotConfig {
 
   @Override
   public int getHoodCanId() {
-    return 17; // TODO: Confirm CAN ID when hardware is ready
+    return 60; // TODO: Confirm CAN ID when hardware is ready
   }
 
   @Override
-  public double getHoodMinAngleDeg() {
-    return 25.0;
+  public double getHoodMinAngleDegrees() {
+    return hoodMinAngleDegrees;
   }
 
   @Override
-  public double getHoodMaxAngleDeg() {
-    return 65.0;
+  public double getHoodMaxAngleDegrees() {
+    return hoodMaxAngleDegrees;
   }
 
+  /** Hood gear ratio (motor rotations per degree of hood movement). */
+  @Override
+  public double getHoodGearRatio() {
+    return 1.0;
+  }
+
+  /** Hood motor current limit in amps. */
+  @Override
+  public int getHoodCurrentLimitAmps() {
+    return 20;
+  }
+
+  /** Hood kp */
+  @Override
+  public double getHoodKp() {
+    return hoodKp;
+  }
+
+  /** Hood kd */
+  @Override
+  public double getHoodKd() {
+    return hoodKd;
+  }
+
+  /** Hood motor Invert */
+  @Override
+  public boolean getHoodMotorInverted() {
+    return true;
+  }
   // ========== Motivator Configuration ==========
 
   @Override

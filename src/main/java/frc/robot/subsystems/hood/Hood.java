@@ -13,8 +13,8 @@ public class Hood extends SubsystemBase {
   private final HoodIOInputsAutoLogged inputs = new HoodIOInputsAutoLogged();
 
   // Physical limits (constants - these are hardware constraints)
-  private static final double MIN_ANGLE_DEG = 15.0;
-  private static final double MAX_ANGLE_DEG = 85.0;
+  private static final double MIN_ANGLE_DEG = 0.0;
+  private static final double MAX_ANGLE_DEG = 75.0;
   private static final double TOLERANCE_DEG = 1.0;
   private static final double HOME_ANGLE_DEG = 45.0;
 
