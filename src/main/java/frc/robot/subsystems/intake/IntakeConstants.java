@@ -26,7 +26,7 @@ public final class IntakeConstants {
 
   // Roller Motor Configuration
   public static final double ROLLER_GEAR_RATIO = 1.0; // Motor rotations per roller rotation
-  public static final boolean ROLLER_MOTOR_INVERTED = true;
+  public static final boolean ROLLER_MOTOR_INVERTED = false;
 
   // Roller Speed Constants (duty cycle -1 to 1)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
