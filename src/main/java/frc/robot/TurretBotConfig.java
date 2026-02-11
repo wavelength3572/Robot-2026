@@ -542,12 +542,12 @@ public class TurretBotConfig implements RobotConfig {
   }
 
   @Override
-  public double getHoodMinAngleDeg() {
+  public double getHoodMinAngleDegrees() {
     return 15.0;
   }
 
   @Override
-  public double getHoodMaxAngleDeg() {
+  public double getHoodMaxAngleDegrees() {
     return 85.0;
   }
 

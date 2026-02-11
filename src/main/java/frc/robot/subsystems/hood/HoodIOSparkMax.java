@@ -82,33 +82,6 @@ public class HoodIOSparkMax implements HoodIO {
                 motorConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
   }
 
-  /** Convert hood degrees to motor rotations (applies software inversion if configured). */
-  private double degreesToMotorRotations(double degrees) {
-    double rotations = degrees * 1;
-    return rotations;
-  }
-
-  /** Convert motor rotations to hood degrees (applies software inversion if configured). */
-  private double motorRotationsToDegrees(double rotations) {
-    double degrees = rotations * 1;
-    return degrees;
-  }
-
-  @Override
-  public void setAngle(double angleDeg) {
-    // Clamp the target angle to valid range
-    // double clampedDegrees =
-    // Math.max(minAngleDegrees, Math.min(maxAngleDegrees, rotation.getDegrees()));
-    // targetAngle = Rotation2d.fromDegrees(clampedDegrees);
-
-    // Convert degrees to motor rotations for the PID controller
-    targetAngle = angleDeg;
-    motorController.setSetpoint(angleDeg, ControlType.kPosition);
-  }
-
-  @Override
-  public void stop() {}
-
   /** Updates the set of loggable inputs. */
   @Override
   public void updateInputs(HoodIOInputs inputs) {
@@ -136,4 +109,31 @@ public class HoodIOSparkMax implements HoodIO {
     // Control state
     inputs.atTarget = false;
   }
+
+  /** Convert hood degrees to motor rotations (applies software inversion if configured). */
+  private double degreesToMotorRotations(double degrees) {
+    double rotations = degrees * 1;
+    return rotations;
+  }
+
+  /** Convert motor rotations to hood degrees (applies software inversion if configured). */
+  private double motorRotationsToDegrees(double rotations) {
+    double degrees = rotations * 1;
+    return degrees;
+  }
+
+  @Override
+  public void setAngle(double angleDeg) {
+    // Clamp the target angle to valid range
+    // double clampedDegrees =
+    // Math.max(minAngleDegrees, Math.min(maxAngleDegrees, rotation.getDegrees()));
+    // targetAngle = Rotation2d.fromDegrees(clampedDegrees);
+
+    // Convert degrees to motor rotations for the PID controller
+    targetAngle = angleDeg;
+    motorController.setSetpoint(angleDeg, ControlType.kPosition);
+  }
+
+  @Override
+  public void stop() {}
 }
