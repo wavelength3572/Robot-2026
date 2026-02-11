@@ -34,9 +34,9 @@ public final class VisionConstants {
   // _________________________________________________________________________________________________
 
   // Camera names, must match names configured on coprocessor
-  public static String frontRightCam = "FrontRight";
+  public static String frontRightCam = "CAMERA_B";
   public static String backRightCam = "BackRight";
-  public static String frontLeftCam = "FrontLeft";
+  public static String frontLeftCam = "CAMERA_A";
   public static String backLeftCam = "BackLeft";
   public static String objectDetectionFrontLeftCam =
       "ObjectDetectionFrontLeft"; // Object detection camera

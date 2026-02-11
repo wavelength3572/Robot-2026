@@ -20,8 +20,10 @@ import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
+import frc.robot.subsystems.drive.GyroIOPigeon2;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
+import frc.robot.subsystems.drive.ModuleIOSpark;
 import frc.robot.subsystems.drive.ModuleIOVirtual;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.hood.HoodIO;
@@ -217,15 +219,18 @@ public class RobotContainer {
           // SquareBot and MainBot: Full swerve drive
           drive =
               new Drive(
-                  new GyroIO() {},
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
+                  new GyroIOPigeon2(),
+                  new ModuleIOSpark(0),
+                  new ModuleIOSpark(1),
+                  new ModuleIOSpark(2),
+                  new ModuleIOSpark(3),
                   turret);
           // Vision for SquareBot and MainBot
           // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
           if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
+            // Only FrontLeft (CAMERA_A) and FrontRight (CAMERA_B) are installed on squarebot
+            // BackLeft and BackRight Pis are not present, using no-op VisionIO to avoid loop
+            // overruns
             vision =
                 new Vision(
                     drive::addVisionMeasurement,
@@ -233,10 +238,8 @@ public class RobotContainer {
                         VisionConstants.frontLeftCam, VisionConstants.robotToFrontLeftCam),
                     new VisionIOPhotonVision(
                         VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam),
-                    new VisionIOPhotonVision(
-                        VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
-                    new VisionIOPhotonVision(
-                        VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
+                    new VisionIO() {},
+                    new VisionIO() {});
           } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
             // MainBot uses corner-mounted cameras aimed diagonally outward + front center
             // for
