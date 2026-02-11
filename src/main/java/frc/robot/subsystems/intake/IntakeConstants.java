@@ -36,8 +36,8 @@ public final class IntakeConstants {
   // Roller Velocity PID Constants (closed-loop velocity control)
   public static final double ROLLER_KP = 0.0001;
   public static final double ROLLER_KI = 0.0;
-  public static final double ROLLER_KD = 0.0;
-  public static final double ROLLER_KFF = 0.0005; // ~1/maxRollerRPM
+  public static final double ROLLER_KD = 0.000001;
+  public static final double ROLLER_KFF = 0.000225;
 
   // Roller Velocity Targets (RPM at mechanism output)
   public static final double ROLLER_INTAKE_RPM = 1500.0;
