@@ -157,6 +157,18 @@ public class ButtonsAndDashboardBindings {
         "BenchTest/Shooting/LauncherOnly",
         ShootingCommands.benchTestLaunchCommand(launcher, turret, motivator));
 
+    // Set fuel stored to 8 (works while disabled)
+    SmartDashboard.putData(
+        "Match/SetFuel8",
+        Commands.runOnce(
+                () -> {
+                  if (turret.getVisualizer() != null) {
+                    turret.getVisualizer().setFuelCount(8);
+                  }
+                })
+            .ignoringDisable(true)
+            .withName("Set Fuel 8"));
+
     // Reset metrics button (works while disabled)
     SmartDashboard.putData(
         "BenchTest/Shooting/ResetMetrics",
