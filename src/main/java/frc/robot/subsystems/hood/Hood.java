@@ -2,10 +2,10 @@ package frc.robot.subsystems.hood;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import org.littletonrobotics.junction.AutoLogOutput;
-import org.littletonrobotics.junction.Logger;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Hood subsystem for controlling the launch angle. Works with the trajectory optimizer to achieve
@@ -113,7 +113,8 @@ public class Hood extends SubsystemBase {
    * @return True if achievable
    */
   public boolean isAngleAchievable(double angleDeg) {
-    return angleDeg >= config.getHoodMinAngleDegrees() && angleDeg <= config.getHoodMaxAngleDegrees();
+    return angleDeg >= config.getHoodMinAngleDegrees()
+        && angleDeg <= config.getHoodMaxAngleDegrees();
   }
 
   /**
@@ -123,7 +124,8 @@ public class Hood extends SubsystemBase {
    * @return Clamped angle
    */
   public double clampToLimits(double angleDeg) {
-    return Math.max(config.getHoodMinAngleDegrees(), Math.min(config.getHoodMaxAngleDegrees(), angleDeg));
+    return Math.max(
+        config.getHoodMinAngleDegrees(), Math.min(config.getHoodMaxAngleDegrees(), angleDeg));
   }
 
   // ========== Commands ==========

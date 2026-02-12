@@ -129,8 +129,8 @@ public class MainBotConfig implements RobotConfig {
   // Hood Configuration:
   // Hood Configuration
   private static final int hoodMotorCanId = 60;
-  private static final double hoodMaxAngleDegrees = 75;
-  private static final double hoodMinAngleDegrees = 0;
+  private static final double hoodMaxAngleDegrees = 100;
+  private static final double hoodMinAngleDegrees = 10;
   private static final int hoodCurrentLimitAmps = 40;
   private static final double hoodKp = 0.06;
   private static final double hoodKd = 0;
@@ -488,7 +488,7 @@ public class MainBotConfig implements RobotConfig {
 
   @Override
   public boolean hasLauncher() {
-    return true;
+    return false;
   }
 
   @Override
@@ -586,6 +586,6 @@ public class MainBotConfig implements RobotConfig {
 
   @Override
   public boolean hasMotivator() {
-    return true; // MainBot has motivator for feeding balls to launcher
+    return false; // MainBot has motivator for feeding balls to launcher
   }
 }
