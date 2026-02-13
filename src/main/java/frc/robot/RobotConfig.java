@@ -296,16 +296,6 @@ public interface RobotConfig {
     return 0;
   }
 
-  /** Hood minimum angle in degrees. */
-  default double getHoodMinAngleDeg() {
-    return 25.0;
-  }
-
-  /** Hood maximum angle in degrees. */
-  default double getHoodMaxAngleDeg() {
-    return 65.0;
-  }
-
   /** Hood gear ratio (motor rotations per degree of hood movement). */
   default double getHoodGearRatio() {
     return 1.0;

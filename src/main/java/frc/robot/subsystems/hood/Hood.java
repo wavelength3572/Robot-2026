@@ -1,6 +1,9 @@
 package frc.robot.subsystems.hood;
 
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants;
+import frc.robot.RobotConfig;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
@@ -12,11 +15,7 @@ public class Hood extends SubsystemBase {
   private final HoodIO io;
   private final HoodIOInputsAutoLogged inputs = new HoodIOInputsAutoLogged();
 
-  // Physical limits (constants - these are hardware constraints)
-  private static final double MIN_ANGLE_DEG = 0.0;
-  private static final double MAX_ANGLE_DEG = 75.0;
-  private static final double TOLERANCE_DEG = 1.0;
-  private static final double HOME_ANGLE_DEG = 45.0;
+  private final RobotConfig config = Constants.getRobotConfig();
 
   public Hood(HoodIO io) {
     this.io = io;
@@ -29,8 +28,8 @@ public class Hood extends SubsystemBase {
 
     // Log additional useful values
     Logger.recordOutput("Hood/AngleError", inputs.targetAngleDeg - inputs.currentAngleDeg);
-    Logger.recordOutput("Hood/MinLimit", MIN_ANGLE_DEG);
-    Logger.recordOutput("Hood/MaxLimit", MAX_ANGLE_DEG);
+    Logger.recordOutput("Hood/MinLimit", config.getHoodMinAngleDegrees());
+    Logger.recordOutput("Hood/MaxLimit", config.getHoodMaxAngleDegrees());
   }
 
   /**
@@ -45,11 +44,6 @@ public class Hood extends SubsystemBase {
     if (clamped != angleDeg) {
       Logger.recordOutput("Hood/ClampedRequest", angleDeg);
     }
-  }
-
-  /** Move hood to home position. */
-  public void goToHome() {
-    setAngle(HOME_ANGLE_DEG);
   }
 
   /** Stop the hood and hold current position. */
@@ -100,7 +94,7 @@ public class Hood extends SubsystemBase {
    * @return Min angle in degrees
    */
   public double getMinAngle() {
-    return MIN_ANGLE_DEG;
+    return config.getHoodMinAngleDegrees();
   }
 
   /**
@@ -109,7 +103,7 @@ public class Hood extends SubsystemBase {
    * @return Max angle in degrees
    */
   public double getMaxAngle() {
-    return MAX_ANGLE_DEG;
+    return config.getHoodMaxAngleDegrees();
   }
 
   /**
@@ -119,7 +113,8 @@ public class Hood extends SubsystemBase {
    * @return True if achievable
    */
   public boolean isAngleAchievable(double angleDeg) {
-    return angleDeg >= MIN_ANGLE_DEG && angleDeg <= MAX_ANGLE_DEG;
+    return angleDeg >= config.getHoodMinAngleDegrees()
+        && angleDeg <= config.getHoodMaxAngleDegrees();
   }
 
   /**
@@ -129,7 +124,8 @@ public class Hood extends SubsystemBase {
    * @return Clamped angle
    */
   public double clampToLimits(double angleDeg) {
-    return Math.max(MIN_ANGLE_DEG, Math.min(MAX_ANGLE_DEG, angleDeg));
+    return Math.max(
+        config.getHoodMinAngleDegrees(), Math.min(config.getHoodMaxAngleDegrees(), angleDeg));
   }
 
   // ========== Commands ==========
@@ -140,20 +136,9 @@ public class Hood extends SubsystemBase {
    * @param angleDeg Target angle
    * @return Command that completes when at target
    */
-  public edu.wpi.first.wpilibj2.command.Command setAngleCommand(double angleDeg) {
+  public Command setAngleCommand(double angleDeg) {
     return runOnce(() -> setAngle(angleDeg))
         .andThen(run(() -> {}).until(this::atTarget))
         .withName("Hood: Set to " + angleDeg + " deg");
-  }
-
-  /**
-   * Command to go to home position.
-   *
-   * @return Command that completes when at home
-   */
-  public edu.wpi.first.wpilibj2.command.Command goToHomeCommand() {
-    return runOnce(this::goToHome)
-        .andThen(run(() -> {}).until(this::atTarget))
-        .withName("Hood: Go Home");
   }
 }

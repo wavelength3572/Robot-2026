@@ -104,17 +104,15 @@ public class LauncherIOSparkFlex implements LauncherIO {
     leaderConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(initKp, initKi, initKd)
-        .pid(initKp + initRecoveryKpBoost, initKi, initKd, ClosedLoopSlot.kSlot1);
+        .pid(initKp, initKi, initKd);
+        // .pid(initKp + initRecoveryKpBoost, initKi, initKd, ClosedLoopSlot.kSlot1);
 
     // Signal update rates
     leaderConfig
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
+        .appliedOutputPeriodMs(10);
 
     tryUntilOk(
         leaderMotor,
@@ -138,9 +136,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
+        .appliedOutputPeriodMs(20);
 
     tryUntilOk(
         followerMotor,
@@ -245,14 +241,15 @@ public class LauncherIOSparkFlex implements LauncherIO {
   }
 
   @Override
-  public void setVoltage(double volts) {
+  public void setLauncherVoltage(double volts) {
     // Clear velocity target when in voltage mode (for SysId characterization)
     currentTargetWheelRPM = 0.0;
 
     // Command leader directly - follower follows automatically via hardware follower mode
     // Note: Velocity safety limiting is handled at the command level via .until() conditions
     // rather than here, to avoid oscillations that would corrupt SysId data
-    leaderMotor.setVoltage(volts);
+    // leaderMotor.setVoltage(volts);
+    leaderController.setSetpoint(volts, ControlType.kVoltage);
   }
 
   @Override

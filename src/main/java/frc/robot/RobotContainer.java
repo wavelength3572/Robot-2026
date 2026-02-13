@@ -32,7 +32,6 @@ import frc.robot.subsystems.hood.HoodIOSparkMax;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeIO;
 import frc.robot.subsystems.intake.IntakeIOSim;
-import frc.robot.subsystems.intake.IntakeIOSparkMax;
 import frc.robot.subsystems.intake.IntakeIOSparkMaxRollerOnly;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.launcher.LauncherIO;
@@ -112,7 +111,7 @@ public class RobotContainer {
             intake = new Intake(new IntakeIOSparkMaxRollerOnly());
           } else {
             // MainBot: full intake with deploy + rollers
-            intake = new Intake(new IntakeIOSparkMax());
+            intake = new Intake(new IntakeIO() {});
           }
           break;
 

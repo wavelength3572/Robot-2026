@@ -54,7 +54,7 @@ public interface LauncherIO {
   }
 
   /** Run the launcher at the specified voltage (for characterization). */
-  public default void setVoltage(double volts) {}
+  public default void setLauncherVoltage(double volts) {}
 
   /** Stop the launcher motors. */
   public default void stop() {}

@@ -118,6 +118,23 @@ public class MainBotConfig implements RobotConfig {
   private static final double launcherKd = 0.003;
   private static final double launcherKff = 0.0;
 
+  // Physical dimensions
+  // Turret offset from robot center (in robot-relative coordinates)
+  // Positive X = forward from robot center
+  // Positive Y = left from robot center
+  private static final double TURRET_X_OFFSET = -0.085211539; // meters
+  private static final double TURRET_Y_OFFSET = 0.1819604184; // meters
+  private static final double TURRET_HEIGHT_METERS = 0.3597275; // Meters
+
+  // Hood Configuration:
+  // Hood Configuration
+  private static final int hoodMotorCanId = 60;
+  private static final double hoodMaxAngleDegrees = 100;
+  private static final double hoodMinAngleDegrees = 10;
+  private static final int hoodCurrentLimitAmps = 40;
+  private static final double hoodKp = 0.06;
+  private static final double hoodKd = 0;
+
   // Performance
   private static final double maxSpeedMetersPerSec =
       5676.0 / 60.0 / driveMotorReduction * 2.0 * Math.PI * wheelRadiusMeters * 0.95;
@@ -136,23 +153,6 @@ public class MainBotConfig implements RobotConfig {
               driveMotorCurrentLimit,
               1),
           moduleTranslations);
-
-  // Physical dimensions
-  // Turret offset from robot center (in robot-relative coordinates)
-  // Positive X = forward from robot center
-  // Positive Y = left from robot center
-  private static final double TURRET_X_OFFSET = -0.085211539; // meters
-  private static final double TURRET_Y_OFFSET = 0.1819604184; // meters
-  private static final double TURRET_HEIGHT_METERS = 0.3597275; // Meters
-
-  // Hood Configuration:
-  // Hood Configuration
-  private static final int hoodMotorCanId = 60;
-  private static final double hoodMaxAngleDegrees = 75;
-  private static final double hoodMinAngleDegrees = 0;
-  private static final int hoodCurrentLimitAmps = 40;
-  private static final double hoodKp = 0.06;
-  private static final double hoodKd = 0;
 
   @Override
   public double getBumperLength() {
@@ -535,12 +535,12 @@ public class MainBotConfig implements RobotConfig {
 
   @Override
   public boolean hasHood() {
-    return true; // MainBot has hood for hybrid trajectory control
+    return false; // MainBot has hood for hybrid trajectory control
   }
 
   @Override
   public int getHoodCanId() {
-    return 60; // TODO: Confirm CAN ID when hardware is ready
+    return hoodMotorCanId; // TODO: Confirm CAN ID when hardware is ready
   }
 
   @Override
@@ -562,7 +562,7 @@ public class MainBotConfig implements RobotConfig {
   /** Hood motor current limit in amps. */
   @Override
   public int getHoodCurrentLimitAmps() {
-    return 20;
+    return hoodCurrentLimitAmps;
   }
 
   /** Hood kp */
@@ -586,6 +586,6 @@ public class MainBotConfig implements RobotConfig {
 
   @Override
   public boolean hasMotivator() {
-    return true; // MainBot has motivator for feeding balls to launcher
+    return false; // MainBot has motivator for feeding balls to launcher
   }
 }
