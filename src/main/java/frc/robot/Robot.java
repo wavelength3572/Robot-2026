@@ -12,6 +12,7 @@ import edu.wpi.first.hal.AllianceStationID;
 import edu.wpi.first.wpilibj.simulation.DriverStationSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.util.FuelSim;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -119,6 +120,13 @@ public class Robot extends LoggedRobot {
   /** This autonomous runs the autonomous command selected by your {@link RobotContainer} class. */
   @Override
   public void autonomousInit() {
+    // Reset scores and shot counters at the start of each autonomous period
+    FuelSim.Hub.BLUE_HUB.resetScore();
+    FuelSim.Hub.RED_HUB.resetScore();
+    if (robotContainer.getTurret() != null) {
+      robotContainer.getTurret().resetShotCounts();
+    }
+
     autonomousCommand = robotContainer.getAutonomousCommand();
 
     // schedule the autonomous command (example)
