@@ -66,6 +66,11 @@ public class Turret extends SubsystemBase {
   private Supplier<Boolean> launcherReadySupplier = null;
   private Runnable onShotFiredCallback = null;
   private double lastShotTimestamp = 0.0;
+
+  // Match shot tracking (counts persist across auto→teleop transition)
+  private int totalShots = 0;
+  private int autoShots = 0;
+  private int teleopShots = 0;
   private final LoggedTunableNumber autoShootMinInterval =
       new LoggedTunableNumber("Tuning/Turret/AutoShootMinInterval", 0.15);
 
@@ -720,7 +725,28 @@ public class Turret extends SubsystemBase {
       // This avoids RPM timing issues and shows where the shot SHOULD go
       visualizer.launchFuel(
           currentShot.getExitVelocity(), currentShot.getLaunchAngle(), azimuthAngle);
+
+      // Track shot counts (auto vs teleop)
+      totalShots++;
+      if (DriverStation.isAutonomous()) {
+        autoShots++;
+      } else {
+        teleopShots++;
+      }
+      Logger.recordOutput("Match/ShotLog/TotalShots", totalShots);
+      Logger.recordOutput("Match/ShotLog/AutoShots", autoShots);
+      Logger.recordOutput("Match/ShotLog/TeleopShots", teleopShots);
     }
+  }
+
+  /** Reset match shot counters. Call this when resetting the simulation/field. */
+  public void resetShotCounts() {
+    totalShots = 0;
+    autoShots = 0;
+    teleopShots = 0;
+    Logger.recordOutput("Match/ShotLog/TotalShots", 0);
+    Logger.recordOutput("Match/ShotLog/AutoShots", 0);
+    Logger.recordOutput("Match/ShotLog/TeleopShots", 0);
   }
 
   /**

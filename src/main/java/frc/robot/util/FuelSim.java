@@ -47,6 +47,24 @@ public class FuelSim {
   private static final LoggedNetworkBoolean spawnNeutralZoneBalls =
       new LoggedNetworkBoolean("Sim/SpawnNeutralZoneBalls", true);
 
+  // Outpost barrier toggle — when true, U-shaped walls contain fuel at each outpost
+  private static final LoggedNetworkBoolean outpostBarriersEnabled =
+      new LoggedNetworkBoolean("Sim/OutpostBarriers", true);
+
+  // Outpost exchange ramp dimensions (from OUTPOST_EXCHANGE.PNG)
+  private static final double RAMP_BOTTOM_Z = 0.7145; // 28.13" — opening height from floor
+  private static final double RAMP_DEPTH = FUEL_RADIUS * 2 * 5; // 5 balls deep = 30" = 0.75m
+  private static final double RAMP_RISE = 0.178; // 7.0" — vertical rise over ramp length
+  private static final double RAMP_WALL_HEIGHT = 0.155; // 6.10" — wall height above ramp surface
+
+  // Outpost barrier geometry constants
+  private static final double BARRIER_THICKNESS = 0.02; // meters
+  private static final double BARRIER_X_OFFSET = RAMP_DEPTH; // walls extend to back of ramp
+  private static final double BARRIER_Y_MARGIN =
+      FUEL_RADIUS * 2 * 2.5 + 0.01; // snug fit for 5 balls across (+ tiny margin)
+  private static final double BARRIER_HEIGHT =
+      RAMP_BOTTOM_Z + RAMP_RISE + RAMP_WALL_HEIGHT; // top of ramp walls
+
   // Field obstacle line segments (start and end points for collision detection)
   // These model the ramps/bumps and trench geometry on the field
   private static final Translation3d[] FIELD_XZ_LINE_STARTS = {
@@ -158,11 +176,20 @@ public class FuelSim {
         handleXZLineCollision(FIELD_XZ_LINE_STARTS[i], FIELD_XZ_LINE_ENDS[i]);
       }
 
-      // edges
-      if (pos.getX() < FUEL_RADIUS && vel.getX() < 0) {
+      // edges (with outpost gaps — fuel can pass through the alliance wall at outpost openings)
+      double blueOutpostY = FieldConstants.Outpost.centerPoint.getY();
+      double redOutpostY = FIELD_WIDTH - blueOutpostY;
+      boolean inBlueOutpostGap =
+          pos.getY() > blueOutpostY - BARRIER_Y_MARGIN
+              && pos.getY() < blueOutpostY + BARRIER_Y_MARGIN;
+      boolean inRedOutpostGap =
+          pos.getY() > redOutpostY - BARRIER_Y_MARGIN
+              && pos.getY() < redOutpostY + BARRIER_Y_MARGIN;
+
+      if (pos.getX() < FUEL_RADIUS && vel.getX() < 0 && !inBlueOutpostGap) {
         pos = pos.plus(new Translation3d(FUEL_RADIUS - pos.getX(), 0, 0));
         vel = vel.plus(new Translation3d(-(1 + FIELD_COR) * vel.getX(), 0, 0));
-      } else if (pos.getX() > FIELD_LENGTH - FUEL_RADIUS && vel.getX() > 0) {
+      } else if (pos.getX() > FIELD_LENGTH - FUEL_RADIUS && vel.getX() > 0 && !inRedOutpostGap) {
         pos = pos.plus(new Translation3d(FIELD_LENGTH - FUEL_RADIUS - pos.getX(), 0, 0));
         vel = vel.plus(new Translation3d(-(1 + FIELD_COR) * vel.getX(), 0, 0));
       }
@@ -180,6 +207,101 @@ public class FuelSim {
       handleHubCollisions(Hub.RED_HUB);
 
       handleTrenchCollisions();
+      handleOutpostBarrierCollisions();
+    }
+
+    private void handleOutpostBarrierCollisions() {
+      double blueY = FieldConstants.Outpost.centerPoint.getY();
+      double redY = FIELD_WIDTH - blueY;
+
+      // === Ramp surfaces (always active — physical structure) ===
+      // Blue ramp: slopes up from (X=0, Z=RAMP_BOTTOM_Z) to (X=-RAMP_DEPTH, Z=RAMP_BOTTOM_Z+RISE)
+      // Line direction must go from back-high to front-low for correct upward normal
+      handleXZLineCollision(
+          new Translation3d(-RAMP_DEPTH, blueY - BARRIER_Y_MARGIN, RAMP_BOTTOM_Z + RAMP_RISE),
+          new Translation3d(0, blueY + BARRIER_Y_MARGIN, RAMP_BOTTOM_Z));
+      // Red ramp: mirrored
+      handleXZLineCollision(
+          new Translation3d(FIELD_LENGTH, redY - BARRIER_Y_MARGIN, RAMP_BOTTOM_Z),
+          new Translation3d(
+              FIELD_LENGTH + RAMP_DEPTH, redY + BARRIER_Y_MARGIN, RAMP_BOTTOM_Z + RAMP_RISE));
+
+      // === Side walls and back wall (always active — physical outpost structure) ===
+      // Blue outpost — behind alliance wall (negative X)
+      // -Y side wall
+      fuelCollideRectangle(
+          this,
+          new Translation3d(-BARRIER_X_OFFSET, blueY - BARRIER_Y_MARGIN - BARRIER_THICKNESS, 0),
+          new Translation3d(0, blueY - BARRIER_Y_MARGIN, BARRIER_HEIGHT));
+      // +Y side wall
+      fuelCollideRectangle(
+          this,
+          new Translation3d(-BARRIER_X_OFFSET, blueY + BARRIER_Y_MARGIN, 0),
+          new Translation3d(0, blueY + BARRIER_Y_MARGIN + BARRIER_THICKNESS, BARRIER_HEIGHT));
+      // Back wall
+      fuelCollideRectangle(
+          this,
+          new Translation3d(-BARRIER_X_OFFSET - BARRIER_THICKNESS, blueY - BARRIER_Y_MARGIN, 0),
+          new Translation3d(-BARRIER_X_OFFSET, blueY + BARRIER_Y_MARGIN, BARRIER_HEIGHT));
+
+      // Red outpost — behind alliance wall (past FIELD_LENGTH)
+      // -Y side wall
+      fuelCollideRectangle(
+          this,
+          new Translation3d(FIELD_LENGTH, redY - BARRIER_Y_MARGIN - BARRIER_THICKNESS, 0),
+          new Translation3d(
+              FIELD_LENGTH + BARRIER_X_OFFSET, redY - BARRIER_Y_MARGIN, BARRIER_HEIGHT));
+      // +Y side wall
+      fuelCollideRectangle(
+          this,
+          new Translation3d(FIELD_LENGTH, redY + BARRIER_Y_MARGIN, 0),
+          new Translation3d(
+              FIELD_LENGTH + BARRIER_X_OFFSET,
+              redY + BARRIER_Y_MARGIN + BARRIER_THICKNESS,
+              BARRIER_HEIGHT));
+      // Back wall
+      fuelCollideRectangle(
+          this,
+          new Translation3d(FIELD_LENGTH + BARRIER_X_OFFSET, redY - BARRIER_Y_MARGIN, 0),
+          new Translation3d(
+              FIELD_LENGTH + BARRIER_X_OFFSET + BARRIER_THICKNESS,
+              redY + BARRIER_Y_MARGIN,
+              BARRIER_HEIGHT));
+
+      // === Toggleable barriers (gate + row dividers) — removed when fuel is released ===
+      if (!outpostBarriersEnabled.get()) return;
+
+      double rowSpacing = FUEL_RADIUS * 2;
+
+      // Blue front wall at X=0
+      fuelCollideRectangle(
+          this,
+          new Translation3d(-BARRIER_THICKNESS, blueY - BARRIER_Y_MARGIN, 0),
+          new Translation3d(BARRIER_THICKNESS, blueY + BARRIER_Y_MARGIN, BARRIER_HEIGHT));
+      // Blue cross-barriers between each row (prevent sliding down the ramp)
+      for (int i = 1; i < 5; i++) {
+        double bx = -(rowSpacing * i);
+        fuelCollideRectangle(
+            this,
+            new Translation3d(bx - BARRIER_THICKNESS / 2, blueY - BARRIER_Y_MARGIN, RAMP_BOTTOM_Z),
+            new Translation3d(
+                bx + BARRIER_THICKNESS / 2, blueY + BARRIER_Y_MARGIN, BARRIER_HEIGHT));
+      }
+
+      // Red front wall at X=FIELD_LENGTH
+      fuelCollideRectangle(
+          this,
+          new Translation3d(FIELD_LENGTH - BARRIER_THICKNESS, redY - BARRIER_Y_MARGIN, 0),
+          new Translation3d(
+              FIELD_LENGTH + BARRIER_THICKNESS, redY + BARRIER_Y_MARGIN, BARRIER_HEIGHT));
+      // Red cross-barriers between each row
+      for (int i = 1; i < 5; i++) {
+        double bx = FIELD_LENGTH + rowSpacing * i;
+        fuelCollideRectangle(
+            this,
+            new Translation3d(bx - BARRIER_THICKNESS / 2, redY - BARRIER_Y_MARGIN, RAMP_BOTTOM_Z),
+            new Translation3d(bx + BARRIER_THICKNESS / 2, redY + BARRIER_Y_MARGIN, BARRIER_HEIGHT));
+      }
     }
 
     private void handleHubCollisions(Hub hub) {
@@ -433,6 +555,58 @@ public class FuelSim {
                     FIELD_LENGTH - 0.076 - 0.152 * j, 2.09 - 0.076 - 0.152 * i, FUEL_RADIUS)));
       }
     }
+
+    // Outposts - 25 balls each in 5x5 grid
+    spawnOutpostFuel();
+  }
+
+  /** Spawns 25 fuel at each alliance's outpost in a 5x5 grid, 5 across along the wall. */
+  public void spawnOutpostFuel() {
+    outpostBarriersEnabled.set(true);
+    double outpostY = FieldConstants.Outpost.centerPoint.getY();
+    double spacing = FUEL_RADIUS * 2; // ball diameter, so balls are touching
+
+    // Blue outpost — 5×5 flat grid on exchange ramp behind alliance wall (negative X)
+    for (int row = 0; row < 5; row++) {
+      for (int col = 0; col < 5; col++) {
+        double x = -(FUEL_RADIUS + spacing * row);
+        double y = outpostY + (col - 2) * spacing;
+        double zRamp = RAMP_BOTTOM_Z + (Math.abs(x) / RAMP_DEPTH) * RAMP_RISE;
+        fuels.add(new Fuel(new Translation3d(x, y, zRamp + FUEL_RADIUS)));
+      }
+    }
+
+    // Red outpost — 5×5 flat grid on exchange ramp behind alliance wall (past FIELD_LENGTH)
+    for (int row = 0; row < 5; row++) {
+      for (int col = 0; col < 5; col++) {
+        double x = FIELD_LENGTH + FUEL_RADIUS + spacing * row;
+        double y = FIELD_WIDTH - outpostY + (col - 2) * spacing;
+        double zRamp = RAMP_BOTTOM_Z + ((x - FIELD_LENGTH) / RAMP_DEPTH) * RAMP_RISE;
+        fuels.add(new Fuel(new Translation3d(x, y, zRamp + FUEL_RADIUS)));
+      }
+    }
+  }
+
+  /** Enable outpost barriers (fuel stays contained). */
+  public void enableOutpostBarriers() {
+    outpostBarriersEnabled.set(true);
+  }
+
+  /** Disable outpost barriers (fuel rolls freely). */
+  public void disableOutpostBarriers() {
+    outpostBarriersEnabled.set(false);
+  }
+
+  /** Toggle outpost barriers on/off. */
+  public void toggleOutpostBarriers() {
+    outpostBarriersEnabled.set(!outpostBarriersEnabled.get());
+  }
+
+  /**
+   * @return true if outpost barriers are currently enabled.
+   */
+  public boolean areOutpostBarriersEnabled() {
+    return outpostBarriersEnabled.get();
   }
 
   /** Logs fuel positions to AdvantageKit for visualization in AdvantageScope */
@@ -442,6 +616,7 @@ public class FuelSim {
     Logger.recordOutput("FuelSim/FuelCount", fuels.size());
     Logger.recordOutput("FuelSim/BlueScore", Hub.BLUE_HUB.getScore());
     Logger.recordOutput("FuelSim/RedScore", Hub.RED_HUB.getScore());
+    Logger.recordOutput("FuelSim/OutpostBarriers", outpostBarriersEnabled.get());
   }
 
   /** Start the simulation. updateSim() must still be called every loop */

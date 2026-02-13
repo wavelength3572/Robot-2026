@@ -336,10 +336,13 @@ public class ShootingCommands {
   public static Command resetSimulationCommand(Turret turret) {
     return Commands.runOnce(
             () -> {
-              // Clear field and reset hub scores
+              // Clear all field and outpost fuel, reset hub scores
               FuelSim.getInstance().clearFuel();
               FuelSim.Hub.BLUE_HUB.resetScore();
               FuelSim.Hub.RED_HUB.resetScore();
+
+              // Reset shot counters
+              turret.resetShotCounts();
 
               // Put 40 balls in hopper
               TurretVisualizer visualizer = turret.getVisualizer();
@@ -370,6 +373,9 @@ public class ShootingCommands {
               FuelSim.getInstance().clearFuel();
               FuelSim.Hub.BLUE_HUB.resetScore();
               FuelSim.Hub.RED_HUB.resetScore();
+
+              // Reset shot counters
+              turret.resetShotCounts();
 
               // Spawn all starting fuel (neutral zone + depots)
               FuelSim.getInstance().spawnStartingFuel();
