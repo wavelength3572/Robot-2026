@@ -488,7 +488,7 @@ public class MainBotConfig implements RobotConfig {
 
   @Override
   public boolean hasLauncher() {
-    return false;
+    return true;
   }
 
   @Override
@@ -535,7 +535,7 @@ public class MainBotConfig implements RobotConfig {
 
   @Override
   public boolean hasHood() {
-    return true; // MainBot has hood for hybrid trajectory control
+    return false; // MainBot has hood for hybrid trajectory control
   }
 
   @Override

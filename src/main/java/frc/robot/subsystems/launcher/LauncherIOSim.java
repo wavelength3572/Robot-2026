@@ -146,7 +146,7 @@ public class LauncherIOSim implements LauncherIO {
   }
 
   @Override
-  public void setVoltage(double volts) {
+  public void setLauncherVoltage(double volts) {
     voltageMode = true;
     targetWheelRPM = 0.0;
     inTransition = false;

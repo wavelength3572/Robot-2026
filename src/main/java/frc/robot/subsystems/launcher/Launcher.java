@@ -86,7 +86,7 @@ public class Launcher extends SubsystemBase {
                 Seconds.of(10), // Timeout: 10 seconds
                 (state) -> Logger.recordOutput("Launcher/SysIdState", state.toString())),
             new SysIdRoutine.Mechanism(
-                (voltage) -> io.setVoltage(voltage.in(Volts)),
+                (voltage) -> io.setLauncherVoltage(voltage.in(Volts)),
                 (log) -> {
                   double velocityRadPerSec =
                       Units.rotationsPerMinuteToRadiansPerSecond(inputs.wheelVelocityRPM);
@@ -254,6 +254,11 @@ public class Launcher extends SubsystemBase {
    */
   public boolean isConnected() {
     return inputs.leaderConnected && inputs.followerConnected;
+  }
+
+  /** Runs the drive in a straight line with the specified drive output. */
+  public void runCharacterization(double output) {
+    io.setLauncherVoltage(output);
   }
 
   // ========== SysId Commands ==========
