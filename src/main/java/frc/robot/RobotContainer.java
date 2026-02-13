@@ -509,6 +509,11 @@ public class RobotContainer {
                   if (turret != null) {
                     turret.enableAutoShoot();
                   }
+                  // Start intake rollers (squarebot intake is permanently deployed)
+                  if (intake != null) {
+                    intake.deploy();
+                    intake.setRollerVelocity(4000.0);
+                  }
                 }),
             // Run the selected auto path (asProxy avoids "command already composed" on
             // re-run)
@@ -524,6 +529,9 @@ public class RobotContainer {
               }
               if (motivator != null) {
                 motivator.stop();
+              }
+              if (intake != null) {
+                intake.stopRollers();
               }
             });
   }

@@ -45,7 +45,7 @@ public final class IntakeConstants {
   public static final double ROLLER_HOLD_RPM = 200.0;
 
   // Roller Current Limit
-  public static final int ROLLER_CURRENT_LIMIT = 90; // Amps
+  public static final int ROLLER_CURRENT_LIMIT = 110; // Amps
 
   // Simulation Constants
   public static final double DEPLOY_SIM_MOI = 0.01; // kg*m^2 moment of inertia

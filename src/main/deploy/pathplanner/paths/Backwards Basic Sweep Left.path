@@ -3,37 +3,32 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 2.5291022727272723,
-        "y": 6.784
-      },
-      "prevControl": null,
-      "nextControl": {
-        "x": 2.5291022727272723,
-        "y": 6.184
-      },
-      "isLocked": false,
-      "linkedName": "SweepStart/End"
-    },
-    {
-      "anchor": {
         "x": 2.5,
         "y": 1.5
       },
-      "prevControl": {
+      "prevControl": null,
+      "nextControl": {
         "x": 2.5,
         "y": 2.0999999999999996
       },
-      "nextControl": null,
       "isLocked": false,
       "linkedName": "sweepEnd"
-    }
-  ],
-  "rotationTargets": [
+    },
     {
-      "waypointRelativePos": 0.10220125786163525,
-      "rotationDegrees": -70.0
+      "anchor": {
+        "x": 2.5291022727272723,
+        "y": 6.784
+      },
+      "prevControl": {
+        "x": 2.5291022727272723,
+        "y": 6.184
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "SweepStart/End"
     }
   ],
+  "rotationTargets": [],
   "constraintZones": [],
   "pointTowardsZones": [],
   "eventMarkers": [],
@@ -47,13 +42,13 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": -70.0
+    "rotation": -90.0
   },
   "reversed": false,
   "folder": "Test Paths",
   "idealStartingState": {
     "velocity": 0,
-    "rotation": -90.0
+    "rotation": -70.0
   },
   "useDefaultConstraints": false
 }

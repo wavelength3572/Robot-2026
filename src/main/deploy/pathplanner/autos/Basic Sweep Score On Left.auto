@@ -9,6 +9,12 @@
           "data": {
             "pathName": "Basic Sweep Left"
           }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Backwards Basic Sweep Left"
+          }
         }
       ]
     }
