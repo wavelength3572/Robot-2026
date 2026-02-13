@@ -19,6 +19,7 @@ public interface IntakeIO {
     public double rollerAppliedVolts = 0.0;
     public double rollerCurrentAmps = 0.0;
     public double rollerPdhCurrentAmps = 0.0;
+    public double rollerPdhVoltage = 0.0;
     public double rollerTargetSpeed = 0.0;
   }
 

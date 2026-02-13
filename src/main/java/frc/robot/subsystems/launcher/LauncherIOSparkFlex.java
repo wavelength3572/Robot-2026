@@ -105,7 +105,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(initKp, initKi, initKd);
-        // .pid(initKp + initRecoveryKpBoost, initKi, initKd, ClosedLoopSlot.kSlot1);
+    // .pid(initKp + initRecoveryKpBoost, initKi, initKd, ClosedLoopSlot.kSlot1);
 
     // Signal update rates
     leaderConfig
@@ -201,6 +201,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
         followerMotor::getMotorTemperature,
         (value) -> inputs.followerTempCelsius = value);
     inputs.followerConnected = followerConnectedDebounce.calculate(!sparkStickyFault);
+
+    // PDH voltage
+    inputs.pdhVoltage = pdh.getVoltage();
 
     // Wheel velocity (convert leader motor RPM to wheel RPM)
     inputs.wheelVelocityRPM = motorToWheelRPM(inputs.leaderVelocityRPM);

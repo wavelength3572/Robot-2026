@@ -30,6 +30,9 @@ public interface LauncherIO {
     // Wheel velocity (after gear ratio conversion)
     public double wheelVelocityRPM = 0.0;
 
+    // PDH voltage
+    public double pdhVoltage = 0.0;
+
     // Control state
     public double targetVelocityRPM = 0.0;
     public boolean atSetpoint = false;

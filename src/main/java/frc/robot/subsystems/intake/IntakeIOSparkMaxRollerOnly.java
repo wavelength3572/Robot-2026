@@ -88,6 +88,7 @@ public class IntakeIOSparkMaxRollerOnly implements IntakeIO {
         (values) -> inputs.rollerAppliedVolts = values[0] * values[1]);
     ifOk(rollerMotor, rollerMotor::getOutputCurrent, (value) -> inputs.rollerCurrentAmps = value);
     inputs.rollerPdhCurrentAmps = pdh.getCurrent(12);
+    inputs.rollerPdhVoltage = pdh.getVoltage();
     inputs.rollerConnected = rollerConnectedDebounce.calculate(!sparkStickyFault);
     inputs.rollerTargetSpeed = rollerTargetSpeed;
   }
