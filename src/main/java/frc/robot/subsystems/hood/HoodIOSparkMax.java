@@ -112,13 +112,13 @@ public class HoodIOSparkMax implements HoodIO {
 
   /** Convert hood degrees to motor rotations (applies software inversion if configured). */
   private double degreesToMotorRotations(double degrees) {
-    double rotations = degrees * 1;
+    double rotations = (degrees * 3.0 ) - 38.0;
     return rotations;
   }
 
   /** Convert motor rotations to hood degrees (applies software inversion if configured). */
   private double motorRotationsToDegrees(double rotations) {
-    double degrees = rotations * 1;
+    double degrees = (rotations + 38) / 3.0;
     return degrees;
   }
 
@@ -131,7 +131,7 @@ public class HoodIOSparkMax implements HoodIO {
 
     // Convert degrees to motor rotations for the PID controller
     targetAngle = angleDeg;
-    motorController.setSetpoint(angleDeg, ControlType.kPosition);
+    motorController.setSetpoint(degreesToMotorRotations(targetAngle), ControlType.kPosition);
   }
 
   @Override
