@@ -149,12 +149,12 @@ public final class VisionConstants {
 
   public static Transform3d mainBotToBackRightCam =
       new Transform3d(
-          -0.298, // X: back of robot
-          -0.394, // Y: right side
-          0.5144, // Z: 20.25 inches
+          -0.26670, // X: 10.5" behind center (from CAD)
+          -0.35111, // Y: 13.823" right of center (from CAD)
+          0.52093, // Z: 20.509" height (from CAD)
           new Rotation3d(
               0.0,
-              Rotation2d.fromDegrees(-10).getRadians(), // Pitch down 10°
+              Rotation2d.fromDegrees(-10).getRadians(), // Pitch 10° up from horizontal
               Rotation2d.fromDegrees(180).getRadians())); // Yaw straight backward
 
   // MainBot object detection camera - front left
