@@ -58,6 +58,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
   // Target tracking
   private double currentTargetWheelRPM = 0.0;
 
+  private double leaderVelocityRPM = 0.0;
+
   // Constants
   private static final double MAX_VELOCITY_RPM = 7000.0; // Max wheel RPM (safety limit)
 
@@ -172,6 +174,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
   public void updateInputs(LauncherIOInputs inputs) {
     // Update leader motor inputs
     sparkStickyFault = false;
+    ifOk(leaderMotor, leaderEncoder::getVelocity, (value) -> leaderVelocityRPM = value);
+    inputs.leaderVelocityRPM = leaderVelocityRPM;
     ifOk(leaderMotor, leaderEncoder::getVelocity, (value) -> inputs.leaderVelocityRPM = value);
     ifOk(
         leaderMotor,
@@ -275,5 +279,10 @@ public class LauncherIOSparkFlex implements LauncherIO {
   @Override
   public void setVelocityTolerance(double toleranceRPM) {
     this.velocityToleranceRPM = toleranceRPM;
+  }
+
+  @Override
+  public double getFFCharacterizationVelocity() {
+    return leaderVelocityRPM;
   }
 }

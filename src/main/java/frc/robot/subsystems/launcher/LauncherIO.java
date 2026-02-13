@@ -73,4 +73,9 @@ public interface LauncherIO {
 
   /** Set the velocity tolerance for atSetpoint checks. */
   default void setVelocityTolerance(double toleranceRPM) {}
+
+  /** Get the velocity of the launcher motor in motor. */
+  public default double getFFCharacterizationVelocity() {
+    return 0.0;
+  }
 }

@@ -261,6 +261,12 @@ public class Launcher extends SubsystemBase {
     io.setLauncherVoltage(output);
   }
 
+  /** Returns the average velocity of the modules in rad/sec. */
+  public double getFFCharacterizationVelocity() {
+    double output = io.getFFCharacterizationVelocity();
+    return output;
+  }
+
   // ========== SysId Commands ==========
 
   /** Returns true when velocity exceeds safe threshold for SysId testing. */
