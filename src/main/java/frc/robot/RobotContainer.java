@@ -15,6 +15,7 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
+import frc.robot.commands.LauncherCommands;
 import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
@@ -55,9 +56,12 @@ import frc.robot.util.RobotStatus;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
- * This class is where the bulk of the robot should be declared. Since Command-based is a
- * "declarative" paradigm, very little robot logic should actually be handled in the {@link Robot}
- * periodic methods (other than the scheduler calls). Instead, the structure of the robot (including
+ * This class is where the bulk of the robot should be declared. Since
+ * Command-based is a
+ * "declarative" paradigm, very little robot logic should actually be handled in
+ * the {@link Robot}
+ * periodic methods (other than the scheduler calls). Instead, the structure of
+ * the robot (including
  * subsystems, commands, and button mappings) should be declared here.
  */
 public class RobotContainer {
@@ -69,7 +73,8 @@ public class RobotContainer {
   private final Launcher launcher; // Only instantiated for TurretBot, null for others
   private final Hood hood; // Only instantiated for robots with hood hardware, null for others
   private final Motivator motivator; // Only instantiated for robots with motivator, null for others
-  private OperatorInterface oi = new OperatorInterface() {};
+  private OperatorInterface oi = new OperatorInterface() {
+  };
 
   // Dashboard inputs
   private final LoggedDashboardChooser<Command> autoChooser;
@@ -77,17 +82,21 @@ public class RobotContainer {
   // Simulation: track last selected auto for pose updates
   private String lastSelectedAutoName = null;
 
-  /** The container for the robot. Contains subsystems, OI devices, and commands. */
+  /**
+   * The container for the robot. Contains subsystems, OI devices, and commands.
+   */
   public RobotContainer() {
     // Instantiate turret subsystem
     switch (Constants.currentMode) {
       case REAL:
         if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
           // TurretBot bench test: turret motor not connected, use no-op IO
-          turret = new Turret(new TurretIO() {});
+          turret = new Turret(new TurretIO() {
+          });
         } else {
           // SquareBot and MainBot use TalonFX
-          turret = new Turret(new TurretIO() {});
+          turret = new Turret(new TurretIO() {
+          });
         }
         break;
 
@@ -97,7 +106,8 @@ public class RobotContainer {
 
       default:
         // Replay mode - disable turret IO
-        turret = new Turret(new TurretIO() {});
+        turret = new Turret(new TurretIO() {
+        });
         break;
     }
 
@@ -111,7 +121,8 @@ public class RobotContainer {
             intake = new Intake(new IntakeIOSparkMaxRollerOnly());
           } else {
             // MainBot: full intake with deploy + rollers
-            intake = new Intake(new IntakeIO() {});
+            intake = new Intake(new IntakeIO() {
+            });
           }
           break;
 
@@ -122,7 +133,8 @@ public class RobotContainer {
 
         default:
           // Replay mode - disable intake IO
-          intake = new Intake(new IntakeIO() {});
+          intake = new Intake(new IntakeIO() {
+          });
           break;
       }
     } else {
@@ -143,7 +155,8 @@ public class RobotContainer {
 
         default:
           // Replay mode - disable launcher IO
-          launcher = new Launcher(new LauncherIO() {});
+          launcher = new Launcher(new LauncherIO() {
+          });
           break;
       }
     } else {
@@ -172,7 +185,8 @@ public class RobotContainer {
 
         default:
           // Replay mode - disable hood IO
-          hood = new Hood(new HoodIO() {});
+          hood = new Hood(new HoodIO() {
+          });
           break;
       }
     } else {
@@ -192,7 +206,8 @@ public class RobotContainer {
 
         default:
           // Replay mode - disable motivator IO
-          motivator = new Motivator(new MotivatorIO() {});
+          motivator = new Motivator(new MotivatorIO() {
+          });
           break;
       }
     } else {
@@ -205,14 +220,14 @@ public class RobotContainer {
         // Real robot, instantiate hardware IO implementations
         if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
           // TurretBot: Virtual drive modules (no physical drivetrain)
-          drive =
-              new Drive(
-                  new GyroIO() {},
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  turret);
+          drive = new Drive(
+              new GyroIO() {
+              },
+              new ModuleIOVirtual(),
+              new ModuleIOVirtual(),
+              new ModuleIOVirtual(),
+              new ModuleIOVirtual(),
+              turret);
           vision = null;
         } else {
           // SquareBot and MainBot: Full swerve drive
@@ -227,9 +242,6 @@ public class RobotContainer {
           // Vision for SquareBot and MainBot
           // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
           if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
-            // Only FrontLeft (CAMERA_A) and FrontRight (CAMERA_B) are installed on squarebot
-            // BackLeft and BackRight Pis are not present, using no-op VisionIO to avoid loop
-            // overruns
             vision =
                 new Vision(
                     drive::addVisionMeasurement,
@@ -237,8 +249,10 @@ public class RobotContainer {
                         VisionConstants.frontLeftCam, VisionConstants.robotToFrontLeftCam),
                     new VisionIOPhotonVision(
                         VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam),
-                    new VisionIO() {},
-                    new VisionIO() {});
+                    new VisionIOPhotonVision(
+                        VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
           } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
             // MainBot uses corner-mounted cameras aimed diagonally outward + front center
             // for
@@ -267,75 +281,73 @@ public class RobotContainer {
         // Sim robot, instantiate physics sim IO implementations
         if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
           // TurretBot sim: Virtual modules for joystick-driven pose updates
-          drive =
-              new Drive(
-                  new GyroIO() {},
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  turret);
+          drive = new Drive(
+              new GyroIO() {
+              },
+              new ModuleIOVirtual(),
+              new ModuleIOVirtual(),
+              new ModuleIOVirtual(),
+              new ModuleIOVirtual(),
+              turret);
           vision = null;
         } else {
-          drive =
-              new Drive(
-                  new GyroIO() {},
-                  new ModuleIOSim(),
-                  new ModuleIOSim(),
-                  new ModuleIOSim(),
-                  new ModuleIOSim(),
-                  turret);
+          drive = new Drive(
+              new GyroIO() {
+              },
+              new ModuleIOSim(),
+              new ModuleIOSim(),
+              new ModuleIOSim(),
+              new ModuleIOSim(),
+              turret);
           // Vision for SquareBot and MainBot in simulation
           // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
           // This order determines PhotonVision sim ports: A=1182, B=1183, C=1184, D=1185
           // Each camera has both current and recommended transforms for toggle comparison
           if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
-            vision =
-                new Vision(
-                    drive::addVisionMeasurement,
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.frontLeftCam,
-                        VisionConstants.robotToFrontLeftCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.frontRightCam,
-                        VisionConstants.robotToFrontRightCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.backLeftCam,
-                        VisionConstants.robotToBackLeftCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.backRightCam,
-                        VisionConstants.robotToBackRightCam,
-                        RobotStatus::getRobotPose));
+            vision = new Vision(
+                drive::addVisionMeasurement,
+                new VisionIOPhotonVisionSim(
+                    VisionConstants.frontLeftCam,
+                    VisionConstants.robotToFrontLeftCam,
+                    RobotStatus::getRobotPose),
+                new VisionIOPhotonVisionSim(
+                    VisionConstants.frontRightCam,
+                    VisionConstants.robotToFrontRightCam,
+                    RobotStatus::getRobotPose),
+                new VisionIOPhotonVisionSim(
+                    VisionConstants.backLeftCam,
+                    VisionConstants.robotToBackLeftCam,
+                    RobotStatus::getRobotPose),
+                new VisionIOPhotonVisionSim(
+                    VisionConstants.backRightCam,
+                    VisionConstants.robotToBackRightCam,
+                    RobotStatus::getRobotPose));
           } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
             // MainBot uses corner-mounted cameras aimed diagonally outward + front center
             // for
             // intake
-            vision =
-                new Vision(
-                    drive::addVisionMeasurement,
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.frontLeftCam,
-                        VisionConstants.mainBotToFrontLeftCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.frontRightCam,
-                        VisionConstants.mainBotToFrontRightCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.backLeftCam,
-                        VisionConstants.mainBotToBackLeftCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.backRightCam,
-                        VisionConstants.mainBotToBackRightCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.objectDetectionFrontLeftCam,
-                        VisionConstants.mainBotToObjectDetectionFrontLeftCam,
-                        RobotStatus::getRobotPose));
+            vision = new Vision(
+                drive::addVisionMeasurement,
+                new VisionIOPhotonVisionSim(
+                    VisionConstants.frontLeftCam,
+                    VisionConstants.mainBotToFrontLeftCam,
+                    RobotStatus::getRobotPose),
+                new VisionIOPhotonVisionSim(
+                    VisionConstants.frontRightCam,
+                    VisionConstants.mainBotToFrontRightCam,
+                    RobotStatus::getRobotPose),
+                new VisionIOPhotonVisionSim(
+                    VisionConstants.backLeftCam,
+                    VisionConstants.mainBotToBackLeftCam,
+                    RobotStatus::getRobotPose),
+                new VisionIOPhotonVisionSim(
+                    VisionConstants.backRightCam,
+                    VisionConstants.mainBotToBackRightCam,
+                    RobotStatus::getRobotPose),
+                new VisionIOPhotonVisionSim(
+                    VisionConstants.objectDetectionFrontLeftCam,
+                    VisionConstants.mainBotToObjectDetectionFrontLeftCam,
+                    RobotStatus::getRobotPose));
           } else {
             vision = null;
           }
@@ -344,33 +356,46 @@ public class RobotContainer {
 
       default:
         // Replayed robot, disable IO implementations
-        drive =
-            new Drive(
-                new GyroIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {},
-                turret);
+        drive = new Drive(
+            new GyroIO() {
+            },
+            new ModuleIO() {
+            },
+            new ModuleIO() {
+            },
+            new ModuleIO() {
+            },
+            new ModuleIO() {
+            },
+            turret);
         // Vision for SquareBot and MainBot (replay mode)
         if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
-          vision =
-              new Vision(
-                  (pose, time, stdDevs) -> {},
-                  new VisionIO() {},
-                  new VisionIO() {},
-                  new VisionIO() {},
-                  new VisionIO() {});
+          vision = new Vision(
+              (pose, time, stdDevs) -> {
+              },
+              new VisionIO() {
+              },
+              new VisionIO() {
+              },
+              new VisionIO() {
+              },
+              new VisionIO() {
+              });
         } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
           // MainBot has 5 cameras
-          vision =
-              new Vision(
-                  (pose, time, stdDevs) -> {},
-                  new VisionIO() {},
-                  new VisionIO() {},
-                  new VisionIO() {},
-                  new VisionIO() {},
-                  new VisionIO() {});
+          vision = new Vision(
+              (pose, time, stdDevs) -> {
+              },
+              new VisionIO() {
+              },
+              new VisionIO() {
+              },
+              new VisionIO() {
+              },
+              new VisionIO() {
+              },
+              new VisionIO() {
+              });
         } else {
           vision = null;
         }
@@ -445,6 +470,8 @@ public class RobotContainer {
       if (launcher != null) {
         autoChooser.addOption("Launcher SysId (Quasistatic)", launcher.launcherSysIdQuasistatic());
         autoChooser.addOption("Launcher SysId (Dynamic)", launcher.launcherSysIdDynamic());
+        autoChooser.addOption(
+          "Launcher Simple FF Characterization", LauncherCommands.feedforwardCharacterization(launcher));
       }
     }
 
@@ -452,7 +479,8 @@ public class RobotContainer {
   }
 
   /**
-   * This method scans for any changes to the connected joystick. If anything changed, it creates
+   * This method scans for any changes to the connected joystick. If anything
+   * changed, it creates
    * new OI objects and binds all of the buttons to commands.
    */
   public void updateOI() {
@@ -473,15 +501,18 @@ public class RobotContainer {
   private static final int AUTO_START_FUEL_COUNT = 8;
 
   /**
-   * Use this to pass the autonomous command to the main {@link Robot} class. Wraps the selected
-   * auto with setup (fuel, launcher spin-up, auto-shoot enable) and teardown (disable auto-shoot,
+   * Use this to pass the autonomous command to the main {@link Robot} class.
+   * Wraps the selected
+   * auto with setup (fuel, launcher spin-up, auto-shoot enable) and teardown
+   * (disable auto-shoot,
    * stop motors).
    *
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
     Command selectedAuto = autoChooser.get();
-    if (selectedAuto == null) return null;
+    if (selectedAuto == null)
+      return null;
 
     // Wrap with auto-shoot setup and teardown
     return Commands.sequence(
@@ -643,7 +674,10 @@ public class RobotContainer {
     return motivator;
   }
 
-  /** Register NamedCommands for PathPlanner autos. Must be called before buildAutoChooser. */
+  /**
+   * Register NamedCommands for PathPlanner autos. Must be called before
+   * buildAutoChooser.
+   */
   private void registerNamedCommands() {
     // Enable auto-shoot: spins up launcher + motivator, enables auto-shoot on
     // turret
@@ -651,9 +685,12 @@ public class RobotContainer {
         "enableAutoShoot",
         Commands.runOnce(
             () -> {
-              if (launcher != null) launcher.setVelocity(1700.0);
-              if (motivator != null) motivator.setMotivatorsVelocity(1000.0);
-              if (turret != null) turret.enableAutoShoot();
+              if (launcher != null)
+                launcher.setVelocity(1700.0);
+              if (motivator != null)
+                motivator.setMotivatorsVelocity(1000.0);
+              if (turret != null)
+                turret.enableAutoShoot();
             }));
 
     // Disable auto-shoot: stops auto-shoot and motors
@@ -661,9 +698,12 @@ public class RobotContainer {
         "disableAutoShoot",
         Commands.runOnce(
             () -> {
-              if (turret != null) turret.disableAutoShoot();
-              if (launcher != null) launcher.stop();
-              if (motivator != null) motivator.stop();
+              if (turret != null)
+                turret.disableAutoShoot();
+              if (launcher != null)
+                launcher.stop();
+              if (motivator != null)
+                motivator.stop();
             }));
 
     // Set fuel count commands for testing
@@ -690,10 +730,11 @@ public class RobotContainer {
     NamedCommands.registerCommand(
         "waitUntilFuelEmpty",
         Commands.waitUntil(
-                () -> {
-                  if (turret == null || turret.getVisualizer() == null) return true;
-                  return turret.getVisualizer().getFuelCount() <= 0;
-                })
+            () -> {
+              if (turret == null || turret.getVisualizer() == null)
+                return true;
+              return turret.getVisualizer().getFuelCount() <= 0;
+            })
             .withTimeout(5.0) // 5 second timeout in case of jams
             .withName("WaitUntilFuelEmpty"));
 
@@ -721,9 +762,12 @@ public class RobotContainer {
         "StartLauncher",
         Commands.runOnce(
             () -> {
-              if (launcher != null) launcher.setVelocity(1700.0);
-              if (motivator != null) motivator.setMotivatorsVelocity(1000.0);
-              if (turret != null) turret.enableAutoShoot();
+              if (launcher != null)
+                launcher.setVelocity(1700.0);
+              if (motivator != null)
+                motivator.setMotivatorsVelocity(1000.0);
+              if (turret != null)
+                turret.enableAutoShoot();
             }));
   }
 
@@ -731,8 +775,10 @@ public class RobotContainer {
   private edu.wpi.first.wpilibj.DriverStation.Alliance lastAlliance = null;
 
   /**
-   * Updates the robot's simulation pose based on the currently selected auto. Call this from
-   * disabledPeriodic() to automatically position the robot at the auto's starting location when the
+   * Updates the robot's simulation pose based on the currently selected auto.
+   * Call this from
+   * disabledPeriodic() to automatically position the robot at the auto's starting
+   * location when the
    * auto selection changes or when the alliance changes.
    */
   public void updateSimulationPoseFromAuto() {
@@ -742,13 +788,11 @@ public class RobotContainer {
 
     // Get the currently selected auto name and alliance
     String selectedAutoName = autoChooser.getSendableChooser().getSelected();
-    edu.wpi.first.wpilibj.DriverStation.Alliance currentAlliance =
-        edu.wpi.first.wpilibj.DriverStation.getAlliance()
-            .orElse(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue);
+    edu.wpi.first.wpilibj.DriverStation.Alliance currentAlliance = edu.wpi.first.wpilibj.DriverStation.getAlliance()
+        .orElse(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue);
 
     // Update if either the auto selection or alliance changed
-    boolean autoChanged =
-        selectedAutoName != null && !selectedAutoName.equals(lastSelectedAutoName);
+    boolean autoChanged = selectedAutoName != null && !selectedAutoName.equals(lastSelectedAutoName);
     boolean allianceChanged = currentAlliance != lastAlliance;
 
     if (autoChanged || allianceChanged) {
@@ -766,8 +810,8 @@ public class RobotContainer {
         // Get the starting pose from the PathPlanner auto
         // PathPlannerAuto.getStartingPose() returns the pose relative to blue alliance
         // origin
-        com.pathplanner.lib.commands.PathPlannerAuto auto =
-            new com.pathplanner.lib.commands.PathPlannerAuto(selectedAutoName);
+        com.pathplanner.lib.commands.PathPlannerAuto auto = new com.pathplanner.lib.commands.PathPlannerAuto(
+            selectedAutoName);
         edu.wpi.first.math.geometry.Pose2d startingPose = auto.getStartingPose();
 
         if (startingPose != null) {
@@ -785,7 +829,8 @@ public class RobotContainer {
   }
 
   /**
-   * Initialize the FuelSim physics simulation for simulation mode. Registers the robot, spawns
+   * Initialize the FuelSim physics simulation for simulation mode. Registers the
+   * robot, spawns
    * starting fuel, and initializes the turret visualizer.
    */
   private void initializeFuelSim() {
@@ -810,10 +855,9 @@ public class RobotContainer {
           0.604, // xMin, xMax (front bumper edge to 10" past it)
           -0.381,
           0.381, // yMin, yMax (30" wide, centered)
-          () ->
-              intake.isDeployed()
-                  && turret.getVisualizer() != null
-                  && turret.getVisualizer().canIntake(),
+          () -> intake.isDeployed()
+              && turret.getVisualizer() != null
+              && turret.getVisualizer().canIntake(),
           () -> {
             if (turret.getVisualizer() != null) {
               turret.getVisualizer().queueFuel();
