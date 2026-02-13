@@ -556,7 +556,7 @@ public class MainBotConfig implements RobotConfig {
   /** Hood gear ratio (motor rotations per degree of hood movement). */
   @Override
   public double getHoodGearRatio() {
-    return 1.0;
+    return 3.0;
   }
 
   /** Hood motor current limit in amps. */

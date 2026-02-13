@@ -51,9 +51,9 @@ public class TrajectoryOptimizer {
 
   // Hood/launch angle limits (tunable)
   private static final LoggedTunableNumber hoodMinAngleDeg =
-      new LoggedTunableNumber("Tuning/Trajectory/LaunchAngleMinDeg", 15.0);
+      new LoggedTunableNumber("Tuning/Trajectory/LaunchAngleMinDeg", 16.0);
   private static final LoggedTunableNumber hoodMaxAngleDeg =
-      new LoggedTunableNumber("Tuning/Trajectory/LaunchAngleMaxDeg", 85.0);
+      new LoggedTunableNumber("Tuning/Trajectory/LaunchAngleMaxDeg", 46.0);
 
   /** Result of trajectory optimization. */
   public static class OptimalShot {

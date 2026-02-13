@@ -100,7 +100,7 @@ public class HoodIOSparkMax implements HoodIO {
     inputs.connected = false;
 
     // Position data
-    inputs.currentAngleDeg = motorEncoder.getPosition();
+    inputs.currentAngleDeg = motorRotationsToDegrees(motorEncoder.getPosition());
     inputs.targetAngleDeg = targetAngle;
     inputs.appliedVolts = motorSpark.getAppliedOutput() * motorSpark.getBusVoltage();
     inputs.currentAmps = motorSpark.getOutputCurrent();
@@ -112,7 +112,7 @@ public class HoodIOSparkMax implements HoodIO {
 
   /** Convert hood degrees to motor rotations (applies software inversion if configured). */
   private double degreesToMotorRotations(double degrees) {
-    double rotations = (degrees * 3.0 ) - 38.0;
+    double rotations = (degrees * 3.0) - 38.0;
     return rotations;
   }
 
