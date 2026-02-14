@@ -116,7 +116,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double launcherKp = 0.00004;
   private static final double launcherKi = 0.0;
   private static final double launcherKd = 0.003;
-  private static final double launcherKv = 0.00179;
+  private static final double launcherKv = 0.001742;
   private static final double launcherKs = 0.31;
 
   // Physical dimensions
@@ -138,10 +138,10 @@ public class MainBotConfig implements RobotConfig {
   // Motivator Configuration
   private static final int motivatorMotorCanId = 55;
   private static final int motivatorCurrentLimitAmps = 40;
-  private static final double motivatorKp = 0.0;
+  private static final double motivatorKp = 0.00001;
   private static final double motivatorKd = 0.0;
-  private static final double motivatorKv = 0.0;
-  private static final double motivatorKs = 0.0;
+  private static final double motivatorKs = 0.20;
+  private static final double motivatorKv = 0.00205;
 
   // Performance
   private static final double maxSpeedMetersPerSec =

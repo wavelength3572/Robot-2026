@@ -183,15 +183,14 @@ public class Motivator extends SubsystemBase {
         .withName("Motivator: Run Lead");
   }
 
-  /**
-   * Command to run both motivator motors at a tunable RPM.
-   *
-   * @param rpm Tunable RPM source
-   * @return Command that runs until interrupted
-   */
-  public Command runBothMotivatorsCommand(LoggedTunableNumber rpm) {
-    return run(() -> setMotivatorsVelocity(rpm.get()))
-        .finallyDo(this::stopMotivators)
-        .withName("Motivator: Run Both");
+  /** Runs the drive in a straight line with the specified drive output. */
+  public void runCharacterization(double output) {
+    io.setMotivatorVoltage(output);
+  }
+
+  /** Returns the average velocity of the modules in rad/sec. */
+  public double getFFCharacterizationVelocity() {
+    double output = io.getFFCharacterizationVelocity();
+    return output;
   }
 }

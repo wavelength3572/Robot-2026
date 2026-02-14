@@ -38,6 +38,7 @@ public class MotivatorIOSparkMax implements MotivatorIO {
   private final SparkMax motivator1;
   private final RelativeEncoder motivator1Encoder;
   private final SparkClosedLoopController motivator1Controller;
+  private double motivatorMotorRPM = 0.0;
 
   // Connection debouncers
   private final Debouncer motivator1ConnectedDebounce =
@@ -77,7 +78,7 @@ public class MotivatorIOSparkMax implements MotivatorIO {
 
     var motor1Config = new SparkMaxConfig();
     motor1Config
-        .inverted(false) // TODO: Make robot-specific when MainBot is ready
+        .inverted(true) // TODO: Make robot-specific when MainBot is ready
         .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(config.getMotivatorCurrentLimit())
         .voltageCompensation(12.0);
@@ -114,7 +115,8 @@ public class MotivatorIOSparkMax implements MotivatorIO {
   public void updateInputs(MotorInputs motor1Inputs) {
     // Update motivator 1 inputs
     sparkStickyFault = false;
-    ifOk(motivator1, motivator1Encoder::getVelocity, (value) -> motor1Inputs.velocityRPM = value);
+    ifOk(motivator1, motivator1Encoder::getVelocity, (value) -> motivatorMotorRPM = value);
+    motor1Inputs.velocityRPM = motivatorMotorRPM;
     ifOk(
         motivator1,
         new DoubleSupplier[] {motivator1::getAppliedOutput, motivator1::getBusVoltage},
@@ -133,13 +135,17 @@ public class MotivatorIOSparkMax implements MotivatorIO {
                 < this.motivatorToleranceRPM;
   }
 
-  // ========== Duty Cycle Control ==========
-
   @Override
-  public void setMotivator1DutyCycle(double dutyCycle) {
-    motivator1VelocityMode = false;
+  public void setMotivatorVoltage(double volts) {
+    // Clear velocity target when in voltage mode (for SysId characterization)
     motivator1TargetRPM = 0.0;
-    motivator1.set(dutyCycle);
+
+    // Command leader directly - follower follows automatically via hardware follower mode
+    // Note: Velocity safety limiting is handled at the command level via .until() conditions
+    // rather than here, to avoid oscillations that would corrupt SysId data
+    // motivator1.setVoltage(volts);
+
+    motivator1Controller.setSetpoint(volts, ControlType.kVoltage);
   }
 
   // ========== Velocity Control ==========
@@ -169,13 +175,6 @@ public class MotivatorIOSparkMax implements MotivatorIO {
     motivator1.stopMotor();
   }
 
-  @Override
-  public void stopMotivators() {
-    motivator1VelocityMode = false;
-    motivator1TargetRPM = 0.0;
-    motivator1.stopMotor();
-  }
-
   // ========== Configuration Methods ==========
 
   @Override
@@ -191,5 +190,10 @@ public class MotivatorIOSparkMax implements MotivatorIO {
   @Override
   public void setVelocityTolerances(double motivatorToleranceRPM) {
     this.motivatorToleranceRPM = motivatorToleranceRPM;
+  }
+
+  @Override
+  public double getFFCharacterizationVelocity() {
+    return motivatorMotorRPM;
   }
 }

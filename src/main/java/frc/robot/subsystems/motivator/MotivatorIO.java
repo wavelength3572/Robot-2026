@@ -49,6 +49,8 @@ public interface MotivatorIO {
    */
   default void setMotivator1Velocity(double velocityRPM) {}
 
+  default void setMotivatorVoltage(double volts) {}
+
   // ========== Stop Methods ==========
 
   /** Stop all motivator motors. */
@@ -67,4 +69,8 @@ public interface MotivatorIO {
 
   /** Set velocity tolerances for atSetpoint checks. */
   default void setVelocityTolerances(double motivatorToleranceRPM) {}
+
+  default double getFFCharacterizationVelocity() {
+    return 0.0;
+  }
 }
