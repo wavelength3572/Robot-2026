@@ -296,11 +296,6 @@ public interface RobotConfig {
     return 0;
   }
 
-  /** Hood gear ratio (motor rotations per degree of hood movement). */
-  default double getHoodGearRatio() {
-    return 1.0;
-  }
-
   /** Hood motor current limit in amps. */
   default int getHoodCurrentLimitAmps() {
     return 20;
