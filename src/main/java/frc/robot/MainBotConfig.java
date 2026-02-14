@@ -113,10 +113,11 @@ public class MainBotConfig implements RobotConfig {
   private static final int launcherFollowerCanId = 59;
   private static final double launcherGearRatio = 1.5; // 1 motor rot = 1.5 wheel rot
   private static final int launcherCurrentLimitAmps = 80;
-  private static final double launcherKp = 0.00006;
+  private static final double launcherKp = 0.00004;
   private static final double launcherKi = 0.0;
   private static final double launcherKd = 0.003;
-  private static final double launcherKff = 0.0;
+  private static final double launcherKv = 0.00179;
+  private static final double launcherKs = 0.31;
 
   // Physical dimensions
   // Turret offset from robot center (in robot-relative coordinates)
@@ -126,7 +127,6 @@ public class MainBotConfig implements RobotConfig {
   private static final double TURRET_Y_OFFSET = 0.1819604184; // meters
   private static final double TURRET_HEIGHT_METERS = 0.3597275; // Meters
 
-  // Hood Configuration:
   // Hood Configuration
   private static final int hoodMotorCanId = 60;
   private static final double hoodMaxAngleDegrees = 46;
@@ -134,6 +134,14 @@ public class MainBotConfig implements RobotConfig {
   private static final int hoodCurrentLimitAmps = 40;
   private static final double hoodKp = 0.06;
   private static final double hoodKd = 0;
+
+  // Motivator Configuration
+  private static final int motivatorMotorCanId = 55;
+  private static final int motivatorCurrentLimitAmps = 40;
+  private static final double motivatorKp = 0.0;
+  private static final double motivatorKd = 0.0;
+  private static final double motivatorKv = 0.0;
+  private static final double motivatorKs = 0.0;
 
   // Performance
   private static final double maxSpeedMetersPerSec =
@@ -527,15 +535,20 @@ public class MainBotConfig implements RobotConfig {
   }
 
   @Override
-  public double getLauncherKff() {
-    return launcherKff;
+  public double getLauncherKv() {
+    return launcherKv;
+  }
+
+  @Override
+  public double getLauncherKs() {
+    return launcherKs;
   }
 
   // ========== Hood Configuration ==========
 
   @Override
   public boolean hasHood() {
-    return false; // MainBot has hood for hybrid trajectory control
+    return true; // MainBot has hood for hybrid trajectory control
   }
 
   @Override
@@ -580,6 +593,41 @@ public class MainBotConfig implements RobotConfig {
 
   @Override
   public boolean hasMotivator() {
-    return false; // MainBot has motivator for feeding balls to launcher
+    return true; // MainBot has motivator for feeding balls to launcher
+  }
+
+  /** Launcher PID proportional gain. */
+  @Override
+  public double getMotivatorKp() {
+    return motivatorKp;
+  }
+
+  /** Launcher PID integral gain. */
+  @Override
+  public double getMotivatorKi() {
+    return 0.0;
+  }
+
+  /** Launcher PID derivative gain. */
+  @Override
+  public double getMotivatorKd() {
+    return motivatorKd;
+  }
+
+  /** Launcher kv gain. */
+  @Override
+  public double getMotivatorKv() {
+    return motivatorKv;
+  }
+
+  /** Launcher ks gain. */
+  @Override
+  public double getMotivatorKs() {
+    return motivatorKs;
+  }
+
+  @Override
+  public int getMotivatorCanId() {
+    return motivatorMotorCanId;
   }
 }
