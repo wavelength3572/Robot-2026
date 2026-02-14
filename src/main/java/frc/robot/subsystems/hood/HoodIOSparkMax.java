@@ -100,8 +100,10 @@ public class HoodIOSparkMax implements HoodIO {
     inputs.connected = false;
 
     // Position data
+    inputs.currentMotorRotations = motorEncoder.getPosition();
     inputs.currentAngleDeg = motorRotationsToDegrees(motorEncoder.getPosition());
     inputs.targetAngleDeg = targetAngle;
+    inputs.targetMotorRotations = degreesToMotorRotations(targetAngle);
     inputs.appliedVolts = motorSpark.getAppliedOutput() * motorSpark.getBusVoltage();
     inputs.currentAmps = motorSpark.getOutputCurrent();
     inputs.tempCelsius = motorSpark.getMotorTemperature();

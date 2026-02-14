@@ -279,8 +279,13 @@ public interface RobotConfig {
   }
 
   /** Launcher velocity feedforward gain. */
-  default double getLauncherKff() {
-    return 0.000175;
+  default double getLauncherKv() {
+    return 0.0;
+  }
+
+  /** Launcher velocity feedforward gain. */
+  default double getLauncherKs() {
+    return 0.0;
   }
 
   // ========== Hood Configuration ==========
@@ -294,11 +299,6 @@ public interface RobotConfig {
   /** Hood motor CAN ID. */
   default int getHoodCanId() {
     return 0;
-  }
-
-  /** Hood gear ratio (motor rotations per degree of hood movement). */
-  default double getHoodGearRatio() {
-    return 1.0;
   }
 
   /** Hood motor current limit in amps. */
@@ -335,28 +335,38 @@ public interface RobotConfig {
     return false;
   }
 
+  /** Launcher PID proportional gain. */
+  default double getMotivatorKp() {
+    return 0.0001;
+  }
+
+  /** Launcher PID integral gain. */
+  default double getMotivatorKi() {
+    return 0.0;
+  }
+
+  /** Launcher PID derivative gain. */
+  default double getMotivatorKd() {
+    return 0.0;
+  }
+
+  /** Launcher PID derivative gain. */
+  default double getMotivatorKv() {
+    return 0.0;
+  }
+
+  /** Launcher PID derivative gain. */
+  default double getMotivatorKs() {
+    return 0.0;
+  }
+
   /** Motivator leader motor CAN ID. */
-  default int getMotivatorLeaderCanId() {
+  default int getMotivatorCanId() {
     return 55;
-  }
-
-  /** Motivator follower motor CAN ID. */
-  default int getMotivatorFollowerCanId() {
-    return 56;
-  }
-
-  /** Prefeed motor CAN ID. */
-  default int getPrefeedCanId() {
-    return 57;
   }
 
   /** Motivator motor current limit in amps. */
   default int getMotivatorCurrentLimit() {
-    return 40;
-  }
-
-  /** Prefeed motor current limit in amps. */
-  default int getPrefeedCurrentLimit() {
     return 40;
   }
 }

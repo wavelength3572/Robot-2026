@@ -41,7 +41,7 @@ import frc.robot.subsystems.launcher.LauncherIOSparkFlex;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.motivator.MotivatorIO;
 import frc.robot.subsystems.motivator.MotivatorIOSim;
-import frc.robot.subsystems.motivator.MotivatorIOSparkFlex;
+import frc.robot.subsystems.motivator.MotivatorIOSparkMax;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
 import frc.robot.subsystems.turret.TurretIOSim;
@@ -184,7 +184,7 @@ public class RobotContainer {
     if (Constants.getRobotConfig().hasMotivator()) {
       switch (Constants.currentMode) {
         case REAL:
-          motivator = new Motivator(new MotivatorIOSparkFlex());
+          motivator = new Motivator(new MotivatorIOSparkMax());
           break;
 
         case SIM:
@@ -264,6 +264,7 @@ public class RobotContainer {
           // VisionConstants.objectDetectionFrontLeftCam,
           // VisionConstants.mainBotToObjectDetectionFrontLeftCam));
         } else {
+          // SquareBot and MainBot: Full swerve drive
           drive =
               new Drive(
                   new GyroIO() {},
@@ -272,7 +273,41 @@ public class RobotContainer {
                   new ModuleIOVirtual(),
                   new ModuleIOVirtual(),
                   turret);
-          vision = null;
+          // Vision for SquareBot and MainBot
+          // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
+          if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
+            vision =
+                new Vision(
+                    drive::addVisionMeasurement,
+                    new VisionIOPhotonVision(
+                        VisionConstants.frontLeftCam, VisionConstants.robotToFrontLeftCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
+          } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+            // MainBot uses corner-mounted cameras aimed diagonally outward + front center
+            // for
+            // intake
+            vision = null;
+            // new Vision(
+            // drive::addVisionMeasurement,
+            // new VisionIOPhotonVision(
+            // VisionConstants.frontLeftCam, VisionConstants.mainBotToFrontLeftCam),
+            // new VisionIOPhotonVision(
+            // VisionConstants.frontRightCam, VisionConstants.mainBotToFrontRightCam),
+            // new VisionIOPhotonVision(
+            // VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
+            // new VisionIOPhotonVision(
+            // VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam),
+            // new VisionIOPhotonVision(
+            // VisionConstants.objectDetectionFrontLeftCam,
+            // VisionConstants.mainBotToObjectDetectionFrontLeftCam));
+          } else {
+            vision = null;
+          }
         }
         break;
 
@@ -518,16 +553,11 @@ public class RobotContainer {
                     launcher.setVelocity(1700.0);
                   }
                   if (motivator != null) {
-                    motivator.setVelocities(1000.0, 1000.0); // motivators + prefeed
+                    motivator.setVelocities(1000.0); // motivators
                   }
                   // Enable auto-shoot
                   if (turret != null) {
                     turret.enableAutoShoot();
-                  }
-                  // Start intake rollers (squarebot intake is permanently deployed)
-                  if (intake != null) {
-                    intake.deploy();
-                    intake.setRollerVelocity(4000.0);
                   }
                 }),
             // Run the selected auto path (asProxy avoids "command already composed" on

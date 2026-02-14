@@ -29,15 +29,14 @@ public class Launcher extends SubsystemBase {
   private static final LoggedTunableNumber kP;
   private static final LoggedTunableNumber kI;
   private static final LoggedTunableNumber kD;
+  private static final LoggedTunableNumber kS;
+  private static final LoggedTunableNumber kV;
+  private static final LoggedTunableNumber kA;
+
   private static final LoggedTunableNumber recoveryKpBoost =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.0001);
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.0);
 
   // Tunable feedforward gains
-  private static final LoggedTunableNumber kS = new LoggedTunableNumber("Tuning/Launcher/kS", 0.29);
-  private static final LoggedTunableNumber kV =
-      new LoggedTunableNumber("Tuning/Launcher/kV", 0.0165);
-  private static final LoggedTunableNumber kA =
-      new LoggedTunableNumber("Tuning/Launcher/kA", 0.003);
 
   // Tunable velocity tolerance
   private static final LoggedTunableNumber velocityToleranceRPM =
@@ -54,6 +53,10 @@ public class Launcher extends SubsystemBase {
     kP = new LoggedTunableNumber("Tuning/Launcher/kP", config.getLauncherKp());
     kI = new LoggedTunableNumber("Tuning/Launcher/kI", config.getLauncherKi());
     kD = new LoggedTunableNumber("Tuning/Launcher/kD", config.getLauncherKd());
+    kS = new LoggedTunableNumber("Tuning/Launcher/kS", config.getLauncherKs());
+    kV = new LoggedTunableNumber("Tuning/Launcher/kV", config.getLauncherKv());
+    // kA = new LoggedTunableNumber("Tuning/Launcher/kA", config.getLauncherKa());
+    kA = new LoggedTunableNumber("Tuning/Launcher/kA", 0.0);
   }
 
   // Feeding flag - set by ShootingCommands when prefeed starts

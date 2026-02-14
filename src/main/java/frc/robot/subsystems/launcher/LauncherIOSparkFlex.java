@@ -16,7 +16,6 @@ import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkFlexConfig;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.PowerDistribution;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
@@ -61,7 +60,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
   private double leaderVelocityRPM = 0.0;
 
   // Constants
-  private static final double MAX_VELOCITY_RPM = 7000.0; // Max wheel RPM (safety limit)
+  private static final double MAX_VELOCITY_RPM = 5000.0; // Max wheel RPM (safety limit)
 
   // Velocity tolerance for at-setpoint check (set by subsystem via setVelocityTolerance)
   private double velocityToleranceRPM = 50.0;
@@ -73,7 +72,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
     gearRatio = config.getLauncherGearRatio();
 
     // Create feedforward controller with defaults (updated via configureFeedforward)
-    feedforward = new SimpleMotorFeedforward(0.29, 0.0165, 0.003);
+    double initKs = config.getLauncherKs();
+    double initKv = config.getLauncherKv();
+    feedforward = new SimpleMotorFeedforward(initKs, initKv);
 
     // Create PDH for independent current monitoring
     pdh = new PowerDistribution();
@@ -176,7 +177,6 @@ public class LauncherIOSparkFlex implements LauncherIO {
     sparkStickyFault = false;
     ifOk(leaderMotor, leaderEncoder::getVelocity, (value) -> leaderVelocityRPM = value);
     inputs.leaderVelocityRPM = leaderVelocityRPM;
-    ifOk(leaderMotor, leaderEncoder::getVelocity, (value) -> inputs.leaderVelocityRPM = value);
     ifOk(
         leaderMotor,
         new DoubleSupplier[] {leaderMotor::getAppliedOutput, leaderMotor::getBusVoltage},
@@ -199,7 +199,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
         followerMotor,
         followerMotor::getOutputCurrent,
         (value) -> inputs.followerCurrentAmps = value);
-    inputs.followerPdhCurrentAmps = pdh.getCurrent(16);
+    inputs.followerPdhCurrentAmps = pdh.getCurrent(1);
     ifOk(
         followerMotor,
         followerMotor::getMotorTemperature,
@@ -231,9 +231,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Convert wheel RPM to motor RPM for the SparkFlex PID controller
     double motorRPM = wheelToMotorRPM(currentTargetWheelRPM);
 
-    // Calculate feedforward using WHEEL velocity (SysId was characterized with wheel velocity)
-    double wheelRadPerSec = Units.rotationsPerMinuteToRadiansPerSecond(currentTargetWheelRPM);
-    double arbFFVolts = feedforward.calculate(wheelRadPerSec);
+    // Calculate feedforward using Motor Rotation velocity
+    double arbFFVolts = feedforward.calculate(motorRPM);
     double totalFFVolts = arbFFVolts + boostVolts;
     Logger.recordOutput("Launcher/FeedforwardVolts", arbFFVolts);
     Logger.recordOutput("Launcher/TotalFeedforwardVolts", totalFFVolts);
@@ -276,7 +275,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
   @Override
   public void configureFeedforward(double kS, double kV, double kA) {
-    feedforward = new SimpleMotorFeedforward(kS, kV, kA);
+    feedforward.setKs(kS);
+    feedforward.setKv(kV);
+    feedforward.setKa(kA);
   }
 
   @Override

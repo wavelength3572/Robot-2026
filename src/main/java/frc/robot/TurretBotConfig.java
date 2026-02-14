@@ -525,7 +525,7 @@ public class TurretBotConfig implements RobotConfig {
   }
 
   @Override
-  public double getLauncherKff() {
+  public double getLauncherKv() {
     return launcherKff;
   }
 
@@ -559,17 +559,7 @@ public class TurretBotConfig implements RobotConfig {
   }
 
   @Override
-  public int getMotivatorLeaderCanId() {
+  public int getMotivatorCanId() {
     return 55;
-  }
-
-  @Override
-  public int getMotivatorFollowerCanId() {
-    return 56;
-  }
-
-  @Override
-  public int getPrefeedCanId() {
-    return 57;
   }
 }

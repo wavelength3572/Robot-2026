@@ -15,6 +15,8 @@ public interface HoodIO {
     // Position data
     public double currentAngleDeg = 0.0;
     public double targetAngleDeg = 0.0;
+    public double currentMotorRotations = 0.0;
+    public double targetMotorRotations = 0.0;
     public double appliedVolts = 0.0;
     public double currentAmps = 0.0;
     public double tempCelsius = 25.0;

@@ -16,7 +16,7 @@ import org.littletonrobotics.junction.Logger;
 
 /**
  * Factory class for shooting commands. Provides a unified launch command that works for both
- * simulation (spawns fuel balls) and physical robot (runs motivator/prefeed).
+ * simulation (spawns fuel balls) and physical robot (runs motivator).
  *
  * <p>Supports two modes:
  *
@@ -88,9 +88,6 @@ public class ShootingCommands {
   private static final LoggedTunableNumber motivatorVelocityRPM =
       new LoggedTunableNumber("Tuning/Shooting/MotivatorVelocityRPM", 1000.0);
 
-  private static final LoggedTunableNumber prefeedVelocityRPM =
-      new LoggedTunableNumber("Tuning/Shooting/PrefeedVelocityRPM", 1000.0);
-
   // ===== BenchTest/Shooting/* Override Values (for controlled manual testing) =====
   // These allow manually setting all mechanism parameters while obeying safety limits
 
@@ -99,9 +96,6 @@ public class ShootingCommands {
 
   private static final LoggedTunableNumber testMotivatorRPM =
       new LoggedTunableNumber("BenchTest/Shooting/MotivatorRPM", 1000.0);
-
-  private static final LoggedTunableNumber testPrefeedRPM =
-      new LoggedTunableNumber("BenchTest/Shooting/PrefeedRPM", 1000.0);
 
   private static final LoggedTunableNumber testTurretAngleDeg =
       new LoggedTunableNumber("BenchTest/Shooting/AngleDegTurret", 0.0);
@@ -130,12 +124,10 @@ public class ShootingCommands {
     // Normal shooting tunables
     launchVelocityRPM.get();
     motivatorVelocityRPM.get();
-    prefeedVelocityRPM.get();
 
     // TestShooting override tunables
     testLauncherRPM.get();
     testMotivatorRPM.get();
-    testPrefeedRPM.get();
     testTurretAngleDeg.get();
     testHoodAngleDeg.get();
     testIndexerRPM.get();
@@ -160,10 +152,6 @@ public class ShootingCommands {
 
   public static LoggedTunableNumber getTestMotivatorRPM() {
     return testMotivatorRPM;
-  }
-
-  public static LoggedTunableNumber getTestPrefeedRPM() {
-    return testPrefeedRPM;
   }
 
   public static LoggedTunableNumber getTestIndexerRPM() {
@@ -259,10 +247,7 @@ public class ShootingCommands {
                 // Keep motivator feeders running AND now add prefeed
                 motivator != null
                     ? Commands.run(
-                        () ->
-                            motivator.setVelocities(
-                                motivatorVelocityRPM.get(), prefeedVelocityRPM.get()),
-                        motivator)
+                        () -> motivator.setVelocities(motivatorVelocityRPM.get()), motivator)
                     : Commands.none(),
 
                 // Fire balls repeatedly in simulation
@@ -549,9 +534,7 @@ public class ShootingCommands {
 
                 // Keep motivator feeders running AND add prefeed
                 motivator != null
-                    ? Commands.run(
-                        () -> motivator.setVelocities(testMotivatorRPM.get(), testPrefeedRPM.get()),
-                        motivator)
+                    ? Commands.run(() -> motivator.setVelocities(testMotivatorRPM.get()), motivator)
                     : Commands.none(),
 
                 // Fire balls repeatedly with metrics recording
@@ -651,9 +634,7 @@ public class ShootingCommands {
 
                 // Keep motivator + prefeed running
                 motivator != null
-                    ? Commands.run(
-                        () -> motivator.setVelocities(testMotivatorRPM.get(), testPrefeedRPM.get()),
-                        motivator)
+                    ? Commands.run(() -> motivator.setVelocities(testMotivatorRPM.get()), motivator)
                     : Commands.none(),
 
                 // Fire balls with metrics recording
