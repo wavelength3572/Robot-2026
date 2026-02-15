@@ -120,8 +120,8 @@ public class Motivator extends SubsystemBase {
    *
    * @return Motor 1 velocity in RPM
    */
-  public double getMotivator1Velocity() {
-    return motor1Inputs.velocityRPM;
+  public double getMotivatorWheelVelocity() {
+    return motor1Inputs.wheelRPM;
   }
 
   /**

@@ -140,8 +140,9 @@ public class MainBotConfig implements RobotConfig {
   private static final int motivatorCurrentLimitAmps = 40;
   private static final double motivatorKp = 0.00001;
   private static final double motivatorKd = 0.0;
-  private static final double motivatorKs = 0.20;
-  private static final double motivatorKv = 0.00205;
+  private static final double motivatorKs = 0.23368;
+  private static final double motivatorKv = 0.0021;
+  private static final double motivatorGearRatio = 1.0 / 3.0;
 
   // Performance
   private static final double maxSpeedMetersPerSec =
@@ -629,5 +630,10 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public int getMotivatorCanId() {
     return motivatorMotorCanId;
+  }
+
+  @Override
+  public double getMotivatorGearRatio() {
+    return motivatorGearRatio;
   }
 }

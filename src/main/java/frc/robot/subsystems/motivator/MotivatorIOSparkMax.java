@@ -44,14 +44,15 @@ public class MotivatorIOSparkMax implements MotivatorIO {
   private final Debouncer motivator1ConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
-  // Velocity tolerance for at-setpoint check (set by subsystem via setVelocityTolerances)
-  private double motivatorToleranceRPM = 100.0;
+  // Velocity tolerance for at-setpoint check (set by subsystem via
+  // setVelocityTolerances)
+  private double motivatorToleranceRPM = 20.0;
 
   // Feedforward controller (rebuilt when gains change via configureFeedforward)
   private SimpleMotorFeedforward feedforward;
 
   // Target tracking
-  private double motivator1TargetRPM = 0.0;
+  private double wheelTargetRPM = 0.0;
   private boolean motivator1VelocityMode = false;
 
   public MotivatorIOSparkMax() {
@@ -111,12 +112,22 @@ public class MotivatorIOSparkMax implements MotivatorIO {
     System.out.println("[MotivatorIOSparkFlex] ==============================");
   }
 
+  /** Convert motor RPM to wheel RPM */
+  private double motorToWheelRPM(double motorRPM) {
+    return motorRPM * config.getMotivatorGearRatio();
+  }
+
+  /** Convert wheel RPM to motor RPM */
+  private double wheelToMotorRPM(double wheelRPM) {
+    return wheelRPM / config.getMotivatorGearRatio();
+  }
+
   @Override
   public void updateInputs(MotorInputs motor1Inputs) {
     // Update motivator 1 inputs
     sparkStickyFault = false;
     ifOk(motivator1, motivator1Encoder::getVelocity, (value) -> motivatorMotorRPM = value);
-    motor1Inputs.velocityRPM = motivatorMotorRPM;
+    motor1Inputs.wheelRPM = motorToWheelRPM(motivatorMotorRPM);
     ifOk(
         motivator1,
         new DoubleSupplier[] {motivator1::getAppliedOutput, motivator1::getBusVoltage},
@@ -127,36 +138,31 @@ public class MotivatorIOSparkMax implements MotivatorIO {
     motor1Inputs.connected = motivator1ConnectedDebounce.calculate(!sparkStickyFault);
 
     // Velocity control status
-    motor1Inputs.targetVelocityRPM = motivator1TargetRPM;
+    motor1Inputs.targetRPM = wheelTargetRPM;
 
     motor1Inputs.atSetpoint =
         motivator1VelocityMode
-            && Math.abs(motor1Inputs.velocityRPM - motivator1TargetRPM)
-                < this.motivatorToleranceRPM;
+            && Math.abs(motor1Inputs.wheelRPM - wheelTargetRPM) < this.motivatorToleranceRPM;
   }
 
   @Override
   public void setMotivatorVoltage(double volts) {
     // Clear velocity target when in voltage mode (for SysId characterization)
-    motivator1TargetRPM = 0.0;
-
-    // Command leader directly - follower follows automatically via hardware follower mode
-    // Note: Velocity safety limiting is handled at the command level via .until() conditions
-    // rather than here, to avoid oscillations that would corrupt SysId data
-    // motivator1.setVoltage(volts);
-
+    wheelTargetRPM = 0.0;
     motivator1Controller.setSetpoint(volts, ControlType.kVoltage);
   }
 
   // ========== Velocity Control ==========
 
   @Override
-  public void setMotivator1Velocity(double velocityRPM) {
+  public void setMotivator1Velocity(double wheelVelocityRPM) {
     motivator1VelocityMode = true;
-    motivator1TargetRPM = Math.abs(velocityRPM);
-    double arbFFVolts = feedforward.calculate(velocityRPM);
+    wheelTargetRPM = Math.abs(wheelVelocityRPM);
+    // ks & kv were calculated in motor RPM thus the conversion in the parameter
+    double arbFFVolts = feedforward.calculate(wheelToMotorRPM(wheelTargetRPM));
+    // PID control is also in motor rotations
     motivator1Controller.setSetpoint(
-        motivator1TargetRPM, ControlType.kVelocity, ClosedLoopSlot.kSlot0, arbFFVolts);
+        wheelToMotorRPM(wheelTargetRPM), ControlType.kVelocity, ClosedLoopSlot.kSlot0, arbFFVolts);
   }
 
   // ========== Stop Methods ==========
@@ -164,14 +170,14 @@ public class MotivatorIOSparkMax implements MotivatorIO {
   @Override
   public void stop() {
     motivator1VelocityMode = false;
-    motivator1TargetRPM = 0.0;
+    wheelTargetRPM = 0.0;
     motivator1.stopMotor();
   }
 
   @Override
   public void stopMotivator1() {
     motivator1VelocityMode = false;
-    motivator1TargetRPM = 0.0;
+    wheelTargetRPM = 0.0;
     motivator1.stopMotor();
   }
 

@@ -56,11 +56,11 @@ public class MotivatorIOSim implements MotivatorIO {
     motor1Inputs.connected = true;
     double motivator1Volts =
         motivator1VelocityMode ? motivator1CurrentRPM * 0.002 : motivator1DutyCycle * 12.0;
-    motor1Inputs.velocityRPM = motivator1CurrentRPM;
+    motor1Inputs.wheelRPM = motivator1CurrentRPM;
     motor1Inputs.appliedVolts = motivator1Volts;
     motor1Inputs.currentAmps = Math.abs(motivator1CurrentRPM) * 0.005;
     motor1Inputs.tempCelsius = 25.0;
-    motor1Inputs.targetVelocityRPM = motivator1TargetRPM;
+    motor1Inputs.targetRPM = motivator1TargetRPM;
     motor1Inputs.atSetpoint =
         motivator1VelocityMode
             && Math.abs(motivator1CurrentRPM - motivator1TargetRPM) < motivatorToleranceRPM;
