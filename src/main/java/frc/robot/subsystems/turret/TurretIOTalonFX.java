@@ -155,7 +155,7 @@ public class TurretIOTalonFX implements TurretIO {
   }
 
   @Override
-  public void setTargetAngle(Rotation2d rotation) {
+  public void setTurretAngle(Rotation2d rotation) {
     // Clamp the target angle to valid range before commanding
     double clampedDegrees =
         Math.max(minAngleDegrees, Math.min(maxAngleDegrees, rotation.getDegrees()));

@@ -77,7 +77,7 @@ public class TurretIOSim implements TurretIO {
   }
 
   @Override
-  public void setTargetAngle(Rotation2d rotation) {
+  public void setTurretAngle(Rotation2d rotation) {
     // Clamp the target angle to valid range
     double clampedDegrees = MathUtil.clamp(rotation.getDegrees(), minAngleDegrees, maxAngleDegrees);
     targetRotation = Rotation2d.fromDegrees(clampedDegrees);

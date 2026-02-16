@@ -430,7 +430,7 @@ public class ShootingCommands {
 
                   // Set turret angle (subsystem clamps to limits)
                   double turretAngle = testTurretAngleDeg.get();
-                  turret.setAngle(turretAngle);
+                  turret.setTurretAngle(turretAngle);
 
                   // Set hood angle if available (subsystem clamps to limits)
                   double hoodAngle = testHoodAngleDeg.get();
@@ -528,7 +528,7 @@ public class ShootingCommands {
                     launcher),
 
                 // Keep turret positioned
-                Commands.run(() -> turret.setAngle(testTurretAngleDeg.get()), turret),
+                Commands.run(() -> turret.setTurretAngle(testTurretAngleDeg.get()), turret),
 
                 // Keep hood positioned
                 hood != null
