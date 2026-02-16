@@ -609,6 +609,29 @@ public class FuelSim {
     return outpostBarriersEnabled.get();
   }
 
+  /**
+   * Returns the field-relative position of the nearest fuel to a given point, or null if no fuel
+   * exists on the field. Only considers fuel on the ground (Z near FUEL_RADIUS).
+   *
+   * @param robotPosition The robot's current field-relative position
+   * @return The nearest fuel's 2D position, or null if no fuel on field
+   */
+  public Translation2d getNearestFuelPosition(Translation2d robotPosition) {
+    Translation2d nearest = null;
+    double nearestDist = Double.MAX_VALUE;
+    for (Fuel fuel : fuels) {
+      // Only consider fuel on the ground (not in flight or scored)
+      if (fuel.pos.getZ() > FUEL_RADIUS + 0.1) continue;
+      Translation2d fuelPos2d = fuel.pos.toTranslation2d();
+      double dist = fuelPos2d.getDistance(robotPosition);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = fuelPos2d;
+      }
+    }
+    return nearest;
+  }
+
   /** Logs fuel positions to AdvantageKit for visualization in AdvantageScope */
   public void logFuels() {
     Logger.recordOutput(

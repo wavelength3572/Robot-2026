@@ -15,6 +15,7 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
+import frc.robot.commands.FuelDetectionCommands;
 import frc.robot.commands.LauncherCommands;
 import frc.robot.commands.MotivatorCommands;
 import frc.robot.commands.ShootingCommands;
@@ -27,6 +28,10 @@ import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
 import frc.robot.subsystems.drive.ModuleIOVirtual;
+import frc.robot.subsystems.fueldetection.FuelDetection;
+import frc.robot.subsystems.fueldetection.FuelDetectionIO;
+import frc.robot.subsystems.fueldetection.FuelDetectionIOPhotonVision;
+import frc.robot.subsystems.fueldetection.FuelDetectionIOSim;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.hood.HoodIO;
 import frc.robot.subsystems.hood.HoodIOSim;
@@ -71,6 +76,7 @@ public class RobotContainer {
   private final Launcher launcher; // Only instantiated for TurretBot, null for others
   private final Hood hood; // Only instantiated for robots with hood hardware, null for others
   private final Motivator motivator; // Only instantiated for robots with motivator, null for others
+  private final FuelDetection fuelDetection; // Pi-based fuel detection for autonomous pickup
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs
@@ -428,6 +434,35 @@ public class RobotContainer {
         break;
     }
 
+    // Instantiate fuel detection subsystem (Pi + PhotonVision object detection)
+    switch (Constants.currentMode) {
+      case REAL:
+        if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+          // MainBot has the ObjectDetectionFrontLeft camera for game piece detection
+          fuelDetection =
+              new FuelDetection(
+                  new FuelDetectionIOPhotonVision(
+                      VisionConstants.objectDetectionFrontLeftCam,
+                      VisionConstants.mainBotToObjectDetectionFrontLeftCam,
+                      drive::getPose));
+        } else {
+          // Other robots don't have an object detection camera yet
+          fuelDetection = new FuelDetection(new FuelDetectionIO() {});
+        }
+        break;
+
+      case SIM:
+        fuelDetection =
+            new FuelDetection(
+                new FuelDetectionIOSim(() -> drive.getPose().getTranslation()));
+        break;
+
+      default:
+        // Replay mode
+        fuelDetection = new FuelDetection(new FuelDetectionIO() {});
+        break;
+    }
+
     // Initialize RobotStatus with subsystem references (vision may be null for
     // RectangleBot)
     RobotStatus.initialize(drive, vision);
@@ -697,6 +732,24 @@ public class RobotContainer {
     return motivator;
   }
 
+  /**
+   * Get the fuel detection subsystem.
+   *
+   * @return FuelDetection subsystem or null if not present
+   */
+  public FuelDetection getFuelDetection() {
+    return fuelDetection;
+  }
+
+  /**
+   * Check if the fuel detection subsystem is present on this robot.
+   *
+   * @return true if fuel detection exists
+   */
+  public boolean hasFuelDetection() {
+    return fuelDetection != null;
+  }
+
   /** Register NamedCommands for PathPlanner autos. Must be called before buildAutoChooser. */
   private void registerNamedCommands() {
     // Enable auto-shoot: spins up launcher + motivator, enables auto-shoot on
@@ -779,6 +832,13 @@ public class RobotContainer {
               if (motivator != null) motivator.setMotivatorVelocity(1000.0);
               if (turret != null) turret.enableAutoShoot();
             }));
+
+    // DriveToFuel: use Pi fuel detection + PathPlanner to drive to nearest detected fuel
+    if (fuelDetection != null) {
+      NamedCommands.registerCommand(
+          "DriveToFuel",
+          FuelDetectionCommands.driveToFuel(drive, fuelDetection, intake));
+    }
   }
 
   // Track last alliance to detect changes
