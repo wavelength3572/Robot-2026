@@ -550,9 +550,6 @@ public class ShootingCommands {
               if (motivator != null) {
                 motivator.stopMotivator();
               }
-              if (hood != null) {
-                hood.stop();
-              }
               // Clear manual shot parameters, disable launch mode, and return to competition
               // mode
               turret.clearManualShotParameters();

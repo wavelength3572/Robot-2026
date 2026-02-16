@@ -46,11 +46,6 @@ public class Hood extends SubsystemBase {
     }
   }
 
-  /** Stop the hood and hold current position. */
-  public void stop() {
-    io.stop();
-  }
-
   /**
    * Get the current hood angle.
    *

@@ -35,10 +35,4 @@ public class HoodIOSim implements HoodIO {
     // Trust that Hood.java already clamped the angle
     targetAngleDeg = angleDeg;
   }
-
-  @Override
-  public void stop() {
-    // Hold current position
-    targetAngleDeg = currentAngleDeg;
-  }
 }

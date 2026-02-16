@@ -29,7 +29,7 @@ public interface MotivatorIO {
   }
 
   /** Updates the set of loggable inputs for all three motors. */
-  default void updateInputs(MotorInputs motivator1) {}
+  default void updateInputs(MotorInputs motivator) {}
 
   // ========== Velocity Control ==========
 

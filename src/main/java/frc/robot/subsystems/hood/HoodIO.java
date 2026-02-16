@@ -34,7 +34,4 @@ public interface HoodIO {
    * @param angleDeg Target angle in degrees (0 = flat, positive = angled up)
    */
   public default void setAngle(double angleDeg) {}
-
-  /** Stop the hood motor and hold current position. */
-  public default void stop() {}
 }
