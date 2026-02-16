@@ -561,7 +561,7 @@ public class RobotContainer {
                     launcher.setVelocity(1700.0);
                   }
                   if (motivator != null) {
-                    motivator.setVelocities(1000.0); // motivators
+                    motivator.setMotivatorVelocity(AUTO_START_FUEL_COUNT); // motivators
                   }
                   // Enable auto-shoot
                   if (turret != null) {
@@ -581,7 +581,7 @@ public class RobotContainer {
                 launcher.stop();
               }
               if (motivator != null) {
-                motivator.stop();
+                motivator.stopMotivator();
               }
               if (intake != null) {
                 intake.stopRollers();
@@ -706,7 +706,7 @@ public class RobotContainer {
         Commands.runOnce(
             () -> {
               if (launcher != null) launcher.setVelocity(1700.0);
-              if (motivator != null) motivator.setMotivatorsVelocity(1000.0);
+              if (motivator != null) motivator.setMotivatorVelocity(1000.0);
               if (turret != null) turret.enableAutoShoot();
             }));
 
@@ -717,7 +717,7 @@ public class RobotContainer {
             () -> {
               if (turret != null) turret.disableAutoShoot();
               if (launcher != null) launcher.stop();
-              if (motivator != null) motivator.stop();
+              if (motivator != null) motivator.stopMotivator();
             }));
 
     // Set fuel count commands for testing
@@ -776,7 +776,7 @@ public class RobotContainer {
         Commands.runOnce(
             () -> {
               if (launcher != null) launcher.setVelocity(1700.0);
-              if (motivator != null) motivator.setMotivatorsVelocity(1000.0);
+              if (motivator != null) motivator.setMotivatorVelocity(1000.0);
               if (turret != null) turret.enableAutoShoot();
             }));
   }

@@ -53,7 +53,7 @@ public class MotivatorIOSparkMax implements MotivatorIO {
 
   // Target tracking
   private double wheelTargetRPM = 0.0;
-  private boolean motivator1VelocityMode = false;
+  private boolean motivatorVelocityMode = false;
 
   public MotivatorIOSparkMax() {
     config = Constants.getRobotConfig();
@@ -141,7 +141,7 @@ public class MotivatorIOSparkMax implements MotivatorIO {
     motor1Inputs.targetRPM = wheelTargetRPM;
 
     motor1Inputs.atSetpoint =
-        motivator1VelocityMode
+        motivatorVelocityMode
             && Math.abs(motor1Inputs.wheelRPM - wheelTargetRPM) < this.motivatorToleranceRPM;
   }
 
@@ -155,8 +155,8 @@ public class MotivatorIOSparkMax implements MotivatorIO {
   // ========== Velocity Control ==========
 
   @Override
-  public void setMotivator1Velocity(double wheelVelocityRPM) {
-    motivator1VelocityMode = true;
+  public void setMotivatorVelocity(double wheelVelocityRPM) {
+    motivatorVelocityMode = true;
     wheelTargetRPM = Math.abs(wheelVelocityRPM);
     // ks & kv were calculated in motor RPM thus the conversion in the parameter
     double arbFFVolts = feedforward.calculate(wheelToMotorRPM(wheelTargetRPM));
@@ -165,18 +165,9 @@ public class MotivatorIOSparkMax implements MotivatorIO {
         wheelToMotorRPM(wheelTargetRPM), ControlType.kVelocity, ClosedLoopSlot.kSlot0, arbFFVolts);
   }
 
-  // ========== Stop Methods ==========
-
   @Override
-  public void stop() {
-    motivator1VelocityMode = false;
-    wheelTargetRPM = 0.0;
-    motivator1.stopMotor();
-  }
-
-  @Override
-  public void stopMotivator1() {
-    motivator1VelocityMode = false;
+  public void stopMotivator() {
+    motivatorVelocityMode = false;
     wheelTargetRPM = 0.0;
     motivator1.stopMotor();
   }
@@ -184,7 +175,7 @@ public class MotivatorIOSparkMax implements MotivatorIO {
   // ========== Configuration Methods ==========
 
   @Override
-  public void configureMotivator1PID(double kP, double kI, double kD, double kS, double kV) {
+  public void configureMotivatorPID(double kP, double kI, double kD, double kS, double kV) {
     var pidConfig = new SparkMaxConfig();
     pidConfig.closedLoop.pid(kP, kI, kD);
     motivator1.configure(
@@ -194,7 +185,7 @@ public class MotivatorIOSparkMax implements MotivatorIO {
   }
 
   @Override
-  public void setVelocityTolerances(double motivatorToleranceRPM) {
+  public void setVelocityTolerance(double motivatorToleranceRPM) {
     this.motivatorToleranceRPM = motivatorToleranceRPM;
   }
 

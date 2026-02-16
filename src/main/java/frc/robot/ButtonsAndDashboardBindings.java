@@ -288,7 +288,7 @@ public class ButtonsAndDashboardBindings {
     if (motivator != null) {
       SmartDashboard.putData(
           "Tuning/Motivator/RunLeadMotivator",
-          motivator.runLeadMotivatorCommand(ShootingCommands.getTestMotivatorRPM()));
+          motivator.runMotivatorCommand(ShootingCommands.getTestMotivatorRPM()));
     }
 
     // Intake: PID tunables are under Tuning/Intake/Roller_*, run buttons are in BenchTest
