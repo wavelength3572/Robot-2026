@@ -839,6 +839,48 @@ public class RobotContainer {
           "DriveToFuel",
           FuelDetectionCommands.driveToFuel(drive, fuelDetection, intake));
     }
+
+    // AssessAndCleanupDepot: back up from depot, check camera for remaining fuel, pick up if found
+    if (fuelDetection != null) {
+      NamedCommands.registerCommand(
+          "AssessAndCleanupDepot",
+          FuelDetectionCommands.assessAndCleanupDepot(drive, fuelDetection, intake));
+    }
+
+    // AutoAimTurret: enable auto-shoot so the turret fires when aimed (runs alongside paths)
+    NamedCommands.registerCommand(
+        "AutoAimTurret",
+        Commands.runOnce(
+            () -> {
+              if (turret != null) turret.enableAutoShoot();
+            }));
+    // Also register with leading space to match existing Depot.auto typo
+    NamedCommands.registerCommand(
+        " AutoAimTurret",
+        Commands.runOnce(
+            () -> {
+              if (turret != null) turret.enableAutoShoot();
+            }));
+
+    // WarmUpTurret: spin up launcher without enabling auto-shoot yet
+    NamedCommands.registerCommand(
+        "WarmUpTurret",
+        Commands.runOnce(
+            () -> {
+              if (launcher != null) launcher.setVelocity(1700.0);
+            }));
+
+    // LaunchFuel: enable auto-shoot and motivator to start firing collected fuel
+    NamedCommands.registerCommand(
+        "LaunchFuel",
+        Commands.runOnce(
+            () -> {
+              if (turret != null) turret.enableAutoShoot();
+              if (motivator != null) motivator.setMotivatorVelocity(1000.0);
+            }));
+
+    // Climb: placeholder until climber subsystem is implemented
+    NamedCommands.registerCommand("Climb", Commands.none());
   }
 
   // Track last alliance to detect changes
