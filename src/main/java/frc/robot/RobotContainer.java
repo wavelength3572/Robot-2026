@@ -16,6 +16,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.LauncherCommands;
+import frc.robot.commands.MotivatorCommands;
 import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
@@ -225,8 +226,10 @@ public class RobotContainer {
                   new ModuleIOSpark(2),
                   new ModuleIOSpark(3),
                   turret);
-          // Only FrontLeft (CAMERA_A) and FrontRight (CAMERA_B) are installed on squarebot
-          // BackLeft and BackRight Pis are not present, using no-op VisionIO to avoid loop
+          // Only FrontLeft (CAMERA_A) and FrontRight (CAMERA_B) are installed on
+          // squarebot
+          // BackLeft and BackRight Pis are not present, using no-op VisionIO to avoid
+          // loop
           // overruns
           vision =
               new Vision(
@@ -497,6 +500,11 @@ public class RobotContainer {
             "Launcher Simple FF Characterization",
             LauncherCommands.feedforwardCharacterization(launcher));
       }
+      if (motivator != null) {
+        autoChooser.addOption(
+            "Motivator Simple FF Characterization",
+            MotivatorCommands.feedforwardCharacterization(motivator));
+      }
     }
 
     updateOI();
@@ -553,7 +561,7 @@ public class RobotContainer {
                     launcher.setVelocity(1700.0);
                   }
                   if (motivator != null) {
-                    motivator.setVelocities(1000.0); // motivators
+                    motivator.setMotivatorVelocity(AUTO_START_FUEL_COUNT); // motivators
                   }
                   // Enable auto-shoot
                   if (turret != null) {
@@ -573,7 +581,7 @@ public class RobotContainer {
                 launcher.stop();
               }
               if (motivator != null) {
-                motivator.stop();
+                motivator.stopMotivator();
               }
               if (intake != null) {
                 intake.stopRollers();
@@ -698,7 +706,7 @@ public class RobotContainer {
         Commands.runOnce(
             () -> {
               if (launcher != null) launcher.setVelocity(1700.0);
-              if (motivator != null) motivator.setMotivatorsVelocity(1000.0);
+              if (motivator != null) motivator.setMotivatorVelocity(1000.0);
               if (turret != null) turret.enableAutoShoot();
             }));
 
@@ -709,7 +717,7 @@ public class RobotContainer {
             () -> {
               if (turret != null) turret.disableAutoShoot();
               if (launcher != null) launcher.stop();
-              if (motivator != null) motivator.stop();
+              if (motivator != null) motivator.stopMotivator();
             }));
 
     // Set fuel count commands for testing
@@ -768,7 +776,7 @@ public class RobotContainer {
         Commands.runOnce(
             () -> {
               if (launcher != null) launcher.setVelocity(1700.0);
-              if (motivator != null) motivator.setMotivatorsVelocity(1000.0);
+              if (motivator != null) motivator.setMotivatorVelocity(1000.0);
               if (turret != null) turret.enableAutoShoot();
             }));
   }
@@ -870,7 +878,8 @@ public class RobotContainer {
     // Spawn the full match fuel layout
     fuelSim.spawnStartingFuel();
 
-    // Default sim pose: midway between the tower (climbing bars) and the hub, facing the hub
+    // Default sim pose: midway between the tower (climbing bars) and the hub,
+    // facing the hub
     double midX =
         (FieldConstants.Tower.centerPoint.getX() + FieldConstants.Hub.nearFace.getX()) / 2.0;
     double midY = FieldConstants.fieldWidth / 2.0;

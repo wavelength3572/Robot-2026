@@ -19,26 +19,17 @@ public interface MotivatorIO {
   @AutoLog
   public static class MotorInputs {
     public boolean connected = false;
-    public double velocityRPM = 0.0;
+    public double wheelRPM = 0.0;
     public double appliedVolts = 0.0;
     public double currentAmps = 0.0;
     public double PdhCurrentAmps = 0.0;
     public double tempCelsius = 0.0;
-    public double targetVelocityRPM = 0.0;
+    public double targetRPM = 0.0;
     public boolean atSetpoint = false;
   }
 
   /** Updates the set of loggable inputs for all three motors. */
-  default void updateInputs(MotorInputs motivator1) {}
-
-  // ========== Duty Cycle Control ==========
-
-  /**
-   * Run motivator motor 1 at the specified duty cycle.
-   *
-   * @param dutyCycle Duty cycle from -1.0 to 1.0
-   */
-  default void setMotivator1DutyCycle(double dutyCycle) {}
+  default void updateInputs(MotorInputs motivator) {}
 
   // ========== Velocity Control ==========
 
@@ -47,24 +38,22 @@ public interface MotivatorIO {
    *
    * @param velocityRPM Target velocity in RPM
    */
-  default void setMotivator1Velocity(double velocityRPM) {}
+  default void setMotivatorVelocity(double velocityRPM) {}
 
-  // ========== Stop Methods ==========
-
-  /** Stop all motivator motors. */
-  default void stop() {}
+  default void setMotivatorVoltage(double volts) {}
 
   /** Stop only motivator motor 1. */
-  default void stopMotivator1() {}
-
-  /** Stop both motivator motors (1 and 2), but not prefeed. */
-  default void stopMotivators() {}
+  default void stopMotivator() {}
 
   // ========== Configuration Methods ==========
 
   /** Configure PID gains for motivator motor 1. */
-  default void configureMotivator1PID(double kP, double kI, double kD, double kS, double kV) {}
+  default void configureMotivatorPID(double kP, double kI, double kD, double kS, double kV) {}
 
   /** Set velocity tolerances for atSetpoint checks. */
-  default void setVelocityTolerances(double motivatorToleranceRPM) {}
+  default void setVelocityTolerance(double motivatorToleranceRPM) {}
+
+  default double getFFCharacterizationVelocity() {
+    return 0.0;
+  }
 }

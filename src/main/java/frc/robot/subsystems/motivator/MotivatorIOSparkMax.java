@@ -35,23 +35,25 @@ public class MotivatorIOSparkMax implements MotivatorIO {
   // private final PowerDistribution pdh;
 
   // Hardware - Motivator motor 1 (CAN ID 55)
-  private final SparkMax motivator1;
-  private final RelativeEncoder motivator1Encoder;
-  private final SparkClosedLoopController motivator1Controller;
+  private final SparkMax motivator;
+  private final RelativeEncoder motivatorEncoder;
+  private final SparkClosedLoopController motivatorController;
+  private double motivatorMotorRPM = 0.0;
 
   // Connection debouncers
-  private final Debouncer motivator1ConnectedDebounce =
+  private final Debouncer motivatorConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
-  // Velocity tolerance for at-setpoint check (set by subsystem via setVelocityTolerances)
-  private double motivatorToleranceRPM = 100.0;
+  // Velocity tolerance for at-setpoint check (set by subsystem via
+  // setVelocityTolerances)
+  private double motivatorToleranceRPM = 20.0;
 
   // Feedforward controller (rebuilt when gains change via configureFeedforward)
   private SimpleMotorFeedforward feedforward;
 
   // Target tracking
-  private double motivator1TargetRPM = 0.0;
-  private boolean motivator1VelocityMode = false;
+  private double wheelTargetRPM = 0.0;
+  private boolean motivatorVelocityMode = false;
 
   public MotivatorIOSparkMax() {
     config = Constants.getRobotConfig();
@@ -60,11 +62,11 @@ public class MotivatorIOSparkMax implements MotivatorIO {
     // pdh = new PowerDistribution();
 
     // Create SparkFlex controllers
-    motivator1 = new SparkMax(config.getMotivatorCanId(), MotorType.kBrushless);
+    motivator = new SparkMax(config.getMotivatorCanId(), MotorType.kBrushless);
 
     // Get encoders and closed-loop controllers
-    motivator1Encoder = motivator1.getEncoder();
-    motivator1Controller = motivator1.getClosedLoopController();
+    motivatorEncoder = motivator.getEncoder();
+    motivatorController = motivator.getClosedLoopController();
 
     // Configure motivator 1 (CAN ID 55)
     double initKp = config.getMotivatorKp();
@@ -77,7 +79,7 @@ public class MotivatorIOSparkMax implements MotivatorIO {
 
     var motor1Config = new SparkMaxConfig();
     motor1Config
-        .inverted(false) // TODO: Make robot-specific when MainBot is ready
+        .inverted(true) // TODO: Make robot-specific when MainBot is ready
         .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(config.getMotivatorCurrentLimit())
         .voltageCompensation(12.0);
@@ -96,10 +98,10 @@ public class MotivatorIOSparkMax implements MotivatorIO {
         .outputCurrentPeriodMs(20);
 
     tryUntilOk(
-        motivator1,
+        motivator,
         5,
         () ->
-            motivator1.configure(
+            motivator.configure(
                 motor1Config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
 
     // Startup diagnostics
@@ -110,86 +112,85 @@ public class MotivatorIOSparkMax implements MotivatorIO {
     System.out.println("[MotivatorIOSparkFlex] ==============================");
   }
 
+  /** Convert motor RPM to wheel RPM */
+  private double motorToWheelRPM(double motorRPM) {
+    return motorRPM * config.getMotivatorGearRatio();
+  }
+
+  /** Convert wheel RPM to motor RPM */
+  private double wheelToMotorRPM(double wheelRPM) {
+    return wheelRPM / config.getMotivatorGearRatio();
+  }
+
   @Override
   public void updateInputs(MotorInputs motor1Inputs) {
     // Update motivator 1 inputs
     sparkStickyFault = false;
-    ifOk(motivator1, motivator1Encoder::getVelocity, (value) -> motor1Inputs.velocityRPM = value);
+    ifOk(motivator, motivatorEncoder::getVelocity, (value) -> motivatorMotorRPM = value);
+    motor1Inputs.wheelRPM = motorToWheelRPM(motivatorMotorRPM);
     ifOk(
-        motivator1,
-        new DoubleSupplier[] {motivator1::getAppliedOutput, motivator1::getBusVoltage},
+        motivator,
+        new DoubleSupplier[] {motivator::getAppliedOutput, motivator::getBusVoltage},
         (values) -> motor1Inputs.appliedVolts = values[0] * values[1]);
-    ifOk(motivator1, motivator1::getOutputCurrent, (value) -> motor1Inputs.currentAmps = value);
-    ifOk(motivator1, motivator1::getMotorTemperature, (value) -> motor1Inputs.tempCelsius = value);
+    ifOk(motivator, motivator::getOutputCurrent, (value) -> motor1Inputs.currentAmps = value);
+    ifOk(motivator, motivator::getMotorTemperature, (value) -> motor1Inputs.tempCelsius = value);
     // motor1Inputs.PdhCurrentAmps = pdh.getCurrent(2);
-    motor1Inputs.connected = motivator1ConnectedDebounce.calculate(!sparkStickyFault);
+    motor1Inputs.connected = motivatorConnectedDebounce.calculate(!sparkStickyFault);
 
     // Velocity control status
-    motor1Inputs.targetVelocityRPM = motivator1TargetRPM;
+    motor1Inputs.targetRPM = wheelTargetRPM;
 
     motor1Inputs.atSetpoint =
-        motivator1VelocityMode
-            && Math.abs(motor1Inputs.velocityRPM - motivator1TargetRPM)
-                < this.motivatorToleranceRPM;
+        motivatorVelocityMode
+            && Math.abs(motor1Inputs.wheelRPM - wheelTargetRPM) < this.motivatorToleranceRPM;
   }
 
-  // ========== Duty Cycle Control ==========
-
   @Override
-  public void setMotivator1DutyCycle(double dutyCycle) {
-    motivator1VelocityMode = false;
-    motivator1TargetRPM = 0.0;
-    motivator1.set(dutyCycle);
+  public void setMotivatorVoltage(double volts) {
+    // Clear velocity target when in voltage mode (for SysId characterization)
+    wheelTargetRPM = 0.0;
+    motivatorController.setSetpoint(volts, ControlType.kVoltage);
   }
 
   // ========== Velocity Control ==========
 
   @Override
-  public void setMotivator1Velocity(double velocityRPM) {
-    motivator1VelocityMode = true;
-    motivator1TargetRPM = Math.abs(velocityRPM);
-    double arbFFVolts = feedforward.calculate(velocityRPM);
-    motivator1Controller.setSetpoint(
-        motivator1TargetRPM, ControlType.kVelocity, ClosedLoopSlot.kSlot0, arbFFVolts);
-  }
-
-  // ========== Stop Methods ==========
-
-  @Override
-  public void stop() {
-    motivator1VelocityMode = false;
-    motivator1TargetRPM = 0.0;
-    motivator1.stopMotor();
+  public void setMotivatorVelocity(double wheelVelocityRPM) {
+    motivatorVelocityMode = true;
+    wheelTargetRPM = Math.abs(wheelVelocityRPM);
+    // ks & kv were calculated in motor RPM thus the conversion in the parameter
+    double arbFFVolts = feedforward.calculate(wheelToMotorRPM(wheelTargetRPM));
+    // PID control is also in motor rotations
+    motivatorController.setSetpoint(
+        wheelToMotorRPM(wheelTargetRPM), ControlType.kVelocity, ClosedLoopSlot.kSlot0, arbFFVolts);
   }
 
   @Override
-  public void stopMotivator1() {
-    motivator1VelocityMode = false;
-    motivator1TargetRPM = 0.0;
-    motivator1.stopMotor();
-  }
-
-  @Override
-  public void stopMotivators() {
-    motivator1VelocityMode = false;
-    motivator1TargetRPM = 0.0;
-    motivator1.stopMotor();
+  public void stopMotivator() {
+    motivatorVelocityMode = false;
+    wheelTargetRPM = 0.0;
+    motivator.stopMotor();
   }
 
   // ========== Configuration Methods ==========
 
   @Override
-  public void configureMotivator1PID(double kP, double kI, double kD, double kS, double kV) {
+  public void configureMotivatorPID(double kP, double kI, double kD, double kS, double kV) {
     var pidConfig = new SparkMaxConfig();
     pidConfig.closedLoop.pid(kP, kI, kD);
-    motivator1.configure(
+    motivator.configure(
         pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
     feedforward.setKs(kS);
     feedforward.setKv(kV);
   }
 
   @Override
-  public void setVelocityTolerances(double motivatorToleranceRPM) {
+  public void setVelocityTolerance(double motivatorToleranceRPM) {
     this.motivatorToleranceRPM = motivatorToleranceRPM;
+  }
+
+  @Override
+  public double getFFCharacterizationVelocity() {
+    return motivatorMotorRPM;
   }
 }

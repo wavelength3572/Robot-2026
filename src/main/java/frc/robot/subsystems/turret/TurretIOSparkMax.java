@@ -306,7 +306,7 @@ public class TurretIOSparkMax implements TurretIO {
   }
 
   @Override
-  public void setTargetAngle(Rotation2d rotation) {
+  public void setTurretAngle(Rotation2d rotation) {
     // Clamp the target angle to valid range
     double clampedDegrees =
         Math.max(minAngleDegrees, Math.min(maxAngleDegrees, rotation.getDegrees()));

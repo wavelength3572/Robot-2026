@@ -14,6 +14,7 @@ import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 //
+
 /**
  * Factory class for shooting commands. Provides a unified launch command that works for both
  * simulation (spawns fuel balls) and physical robot (runs motivator).
@@ -88,8 +89,10 @@ public class ShootingCommands {
   private static final LoggedTunableNumber motivatorVelocityRPM =
       new LoggedTunableNumber("Tuning/Shooting/MotivatorVelocityRPM", 1000.0);
 
-  // ===== BenchTest/Shooting/* Override Values (for controlled manual testing) =====
-  // These allow manually setting all mechanism parameters while obeying safety limits
+  // ===== BenchTest/Shooting/* Override Values (for controlled manual testing)
+  // =====
+  // These allow manually setting all mechanism parameters while obeying safety
+  // limits
 
   private static final LoggedTunableNumber testLauncherRPM =
       new LoggedTunableNumber("BenchTest/Shooting/LauncherRPM", 1700.0);
@@ -190,7 +193,7 @@ public class ShootingCommands {
                   turret.enableLaunchMode();
                   if (motivator != null) {
                     // Only spin up the two feeder wheels, not prefeed
-                    motivator.setMotivatorsVelocity(motivatorVelocityRPM.get());
+                    motivator.setMotivatorVelocity(motivatorVelocityRPM.get());
                   }
                   SmartDashboard.putString("Match/Status/State", "Spinning Up");
                   Logger.recordOutput("Match/ShotLog/TargetRPM", targetRPM);
@@ -205,7 +208,7 @@ public class ShootingCommands {
                         () -> {
                           boolean launcherReady = launcher.atSetpoint();
                           boolean motivatorReady =
-                              motivator == null || motivator.areMotivatorsAtSetpoint();
+                              motivator == null || motivator.isMotivatorAtSetpoint();
                           boolean allReady = launcherReady && motivatorReady;
                           SmartDashboard.putBoolean("Match/Status/ReadyLauncher", launcherReady);
                           SmartDashboard.putBoolean("Match/Status/ReadyMotivators", motivatorReady);
@@ -217,7 +220,7 @@ public class ShootingCommands {
                         () -> {
                           boolean launcherReady = launcher.atSetpoint();
                           boolean motivatorReady =
-                              motivator == null || motivator.areMotivatorsAtSetpoint();
+                              motivator == null || motivator.isMotivatorAtSetpoint();
                           return launcherReady && motivatorReady;
                         })),
                 // Timeout after 3 seconds
@@ -247,7 +250,7 @@ public class ShootingCommands {
                 // Keep motivator feeders running AND now add prefeed
                 motivator != null
                     ? Commands.run(
-                        () -> motivator.setVelocities(motivatorVelocityRPM.get()), motivator)
+                        () -> motivator.setMotivatorVelocity(motivatorVelocityRPM.get()), motivator)
                     : Commands.none(),
 
                 // Fire balls repeatedly in simulation
@@ -258,7 +261,7 @@ public class ShootingCommands {
               launcher.stop();
               turret.disableLaunchMode();
               if (motivator != null) {
-                motivator.stop();
+                motivator.stopMotivator();
               }
               SmartDashboard.putString("Match/Status/State", "Stopped");
               System.out.println("[Launch] Stopped");
@@ -427,7 +430,7 @@ public class ShootingCommands {
 
                   // Set turret angle (subsystem clamps to limits)
                   double turretAngle = testTurretAngleDeg.get();
-                  turret.setAngle(turretAngle);
+                  turret.setTurretAngle(turretAngle);
 
                   // Set hood angle if available (subsystem clamps to limits)
                   double hoodAngle = testHoodAngleDeg.get();
@@ -446,7 +449,7 @@ public class ShootingCommands {
 
                   // Spin up motivator feeders (no prefeed yet)
                   if (motivator != null) {
-                    motivator.setMotivatorsVelocity(testMotivatorRPM.get());
+                    motivator.setMotivatorVelocity(testMotivatorRPM.get());
                   }
 
                   SmartDashboard.putString("Match/Status/State", "Positioning & Spinning Up");
@@ -465,7 +468,7 @@ public class ShootingCommands {
                         () -> {
                           boolean launcherReady = launcher.atSetpoint();
                           boolean motivatorReady =
-                              motivator == null || motivator.areMotivatorsAtSetpoint();
+                              motivator == null || motivator.isMotivatorAtSetpoint();
                           boolean turretReady = turret.atTarget();
                           boolean hoodReady = hood == null || hood.atTarget();
 
@@ -486,7 +489,7 @@ public class ShootingCommands {
                         () -> {
                           boolean launcherReady = launcher.atSetpoint();
                           boolean motivatorReady =
-                              motivator == null || motivator.areMotivatorsAtSetpoint();
+                              motivator == null || motivator.isMotivatorAtSetpoint();
                           boolean turretReady = turret.atTarget();
                           boolean hoodReady = hood == null || hood.atTarget();
                           return launcherReady && motivatorReady && turretReady && hoodReady;
@@ -525,7 +528,7 @@ public class ShootingCommands {
                     launcher),
 
                 // Keep turret positioned
-                Commands.run(() -> turret.setAngle(testTurretAngleDeg.get()), turret),
+                Commands.run(() -> turret.setTurretAngle(testTurretAngleDeg.get()), turret),
 
                 // Keep hood positioned
                 hood != null
@@ -534,7 +537,8 @@ public class ShootingCommands {
 
                 // Keep motivator feeders running AND add prefeed
                 motivator != null
-                    ? Commands.run(() -> motivator.setVelocities(testMotivatorRPM.get()), motivator)
+                    ? Commands.run(
+                        () -> motivator.setMotivatorVelocity(testMotivatorRPM.get()), motivator)
                     : Commands.none(),
 
                 // Fire balls repeatedly with metrics recording
@@ -544,12 +548,10 @@ public class ShootingCommands {
               launcher.setFeedingActive(false);
               launcher.stop();
               if (motivator != null) {
-                motivator.stop();
+                motivator.stopMotivator();
               }
-              if (hood != null) {
-                hood.stop();
-              }
-              // Clear manual shot parameters, disable launch mode, and return to competition mode
+              // Clear manual shot parameters, disable launch mode, and return to competition
+              // mode
               turret.clearManualShotParameters();
               turret.disableLaunchMode();
               setMode(ShootingMode.COMPETITION);
@@ -584,7 +586,7 @@ public class ShootingCommands {
                   launcher.setVelocity(targetRPM);
                   turret.enableLaunchMode();
                   if (motivator != null) {
-                    motivator.setMotivatorsVelocity(testMotivatorRPM.get());
+                    motivator.setMotivatorVelocity(testMotivatorRPM.get());
                   }
                   SmartDashboard.putString("Match/Status/State", "BenchTest: Spinning Up");
                   System.out.println("[BenchTest] Spinning up to " + targetRPM + " RPM");
@@ -597,7 +599,7 @@ public class ShootingCommands {
                         () -> {
                           boolean launcherReady = launcher.atSetpoint();
                           boolean motivatorReady =
-                              motivator == null || motivator.areMotivatorsAtSetpoint();
+                              motivator == null || motivator.isMotivatorAtSetpoint();
                           return launcherReady && motivatorReady;
                         }),
                     Commands.waitSeconds(0.1),
@@ -605,7 +607,7 @@ public class ShootingCommands {
                         () -> {
                           boolean launcherReady = launcher.atSetpoint();
                           boolean motivatorReady =
-                              motivator == null || motivator.areMotivatorsAtSetpoint();
+                              motivator == null || motivator.isMotivatorAtSetpoint();
                           return launcherReady && motivatorReady;
                         })),
                 Commands.sequence(
@@ -634,7 +636,8 @@ public class ShootingCommands {
 
                 // Keep motivator + prefeed running
                 motivator != null
-                    ? Commands.run(() -> motivator.setVelocities(testMotivatorRPM.get()), motivator)
+                    ? Commands.run(
+                        () -> motivator.setMotivatorVelocity(testMotivatorRPM.get()), motivator)
                     : Commands.none(),
 
                 // Fire balls with metrics recording
@@ -645,7 +648,7 @@ public class ShootingCommands {
               launcher.stop();
               turret.disableLaunchMode();
               if (motivator != null) {
-                motivator.stop();
+                motivator.stopMotivator();
               }
               setMode(ShootingMode.COMPETITION);
               SmartDashboard.putString("Match/Status/State", "Stopped");

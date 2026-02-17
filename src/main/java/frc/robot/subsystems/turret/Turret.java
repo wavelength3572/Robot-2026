@@ -564,7 +564,7 @@ public class Turret extends SubsystemBase {
             robotHeadingDeg,
             aimTarget.getX(),
             aimTarget.getY());
-    setAngle(relativeAngleDeg);
+    setTurretAngle(relativeAngleDeg);
 
     // Log shot data
     Logger.recordOutput("Turret/Shot/ExitVelocityMps", currentShot.getExitVelocity());
@@ -677,7 +677,7 @@ public class Turret extends SubsystemBase {
             robotHeadingDeg,
             aimTarget.getX(),
             aimTarget.getY());
-    setAngle(relativeAngleDeg);
+    setTurretAngle(relativeAngleDeg);
 
     // Log pass shot data
     Logger.recordOutput("Turret/Shot/ExitVelocityMps", currentShot.getExitVelocity());
@@ -860,7 +860,7 @@ public class Turret extends SubsystemBase {
    *
    * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
-  public void setAngle(double angleDegrees) {
+  public void setTurretAngle(double angleDegrees) {
     // Clamp to effective limits (these may be different from config limits if tuned)
     double clampedAngle =
         Math.max(effectiveMinAngleDeg, Math.min(effectiveMaxAngleDeg, angleDegrees));
@@ -870,7 +870,7 @@ public class Turret extends SubsystemBase {
       Logger.recordOutput("Turret/Safety/ClampedRequestDeg", angleDegrees);
     }
 
-    io.setTargetAngle(new Rotation2d(Rotation2d.fromDegrees(clampedAngle).getRadians()));
+    io.setTurretAngle(new Rotation2d(Rotation2d.fromDegrees(clampedAngle).getRadians()));
   }
 
   // ========== Dual-Mode Range Methods ==========
@@ -1021,7 +1021,7 @@ public class Turret extends SubsystemBase {
   public void aimAtFieldPosition(
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
     double turretAngle = calculateTurretAngle(robotX, robotY, robotOmega, targetX, targetY);
-    setAngle(turretAngle);
+    setTurretAngle(turretAngle);
   }
 
   /**

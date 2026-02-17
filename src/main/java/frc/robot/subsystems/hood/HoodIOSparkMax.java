@@ -135,7 +135,4 @@ public class HoodIOSparkMax implements HoodIO {
     targetAngle = angleDeg;
     motorController.setSetpoint(degreesToMotorRotations(targetAngle), ControlType.kPosition);
   }
-
-  @Override
-  public void stop() {}
 }

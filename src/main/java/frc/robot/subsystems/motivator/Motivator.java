@@ -42,29 +42,18 @@ public class Motivator extends SubsystemBase {
     this.io = io;
 
     // Push initial velocity tolerances to IO
-    io.setVelocityTolerances(motivatorToleranceRPM.get());
+    io.setVelocityTolerance(motivatorToleranceRPM.get());
   }
 
   @Override
   public void periodic() {
     io.updateInputs(motor1Inputs);
-    Logger.processInputs("Motivator/Motor1", motor1Inputs);
+    Logger.processInputs("Motivator", motor1Inputs);
 
     // Push tunable changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
-      io.configureMotivator1PID(kP.get(), kI.get(), kD.get(), kS.get(), kV.get());
+      io.configureMotivatorPID(kP.get(), kI.get(), kD.get(), kS.get(), kV.get());
     }
-  }
-
-  // ========== Duty Cycle Control Methods ==========
-
-  /**
-   * Run motivator motor 1 at a specific duty cycle.
-   *
-   * @param dutyCycle Duty cycle from -1.0 to 1.0
-   */
-  public void setMotivator1DutyCycle(double dutyCycle) {
-    io.setMotivator1DutyCycle(dutyCycle);
   }
 
   // ========== Velocity Control Methods ==========
@@ -74,43 +63,13 @@ public class Motivator extends SubsystemBase {
    *
    * @param velocityRPM Target velocity in RPM
    */
-  public void setMotivator1Velocity(double velocityRPM) {
-    io.setMotivator1Velocity(velocityRPM);
-  }
-
-  /**
-   * Run both motivator motors at the same velocity.
-   *
-   * @param velocityRPM Target velocity in RPM for both motors
-   */
-  public void setMotivatorsVelocity(double velocityRPM) {
-    io.setMotivator1Velocity(velocityRPM);
-  }
-
-  /**
-   * Run all three motors at specific velocities using closed-loop control.
-   *
-   * @param motivatorRPM Target velocity for both motivator motors in RPM
-   */
-  public void setVelocities(double motivatorRPM) {
-    io.setMotivator1Velocity(motivatorRPM);
-  }
-
-  // ========== Stop Methods ==========
-
-  /** Stop all motors. */
-  public void stop() {
-    io.stop();
+  public void setMotivatorVelocity(double velocityRPM) {
+    io.setMotivatorVelocity(velocityRPM);
   }
 
   /** Stop only motivator motor 1. */
-  public void stopMotivator1() {
-    io.stopMotivator1();
-  }
-
-  /** Stop both motivator motors */
-  public void stopMotivators() {
-    io.stopMotivators();
+  public void stopMotivator() {
+    io.stopMotivator();
   }
 
   // ========== Status Methods ==========
@@ -120,8 +79,8 @@ public class Motivator extends SubsystemBase {
    *
    * @return Motor 1 velocity in RPM
    */
-  public double getMotivator1Velocity() {
-    return motor1Inputs.velocityRPM;
+  public double getMotivatorWheelVelocity() {
+    return motor1Inputs.wheelRPM;
   }
 
   /**
@@ -147,16 +106,7 @@ public class Motivator extends SubsystemBase {
    *
    * @return True if motor 1 is at setpoint
    */
-  public boolean isMotivator1AtSetpoint() {
-    return motor1Inputs.atSetpoint;
-  }
-
-  /**
-   * Check if both motivator motors are at their velocity setpoints.
-   *
-   * @return True if both motors are at setpoint
-   */
-  public boolean areMotivatorsAtSetpoint() {
+  public boolean isMotivatorAtSetpoint() {
     return motor1Inputs.atSetpoint;
   }
 
@@ -167,8 +117,8 @@ public class Motivator extends SubsystemBase {
    *
    * @return Instant command that stops all motors
    */
-  public Command stopCommand() {
-    return runOnce(this::stop).withName("Motivator: Stop");
+  public Command stopMotivatorCommand() {
+    return runOnce(this::stopMotivator).withName("Motivator: Stop");
   }
 
   /**
@@ -177,21 +127,20 @@ public class Motivator extends SubsystemBase {
    * @param rpm Tunable RPM source
    * @return Command that runs until interrupted
    */
-  public Command runLeadMotivatorCommand(LoggedTunableNumber rpm) {
-    return run(() -> setMotivator1Velocity(rpm.get()))
-        .finallyDo(this::stopMotivator1)
+  public Command runMotivatorCommand(LoggedTunableNumber rpm) {
+    return run(() -> setMotivatorVelocity(rpm.get()))
+        .finallyDo(this::stopMotivator)
         .withName("Motivator: Run Lead");
   }
 
-  /**
-   * Command to run both motivator motors at a tunable RPM.
-   *
-   * @param rpm Tunable RPM source
-   * @return Command that runs until interrupted
-   */
-  public Command runBothMotivatorsCommand(LoggedTunableNumber rpm) {
-    return run(() -> setMotivatorsVelocity(rpm.get()))
-        .finallyDo(this::stopMotivators)
-        .withName("Motivator: Run Both");
+  /** Runs the drive in a straight line with the specified drive output. */
+  public void runCharacterization(double output) {
+    io.setMotivatorVoltage(output);
+  }
+
+  /** Returns the average velocity of the modules in rad/sec. */
+  public double getFFCharacterizationVelocity() {
+    double output = io.getFFCharacterizationVelocity();
+    return output;
   }
 }

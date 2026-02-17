@@ -115,7 +115,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(10);
+        .appliedOutputPeriodMs(5); // Faster update for follower motor
 
     tryUntilOk(
         leaderMotor,

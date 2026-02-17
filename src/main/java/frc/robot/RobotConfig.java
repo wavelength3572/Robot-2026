@@ -369,4 +369,8 @@ public interface RobotConfig {
   default int getMotivatorCurrentLimit() {
     return 40;
   }
+
+  public default double getMotivatorGearRatio() {
+    return 1.0;
+  }
 }

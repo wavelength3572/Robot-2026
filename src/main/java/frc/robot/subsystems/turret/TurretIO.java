@@ -19,5 +19,5 @@ public interface TurretIO {
   public default void updateInputs(TurretIOInputs inputs) {}
 
   /** Set the target angle for the turret in degrees relative to robot front */
-  public default void setTargetAngle(Rotation2d rotation) {}
+  public default void setTurretAngle(Rotation2d rotation) {}
 }

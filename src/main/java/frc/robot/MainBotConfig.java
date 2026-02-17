@@ -108,6 +108,13 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretKp = 5.0;
   private static final double turretKd = 0.1;
 
+  // Physical dimensions
+  // Turret offset from robot center (in robot-relative coordinates)
+  // Positive X = forward from robot center
+  // Positive Y = left from robot center
+  private static final double TURRET_X_OFFSET = -0.085211539; // meters
+  private static final double TURRET_Y_OFFSET = 0.1819604184; // meters
+
   // Launcher configuration (same as TurretBot for now)
   private static final int launcherLeaderCanId = 58;
   private static final int launcherFollowerCanId = 59;
@@ -116,21 +123,13 @@ public class MainBotConfig implements RobotConfig {
   private static final double launcherKp = 0.00004;
   private static final double launcherKi = 0.0;
   private static final double launcherKd = 0.003;
-  private static final double launcherKv = 0.00179;
+  private static final double launcherKv = 0.001742;
   private static final double launcherKs = 0.31;
-
-  // Physical dimensions
-  // Turret offset from robot center (in robot-relative coordinates)
-  // Positive X = forward from robot center
-  // Positive Y = left from robot center
-  private static final double TURRET_X_OFFSET = -0.085211539; // meters
-  private static final double TURRET_Y_OFFSET = 0.1819604184; // meters
-  private static final double TURRET_HEIGHT_METERS = 0.3597275; // Meters
 
   // Hood Configuration
   private static final int hoodMotorCanId = 60;
-  private static final double hoodMaxAngleDegrees = 46;
   private static final double hoodMinAngleDegrees = 16;
+  private static final double hoodMaxAngleDegrees = 46;
   private static final int hoodCurrentLimitAmps = 40;
   private static final double hoodKp = 0.06;
   private static final double hoodKd = 0;
@@ -138,10 +137,11 @@ public class MainBotConfig implements RobotConfig {
   // Motivator Configuration
   private static final int motivatorMotorCanId = 55;
   private static final int motivatorCurrentLimitAmps = 40;
-  private static final double motivatorKp = 0.0;
+  private static final double motivatorKp = 0.00001;
   private static final double motivatorKd = 0.0;
-  private static final double motivatorKv = 0.0;
-  private static final double motivatorKs = 0.0;
+  private static final double motivatorKs = 0.23368;
+  private static final double motivatorKv = 0.0021;
+  private static final double motivatorGearRatio = 1.0 / 3.0;
 
   // Performance
   private static final double maxSpeedMetersPerSec =
@@ -629,5 +629,10 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public int getMotivatorCanId() {
     return motivatorMotorCanId;
+  }
+
+  @Override
+  public double getMotivatorGearRatio() {
+    return motivatorGearRatio;
   }
 }
