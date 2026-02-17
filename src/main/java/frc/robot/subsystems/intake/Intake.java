@@ -97,8 +97,8 @@ public class Intake extends SubsystemBase {
     deployArm.setAngle(deployAngleDegrees);
 
     // Update roller rotation (continuous spin based on velocity)
-    // RPM to degrees per 20ms: RPM * 360° / 60s / 50Hz = RPM * 0.12
-    rollerAngle -= inputs.rollerVelocityRPM * 0.12;
+    // Visual scaling: RPM * 0.012 gives 18°/frame at 1500 RPM (smooth animation)
+    rollerAngle += inputs.rollerVelocityRPM * 0.012;
     rollerAngle = rollerAngle % 360.0; // Keep in 0-360 range
     roller.setAngle(90 + rollerAngle); // 90° base offset
 

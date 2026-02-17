@@ -411,7 +411,7 @@ public class Turret extends SubsystemBase {
       // In PASS mode, wait until fuel exceeds threshold before firing
       boolean fuelThresholdMet = true;
       if (!inAllianceZone && visualizer != null) {
-        int capacity = 40; // matches TurretVisualizer.FUEL_CAPACITY
+        int capacity = 50; // matches TurretVisualizer.FUEL_CAPACITY
         double threshold = passFuelThreshold.get();
         fuelThresholdMet = visualizer.getFuelCount() >= (int) (capacity * threshold);
       }
