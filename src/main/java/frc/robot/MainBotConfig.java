@@ -99,6 +99,11 @@ public class MainBotConfig implements RobotConfig {
   private static final double wheelCOF = 1.2;
 
   // Turret configuration
+  // Turret offset from robot center (in robot-relative coordinates)
+  // Positive X = forward from robot center
+  // Positive Y = left from robot center
+  private static final double TURRET_X_OFFSET = -0.085211539; // meters
+  private static final double TURRET_Y_OFFSET = 0.1819604184; // meters
   private static final int turretMotorCanId = 50;
   private static final double turretGearRatio = 1.0;
   private static final double turretHeightMeters = 0.3597275;
@@ -107,13 +112,6 @@ public class MainBotConfig implements RobotConfig {
   private static final int turretCurrentLimitAmps = 40;
   private static final double turretKp = 5.0;
   private static final double turretKd = 0.1;
-
-  // Physical dimensions
-  // Turret offset from robot center (in robot-relative coordinates)
-  // Positive X = forward from robot center
-  // Positive Y = left from robot center
-  private static final double TURRET_X_OFFSET = -0.085211539; // meters
-  private static final double TURRET_Y_OFFSET = 0.1819604184; // meters
 
   // Launcher configuration (same as TurretBot for now)
   private static final int launcherLeaderCanId = 58;

@@ -12,6 +12,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.FieldConstants;
+import frc.robot.RobotConfig;
 import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.TurretAimingHelper;
@@ -22,7 +23,16 @@ import org.littletonrobotics.junction.Logger;
 public class Turret extends SubsystemBase {
   private final TurretIO io;
   private final TurretIOInputsAutoLogged inputs = new TurretIOInputsAutoLogged();
+
+  private final RobotConfig robotConfig;
+
   private final double turretHeightMeters;
+
+  // Initialize tunable limits (adjustable via NetworkTables at runtime)
+  private final double configAngleMin;
+  private final double configAngleMax;
+  private final double centerOffsetDeg;
+  private final double flipAngleDeg;
 
   // Visualizer for trajectory display (initialized when suppliers are set)
   private TurretVisualizer visualizer = null;
@@ -42,14 +52,6 @@ public class Turret extends SubsystemBase {
   private final LoggedTunableNumber passRightAdjustY =
       new LoggedTunableNumber("Tuning/Turret/Pass/Right/AdjustY", 0.0);
 
-  // ========== Tunable Limits (adjust in AdvantageScope without recompiling!) ==========
-  // FlipAngleDeg: How far can the turret rotate before it must "flip" (go the other way)
-  //               Example: 185 means turret can go from -185° to +185° before flipping
-  // CenterOffsetDeg: Shifts the whole range (0 = symmetric around robot forward)
-  //                  Example: 10 would shift limits to -175° to +195°
-  // Effective limits = [CenterOffset - FlipAngle, CenterOffset + FlipAngle]
-  private final LoggedTunableNumber flipAngleDeg;
-  private final LoggedTunableNumber centerOffsetDeg;
   private final LoggedTunableNumber warningZoneDeg;
 
   // Dual-mode range: narrower range when tracking (idle) to reduce cable wear,
@@ -92,30 +94,21 @@ public class Turret extends SubsystemBase {
    */
   public Turret(TurretIO io) {
     this.io = io;
-    this.turretHeightMeters = Constants.getRobotConfig().getTurretHeightMeters();
 
     // Log turret configuration (logged once at startup)
-    var config = Constants.getRobotConfig();
-    Logger.recordOutput("Turret/Config/hardLimitMinDeg", TurretConstants.HARD_LIMIT_MIN_DEG);
-    Logger.recordOutput("Turret/Config/hardLimitMaxDeg", TurretConstants.HARD_LIMIT_MAX_DEG);
-    Logger.recordOutput("Turret/Config/heightMeters", turretHeightMeters);
-    Logger.recordOutput("Turret/Config/gearRatio", config.getTurretGearRatio());
-    Logger.recordOutput("Turret/Config/kP", config.getTurretKp());
-    Logger.recordOutput("Turret/Config/kD", config.getTurretKd());
-    Logger.recordOutput("Turret/Config/currentLimitAmps", config.getTurretCurrentLimitAmps());
+    robotConfig = Constants.getRobotConfig();
 
-    // Initialize tunable limits (adjustable via NetworkTables at runtime)
-    double configMin = config.getTurretMinAngleDegrees();
-    double configMax = config.getTurretMaxAngleDegrees();
-    double defaultCenter = (configMax + configMin) / 2.0;
-    double defaultFlipAngle = (configMax - configMin) / 2.0;
+    this.turretHeightMeters = robotConfig.getTurretHeightMeters();
 
-    flipAngleDeg = new LoggedTunableNumber("Tuning/Turret/FlipAngleDeg", defaultFlipAngle);
-    centerOffsetDeg = new LoggedTunableNumber("Tuning/Turret/CenterOffsetDeg", defaultCenter);
+    configAngleMin = robotConfig.getTurretMinAngleDegrees();
+    configAngleMax = robotConfig.getTurretMaxAngleDegrees();
+    centerOffsetDeg = (configAngleMax + configAngleMin) / 2.0;
+    flipAngleDeg = (configAngleMax - configAngleMin) / 2.0;
+
     warningZoneDeg = new LoggedTunableNumber("Tuning/Turret/WarningZoneDeg", 20.0);
     // Tracking mode uses a narrower range (10° less each side) to reduce cable stress
     trackingFlipAngleDeg =
-        new LoggedTunableNumber("Tuning/Turret/TrackingFlipAngleDeg", defaultFlipAngle - 10.0);
+        new LoggedTunableNumber("Tuning/Turret/TrackingFlipAngleDeg", flipAngleDeg - 10.0);
 
     // Calculate initial effective limits
     updateEffectiveLimits();
@@ -123,11 +116,11 @@ public class Turret extends SubsystemBase {
 
   /** Update effective min/max limits from tunable flip angle, center offset, and active mode. */
   private void updateEffectiveLimits() {
-    double center = centerOffsetDeg.get();
-    double flipAngle = launchModeActive ? flipAngleDeg.get() : trackingFlipAngleDeg.get();
+    double center = centerOffsetDeg;
+    double flipAngle = launchModeActive ? flipAngleDeg : trackingFlipAngleDeg.get();
     // Clamp to hard limits (mechanical stops)
-    effectiveMinAngleDeg = Math.max(TurretConstants.HARD_LIMIT_MIN_DEG, center - flipAngle);
-    effectiveMaxAngleDeg = Math.min(TurretConstants.HARD_LIMIT_MAX_DEG, center + flipAngle);
+    effectiveMinAngleDeg = Math.max(configAngleMin, center - flipAngle);
+    effectiveMaxAngleDeg = Math.min(configAngleMax, center + flipAngle);
   }
 
   /**
@@ -163,7 +156,7 @@ public class Turret extends SubsystemBase {
     Logger.processInputs("Turret", inputs);
 
     // Check if tunable limits have changed
-    if (LoggedTunableNumber.hasChanged(flipAngleDeg, centerOffsetDeg, trackingFlipAngleDeg)) {
+    if (LoggedTunableNumber.hasChanged(trackingFlipAngleDeg)) {
       updateEffectiveLimits();
     }
 
@@ -207,12 +200,12 @@ public class Turret extends SubsystemBase {
       // Calculate turret's actual position on the field (offset from robot center)
       double turretX =
           robotX
-              + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotHeadingRad)
-                  - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotHeadingRad));
+              + (robotConfig.getTurretOffsetX() * Math.cos(robotHeadingRad)
+                  - robotConfig.getTurretOffsetY() * Math.sin(robotHeadingRad));
       double turretY =
           robotY
-              + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotHeadingRad)
-                  + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotHeadingRad));
+              + (robotConfig.getTurretOffsetX() * Math.sin(robotHeadingRad)
+                  + robotConfig.getTurretOffsetY() * Math.cos(robotHeadingRad));
 
       // Calculate field-relative angles
       // Turret angle is relative to robot, so add robot heading to get field-relative
@@ -246,7 +239,7 @@ public class Turret extends SubsystemBase {
       // - When centered (within 10° of center): show both limits at fixed 0.4m length
       // - When approaching one limit: show only that limit, scaled 0.4m to 0.6m
       double maxRoom = effectiveMaxAngleDeg - effectiveMinAngleDeg; // Total travel range
-      double center = centerOffsetDeg.get();
+      double center = centerOffsetDeg;
       double centeredZoneDeg = 10.0; // Show both limits when within this many degrees of center
 
       // Calculate proximity to each limit (0 = far, 1 = at limit)
@@ -289,7 +282,7 @@ public class Turret extends SubsystemBase {
       }
 
       // Center line - fixed length nub showing where center is
-      double centerFieldAngle = robotHeadingDeg + centerOffsetDeg.get();
+      double centerFieldAngle = robotHeadingDeg + centerOffsetDeg;
       Logger.recordOutput(
           "Turret/Overlay/Center",
           generateFieldLine3d(turretX, turretY, turretHeight, centerFieldAngle, 0.5, 2));
@@ -480,8 +473,8 @@ public class Turret extends SubsystemBase {
             pose3dSupplier,
             speedsSupplier,
             turretHeightMeters,
-            TurretConstants.TURRET_X_OFFSET,
-            TurretConstants.TURRET_Y_OFFSET);
+            robotConfig.getTurretOffsetX(),
+            robotConfig.getTurretOffsetY());
   }
 
   /**
@@ -499,12 +492,12 @@ public class Turret extends SubsystemBase {
     // Calculate turret's actual position on the field (offset from robot center)
     double turretX =
         robotPose.getX()
-            + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotHeadingRad)
-                - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotHeadingRad));
+            + (robotConfig.getTurretOffsetX() * Math.cos(robotHeadingRad)
+                - robotConfig.getTurretOffsetY() * Math.sin(robotHeadingRad));
     double turretY =
         robotPose.getY()
-            + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotHeadingRad)
-                + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotHeadingRad));
+            + (robotConfig.getTurretOffsetX() * Math.sin(robotHeadingRad)
+                + robotConfig.getTurretOffsetY() * Math.cos(robotHeadingRad));
     Translation3d turretPos = new Translation3d(turretX, turretY, turretHeightMeters);
 
     // Velocity compensation: adjust aim point to counteract robot movement during flight.
@@ -619,12 +612,12 @@ public class Turret extends SubsystemBase {
     // Calculate turret's actual position on the field (offset from robot center)
     double turretX =
         robotPose.getX()
-            + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotHeadingRad)
-                - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotHeadingRad));
+            + (robotConfig.getTurretOffsetX() * Math.cos(robotHeadingRad)
+                - robotConfig.getTurretOffsetY() * Math.sin(robotHeadingRad));
     double turretY =
         robotPose.getY()
-            + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotHeadingRad)
-                + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotHeadingRad));
+            + (robotConfig.getTurretOffsetX() * Math.sin(robotHeadingRad)
+                + robotConfig.getTurretOffsetY() * Math.cos(robotHeadingRad));
 
     double launchAngleRad = Math.toRadians(passLaunchAngleDeg.get());
     double h = turretHeightMeters - target.getZ(); // height difference (turret above target)
@@ -711,12 +704,12 @@ public class Turret extends SubsystemBase {
       // Calculate turret's actual position on the field (offset from robot center)
       double turretX =
           robotPose.getX()
-              + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotHeadingRad)
-                  - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotHeadingRad));
+              + (robotConfig.getTurretOffsetX() * Math.cos(robotHeadingRad)
+                  - robotConfig.getTurretOffsetY() * Math.sin(robotHeadingRad));
       double turretY =
           robotPose.getY()
-              + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotHeadingRad)
-                  + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotHeadingRad));
+              + (robotConfig.getTurretOffsetX() * Math.sin(robotHeadingRad)
+                  + robotConfig.getTurretOffsetY() * Math.cos(robotHeadingRad));
 
       Translation3d target = currentShot.getTarget();
       double azimuthAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
@@ -799,12 +792,12 @@ public class Turret extends SubsystemBase {
       // Calculate turret's actual position on the field
       double turretX =
           robotPose.getX()
-              + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotHeadingRad)
-                  - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotHeadingRad));
+              + (robotConfig.getTurretOffsetX() * Math.cos(robotHeadingRad)
+                  - robotConfig.getTurretOffsetY() * Math.sin(robotHeadingRad));
       double turretY =
           robotPose.getY()
-              + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotHeadingRad)
-                  + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotHeadingRad));
+              + (robotConfig.getTurretOffsetX() * Math.sin(robotHeadingRad)
+                  + robotConfig.getTurretOffsetY() * Math.cos(robotHeadingRad));
 
       // Calculate field-relative turret aim direction using TARGET angle
       double turretAimRad = robotHeadingRad + Math.toRadians(targetTurretAngleDeg);
@@ -1049,13 +1042,13 @@ public class Turret extends SubsystemBase {
     // to field coordinates based on the robot's heading
     double turretFieldX =
         robotX
-            + (TurretConstants.TURRET_X_OFFSET * Math.cos(robotOmegaRad)
-                - TurretConstants.TURRET_Y_OFFSET * Math.sin(robotOmegaRad));
+            + (robotConfig.getTurretOffsetX() * Math.cos(robotOmegaRad)
+                - robotConfig.getTurretOffsetY() * Math.sin(robotOmegaRad));
 
     double turretFieldY =
         robotY
-            + (TurretConstants.TURRET_X_OFFSET * Math.sin(robotOmegaRad)
-                + TurretConstants.TURRET_Y_OFFSET * Math.cos(robotOmegaRad));
+            + (robotConfig.getTurretOffsetX() * Math.sin(robotOmegaRad)
+                + robotConfig.getTurretOffsetY() * Math.cos(robotOmegaRad));
 
     // Calculate vector from turret position to target
     double deltaX = targetX - turretFieldX;
@@ -1137,9 +1130,9 @@ public class Turret extends SubsystemBase {
   @AutoLogOutput(key = "Odometry/Turret")
   public Pose3d getPose() {
     return new Pose3d(
-        TurretConstants.TURRET_X_OFFSET,
-        TurretConstants.TURRET_Y_OFFSET,
-        TurretConstants.TURRET_HEIGHT_METERS,
+        robotConfig.getTurretOffsetX(),
+        robotConfig.getTurretOffsetY(),
+        robotConfig.getTurretHeightMeters(),
         new Rotation3d(0.0, 0.0, Rotation2d.fromDegrees(getCurrentAngle()).getRadians()));
   }
 
