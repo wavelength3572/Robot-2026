@@ -120,13 +120,13 @@ public final class Constants {
   /** Team-specific strategy constants (pass targets, trench positions). */
   public static final class StrategyConstants {
     /** Pass target X positions (1/3 into alliance zone from wall). */
-    public static final double BLUE_PASS_TARGET_X = 1.34;
+    public static final double BLUE_PASS_TARGET_X = 2.0;
 
-    public static final double RED_PASS_TARGET_X = 15.2;
+    public static final double RED_PASS_TARGET_X = FieldConstants.fieldLength- BLUE_PASS_TARGET_X;
 
     /** Trench Y positions for dynamic pass targeting. */
-    public static final double LEFT_TRENCH_Y = 1.5;
-
-    public static final double RIGHT_TRENCH_Y = 6.73;
+    public static final double OFFSET_FROM_MIDDLE = 1.75;
+    public static final double RIGHT_TRENCH_Y = FieldConstants.fieldWidth/2-OFFSET_FROM_MIDDLE;
+    public static final double LEFT_TRENCH_Y = FieldConstants.fieldWidth/2+OFFSET_FROM_MIDDLE;
   }
 }

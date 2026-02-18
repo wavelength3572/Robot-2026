@@ -18,7 +18,8 @@ public class TurretAimingHelper {
   /** Aiming mode based on robot position. */
   public enum AimMode {
     SHOOT,
-    PASS
+    PASS,
+    NONE
   }
 
   /** Result of aim target calculation. */
@@ -26,6 +27,9 @@ public class TurretAimingHelper {
 
   /** Hysteresis buffer to prevent rapid mode switching at zone boundaries (meters). */
   private static final double HYSTERESIS_BUFFER = 0.5;
+
+  /** Width of the transition (no-shoot/no-pass) zone past the alliance boundary (meters). */
+  private static final double TRANSITION_ZONE_WIDTH = 2.0;
 
   /** Current aim mode with hysteresis applied. */
   private static AimMode currentMode = AimMode.SHOOT;
@@ -53,14 +57,22 @@ public class TurretAimingHelper {
               ? FieldConstants.Hub.innerCenterPoint.getY()
               : FieldConstants.Hub.oppInnerCenterPoint.getY();
       return new AimResult(new Translation2d(targetX, targetY), AimMode.SHOOT);
-    } else {
-      // In neutral/opponent zone - aim at pass target
+    } else if (currentMode == AimMode.PASS) {
+      // In opponent zone - aim at pass target
       double targetX =
           (alliance == Alliance.Blue)
               ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
               : Constants.StrategyConstants.RED_PASS_TARGET_X;
       double targetY = ZoneDetector.getPassTargetY(robotY);
       return new AimResult(new Translation2d(targetX, targetY), AimMode.PASS);
+    } else {
+      // NONE - transition zone, pre-aim at pass target but don't fire
+      double targetX =
+          (alliance == Alliance.Blue)
+              ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
+              : Constants.StrategyConstants.RED_PASS_TARGET_X;
+      double targetY = ZoneDetector.getPassTargetY(robotY);
+      return new AimResult(new Translation2d(targetX, targetY), AimMode.NONE);
     }
   }
 
@@ -76,30 +88,44 @@ public class TurretAimingHelper {
     double fieldLength = FieldConstants.fieldLength;
 
     if (alliance == Alliance.Blue) {
-      // Blue alliance zone is at low X values
+      // Blue: SHOOT zone < allianceZoneEnd < NONE transition < PASS zone
+      double transitionEnd = allianceZoneEnd + TRANSITION_ZONE_WIDTH;
+
       if (currentMode == AimMode.SHOOT) {
-        // Only switch to PASS when clearly outside alliance zone
         if (robotX > allianceZoneEnd + HYSTERESIS_BUFFER) {
+          return AimMode.NONE;
+        }
+      } else if (currentMode == AimMode.NONE) {
+        if (robotX < allianceZoneEnd - HYSTERESIS_BUFFER) {
+          return AimMode.SHOOT;
+        } else if (robotX > transitionEnd + HYSTERESIS_BUFFER) {
           return AimMode.PASS;
         }
       } else {
-        // Only switch to SHOOT when clearly inside alliance zone
-        if (robotX < allianceZoneEnd - HYSTERESIS_BUFFER) {
-          return AimMode.SHOOT;
+        // PASS
+        if (robotX < transitionEnd - HYSTERESIS_BUFFER) {
+          return AimMode.NONE;
         }
       }
     } else {
-      // Red alliance zone is at high X values
+      // Red: PASS zone < NONE transition < redAllianceZoneStart < SHOOT zone
       double redAllianceZoneStart = fieldLength - allianceZoneEnd;
+      double transitionEnd = redAllianceZoneStart - TRANSITION_ZONE_WIDTH;
+
       if (currentMode == AimMode.SHOOT) {
-        // Only switch to PASS when clearly outside alliance zone
         if (robotX < redAllianceZoneStart - HYSTERESIS_BUFFER) {
+          return AimMode.NONE;
+        }
+      } else if (currentMode == AimMode.NONE) {
+        if (robotX > redAllianceZoneStart + HYSTERESIS_BUFFER) {
+          return AimMode.SHOOT;
+        } else if (robotX < transitionEnd - HYSTERESIS_BUFFER) {
           return AimMode.PASS;
         }
       } else {
-        // Only switch to SHOOT when clearly inside alliance zone
-        if (robotX > redAllianceZoneStart + HYSTERESIS_BUFFER) {
-          return AimMode.SHOOT;
+        // PASS
+        if (robotX > transitionEnd + HYSTERESIS_BUFFER) {
+          return AimMode.NONE;
         }
       }
     }

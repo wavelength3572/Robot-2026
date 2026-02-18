@@ -11,6 +11,7 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import java.util.function.BooleanSupplier;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
@@ -460,6 +461,11 @@ public class RobotContainer {
       turret.initializeVisualizer(drive::getPose, () -> drive.getChassisSpeeds());
     }
 
+    // Wire hood into turret so it can command hood angle automatically
+    if (hood != null && turret != null) {
+      turret.setHood(hood);
+    }
+
     // Configure auto-shoot (turret fires automatically during autonomous when
     // conditions are met)
     if (turret != null && launcher != null) {
@@ -542,6 +548,13 @@ public class RobotContainer {
     Command selectedAuto = autoChooser.get();
     if (selectedAuto == null) return null;
 
+    // Supplier for wait-until-fuel-empty (sim: checks visualizer, real: passes through)
+    BooleanSupplier fuelEmpty =
+        () -> {
+          if (turret == null || turret.getVisualizer() == null) return true;
+          return turret.getVisualizer().getFuelCount() <= 0;
+        };
+
     // Wrap with auto-shoot setup and teardown
     return Commands.sequence(
             // Setup: load fuel, clear field, spin up, enable auto-shoot
@@ -559,18 +572,28 @@ public class RobotContainer {
                   // Spin up launcher and motivator
                   if (launcher != null) {
                     launcher.setVelocity(1700.0);
+                    launcher.setFeedingActive(true);
                   }
                   if (motivator != null) {
-                    motivator.setMotivatorVelocity(AUTO_START_FUEL_COUNT); // motivators
+                    motivator.setMotivatorVelocity(1000.0);
                   }
                   // Enable auto-shoot
                   if (turret != null) {
                     turret.enableAutoShoot();
                   }
+                  // Deploy and run intake
+                  if (intake != null) {
+                    intake.deploy();
+                    intake.runIntake();
+                  }
                 }),
+            // Wait for preloaded fuel to be shot before driving
+            Commands.waitUntil(fuelEmpty).withTimeout(5.0),
             // Run the selected auto path (asProxy avoids "command already composed" on
             // re-run)
-            selectedAuto.asProxy())
+            selectedAuto.asProxy(),
+            // Wait for remaining fuel to be shot after path completes
+            Commands.waitUntil(fuelEmpty).withTimeout(5.0))
         .finallyDo(
             () -> {
               // Teardown: disable auto-shoot, stop motors

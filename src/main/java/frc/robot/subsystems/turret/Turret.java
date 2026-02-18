@@ -12,6 +12,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.FieldConstants;
+import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.TurretAimingHelper;
@@ -28,6 +29,9 @@ public class Turret extends SubsystemBase {
   private TurretVisualizer visualizer = null;
   private Supplier<Pose2d> robotPoseSupplier = null;
   private Supplier<ChassisSpeeds> fieldSpeedsSupplier = null;
+
+  // Hood subsystem reference (optional, set via setHood)
+  private Hood hood = null;
 
   // Current shot data
   private TurretCalculator.ShotData currentShot = null;
@@ -73,10 +77,12 @@ public class Turret extends SubsystemBase {
   private int teleopShots = 0;
   private final LoggedTunableNumber autoShootMinInterval =
       new LoggedTunableNumber("Tuning/Turret/AutoShootMinInterval", 0.15);
+  private final LoggedTunableNumber autoShootMaxSpeedMps =
+      new LoggedTunableNumber("Tuning/Turret/AutoShootMaxSpeedMps", 0.01);
 
   // Pass shot launch angle (tunable for adjusting pass arc)
   private final LoggedTunableNumber passLaunchAngleDeg =
-      new LoggedTunableNumber("Tuning/Turret/Pass/LaunchAngleDeg", 65.0);
+      new LoggedTunableNumber("Tuning/Turret/Pass/LaunchAngleDeg", 46.0);
 
   // Minimum fuel % before auto-shoot fires in PASS mode (0.0-1.0, default 0.8 = 80%)
   private final LoggedTunableNumber passFuelThreshold =
@@ -119,6 +125,15 @@ public class Turret extends SubsystemBase {
 
     // Calculate initial effective limits
     updateEffectiveLimits();
+  }
+
+  /**
+   * Set the hood subsystem reference so the turret can command hood angle automatically.
+   *
+   * @param hood The Hood subsystem
+   */
+  public void setHood(Hood hood) {
+    this.hood = hood;
   }
 
   /** Update effective min/max limits from tunable flip angle, center offset, and active mode. */
@@ -351,7 +366,7 @@ public class Turret extends SubsystemBase {
         // Left trench target (with offsets, clamped to alliance zone)
         double leftRawX = baseX + passLeftAdjustX.get() * (maxX - minX) / 2.0;
         double leftRawY =
-            Constants.StrategyConstants.LEFT_TRENCH_Y + passLeftAdjustY.get() * (maxY - minY) / 2.0;
+            Constants.StrategyConstants.RIGHT_TRENCH_Y + passLeftAdjustY.get() * (maxY - minY) / 2.0;
         Translation3d leftTarget =
             new Translation3d(
                 Math.max(minX, Math.min(maxX, leftRawX)),
@@ -362,7 +377,7 @@ public class Turret extends SubsystemBase {
         // Right trench target (with offsets, clamped to alliance zone)
         double rightRawX = baseX + passRightAdjustX.get() * (maxX - minX) / 2.0;
         double rightRawY =
-            Constants.StrategyConstants.RIGHT_TRENCH_Y
+            Constants.StrategyConstants.LEFT_TRENCH_Y
                 + passRightAdjustY.get() * (maxY - minY) / 2.0;
         Translation3d rightTarget =
             new Translation3d(
@@ -394,37 +409,51 @@ public class Turret extends SubsystemBase {
     Logger.recordOutput("Turret/AutoShootEnabled", autoShootEnabled);
     if (autoShootEnabled && launcherReadySupplier != null && robotPoseSupplier != null) {
       boolean launcherReady = launcherReadySupplier.get();
-      boolean hasShot = currentShot != null;
+      boolean hasShot = currentShot != null && currentShot.getExitVelocity() > 0;
       boolean aimed = atTarget();
-      boolean hasFuel = visualizer != null && visualizer.getFuelCount() > 0;
+      boolean hasFuel =
+          Constants.currentMode != Constants.Mode.SIM
+              || (visualizer != null && visualizer.getFuelCount() > 0);
       double now = Timer.getFPGATimestamp();
       boolean intervalElapsed = (now - lastShotTimestamp) >= autoShootMinInterval.get();
 
-      // Zone check: only fire when in alliance zone (uses hysteresis to prevent flickering)
+      // Zone check: don't fire in the transition zone
       Pose2d robotPose = robotPoseSupplier.get();
       DriverStation.Alliance alliance =
           DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue);
       TurretAimingHelper.AimResult aimResult =
           TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
       boolean inAllianceZone = aimResult.mode() == TurretAimingHelper.AimMode.SHOOT;
+      boolean zoneOk = aimResult.mode() != TurretAimingHelper.AimMode.NONE;
 
-      // In PASS mode, wait until fuel exceeds threshold before firing
+      // TODO: Re-enable pass fuel threshold when we have a real fuel sensor
       boolean fuelThresholdMet = true;
-      if (!inAllianceZone && visualizer != null) {
-        int capacity = 50; // matches TurretVisualizer.FUEL_CAPACITY
-        double threshold = passFuelThreshold.get();
-        fuelThresholdMet = visualizer.getFuelCount() >= (int) (capacity * threshold);
-      }
+
+      double robotSpeedMps =
+          Math.hypot(
+              fieldSpeedsSupplier.get().vxMetersPerSecond,
+              fieldSpeedsSupplier.get().vyMetersPerSecond);
+      boolean robotSlow = !inAllianceZone || robotSpeedMps <= autoShootMaxSpeedMps.get();
 
       Logger.recordOutput("Turret/AutoShoot/LauncherReady", launcherReady);
       Logger.recordOutput("Turret/AutoShoot/Aimed", aimed);
       Logger.recordOutput("Turret/AutoShoot/HasFuel", hasFuel);
-      Logger.recordOutput("Turret/AutoShoot/ZoneOk", inAllianceZone);
+      Logger.recordOutput("Turret/AutoShoot/ZoneOk", zoneOk);
+      Logger.recordOutput("Turret/AutoShoot/AimMode", aimResult.mode().name());
       Logger.recordOutput("Turret/AutoShoot/FuelThresholdMet", fuelThresholdMet);
+      Logger.recordOutput("Turret/AutoShoot/RobotSpeedMps", robotSpeedMps);
+      Logger.recordOutput("Turret/AutoShoot/RobotSlow", robotSlow);
       Logger.recordOutput(
           "Turret/AutoShoot/FuelRemaining", visualizer != null ? visualizer.getFuelCount() : 0);
 
-      if (launcherReady && hasShot && aimed && hasFuel && intervalElapsed && fuelThresholdMet) {
+      if (launcherReady
+          && hasShot
+          && aimed
+          && hasFuel
+          && intervalElapsed
+          && fuelThresholdMet
+          && robotSlow
+          && zoneOk) {
         // Snapshot key calibration data at the instant of firing (for future LUT tuning)
         double distAtFire =
             Math.sqrt(
@@ -547,7 +576,12 @@ public class Turret extends SubsystemBase {
     TrajectoryOptimizer.OptimalShot optimalShot =
         TrajectoryOptimizer.calculateOptimalShot(turretPos, aimTarget);
 
-    // Create shot data pointing at the compensated aim target so trajectory and ball match
+    // Command hood to the mechanical angle if available
+    if (hood != null && optimalShot.achievable) {
+      hood.setAngle(optimalShot.hoodAngleDeg);
+    }
+
+    // Create shot data using physics launch angle (for trajectory viz and FuelSim)
     currentShot =
         new TurretCalculator.ShotData(
             optimalShot.exitVelocityMps, Math.toRadians(optimalShot.launchAngleDeg), aimTarget);
@@ -568,7 +602,8 @@ public class Turret extends SubsystemBase {
 
     // Log shot data
     Logger.recordOutput("Turret/Shot/ExitVelocityMps", currentShot.getExitVelocity());
-    Logger.recordOutput("Turret/Shot/LaunchAngleDeg", currentShot.getLaunchAngleDegrees());
+    Logger.recordOutput("Turret/Shot/HoodAngleDeg", optimalShot.hoodAngleDeg);
+    Logger.recordOutput("Turret/Shot/LaunchAngleDeg", optimalShot.launchAngleDeg);
     Logger.recordOutput("Turret/Shot/IdealRPM", optimalShot.rpm);
     Logger.recordOutput("Turret/Shot/Achievable", optimalShot.achievable);
     Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
