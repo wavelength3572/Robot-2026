@@ -20,6 +20,7 @@ import frc.robot.commands.DriveCommands;
 import frc.robot.commands.LauncherCommands;
 import frc.robot.commands.MotivatorCommands;
 import frc.robot.commands.ShootingCommands;
+import frc.robot.commands.SpindexerCommands;
 import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
@@ -46,6 +47,10 @@ import frc.robot.subsystems.motivator.MotivatorIO;
 import frc.robot.subsystems.motivator.MotivatorIOSim;
 import frc.robot.subsystems.motivator.MotivatorIOSparkMax;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
+import frc.robot.subsystems.spindexer.Spindexer;
+import frc.robot.subsystems.spindexer.SpindexerIO;
+import frc.robot.subsystems.spindexer.SpindexerIOSim;
+import frc.robot.subsystems.spindexer.SpindexerIOSparkMax;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
 import frc.robot.subsystems.turret.TurretIOSim;
@@ -74,13 +79,15 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   // Subsystems
   private final Drive drive;
-  private final Turret turret; // Only instantiated for SquareBot, null for MainBot
-  private final Vision vision; // Only instantiated for SquareBot, null for MainBot
-  private final Intake intake; // Only instantiated for SquareBot, null for MainBot
-  private final Launcher launcher; // Only instantiated for TurretBot, null for others
-  private final Hood hood; // Only instantiated for robots with hood hardware, null for others
-  private final Motivator motivator; // Only instantiated for robots with motivator, null for others
-  private final ShootingCoordinator shootingCoordinator; // Orchestrates turret+hood+launcher
+  private final Turret turret;
+  private final Vision vision;
+  private final Intake intake;
+  private final Launcher launcher;
+  private final Hood hood;
+  private final Motivator motivator;
+  private final Spindexer spindexer;
+  private final ShootingCoordinator
+      shootingCoordinator; // Orchestrates turret+hood+motivator+launcher
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs — single auto chooser, rebuilt when Competition Mode toggle changes
@@ -95,13 +102,7 @@ public class RobotContainer {
     // Instantiate turret subsystem
     switch (Constants.currentMode) {
       case REAL:
-        if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
-          // TurretBot bench test: turret motor not connected, use no-op IO
-          turret = new Turret(new TurretIO() {});
-        } else {
-          // SquareBot and MainBot use TalonFX
-          turret = new Turret(new TurretIO() {});
-        }
+        turret = new Turret(new TurretIO() {});
         break;
 
       case SIM:
@@ -143,7 +144,7 @@ public class RobotContainer {
       intake = null;
     }
 
-    // Instantiate launcher subsystem (TurretBot only)
+    // Instantiate launcher subsystem
     if (Constants.getRobotConfig().hasLauncher()) {
       switch (Constants.currentMode) {
         case REAL:
@@ -163,13 +164,11 @@ public class RobotContainer {
       launcher = null;
     }
 
-    // Instantiate hood subsystem (robots with hood hardware)
+    // Instantiate hood subsystem
     if (Constants.getRobotConfig().hasHood()) {
       switch (Constants.currentMode) {
         case REAL:
-          // TODO: Create HoodIOSparkMax when hardware is ready
-          hood = new Hood(new HoodIOSparkMax()); // Use sim for now
-
+          hood = new Hood(new HoodIOSparkMax());
           SmartDashboard.putData(
               "Hood/setAngle",
               Commands.runOnce(
@@ -212,22 +211,30 @@ public class RobotContainer {
       motivator = null;
     }
 
+    // Instantiate spindexer subsystem (robots with spindexer hardware)
+    if (Constants.getRobotConfig().hasSpindexer()) {
+      switch (Constants.currentMode) {
+        case REAL:
+          spindexer = new Spindexer(new SpindexerIOSparkMax());
+          break;
+
+        case SIM:
+          spindexer = new Spindexer(new SpindexerIOSim());
+          break;
+
+        default:
+          // Replay mode - disable motivator IO
+          spindexer = new Spindexer(new SpindexerIO() {});
+          break;
+      }
+    } else {
+      spindexer = null;
+    }
+
     // Instantiate drive and vision subsystems
     switch (Constants.currentMode) {
       case REAL:
-        // Real robot, instantiate hardware IO implementations
-        if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
-          // TurretBot: Virtual drive modules (no physical drivetrain)
-          drive =
-              new Drive(
-                  new GyroIO() {},
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  turret);
-          vision = null;
-        } else if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
+        if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
           // SquareBot: Full swerve drive
           drive =
               new Drive(
@@ -237,11 +244,9 @@ public class RobotContainer {
                   new ModuleIOSpark(2),
                   new ModuleIOSpark(3),
                   turret);
-          // Only FrontLeft (CAMERA_A) and FrontRight (CAMERA_B) are installed on
-          // squarebot
+          // Only FrontLeft (CAMERA_A) and FrontRight (CAMERA_B) are installed on Squarebot
           // BackLeft and BackRight Pis are not present, using no-op VisionIO to avoid
-          // loop
-          // overruns
+          // loop overruns
           vision =
               new Vision(
                   drive::addVisionMeasurement,
@@ -252,7 +257,7 @@ public class RobotContainer {
                   new VisionIO() {},
                   new VisionIO() {});
         } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
-          // MainBot: Virtual drive modules (not on swerve yet)
+          // MainBot: Full swerve drive
           drive =
               new Drive(
                   new GyroIO() {},
@@ -326,82 +331,69 @@ public class RobotContainer {
         break;
 
       case SIM:
-        // Sim robot, instantiate physics sim IO implementations
-        if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
-          // TurretBot sim: Virtual modules for joystick-driven pose updates
-          drive =
-              new Drive(
-                  new GyroIO() {},
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  turret);
-          vision = null;
+        drive =
+            new Drive(
+                new GyroIO() {},
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                turret);
+        // Vision for SquareBot and MainBot in simulation
+        // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
+        // This order determines PhotonVision sim ports: A=1182, B=1183, C=1184, D=1185
+        // Each camera has both current and recommended transforms for toggle comparison
+        if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
+          vision =
+              new Vision(
+                  drive::addVisionMeasurement,
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.frontLeftCam,
+                      VisionConstants.robotToFrontLeftCam,
+                      RobotStatus::getRobotPose),
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.frontRightCam,
+                      VisionConstants.robotToFrontRightCam,
+                      RobotStatus::getRobotPose),
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.backLeftCam,
+                      VisionConstants.robotToBackLeftCam,
+                      RobotStatus::getRobotPose),
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.backRightCam,
+                      VisionConstants.robotToBackRightCam,
+                      RobotStatus::getRobotPose));
+        } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
+          // MainBot uses corner-mounted cameras aimed diagonally outward + front center
+          // for
+          // intake
+          vision =
+              new Vision(
+                  drive::addVisionMeasurement,
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.frontLeftCam,
+                      VisionConstants.mainBotToFrontLeftCam,
+                      RobotStatus::getRobotPose),
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.frontRightCam,
+                      VisionConstants.mainBotToFrontRightCam,
+                      RobotStatus::getRobotPose),
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.backLeftCam,
+                      VisionConstants.mainBotToBackLeftCam,
+                      RobotStatus::getRobotPose),
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.backRightCam,
+                      VisionConstants.mainBotToBackRightCam,
+                      RobotStatus::getRobotPose),
+                  new VisionIOPhotonVisionSim(
+                      VisionConstants.objectDetectionFrontLeftCam,
+                      VisionConstants.mainBotToObjectDetectionFrontLeftCam,
+                      RobotStatus::getRobotPose));
         } else {
-          drive =
-              new Drive(
-                  new GyroIO() {},
-                  new ModuleIOSim(),
-                  new ModuleIOSim(),
-                  new ModuleIOSim(),
-                  new ModuleIOSim(),
-                  turret);
-          // Vision for SquareBot and MainBot in simulation
-          // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
-          // This order determines PhotonVision sim ports: A=1182, B=1183, C=1184, D=1185
-          // Each camera has both current and recommended transforms for toggle comparison
-          if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
-            vision =
-                new Vision(
-                    drive::addVisionMeasurement,
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.frontLeftCam,
-                        VisionConstants.robotToFrontLeftCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.frontRightCam,
-                        VisionConstants.robotToFrontRightCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.backLeftCam,
-                        VisionConstants.robotToBackLeftCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.backRightCam,
-                        VisionConstants.robotToBackRightCam,
-                        RobotStatus::getRobotPose));
-          } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
-            // MainBot uses corner-mounted cameras aimed diagonally outward + front center
-            // for
-            // intake
-            vision =
-                new Vision(
-                    drive::addVisionMeasurement,
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.frontLeftCam,
-                        VisionConstants.mainBotToFrontLeftCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.frontRightCam,
-                        VisionConstants.mainBotToFrontRightCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.backLeftCam,
-                        VisionConstants.mainBotToBackLeftCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.backRightCam,
-                        VisionConstants.mainBotToBackRightCam,
-                        RobotStatus::getRobotPose),
-                    new VisionIOPhotonVisionSim(
-                        VisionConstants.objectDetectionFrontLeftCam,
-                        VisionConstants.mainBotToObjectDetectionFrontLeftCam,
-                        RobotStatus::getRobotPose));
-          } else {
-            vision = null;
-          }
+          vision = null;
         }
+
         break;
 
       default:
@@ -482,7 +474,7 @@ public class RobotContainer {
     registerNamedCommands();
 
     // Dashboard toggle: defaults to competition mode (safe for matches)
-    SmartDashboard.putBoolean("Competition Mode", true);
+    SmartDashboard.putBoolean("Competition Mode", false);
     autoChooser = buildAutoChooserForMode(true);
 
     updateOI();
@@ -503,7 +495,16 @@ public class RobotContainer {
     CommandScheduler.getInstance().getActiveButtonLoop().clear();
     oi = OISelector.findOperatorInterface();
     ButtonsAndDashboardBindings.configureBindings(
-        oi, drive, vision, intake, turret, launcher, motivator, hood, shootingCoordinator);
+        oi,
+        drive,
+        vision,
+        intake,
+        turret,
+        launcher,
+        motivator,
+        spindexer,
+        hood,
+        shootingCoordinator);
   }
 
   // Starting fuel count for autonomous (always 8)
@@ -911,6 +912,12 @@ public class RobotContainer {
           chooser.addOption(
               "Motivator Simple FF Characterization",
               MotivatorCommands.feedforwardCharacterization(motivator));
+        }
+
+        if (spindexer != null) {
+          chooser.addOption(
+              "Spindexer Simple FF Characterization",
+              SpindexerCommands.feedforwardCharacterization(spindexer));
         }
       }
       return chooser;

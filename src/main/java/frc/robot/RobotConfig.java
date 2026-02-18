@@ -165,13 +165,6 @@ public interface RobotConfig {
   // TurretBot-specific: external gear ratio (encoder to turret)
   // Only used when absolute encoder is after motor gearbox but before external
   // gearing
-  default double getTurretExternalGearRatio() {
-    return 1.0;
-  }
-
-  // TurretBot-specific: external gear ratio (encoder to turret)
-  // Only used when absolute encoder is after motor gearbox but before external
-  // gearing
   default double getTurretMotorGearRatio() {
     return 1.0;
   }
@@ -226,6 +219,12 @@ public interface RobotConfig {
     return 0.0;
   }
 
+  // TurretBot-specific: external gear ratio (encoder to turret)
+  // Only used when absolute encoder is after motor gearbox but before external gearing
+  default double getTurretExternalGearRatio() {
+    return 0.0;
+  }
+
   /** Whether turret motor is inverted. */
   default boolean getTurretMotorInverted() {
     return false;
@@ -264,17 +263,17 @@ public interface RobotConfig {
    * 1.5 wheel rotations (wheel spins faster).
    */
   default double getLauncherGearRatio() {
-    return 1.5;
+    return 0.0;
   }
 
   /** Launcher motor current limit in amps. */
   default int getLauncherCurrentLimitAmps() {
-    return 60;
+    return 0;
   }
 
   /** Launcher PID proportional gain. */
   default double getLauncherKp() {
-    return 0.0001;
+    return 0.0;
   }
 
   /** Launcher PID integral gain. */
@@ -312,7 +311,7 @@ public interface RobotConfig {
 
   /** Hood motor current limit in amps. */
   default int getHoodCurrentLimitAmps() {
-    return 20;
+    return 0;
   }
 
   /** Hood Kp */
@@ -350,7 +349,7 @@ public interface RobotConfig {
 
   /** Launcher PID proportional gain. */
   default double getMotivatorKp() {
-    return 0.0001;
+    return 0.0;
   }
 
   /** Launcher PID integral gain. */
@@ -375,15 +374,63 @@ public interface RobotConfig {
 
   /** Motivator leader motor CAN ID. */
   default int getMotivatorCanId() {
-    return 55;
+    return 0;
   }
 
   /** Motivator motor current limit in amps. */
   default int getMotivatorCurrentLimit() {
-    return 40;
+    return 0;
   }
 
   public default double getMotivatorGearRatio() {
-    return 1.0;
+    return 0;
+  }
+
+  // ========== Spindexer Configuration ==========
+  // Default implementations return 0/false for robots without a spindexer
+
+  /** Whether this robot has a spindexer (ball feeder to motivator). */
+  default boolean hasSpindexer() {
+    return false;
+  }
+
+  /** Spindexer PID proportional gain. */
+  default double getSpindexerKp() {
+    return 0.0;
+  }
+
+  /** Spindexer PID integral gain. */
+  default double getSpindexerKi() {
+    return 0.0;
+  }
+
+  /** Spindexer PID derivative gain. */
+  default double getSpindexerKd() {
+    return 0.0;
+  }
+
+  /** Spindexer feedforward velocity gain. */
+  default double getSpindexerKv() {
+    return 0.0;
+  }
+
+  /** Spindexer feedforward static gain. */
+  default double getSpindexerKs() {
+    return 0.0;
+  }
+
+  /** Spindexer motor CAN ID. */
+  default int getSpindexerCanId() {
+    return 0;
+  }
+
+  /** Spindexer motor current limit in amps. */
+  default int getSpindexerCurrentLimit() {
+    return 0;
+  }
+
+  /** Spindexer gear ratio (output/input). */
+  public default double getSpindexerGearRatio() {
+    return 0;
   }
 }

@@ -19,6 +19,7 @@ import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.shooting.ShotCalculator;
 import frc.robot.subsystems.shooting.ShotVisualizer;
+import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.BenchTestMetrics;
@@ -34,6 +35,7 @@ public class ButtonsAndDashboardBindings {
   private static Turret turret;
   private static Launcher launcher;
   private static Motivator motivator;
+  private static Spindexer spindexer;
   private static Hood hood;
   private static ShootingCoordinator shootingCoordinator;
 
@@ -68,6 +70,7 @@ public class ButtonsAndDashboardBindings {
       Turret turret,
       Launcher launcher,
       Motivator motivator,
+      Spindexer spindexer,
       Hood hood,
       ShootingCoordinator shootingCoordinator) {
     ButtonsAndDashboardBindings.oi = operatorInterface;
@@ -77,17 +80,13 @@ public class ButtonsAndDashboardBindings {
     ButtonsAndDashboardBindings.turret = turret;
     ButtonsAndDashboardBindings.launcher = launcher;
     ButtonsAndDashboardBindings.motivator = motivator;
+    ButtonsAndDashboardBindings.spindexer = spindexer;
     ButtonsAndDashboardBindings.hood = hood;
     ButtonsAndDashboardBindings.shootingCoordinator = shootingCoordinator;
 
     configureDriverButtonBindings();
     configureOperatorButtonBindings();
     configureDashboardBindings();
-  }
-
-  // Legacy method without vision/intake/turret/launcher/motivator/hood/coordinator parameters
-  public static void configureBindings(OperatorInterface operatorInterface, Drive drive) {
-    configureBindings(operatorInterface, drive, null, null, null, null, null, null, null);
   }
 
   /****************************** */
@@ -290,11 +289,17 @@ public class ButtonsAndDashboardBindings {
           launcher.runAtTunableVelocityCommand(ShootingCommands.getTestLauncherRPM()));
     }
 
-    // Motivator: 3 isolation buttons
+    // Motivator:
     if (motivator != null) {
       SmartDashboard.putData(
           "Tuning/Motivator/RunLeadMotivator",
           motivator.runMotivatorCommand(ShootingCommands.getTestMotivatorRPM()));
+    }
+    // Spindexer:
+    if (spindexer != null) {
+      SmartDashboard.putData(
+          "Tuning/Spindexer/RunSpindexer",
+          spindexer.runSpindexerCommand(ShootingCommands.getTestSpindexerRPM()));
     }
 
     // Turret: direct angle command, reads BenchTest/Shooting/AngleDegTurret

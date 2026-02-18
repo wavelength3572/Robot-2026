@@ -157,8 +157,16 @@ public class MainBotConfig implements RobotConfig {
   private static final double motivatorKv = 0.0021;
   private static final double motivatorGearRatio = 1.0 / 3.0;
 
-  // Motivator Configuration
+  // Spindexer Configuration
   private static final int spindexerMotorCanId = 55;
+  private static final int spindexerCurrentLimitAmps = 40;
+  private static final double spindexerKp = 0.00001;
+  private static final double spindexerKi = 0.0;
+  private static final double spindexerKd = 0.0;
+
+  private static final double spindexerKs = 0.23368;
+  private static final double spindexerKv = 0.0021;
+  private static final double spindexerGearRatio = 1.0 / 3.0;
 
   // Performance
   private static final double maxSpeedMetersPerSec =
@@ -666,5 +674,62 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getMotivatorGearRatio() {
     return motivatorGearRatio;
+  }
+
+  @Override
+  public int getMotivatorCurrentLimit() {
+    return motivatorCurrentLimitAmps;
+  }
+
+  // ========== Spindexer Configuration ==========
+
+  @Override
+  public boolean hasSpindexer() {
+    return true; // MainBot has spindexer for feeding balls to motivator
+  }
+
+  /** Launcher PID proportional gain. */
+  @Override
+  public double getSpindexerKp() {
+    return spindexerKp;
+  }
+
+  /** Launcher PID integral gain. */
+  @Override
+  public double getSpindexerKi() {
+    return spindexerKi;
+  }
+
+  /** Launcher PID derivative gain. */
+  @Override
+  public double getSpindexerKd() {
+    return spindexerKd;
+  }
+
+  /** Launcher kv gain. */
+  @Override
+  public double getSpindexerKv() {
+    return spindexerKv;
+  }
+
+  /** Launcher ks gain. */
+  @Override
+  public double getSpindexerKs() {
+    return spindexerKs;
+  }
+
+  @Override
+  public int getSpindexerCanId() {
+    return spindexerMotorCanId;
+  }
+
+  @Override
+  public double getSpindexerGearRatio() {
+    return spindexerGearRatio;
+  }
+
+  @Override
+  public int getSpindexerCurrentLimit() {
+    return spindexerCurrentLimitAmps;
   }
 }
