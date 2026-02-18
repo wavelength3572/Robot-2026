@@ -117,16 +117,36 @@ public final class Constants {
     TURRETBOT
   }
 
+  /**
+   * Universal turret constants that apply to all robots. Per-robot values (offsets, height, CAN
+   * IDs, gear ratios, PID gains) live in the RobotConfig implementations.
+   */
+  public static final class TurretConstants {
+    // Hard limits (mechanical stops - never exceed these)
+    public static final double HARD_LIMIT_MIN_DEG = -185.0;
+    public static final double HARD_LIMIT_MAX_DEG = 185.0;
+
+    // Tolerances
+    public static final double ANGLE_TOLERANCE_DEGREES = 2.0;
+
+    // Motion constraints (used for trajectory generation if needed)
+    public static final double MAX_VELOCITY_DEG_PER_SEC = 360.0;
+    public static final double MAX_ACCELERATION_DEG_PER_SEC_SQUARED = 720.0;
+  }
+
   /** Team-specific strategy constants (pass targets, trench positions). */
   public static final class StrategyConstants {
     /** Pass target X positions (1/3 into alliance zone from wall). */
     public static final double BLUE_PASS_TARGET_X = 2.0;
 
-    public static final double RED_PASS_TARGET_X = FieldConstants.fieldLength- BLUE_PASS_TARGET_X;
+    public static final double RED_PASS_TARGET_X = FieldConstants.fieldLength - BLUE_PASS_TARGET_X;
 
     /** Pass target Y positions (offset from field center toward each trench). */
     public static final double PASS_TARGET_Y_OFFSET = 1.75;
-    public static final double RIGHT_PASS_TARGET_Y = FieldConstants.fieldWidth/2-PASS_TARGET_Y_OFFSET;
-    public static final double LEFT_PASS_TARGET_Y = FieldConstants.fieldWidth/2+PASS_TARGET_Y_OFFSET;
+
+    public static final double RIGHT_PASS_TARGET_Y =
+        FieldConstants.fieldWidth / 2 - PASS_TARGET_Y_OFFSET;
+    public static final double LEFT_PASS_TARGET_Y =
+        FieldConstants.fieldWidth / 2 + PASS_TARGET_Y_OFFSET;
   }
 }

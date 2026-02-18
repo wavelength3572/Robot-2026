@@ -40,6 +40,6 @@
     }
   },
   "resetOdom": true,
-  "folder": null,
+  "folder": "Comp",
   "choreoAuto": false
 }
