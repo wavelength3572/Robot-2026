@@ -104,8 +104,8 @@ public class ShootingCommands {
       new LoggedTunableNumber("BenchTest/Shooting/AngleDegHood", 45.0);
 
   // Placeholder for future indexer subsystem
-  private static final LoggedTunableNumber testIndexerRPM =
-      new LoggedTunableNumber("BenchTest/Shooting/IndexerRPM", 0.0);
+  private static final LoggedTunableNumber testSpindexerRPM =
+      new LoggedTunableNumber("BenchTest/Shooting/SpindexerRPM", 1000.0);
 
   // ===== Command Behavior Constants =====
 
@@ -128,7 +128,7 @@ public class ShootingCommands {
     testMotivatorRPM.get();
     testTurretAngleDeg.get();
     testHoodAngleDeg.get();
-    testIndexerRPM.get();
+    testSpindexerRPM.get();
 
     SmartDashboard.putString("Match/Status/Mode", currentMode.toString());
     SmartDashboard.putBoolean("Match/Status/Active", currentMode == ShootingMode.TEST);
@@ -151,8 +151,8 @@ public class ShootingCommands {
     return testMotivatorRPM;
   }
 
-  public static LoggedTunableNumber getTestIndexerRPM() {
-    return testIndexerRPM;
+  public static LoggedTunableNumber getTestSpindexerRPM() {
+    return testSpindexerRPM;
   }
 
   public static LoggedTunableNumber getTestTurretAngleDeg() {
