@@ -155,6 +155,10 @@ public class ShootingCommands {
     return testIndexerRPM;
   }
 
+  public static LoggedTunableNumber getTestTurretAngleDeg() {
+    return testTurretAngleDeg;
+  }
+
   /**
    * Main launch command. Spins up, waits for setpoint, then fires repeatedly.
    *

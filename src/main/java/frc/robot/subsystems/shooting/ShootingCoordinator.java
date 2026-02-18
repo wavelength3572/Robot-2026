@@ -136,6 +136,14 @@ public class ShootingCoordinator extends SubsystemBase {
         DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue);
     boolean isBlueAlliance = (alliance == DriverStation.Alliance.Blue);
 
+    // Never command actuators while disabled — only run visualization
+    if (DriverStation.isDisabled()) {
+      if (visualizer != null && robotPoseSupplier != null) {
+        visualizer.update(createVisualizerSnapshot(isBlueAlliance));
+      }
+      return;
+    }
+
     updateShotCalculation(alliance, isBlueAlliance);
     runAutoShoot(alliance);
 
