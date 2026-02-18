@@ -12,7 +12,8 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 
 /**
- * Interface defining robot-specific configuration values. Implement this interface for each
+ * Interface defining robot-specific configuration values. Implement this
+ * interface for each
  * physical robot (MainBot, SquareBot, etc.)
  */
 public interface RobotConfig {
@@ -144,7 +145,8 @@ public interface RobotConfig {
   double getOdometryFrequency();
 
   // ========== Turret Configuration ==========
-  // Default implementations return 0/false for robots without turrets (e.g., RectangleBot)
+  // Default implementations return 0/false for robots without turrets (e.g.,
+  // RectangleBot)
 
   /** Whether this robot has a turret. */
   default boolean hasTurret() {
@@ -158,6 +160,20 @@ public interface RobotConfig {
 
   /** Turret gear ratio (motor rotations per turret rotation). */
   default double getTurretGearRatio() {
+    return 1.0;
+  }
+
+  // TurretBot-specific: external gear ratio (encoder to turret)
+  // Only used when absolute encoder is after motor gearbox but before external
+  // gearing
+  default double getTurretExternalGearRatio() {
+    return 1.0;
+  }
+
+  // TurretBot-specific: external gear ratio (encoder to turret)
+  // Only used when absolute encoder is after motor gearbox but before external
+  // gearing
+  default double getTurretMotorGearRatio() {
     return 1.0;
   }
 
@@ -211,12 +227,6 @@ public interface RobotConfig {
     return 0.0;
   }
 
-  // TurretBot-specific: external gear ratio (encoder to turret)
-  // Only used when absolute encoder is after motor gearbox but before external gearing
-  default double getTurretExternalGearRatio() {
-    return 1.0;
-  }
-
   /** Whether turret motor is inverted. */
   default boolean getTurretMotorInverted() {
     return false;
@@ -227,7 +237,10 @@ public interface RobotConfig {
     return false;
   }
 
-  /** Absolute encoder zero offset in raw rotations (0.0 to 1.0) for turret calibration. */
+  /**
+   * Absolute encoder zero offset in raw rotations (0.0 to 1.0) for turret
+   * calibration.
+   */
   default double getTurretAbsoluteEncoderOffset() {
     return 0.0;
   }
@@ -251,7 +264,8 @@ public interface RobotConfig {
   }
 
   /**
-   * Launcher gear ratio: motor rotations to wheel rotations. Example: 1.5 means 1 motor rotation =
+   * Launcher gear ratio: motor rotations to wheel rotations. Example: 1.5 means 1
+   * motor rotation =
    * 1.5 wheel rotations (wheel spins faster).
    */
   default double getLauncherGearRatio() {
@@ -305,6 +319,7 @@ public interface RobotConfig {
   default int getHoodCurrentLimitAmps() {
     return 20;
   }
+
   /** Hood Kp */
   default double getHoodKp() {
     return 0.0;
@@ -314,14 +329,17 @@ public interface RobotConfig {
   default double getHoodKd() {
     return 0.0;
   }
+
   /** Hood motor Invert */
   default boolean getHoodMotorInverted() {
     return false;
   }
+
   /** Hood max angle */
   default double getHoodMaxAngleDegrees() {
     return 0.0;
   }
+
   /** Hood min angle */
   default double getHoodMinAngleDegrees() {
     return 0.0;

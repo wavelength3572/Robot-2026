@@ -611,7 +611,7 @@ public class ShootingCoordinator extends SubsystemBase {
         turret.getTargetAngle(),
         turret.getEffectiveMinAngle(),
         turret.getEffectiveMaxAngle(),
-        turret.getCenterOffsetDeg(),
+        turret.getCenterDeg(),
         turret.getWarningZoneDeg(),
         currentShot,
         turretConfig.heightMeters(),

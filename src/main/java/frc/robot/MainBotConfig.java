@@ -105,14 +105,23 @@ public class MainBotConfig implements RobotConfig {
 
   // Turret configuration
   private static final int turretMotorCanId = 50;
-  private static final double turretGearRatio = 1.0;
   private static final double turretHeightMeters = 0.3597275;
   private static final double turretMaxAngleDegrees = 200.0;
   private static final double turretMinAngleDegrees = -200.0;
+  private static final double turretAbsoluteEncoderOffset = 0.0;
   private static final int turretCurrentLimitAmps = 40;
   private static final double turretKp = 5.0;
   private static final double turretKd = 0.1;
 
+  // Gear ratios:
+  // - NEO 550 internal gearbox: 10:1
+  // - External gearing from encoder to turret: 66:12 (~5.5:1)
+  // - Total ratio: 55:1 (motor rotations per turret rotation)
+  // The absolute encoder sits AFTER the 10:1 gearbox but BEFORE the 66:12 external gearing
+  private static final double turretExternalGearRatio = 66.0 / 12.0; // ~5.5 (encoder to turret)
+  private static final double turretMotorGearRatio = 10.0;
+  private static final double turretGearRatio = turretExternalGearRatio * turretMotorGearRatio;
+  
   // Physical dimensions
   // Turret offset from robot center (in robot-relative coordinates)
   // Positive X = forward from robot center
@@ -461,6 +470,16 @@ public class MainBotConfig implements RobotConfig {
   }
 
   @Override
+  public double getTurretExternalGearRatio() {
+    return turretExternalGearRatio;
+  }
+
+  @Override
+  public double getTurretMotorGearRatio() {
+    return turretMotorGearRatio;
+  }
+
+  @Override
   public double getTurretOffsetX() {
     return TURRET_X_OFFSET;
   }
@@ -478,6 +497,11 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getTurretMaxAngleDegrees() {
     return turretMaxAngleDegrees;
+  }
+
+  @Override
+  public double getTurretAbsoluteEncoderOffset() {
+    return turretAbsoluteEncoderOffset;
   }
 
   @Override
