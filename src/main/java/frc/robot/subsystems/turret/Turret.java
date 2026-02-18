@@ -29,14 +29,13 @@ public class Turret extends SubsystemBase {
 
   private final double configMin;
   private final double configMax;
-  private final double centerOffsetDeg;
+  private final double centerDeg;
   private final double flipAngleDeg;
 
   // ========== Tunable Limits (adjust in AdvantageScope without recompiling!)
   // ==========
   // FlipAngleDeg: How far can the turret rotate before it must "flip" (go the
   // other way)
-  // CenterOffsetDeg: Shifts the whole range (0 = symmetric around robot forward)
   // Effective limits = [CenterOffset - FlipAngle, CenterOffset + FlipAngle]
   private final LoggedTunableNumber warningZoneDeg;
 
@@ -73,7 +72,7 @@ public class Turret extends SubsystemBase {
     // Initialize tunable limits (adjustable via NetworkTables at runtime)
     configMin = config.getTurretMinAngleDegrees();
     configMax = config.getTurretMaxAngleDegrees();
-    centerOffsetDeg = (configMax + configMin) / 2.0;
+    centerDeg = (configMax + configMin) / 2.0;
     flipAngleDeg = (configMax - configMin) / 2.0;
 
     warningZoneDeg = new LoggedTunableNumber("Tuning/Turret/WarningZoneDeg", 20.0);
@@ -87,8 +86,8 @@ public class Turret extends SubsystemBase {
   /** Update effective min/max limits from tunable flip angle, center offset, and active mode. */
   private void updateEffectiveLimits() {
     double flipAngle = launchModeActive ? flipAngleDeg : trackingFlipAngleDeg.get();
-    effectiveMinAngleDeg = Math.max(config.getTurretMinAngleDegrees(), centerOffsetDeg - flipAngle);
-    effectiveMaxAngleDeg = Math.min(config.getTurretMaxAngleDegrees(), centerOffsetDeg + flipAngle);
+    effectiveMinAngleDeg = Math.max(config.getTurretMinAngleDegrees(), centerDeg - flipAngle);
+    effectiveMaxAngleDeg = Math.min(config.getTurretMaxAngleDegrees(), centerDeg + flipAngle);
   }
 
   @Override
@@ -136,6 +135,99 @@ public class Turret extends SubsystemBase {
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
     double turretAngle = calculateTurretAngle(robotX, robotY, robotOmega, targetX, targetY);
     // setTurretAngle(turretAngle);
+  }
+
+  /**
+   * Calculate the turret angle needed to point at a target location on the field, accounting for
+   * the turret's offset from the robot's center.
+   *
+   * @param robotX Robot center's X position on field (meters)
+   * @param robotY Robot center's Y position on field (meters)
+   * @param robotOmega Robot's heading in degrees (0-360, counter-clockwise from +X axis)
+   * @param targetX Target X position on field (meters)
+   * @param targetY Target Y position on field (meters)
+   * @return Angle in degrees the turret needs to rotate relative to robot heading Range: -180 to
+   *     +180 degrees
+   */
+  private double originalCalculateTurretAngle(
+      double robotX, double robotY, double robotOmega, double targetX, double targetY) {
+
+    // Get current turret angle (could be outside -180 to +180 range)
+    double currentAngle = getCurrentAngle();
+
+    // Normalize robotOmega to -180 to +180 range
+    // This code actually probably doesn't do anything
+    // Since our robot omega is always -180 to +180
+    double robotOmegaNormalized = robotOmega % 360;
+    if (robotOmegaNormalized > 180) {
+      robotOmegaNormalized -= 360;
+    } else if (robotOmegaNormalized <= -180) {
+      robotOmegaNormalized += 360;
+    }
+    // Convert robot heading to radians for rotation calculations
+    double robotOmegaRad = Math.toRadians(robotOmega);
+
+    // Calculate turret's actual position on the field
+    // The turret offset is in robot-relative coordinates, so we need to rotate it
+    // to field coordinates based on the robot's heading
+    double turretFieldX =
+        robotX
+            + (config.getTurretOffsetX() * Math.cos(robotOmegaRad)
+                - config.getTurretOffsetY() * Math.sin(robotOmegaRad));
+
+    double turretFieldY =
+        robotY
+            + (config.getTurretOffsetX() * Math.sin(robotOmegaRad)
+                + config.getTurretOffsetY() * Math.cos(robotOmegaRad));
+
+    // Calculate vector from turret position to target
+    double deltaX = targetX - turretFieldX;
+    double deltaY = targetY - turretFieldY;
+
+    // Calculate absolute angle to target from field coordinates
+    double absoluteAngle = Math.toDegrees(Math.atan2(deltaY, deltaX));
+
+    // Calculate relative (desired) angle (turret angle relative to robot heading)
+    double relativeAngle = absoluteAngle - robotOmega;
+
+    // Log calculation values
+    Logger.recordOutput("Turret/RobotOmegaNormalized", robotOmegaNormalized);
+    Logger.recordOutput("Turret/AbsoluteAngle", absoluteAngle);
+    Logger.recordOutput("Turret/RelativeAngle", relativeAngle);
+
+    // Find the equivalent angle closest to current position
+    // Check desiredAngle and its ±360° versions
+    double[] candidates = {relativeAngle, relativeAngle + 360.0, relativeAngle - 360.0};
+
+    double bestAngle =
+        relativeAngle; // doesn't matter what we set this to, it's just for initalization
+    double smallestMove = 1000000.0; // Set this high do first viable candidate becomes the best.
+
+    for (double candidate : candidates) {
+      // Check if this candidate is within physical limits
+      if (candidate >= config.getTurretMinAngleDegrees()
+          && candidate <= config.getTurretMaxAngleDegrees()) {
+
+        double moveDistance = Math.abs(candidate - currentAngle);
+        if (moveDistance < smallestMove) {
+          smallestMove = moveDistance;
+          bestAngle = candidate;
+        }
+      }
+    }
+
+    // If bestAngle is still out of range, clamp to nearest limit
+    // This should actually never come into play since one of the candidates
+    // should always work and be within range.
+    if (bestAngle < config.getTurretMinAngleDegrees()) {
+      bestAngle = config.getTurretMinAngleDegrees();
+    } else if (bestAngle > config.getTurretMaxAngleDegrees()) {
+      bestAngle = config.getTurretMaxAngleDegrees();
+    }
+
+    Logger.recordOutput("Turret/bestAngle", bestAngle);
+
+    return bestAngle;
   }
 
   /**
@@ -245,8 +337,8 @@ public class Turret extends SubsystemBase {
    *
    * @return Center offset in degrees
    */
-  public double getCenterOffsetDeg() {
-    return centerOffsetDeg;
+  public double getCenterDeg() {
+    return centerDeg;
   }
 
   /**
