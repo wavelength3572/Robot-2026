@@ -366,7 +366,7 @@ public class Turret extends SubsystemBase {
         // Left trench target (with offsets, clamped to alliance zone)
         double leftRawX = baseX + passLeftAdjustX.get() * (maxX - minX) / 2.0;
         double leftRawY =
-            Constants.StrategyConstants.RIGHT_TRENCH_Y + passLeftAdjustY.get() * (maxY - minY) / 2.0;
+            Constants.StrategyConstants.RIGHT_PASS_TARGET_Y + passLeftAdjustY.get() * (maxY - minY) / 2.0;
         Translation3d leftTarget =
             new Translation3d(
                 Math.max(minX, Math.min(maxX, leftRawX)),
@@ -377,7 +377,7 @@ public class Turret extends SubsystemBase {
         // Right trench target (with offsets, clamped to alliance zone)
         double rightRawX = baseX + passRightAdjustX.get() * (maxX - minX) / 2.0;
         double rightRawY =
-            Constants.StrategyConstants.LEFT_TRENCH_Y
+            Constants.StrategyConstants.LEFT_PASS_TARGET_Y
                 + passRightAdjustY.get() * (maxY - minY) / 2.0;
         Translation3d rightTarget =
             new Translation3d(
@@ -424,7 +424,7 @@ public class Turret extends SubsystemBase {
       TurretAimingHelper.AimResult aimResult =
           TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
       boolean inAllianceZone = aimResult.mode() == TurretAimingHelper.AimMode.SHOOT;
-      boolean zoneOk = aimResult.mode() != TurretAimingHelper.AimMode.NONE;
+      boolean zoneOk = aimResult.mode() != TurretAimingHelper.AimMode.HOLDFIRE;
 
       // TODO: Re-enable pass fuel threshold when we have a real fuel sensor
       boolean fuelThresholdMet = true;

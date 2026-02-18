@@ -33,9 +33,9 @@ public class ZoneDetector {
   public static double getPassTargetY(double robotY) {
     double fieldCenter = FieldConstants.fieldWidth / 2.0;
     if (robotY < fieldCenter) {
-      return Constants.StrategyConstants.RIGHT_TRENCH_Y;
+      return Constants.StrategyConstants.RIGHT_PASS_TARGET_Y;
     } else {
-      return Constants.StrategyConstants.LEFT_TRENCH_Y;
+      return Constants.StrategyConstants.LEFT_PASS_TARGET_Y;
     }
   }
 }

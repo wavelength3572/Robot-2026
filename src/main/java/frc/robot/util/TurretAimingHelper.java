@@ -17,9 +17,12 @@ public class TurretAimingHelper {
 
   /** Aiming mode based on robot position. */
   public enum AimMode {
+    /** In alliance zone — aim at hub and shoot. */
     SHOOT,
+    /** In pass zone — aim at pass target and fire. */
     PASS,
-    NONE
+    /** Near bumps/trenches — pre-aim but hold fire. */
+    HOLDFIRE
   }
 
   /** Result of aim target calculation. */
@@ -28,8 +31,11 @@ public class TurretAimingHelper {
   /** Hysteresis buffer to prevent rapid mode switching at zone boundaries (meters). */
   private static final double HYSTERESIS_BUFFER = 0.5;
 
-  /** Width of the transition (no-shoot/no-pass) zone past the alliance boundary (meters). */
-  private static final double TRANSITION_ZONE_WIDTH = 2.0;
+  /**
+   * How far on either side of a hub center X to extend the holdfire zone (meters). The
+   * bumps/trenches are physical obstacles near each hub, so we suppress firing in this band.
+   */
+  private static final double HOLDFIRE_RADIUS = 2.0;
 
   /** Current aim mode with hysteresis applied. */
   private static AimMode currentMode = AimMode.SHOOT;
@@ -47,7 +53,6 @@ public class TurretAimingHelper {
     currentMode = calculateModeWithHysteresis(robotX, alliance);
 
     if (currentMode == AimMode.SHOOT) {
-      // In our zone - aim at hub to shoot
       double targetX =
           (alliance == Alliance.Blue)
               ? FieldConstants.Hub.innerCenterPoint.getX()
@@ -58,7 +63,6 @@ public class TurretAimingHelper {
               : FieldConstants.Hub.oppInnerCenterPoint.getY();
       return new AimResult(new Translation2d(targetX, targetY), AimMode.SHOOT);
     } else if (currentMode == AimMode.PASS) {
-      // In opponent zone - aim at pass target
       double targetX =
           (alliance == Alliance.Blue)
               ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
@@ -66,18 +70,37 @@ public class TurretAimingHelper {
       double targetY = ZoneDetector.getPassTargetY(robotY);
       return new AimResult(new Translation2d(targetX, targetY), AimMode.PASS);
     } else {
-      // NONE - transition zone, pre-aim at pass target but don't fire
+      // HOLDFIRE — pre-aim at pass target but don't fire
       double targetX =
           (alliance == Alliance.Blue)
               ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
               : Constants.StrategyConstants.RED_PASS_TARGET_X;
       double targetY = ZoneDetector.getPassTargetY(robotY);
-      return new AimResult(new Translation2d(targetX, targetY), AimMode.NONE);
+      return new AimResult(new Translation2d(targetX, targetY), AimMode.HOLDFIRE);
     }
   }
 
   /**
+   * Check if the robot is inside a holdfire zone (near bumps/trenches at either hub).
+   *
+   * @param robotX Robot X position in meters
+   * @return true if the robot is within HOLDFIRE_RADIUS of either hub center
+   */
+  private static boolean isInHoldfireZone(double robotX) {
+    double allianceHub = FieldConstants.LinesVertical.hubCenter;
+    double opponentHub = FieldConstants.LinesVertical.oppHubCenter;
+    return Math.abs(robotX - allianceHub) < HOLDFIRE_RADIUS
+        || Math.abs(robotX - opponentHub) < HOLDFIRE_RADIUS;
+  }
+
+  /**
    * Calculate the aim mode with hysteresis to prevent rapid switching.
+   *
+   * <p>Field layout for Blue (mirrored for Red):
+   *
+   * <pre>
+   * SHOOT | HOLDFIRE (near hub) | PASS | HOLDFIRE (near opp hub) | no firing
+   * </pre>
    *
    * @param robotX Robot X position in meters
    * @param alliance Current alliance
@@ -86,47 +109,35 @@ public class TurretAimingHelper {
   private static AimMode calculateModeWithHysteresis(double robotX, Alliance alliance) {
     double allianceZoneEnd = FieldConstants.LinesVertical.allianceZone;
     double fieldLength = FieldConstants.fieldLength;
+    boolean inHoldfire = isInHoldfireZone(robotX);
 
     if (alliance == Alliance.Blue) {
-      // Blue: SHOOT zone < allianceZoneEnd < NONE transition < PASS zone
-      double transitionEnd = allianceZoneEnd + TRANSITION_ZONE_WIDTH;
-
-      if (currentMode == AimMode.SHOOT) {
-        if (robotX > allianceZoneEnd + HYSTERESIS_BUFFER) {
-          return AimMode.NONE;
-        }
-      } else if (currentMode == AimMode.NONE) {
-        if (robotX < allianceZoneEnd - HYSTERESIS_BUFFER) {
-          return AimMode.SHOOT;
-        } else if (robotX > transitionEnd + HYSTERESIS_BUFFER) {
-          return AimMode.PASS;
-        }
-      } else {
-        // PASS
-        if (robotX < transitionEnd - HYSTERESIS_BUFFER) {
-          return AimMode.NONE;
-        }
+      if (robotX < allianceZoneEnd - HYSTERESIS_BUFFER && currentMode != AimMode.SHOOT) {
+        return AimMode.SHOOT;
+      } else if (robotX > allianceZoneEnd + HYSTERESIS_BUFFER && currentMode == AimMode.SHOOT) {
+        // Left alliance zone — go to HOLDFIRE or PASS depending on bump proximity
+        return inHoldfire ? AimMode.HOLDFIRE : AimMode.PASS;
+      }
+      // Outside alliance zone: toggle between PASS and HOLDFIRE based on bump proximity
+      if (currentMode == AimMode.HOLDFIRE && !inHoldfire) {
+        return AimMode.PASS;
+      } else if (currentMode == AimMode.PASS && inHoldfire) {
+        return AimMode.HOLDFIRE;
       }
     } else {
-      // Red: PASS zone < NONE transition < redAllianceZoneStart < SHOOT zone
       double redAllianceZoneStart = fieldLength - allianceZoneEnd;
-      double transitionEnd = redAllianceZoneStart - TRANSITION_ZONE_WIDTH;
 
-      if (currentMode == AimMode.SHOOT) {
-        if (robotX < redAllianceZoneStart - HYSTERESIS_BUFFER) {
-          return AimMode.NONE;
-        }
-      } else if (currentMode == AimMode.NONE) {
-        if (robotX > redAllianceZoneStart + HYSTERESIS_BUFFER) {
-          return AimMode.SHOOT;
-        } else if (robotX < transitionEnd - HYSTERESIS_BUFFER) {
-          return AimMode.PASS;
-        }
-      } else {
-        // PASS
-        if (robotX > transitionEnd + HYSTERESIS_BUFFER) {
-          return AimMode.NONE;
-        }
+      if (robotX > redAllianceZoneStart + HYSTERESIS_BUFFER && currentMode != AimMode.SHOOT) {
+        return AimMode.SHOOT;
+      } else if (robotX < redAllianceZoneStart - HYSTERESIS_BUFFER
+          && currentMode == AimMode.SHOOT) {
+        return inHoldfire ? AimMode.HOLDFIRE : AimMode.PASS;
+      }
+      // Outside alliance zone: toggle between PASS and HOLDFIRE based on bump proximity
+      if (currentMode == AimMode.HOLDFIRE && !inHoldfire) {
+        return AimMode.PASS;
+      } else if (currentMode == AimMode.PASS && inHoldfire) {
+        return AimMode.HOLDFIRE;
       }
     }
 
