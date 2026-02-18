@@ -114,6 +114,7 @@ public class Robot extends LoggedRobot {
   @Override
   public void disabledPeriodic() {
     robotContainer.updateOI(); // This only matters when the joysticks change
+    robotContainer.updateAutoChooserForMode(); // Rebuild chooser when Competition Mode changes
     robotContainer.updateSimulationPoseFromAuto(); // Update sim pose when auto selection changes
   }
 

@@ -9,6 +9,8 @@ package frc.robot;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
+import com.pathplanner.lib.commands.PathPlannerAuto;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
@@ -55,6 +57,11 @@ import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.FuelSim;
 import frc.robot.util.MatchPhaseTracker;
 import frc.robot.util.RobotStatus;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -76,8 +83,9 @@ public class RobotContainer {
   private final ShootingCoordinator shootingCoordinator; // Orchestrates turret+hood+launcher
   private OperatorInterface oi = new OperatorInterface() {};
 
-  // Dashboard inputs
-  private final LoggedDashboardChooser<Command> autoChooser;
+  // Dashboard inputs — single auto chooser, rebuilt when Competition Mode toggle changes
+  private LoggedDashboardChooser<Command> autoChooser;
+  private boolean lastCompetitionMode = true;
 
   // Simulation: track last selected auto for pose updates
   private String lastSelectedAutoName = null;
@@ -471,42 +479,9 @@ public class RobotContainer {
     // buildAutoChooser)
     registerNamedCommands();
 
-    // Set up auto routines
-    autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
-
-    // Add SysId routines only on real robot (not in simulation)
-    // In sim, we only want PathPlanner autos so we can set starting poses
-    if (Constants.currentMode != Constants.Mode.SIM) {
-      autoChooser.addOption(
-          "Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
-      autoChooser.addOption(
-          "Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
-      autoChooser.addOption(
-          "Drive SysId (Quasistatic Forward)",
-          drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
-      autoChooser.addOption(
-          "Drive SysId (Quasistatic Reverse)",
-          drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
-      autoChooser.addOption(
-          "Drive SysId (Dynamic Forward)", drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
-      autoChooser.addOption(
-          "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
-
-      // Launcher SysId routines (TurretBot only) - forward only since launcher never
-      // runs reverse
-      if (launcher != null) {
-        autoChooser.addOption("Launcher SysId (Quasistatic)", launcher.launcherSysIdQuasistatic());
-        autoChooser.addOption("Launcher SysId (Dynamic)", launcher.launcherSysIdDynamic());
-        autoChooser.addOption(
-            "Launcher Simple FF Characterization",
-            LauncherCommands.feedforwardCharacterization(launcher));
-      }
-      if (motivator != null) {
-        autoChooser.addOption(
-            "Motivator Simple FF Characterization",
-            MotivatorCommands.feedforwardCharacterization(motivator));
-      }
-    }
+    // Dashboard toggle: defaults to competition mode (safe for matches)
+    SmartDashboard.putBoolean("Competition Mode", true);
+    autoChooser = buildAutoChooserForMode(true);
 
     updateOI();
   }
@@ -532,6 +507,11 @@ public class RobotContainer {
   // Starting fuel count for autonomous (always 8)
   private static final int AUTO_START_FUEL_COUNT = 8;
 
+  // Comp autos get the full shooting wrap (fuel, auto-shoot, intake, launcher spin-up).
+  // Test autos run bare — no setup/teardown, just the path.
+  // Built dynamically at startup by scanning PathPlanner auto files for "folder": "Comp".
+  private final Set<String> compAutos = loadCompAutoNames();
+
   /**
    * Use this to pass the autonomous command to the main {@link Robot} class. Wraps the selected
    * auto with setup (fuel, launcher spin-up, auto-shoot enable) and teardown (disable auto-shoot,
@@ -542,6 +522,12 @@ public class RobotContainer {
   public Command getAutonomousCommand() {
     Command selectedAuto = autoChooser.get();
     if (selectedAuto == null) return null;
+
+    // Only wrap comp autos with shooting setup/teardown; test autos run bare
+    String selectedName = autoChooser.getSendableChooser().getSelected();
+    if (selectedName == null || !compAutos.contains(selectedName)) {
+      return selectedAuto;
+    }
 
     // Supplier for wait-until-fuel-empty (sim: checks visualizer, real: passes through)
     BooleanSupplier fuelEmpty =
@@ -865,6 +851,95 @@ public class RobotContainer {
         // This can happen for non-PathPlanner autos or invalid selections
       }
     }
+  }
+
+  /**
+   * Rebuild the auto chooser when the "Competition Mode" toggle changes. Call this from
+   * disabledPeriodic() so the dropdown updates while the robot is disabled before a match.
+   */
+  public void updateAutoChooserForMode() {
+    boolean compMode = SmartDashboard.getBoolean("Competition Mode", true);
+    if (compMode != lastCompetitionMode) {
+      lastCompetitionMode = compMode;
+      autoChooser = buildAutoChooserForMode(compMode);
+    }
+  }
+
+  /**
+   * Build the auto chooser for the given mode. In competition mode, only Comp-folder autos are
+   * included. In practice mode, all PathPlanner autos and SysId routines are included.
+   */
+  private LoggedDashboardChooser<Command> buildAutoChooserForMode(boolean competitionMode) {
+    if (competitionMode) {
+      SendableChooser<Command> sendable = new SendableChooser<>();
+      sendable.setDefaultOption("None", Commands.none());
+      for (String autoName : compAutos) {
+        sendable.addOption(autoName, new PathPlannerAuto(autoName));
+      }
+      return new LoggedDashboardChooser<>("Auto Choices", sendable);
+    } else {
+      LoggedDashboardChooser<Command> chooser =
+          new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
+      // Add SysId routines only on real robot (not in simulation)
+      if (Constants.currentMode != Constants.Mode.SIM) {
+        chooser.addOption(
+            "Drive Wheel Radius Characterization",
+            DriveCommands.wheelRadiusCharacterization(drive));
+        chooser.addOption(
+            "Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
+        chooser.addOption(
+            "Drive SysId (Quasistatic Forward)",
+            drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+        chooser.addOption(
+            "Drive SysId (Quasistatic Reverse)",
+            drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+        chooser.addOption(
+            "Drive SysId (Dynamic Forward)", drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
+        chooser.addOption(
+            "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+
+        if (launcher != null) {
+          chooser.addOption("Launcher SysId (Quasistatic)", launcher.launcherSysIdQuasistatic());
+          chooser.addOption("Launcher SysId (Dynamic)", launcher.launcherSysIdDynamic());
+          chooser.addOption(
+              "Launcher Simple FF Characterization",
+              LauncherCommands.feedforwardCharacterization(launcher));
+        }
+        if (motivator != null) {
+          chooser.addOption(
+              "Motivator Simple FF Characterization",
+              MotivatorCommands.feedforwardCharacterization(motivator));
+        }
+      }
+      return chooser;
+    }
+  }
+
+  /**
+   * Scan PathPlanner auto files and return the names of autos in the "Comp" folder. Any auto placed
+   * in the Comp folder in PathPlanner will automatically get the shooting wrap (fuel loading,
+   * auto-shoot, intake, launcher spin-up/teardown).
+   */
+  private static Set<String> loadCompAutoNames() {
+    Set<String> names = new HashSet<>();
+    File autosDir =
+        new File(edu.wpi.first.wpilibj.Filesystem.getDeployDirectory(), "pathplanner/autos");
+    File[] autoFiles = autosDir.listFiles((dir, name) -> name.endsWith(".auto"));
+    if (autoFiles == null) return names;
+
+    for (File file : autoFiles) {
+      try {
+        String content = Files.readString(file.toPath());
+        if (content.contains("\"folder\": \"Comp\"") || content.contains("\"folder\":\"Comp\"")) {
+          // Auto name = filename without .auto extension
+          String autoName = file.getName().replace(".auto", "");
+          names.add(autoName);
+        }
+      } catch (IOException e) {
+        // Skip unreadable files
+      }
+    }
+    return names;
   }
 
   /**
