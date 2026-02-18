@@ -121,7 +121,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretExternalGearRatio = 66.0 / 12.0; // ~5.5 (encoder to turret)
   private static final double turretMotorGearRatio = 10.0;
   private static final double turretGearRatio = turretExternalGearRatio * turretMotorGearRatio;
-  
+
   // Physical dimensions
   // Turret offset from robot center (in robot-relative coordinates)
   // Positive X = forward from robot center

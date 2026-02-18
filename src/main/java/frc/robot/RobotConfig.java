@@ -12,8 +12,7 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 
 /**
- * Interface defining robot-specific configuration values. Implement this
- * interface for each
+ * Interface defining robot-specific configuration values. Implement this interface for each
  * physical robot (MainBot, SquareBot, etc.)
  */
 public interface RobotConfig {
@@ -237,10 +236,7 @@ public interface RobotConfig {
     return false;
   }
 
-  /**
-   * Absolute encoder zero offset in raw rotations (0.0 to 1.0) for turret
-   * calibration.
-   */
+  /** Absolute encoder zero offset in raw rotations (0.0 to 1.0) for turret calibration. */
   default double getTurretAbsoluteEncoderOffset() {
     return 0.0;
   }
@@ -264,8 +260,7 @@ public interface RobotConfig {
   }
 
   /**
-   * Launcher gear ratio: motor rotations to wheel rotations. Example: 1.5 means 1
-   * motor rotation =
+   * Launcher gear ratio: motor rotations to wheel rotations. Example: 1.5 means 1 motor rotation =
    * 1.5 wheel rotations (wheel spins faster).
    */
   default double getLauncherGearRatio() {
