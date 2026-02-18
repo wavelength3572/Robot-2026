@@ -7,6 +7,7 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.Constants.TurretConstants;
+import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -19,16 +20,24 @@ import org.littletonrobotics.junction.Logger;
 public class Turret extends SubsystemBase {
   private final TurretIO io;
   private final TurretIOInputsAutoLogged inputs = new TurretIOInputsAutoLogged();
+
+  private final RobotConfig config;
+
   private final double turretHeightMeters;
   private final double turretXOffset;
   private final double turretYOffset;
 
-  // ========== Tunable Limits (adjust in AdvantageScope without recompiling!) ==========
-  // FlipAngleDeg: How far can the turret rotate before it must "flip" (go the other way)
+  private final double configMin;
+  private final double configMax;
+  private final double centerOffsetDeg;
+  private final double flipAngleDeg;
+
+  // ========== Tunable Limits (adjust in AdvantageScope without recompiling!)
+  // ==========
+  // FlipAngleDeg: How far can the turret rotate before it must "flip" (go the
+  // other way)
   // CenterOffsetDeg: Shifts the whole range (0 = symmetric around robot forward)
   // Effective limits = [CenterOffset - FlipAngle, CenterOffset + FlipAngle]
-  private final LoggedTunableNumber flipAngleDeg;
-  private final LoggedTunableNumber centerOffsetDeg;
   private final LoggedTunableNumber warningZoneDeg;
 
   // Dual-mode range: narrower range when tracking (idle) to reduce cable wear,
@@ -47,14 +56,14 @@ public class Turret extends SubsystemBase {
    */
   public Turret(TurretIO io) {
     this.io = io;
-    var config = Constants.getRobotConfig();
+    config = Constants.getRobotConfig();
     this.turretHeightMeters = config.getTurretHeightMeters();
     this.turretXOffset = config.getTurretOffsetX();
     this.turretYOffset = config.getTurretOffsetY();
 
     // Log turret configuration (logged once at startup)
-    Logger.recordOutput("Turret/Config/hardLimitMinDeg", TurretConstants.HARD_LIMIT_MIN_DEG);
-    Logger.recordOutput("Turret/Config/hardLimitMaxDeg", TurretConstants.HARD_LIMIT_MAX_DEG);
+    Logger.recordOutput("Turret/Config/hardLimitMinDeg", config.getTurretMinAngleDegrees());
+    Logger.recordOutput("Turret/Config/hardLimitMaxDeg", config.getTurretMaxAngleDegrees());
     Logger.recordOutput("Turret/Config/heightMeters", turretHeightMeters);
     Logger.recordOutput("Turret/Config/gearRatio", config.getTurretGearRatio());
     Logger.recordOutput("Turret/Config/kP", config.getTurretKp());
@@ -62,16 +71,14 @@ public class Turret extends SubsystemBase {
     Logger.recordOutput("Turret/Config/currentLimitAmps", config.getTurretCurrentLimitAmps());
 
     // Initialize tunable limits (adjustable via NetworkTables at runtime)
-    double configMin = config.getTurretMinAngleDegrees();
-    double configMax = config.getTurretMaxAngleDegrees();
-    double defaultCenter = (configMax + configMin) / 2.0;
-    double defaultFlipAngle = (configMax - configMin) / 2.0;
+    configMin = config.getTurretMinAngleDegrees();
+    configMax = config.getTurretMaxAngleDegrees();
+    centerOffsetDeg = (configMax + configMin) / 2.0;
+    flipAngleDeg = (configMax - configMin) / 2.0;
 
-    flipAngleDeg = new LoggedTunableNumber("Tuning/Turret/FlipAngleDeg", defaultFlipAngle);
-    centerOffsetDeg = new LoggedTunableNumber("Tuning/Turret/CenterOffsetDeg", defaultCenter);
     warningZoneDeg = new LoggedTunableNumber("Tuning/Turret/WarningZoneDeg", 20.0);
     trackingFlipAngleDeg =
-        new LoggedTunableNumber("Tuning/Turret/TrackingFlipAngleDeg", defaultFlipAngle - 10.0);
+        new LoggedTunableNumber("Tuning/Turret/TrackingFlipAngleDeg", flipAngleDeg - 10.0);
 
     // Calculate initial effective limits
     updateEffectiveLimits();
@@ -79,17 +86,16 @@ public class Turret extends SubsystemBase {
 
   /** Update effective min/max limits from tunable flip angle, center offset, and active mode. */
   private void updateEffectiveLimits() {
-    double center = centerOffsetDeg.get();
-    double flipAngle = launchModeActive ? flipAngleDeg.get() : trackingFlipAngleDeg.get();
-    effectiveMinAngleDeg = Math.max(TurretConstants.HARD_LIMIT_MIN_DEG, center - flipAngle);
-    effectiveMaxAngleDeg = Math.min(TurretConstants.HARD_LIMIT_MAX_DEG, center + flipAngle);
+    double flipAngle = launchModeActive ? flipAngleDeg : trackingFlipAngleDeg.get();
+    effectiveMinAngleDeg = Math.max(config.getTurretMinAngleDegrees(), centerOffsetDeg - flipAngle);
+    effectiveMaxAngleDeg = Math.min(config.getTurretMaxAngleDegrees(), centerOffsetDeg + flipAngle);
   }
 
   @Override
   public void periodic() {
     io.updateInputs(inputs);
     Logger.processInputs("Turret", inputs);
-    if (LoggedTunableNumber.hasChanged(flipAngleDeg, centerOffsetDeg, trackingFlipAngleDeg)) {
+    if (LoggedTunableNumber.hasChanged(trackingFlipAngleDeg)) {
       updateEffectiveLimits();
     }
     Logger.recordOutput("Turret/LaunchModeActive", launchModeActive);
@@ -111,7 +117,7 @@ public class Turret extends SubsystemBase {
         Math.max(effectiveMinAngleDeg, Math.min(effectiveMaxAngleDeg, angleDegrees));
 
     if (clampedAngle != angleDegrees) {
-      Logger.recordOutput("Turret/Safety/ClampedRequestDeg", angleDegrees);
+      Logger.recordOutput("Turret/Safety/ClampedRequestDeg", clampedAngle);
     }
 
     io.setTurretAngle(Rotation2d.fromDegrees(clampedAngle));
@@ -240,7 +246,7 @@ public class Turret extends SubsystemBase {
    * @return Center offset in degrees
    */
   public double getCenterOffsetDeg() {
-    return centerOffsetDeg.get();
+    return centerOffsetDeg;
   }
 
   /**

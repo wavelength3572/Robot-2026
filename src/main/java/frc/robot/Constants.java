@@ -122,10 +122,6 @@ public final class Constants {
    * IDs, gear ratios, PID gains) live in the RobotConfig implementations.
    */
   public static final class TurretConstants {
-    // Hard limits (mechanical stops - never exceed these)
-    public static final double HARD_LIMIT_MIN_DEG = -185.0;
-    public static final double HARD_LIMIT_MAX_DEG = 185.0;
-
     // Tolerances
     public static final double ANGLE_TOLERANCE_DEGREES = 2.0;
 
