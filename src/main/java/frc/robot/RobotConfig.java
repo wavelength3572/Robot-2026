@@ -230,11 +230,6 @@ public interface RobotConfig {
     return false;
   }
 
-  /** Whether turret encoder is inverted. */
-  default boolean getTurretEncoderInverted() {
-    return false;
-  }
-
   /** Absolute encoder zero offset in raw rotations (0.0 to 1.0) for turret calibration. */
   default double getTurretAbsoluteEncoderOffset() {
     return 0.0;

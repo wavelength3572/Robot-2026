@@ -77,7 +77,7 @@ public class Turret extends SubsystemBase {
 
     warningZoneDeg = new LoggedTunableNumber("Tuning/Turret/WarningZoneDeg", 20.0);
     trackingFlipAngleDeg =
-        new LoggedTunableNumber("Tuning/Turret/TrackingFlipAngleDeg", flipAngleDeg - 10.0);
+        new LoggedTunableNumber("Tuning/Turret/TrackingFlipAngleDeg", flipAngleDeg);
 
     // Calculate initial effective limits
     updateEffectiveLimits();

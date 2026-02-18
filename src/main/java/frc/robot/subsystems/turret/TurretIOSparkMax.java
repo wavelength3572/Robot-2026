@@ -86,7 +86,10 @@ public class TurretIOSparkMax implements TurretIO {
     motorConfig
         .smartCurrentLimit(config.getTurretCurrentLimitAmps())
         .voltageCompensation(12.0)
-        .idleMode(com.revrobotics.spark.config.SparkBaseConfig.IdleMode.kBrake);
+        .idleMode(com.revrobotics.spark.config.SparkBaseConfig.IdleMode.kBrake)
+        .inverted(config.getTurretMotorInverted());
+
+    motorConfig.absoluteEncoder.inverted(true);
 
     // PID control using motor's relative encoder (units: motor rotations)
     motorConfig
@@ -135,7 +138,6 @@ public class TurretIOSparkMax implements TurretIO {
     double rawEncoder = absoluteEncoder.getPosition();
     // The 1.0 before the modulo prevents negative results
     double adjustedEncoder = (rawEncoder - absoluteEncoderOffset + 1.0) % 1.0;
-    adjustedEncoder = adjustedEncoder - 0.5; // Normalize to [.5,-.5)
     double seedMotorRotations = adjustedEncoder * config.getTurretMotorGearRatio();
     double turretPositionDegrees =
         motorRotationsToDegrees(adjustedEncoder * config.getTurretMotorGearRatio());
