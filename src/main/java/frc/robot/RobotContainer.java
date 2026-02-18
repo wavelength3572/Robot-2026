@@ -256,10 +256,10 @@ public class RobotContainer {
           drive =
               new Drive(
                   new GyroIO() {},
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
+                  new ModuleIOSpark(0),
+                  new ModuleIOSpark(1),
+                  new ModuleIOSpark(2),
+                  new ModuleIOSpark(3),
                   turret);
           // MainBot uses corner-mounted cameras aimed diagonally outward + front center
           // for intake

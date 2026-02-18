@@ -7,7 +7,6 @@ import com.revrobotics.PersistMode;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.ResetMode;
 import com.revrobotics.spark.FeedbackSensor;
-import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
@@ -313,6 +312,6 @@ public class TurretIOSparkMax implements TurretIO {
     targetRotation = Rotation2d.fromDegrees(clampedDegrees);
 
     // Convert degrees to motor rotations for the PID controller
-    motorController.setSetpoint(degreesToMotorRotations(clampedDegrees), ControlType.kPosition);
+    // motorController.setSetpoint(degreesToMotorRotations(clampedDegrees), ControlType.kPosition);
   }
 }

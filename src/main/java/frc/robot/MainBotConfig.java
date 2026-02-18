@@ -36,10 +36,10 @@ public class MainBotConfig implements RobotConfig {
       };
 
   // Module zero rotations (needs calibration for MainBot)
-  private static final Rotation2d frontLeftZeroRotation = new Rotation2d(0.0);
-  private static final Rotation2d frontRightZeroRotation = new Rotation2d(0.0);
-  private static final Rotation2d backLeftZeroRotation = new Rotation2d(0.0);
-  private static final Rotation2d backRightZeroRotation = new Rotation2d(0.0);
+  private static final Rotation2d frontLeftZeroRotation = new Rotation2d(1.77948);
+  private static final Rotation2d frontRightZeroRotation = new Rotation2d(1.290078);
+  private static final Rotation2d backLeftZeroRotation = new Rotation2d(1.377515);
+  private static final Rotation2d backRightZeroRotation = new Rotation2d(1.994175);
 
   // CAN IDs
   private static final int pigeonCanId = 19;
@@ -51,6 +51,11 @@ public class MainBotConfig implements RobotConfig {
   private static final int frontRightTurnCanId = 22;
   private static final int backLeftTurnCanId = 32;
   private static final int backRightTurnCanId = 42;
+
+  private static final int frontleftCanCoderId = 13;
+  private static final int frontRightCanCoderId = 23;
+  private static final int backLeftCanCoderId = 33;
+  private static final int backRightCanCoderId = 43;
 
   // Drive motor configuration
   private static final int driveMotorCurrentLimit = 50;
@@ -135,13 +140,16 @@ public class MainBotConfig implements RobotConfig {
   private static final double hoodKd = 0;
 
   // Motivator Configuration
-  private static final int motivatorMotorCanId = 55;
+  private static final int motivatorMotorCanId = 56;
   private static final int motivatorCurrentLimitAmps = 40;
   private static final double motivatorKp = 0.00001;
   private static final double motivatorKd = 0.0;
   private static final double motivatorKs = 0.23368;
   private static final double motivatorKv = 0.0021;
   private static final double motivatorGearRatio = 1.0 / 3.0;
+
+  // Motivator Configuration
+  private static final int spindexerMotorCanId = 55;
 
   // Performance
   private static final double maxSpeedMetersPerSec =
@@ -259,22 +267,22 @@ public class MainBotConfig implements RobotConfig {
 
   @Override
   public int getFrontLeftCANCoderCanId() {
-    return 0;
+    return frontleftCanCoderId;
   }
 
   @Override
   public int getFrontRightCANCoderCanId() {
-    return 0;
+    return frontRightCanCoderId;
   }
 
   @Override
   public int getBackLeftCANCoderCanId() {
-    return 0;
+    return backLeftCanCoderId;
   }
 
   @Override
   public int getBackRightCANCoderCanId() {
-    return 0;
+    return backRightCanCoderId;
   }
 
   @Override

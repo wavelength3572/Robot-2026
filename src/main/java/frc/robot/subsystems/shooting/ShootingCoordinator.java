@@ -247,7 +247,7 @@ public class ShootingCoordinator extends SubsystemBase {
     currentShot = result;
 
     // Command turret to aim
-    turret.setTurretAngle(result.turretAngleDeg());
+    // turret.setTurretAngle(result.turretAngleDeg());
 
     // Command hood to the mechanical angle if available
     if (hood != null && result.achievable()) {
@@ -310,7 +310,7 @@ public class ShootingCoordinator extends SubsystemBase {
     currentShot = result;
 
     // Command turret to aim
-    turret.setTurretAngle(result.turretAngleDeg());
+    // turret.setTurretAngle(result.turretAngleDeg());
 
     // Log pass shot data
     double robotHeadingRad = robotPose.getRotation().getRadians();
@@ -559,7 +559,7 @@ public class ShootingCoordinator extends SubsystemBase {
    * @param angleDeg Turret angle in degrees
    */
   public void setTurretAngle(double angleDeg) {
-    turret.setTurretAngle(angleDeg);
+    // turret.setTurretAngle(angleDeg);
   }
 
   /**

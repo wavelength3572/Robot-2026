@@ -129,7 +129,7 @@ public class Turret extends SubsystemBase {
   public void aimAtFieldPosition(
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
     double turretAngle = calculateTurretAngle(robotX, robotY, robotOmega, targetX, targetY);
-    setTurretAngle(turretAngle);
+    // setTurretAngle(turretAngle);
   }
 
   /**
