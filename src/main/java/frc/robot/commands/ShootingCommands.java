@@ -9,6 +9,7 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.shooting.ShotVisualizer;
+import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.util.BenchTestMetrics;
 import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
@@ -165,10 +166,14 @@ public class ShootingCommands {
    * @param launcher The launcher subsystem
    * @param coordinator The shooting coordinator
    * @param motivator The motivator subsystem (can be null if not present)
+   * @param spindexer The spindexer subsystem (can be null if not present)
    * @return Command that launches while held
    */
   public static Command launchCommand(
-      Launcher launcher, ShootingCoordinator coordinator, Motivator motivator) {
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Spindexer spindexer) {
     return Commands.sequence(
             // Set competition mode for auto-calculated trajectories
             Commands.runOnce(() -> setMode(ShootingMode.COMPETITION)),
@@ -238,6 +243,12 @@ public class ShootingCommands {
                         () -> motivator.setMotivatorVelocity(motivatorVelocityRPM.get()), motivator)
                     : Commands.none(),
 
+                // Start spindexer to feed fuel into the pipeline
+                spindexer != null
+                    ? Commands.run(
+                        () -> spindexer.setSpindexerVelocity(testSpindexerRPM.get()), spindexer)
+                    : Commands.none(),
+
                 // Fire balls repeatedly in simulation
                 createFiringLoop(coordinator, launcher)))
         .finallyDo(
@@ -247,6 +258,9 @@ public class ShootingCommands {
               coordinator.disableLaunchMode();
               if (motivator != null) {
                 motivator.stopMotivator();
+              }
+              if (spindexer != null) {
+                spindexer.stopSpindexer();
               }
               SmartDashboard.putString("Match/Status/State", "Stopped");
               System.out.println("[Launch] Stopped");
@@ -357,10 +371,15 @@ public class ShootingCommands {
    * @param coordinator The shooting coordinator
    * @param motivator The motivator subsystem (can be null)
    * @param hood The hood subsystem (can be null)
+   * @param spindexer The spindexer subsystem (can be null)
    * @return Command that positions, spins up, and fires while held
    */
   public static Command testLaunchCommand(
-      Launcher launcher, ShootingCoordinator coordinator, Motivator motivator, Hood hood) {
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Hood hood,
+      Spindexer spindexer) {
     return Commands.sequence(
             Commands.runOnce(() -> setMode(ShootingMode.TEST)),
 
@@ -476,6 +495,12 @@ public class ShootingCommands {
                         () -> motivator.setMotivatorVelocity(testMotivatorRPM.get()), motivator)
                     : Commands.none(),
 
+                // Start spindexer to feed fuel into the pipeline
+                spindexer != null
+                    ? Commands.run(
+                        () -> spindexer.setSpindexerVelocity(testSpindexerRPM.get()), spindexer)
+                    : Commands.none(),
+
                 // Fire balls repeatedly with metrics recording
                 createBenchTestFiringLoop(coordinator, launcher)))
         .finallyDo(
@@ -484,6 +509,9 @@ public class ShootingCommands {
               launcher.stop();
               if (motivator != null) {
                 motivator.stopMotivator();
+              }
+              if (spindexer != null) {
+                spindexer.stopSpindexer();
               }
               coordinator.clearManualShotParameters();
               coordinator.disableLaunchMode();
@@ -500,10 +528,14 @@ public class ShootingCommands {
    * @param launcher The launcher subsystem
    * @param coordinator The shooting coordinator
    * @param motivator The motivator subsystem (can be null)
+   * @param spindexer The spindexer subsystem (can be null)
    * @return Command that launches while held
    */
   public static Command benchTestLaunchCommand(
-      Launcher launcher, ShootingCoordinator coordinator, Motivator motivator) {
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Spindexer spindexer) {
     return Commands.sequence(
             Commands.runOnce(() -> setMode(ShootingMode.TEST)),
 
@@ -567,6 +599,12 @@ public class ShootingCommands {
                     ? Commands.run(
                         () -> motivator.setMotivatorVelocity(testMotivatorRPM.get()), motivator)
                     : Commands.none(),
+
+                // Start spindexer to feed fuel into the pipeline
+                spindexer != null
+                    ? Commands.run(
+                        () -> spindexer.setSpindexerVelocity(testSpindexerRPM.get()), spindexer)
+                    : Commands.none(),
                 createBenchTestFiringLoop(coordinator, launcher)))
         .finallyDo(
             () -> {
@@ -575,6 +613,9 @@ public class ShootingCommands {
               coordinator.disableLaunchMode();
               if (motivator != null) {
                 motivator.stopMotivator();
+              }
+              if (spindexer != null) {
+                spindexer.stopSpindexer();
               }
               setMode(ShootingMode.COMPETITION);
               SmartDashboard.putString("Match/Status/State", "Stopped");

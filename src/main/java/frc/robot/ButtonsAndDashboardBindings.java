@@ -156,19 +156,21 @@ public class ButtonsAndDashboardBindings {
     // Auto-calculated trajectory - works for both sim and physical
     SmartDashboard.putData(
         "Match/SmartLaunch",
-        ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
+        ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator, spindexer));
 
     // === Manual Launch Command ===
     // Manual test mode using BenchTest/Shooting/* dashboard values for controlled testing
     SmartDashboard.putData(
         "BenchTest/Shooting/Launch",
-        ShootingCommands.testLaunchCommand(launcher, shootingCoordinator, motivator, hood));
+        ShootingCommands.testLaunchCommand(
+            launcher, shootingCoordinator, motivator, hood, spindexer));
 
     // === Bench Test Controls ===
     // Stripped-down launch for bench testing (no turret/hood wait)
     SmartDashboard.putData(
         "BenchTest/Shooting/LauncherOnly",
-        ShootingCommands.benchTestLaunchCommand(launcher, shootingCoordinator, motivator));
+        ShootingCommands.benchTestLaunchCommand(
+            launcher, shootingCoordinator, motivator, spindexer));
 
     // Set fuel stored to 8 (works while disabled)
     SmartDashboard.putData(
@@ -489,10 +491,12 @@ public class ButtonsAndDashboardBindings {
           oi.getShootButton()
               .whileTrue(
                   ShootingCommands.benchTestLaunchCommand(
-                      launcher, shootingCoordinator, motivator));
+                      launcher, shootingCoordinator, motivator, spindexer));
         } else {
           oi.getShootButton()
-              .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
+              .whileTrue(
+                  ShootingCommands.launchCommand(
+                      launcher, shootingCoordinator, motivator, spindexer));
         }
       } else {
         // No launcher - just launch fuel visually
@@ -503,7 +507,8 @@ public class ButtonsAndDashboardBindings {
     // Launcher button - same as shoot button (unified launch command)
     if (launcher != null && shootingCoordinator != null) {
       oi.getLauncherButton()
-          .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
+          .whileTrue(
+              ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator, spindexer));
     }
   }
 
@@ -532,7 +537,8 @@ public class ButtonsAndDashboardBindings {
     // Shooting controls - unified launch command
     if (shootingCoordinator != null && launcher != null) {
       oi.getButtonBox1Button2()
-          .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
+          .whileTrue(
+              ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator, spindexer));
     } else if (shootingCoordinator != null) {
       // Fallback if no launcher: just launch fuel visually
       oi.getButtonBox1Button2().whileTrue(shootingCoordinator.repeatedlyLaunchFuelCommand());

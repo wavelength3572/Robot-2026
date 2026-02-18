@@ -13,6 +13,8 @@ import frc.robot.Constants;
 import frc.robot.FieldConstants;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.launcher.Launcher;
+import frc.robot.subsystems.motivator.Motivator;
+import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.TurretAimingHelper;
@@ -32,6 +34,8 @@ public class ShootingCoordinator extends SubsystemBase {
   private final Turret turret;
   private final Hood hood;
   private final Launcher launcher;
+  private final Spindexer spindexer;
+  private final Motivator motivator;
 
   // Turret geometry config (immutable)
   private final ShotCalculator.TurretConfig turretConfig;
@@ -82,11 +86,16 @@ public class ShootingCoordinator extends SubsystemBase {
    * @param turret The turret subsystem (rotation control only)
    * @param hood The hood subsystem (launch angle control), may be null
    * @param launcher The launcher subsystem (RPM control), may be null
+   * @param spindexer The spindexer subsystem (fuel feeding), may be null
+   * @param motivator The motivator subsystem (feeder wheels), may be null
    */
-  public ShootingCoordinator(Turret turret, Hood hood, Launcher launcher) {
+  public ShootingCoordinator(
+      Turret turret, Hood hood, Launcher launcher, Spindexer spindexer, Motivator motivator) {
     this.turret = turret;
     this.hood = hood;
     this.launcher = launcher;
+    this.spindexer = spindexer;
+    this.motivator = motivator;
 
     var config = Constants.getRobotConfig();
     this.turretConfig =
@@ -151,6 +160,16 @@ public class ShootingCoordinator extends SubsystemBase {
     if (visualizer != null && robotPoseSupplier != null) {
       visualizer.update(createVisualizerSnapshot(isBlueAlliance));
     }
+  }
+
+  /** Get the spindexer subsystem. */
+  public Spindexer getSpindexer() {
+    return spindexer;
+  }
+
+  /** Get the motivator subsystem. */
+  public Motivator getMotivator() {
+    return motivator;
   }
 
   // ========== Shot Calculation Dispatch ==========
