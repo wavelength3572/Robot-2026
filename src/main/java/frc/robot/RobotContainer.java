@@ -11,7 +11,6 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
-import java.util.function.BooleanSupplier;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
@@ -44,6 +43,7 @@ import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.motivator.MotivatorIO;
 import frc.robot.subsystems.motivator.MotivatorIOSim;
 import frc.robot.subsystems.motivator.MotivatorIOSparkMax;
+import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
 import frc.robot.subsystems.turret.TurretIOSim;
@@ -55,6 +55,7 @@ import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.FuelSim;
 import frc.robot.util.MatchPhaseTracker;
 import frc.robot.util.RobotStatus;
+import java.util.function.BooleanSupplier;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -72,6 +73,7 @@ public class RobotContainer {
   private final Launcher launcher; // Only instantiated for TurretBot, null for others
   private final Hood hood; // Only instantiated for robots with hood hardware, null for others
   private final Motivator motivator; // Only instantiated for robots with motivator, null for others
+  private final ShootingCoordinator shootingCoordinator; // Orchestrates turret+hood+launcher
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs
@@ -451,25 +453,18 @@ public class RobotContainer {
           });
     }
 
-    // Initialize FuelSim for simulation mode
+    // Create ShootingCoordinator (orchestrates turret + hood + launcher)
+    // Must be created BEFORE FuelSim so intake registration can reference the coordinator
+    if (turret != null) {
+      shootingCoordinator = new ShootingCoordinator(turret, hood, launcher);
+      shootingCoordinator.initialize(drive::getPose, () -> drive.getChassisSpeeds());
+    } else {
+      shootingCoordinator = null;
+    }
+
+    // Initialize FuelSim for simulation mode (after coordinator so intake can be registered)
     if (Constants.currentMode == Constants.Mode.SIM) {
       initializeFuelSim();
-    }
-
-    // Initialize turret visualizer (works on both real robot and sim for debugging)
-    if (turret != null && drive != null) {
-      turret.initializeVisualizer(drive::getPose, () -> drive.getChassisSpeeds());
-    }
-
-    // Wire hood into turret so it can command hood angle automatically
-    if (hood != null && turret != null) {
-      turret.setHood(hood);
-    }
-
-    // Configure auto-shoot (turret fires automatically during autonomous when
-    // conditions are met)
-    if (turret != null && launcher != null) {
-      turret.configureAutoShoot(launcher::atSetpoint, launcher::notifyBallFired);
     }
 
     // Register NamedCommands for PathPlanner autos (must be BEFORE
@@ -531,7 +526,7 @@ public class RobotContainer {
     CommandScheduler.getInstance().getActiveButtonLoop().clear();
     oi = OISelector.findOperatorInterface();
     ButtonsAndDashboardBindings.configureBindings(
-        oi, drive, vision, intake, turret, launcher, motivator, hood);
+        oi, drive, vision, intake, turret, launcher, motivator, hood, shootingCoordinator);
   }
 
   // Starting fuel count for autonomous (always 8)
@@ -551,8 +546,9 @@ public class RobotContainer {
     // Supplier for wait-until-fuel-empty (sim: checks visualizer, real: passes through)
     BooleanSupplier fuelEmpty =
         () -> {
-          if (turret == null || turret.getVisualizer() == null) return true;
-          return turret.getVisualizer().getFuelCount() <= 0;
+          if (shootingCoordinator == null || shootingCoordinator.getVisualizer() == null)
+            return true;
+          return shootingCoordinator.getVisualizer().getFuelCount() <= 0;
         };
 
     // Wrap with auto-shoot setup and teardown
@@ -561,8 +557,8 @@ public class RobotContainer {
             Commands.runOnce(
                 () -> {
                   // Set fuel count
-                  if (turret != null && turret.getVisualizer() != null) {
-                    turret.getVisualizer().setFuelCount(AUTO_START_FUEL_COUNT);
+                  if (shootingCoordinator != null && shootingCoordinator.getVisualizer() != null) {
+                    shootingCoordinator.getVisualizer().setFuelCount(AUTO_START_FUEL_COUNT);
                   }
                   // Clear field fuel and respawn starting fuel for auto
                   if (Constants.currentMode == Constants.Mode.SIM) {
@@ -578,8 +574,8 @@ public class RobotContainer {
                     motivator.setMotivatorVelocity(1000.0);
                   }
                   // Enable auto-shoot
-                  if (turret != null) {
-                    turret.enableAutoShoot();
+                  if (shootingCoordinator != null) {
+                    shootingCoordinator.enableAutoShoot();
                   }
                   // Deploy and run intake
                   if (intake != null) {
@@ -597,8 +593,8 @@ public class RobotContainer {
         .finallyDo(
             () -> {
               // Teardown: disable auto-shoot, stop motors
-              if (turret != null) {
-                turret.disableAutoShoot();
+              if (shootingCoordinator != null) {
+                shootingCoordinator.disableAutoShoot();
               }
               if (launcher != null) {
                 launcher.stop();
@@ -628,6 +624,15 @@ public class RobotContainer {
    */
   public boolean hasTurret() {
     return turret != null;
+  }
+
+  /**
+   * Get the shooting coordinator if it exists.
+   *
+   * @return ShootingCoordinator or null if not present
+   */
+  public ShootingCoordinator getShootingCoordinator() {
+    return shootingCoordinator;
   }
 
   /**
@@ -730,7 +735,7 @@ public class RobotContainer {
             () -> {
               if (launcher != null) launcher.setVelocity(1700.0);
               if (motivator != null) motivator.setMotivatorVelocity(1000.0);
-              if (turret != null) turret.enableAutoShoot();
+              if (shootingCoordinator != null) shootingCoordinator.enableAutoShoot();
             }));
 
     // Disable auto-shoot: stops auto-shoot and motors
@@ -738,7 +743,7 @@ public class RobotContainer {
         "disableAutoShoot",
         Commands.runOnce(
             () -> {
-              if (turret != null) turret.disableAutoShoot();
+              if (shootingCoordinator != null) shootingCoordinator.disableAutoShoot();
               if (launcher != null) launcher.stop();
               if (motivator != null) motivator.stopMotivator();
             }));
@@ -748,8 +753,8 @@ public class RobotContainer {
         "setFuel40",
         Commands.runOnce(
             () -> {
-              if (turret != null && turret.getVisualizer() != null) {
-                turret.getVisualizer().setFuelCount(40);
+              if (shootingCoordinator != null && shootingCoordinator.getVisualizer() != null) {
+                shootingCoordinator.getVisualizer().setFuelCount(40);
               }
             }));
 
@@ -757,28 +762,29 @@ public class RobotContainer {
         "setFuel25",
         Commands.runOnce(
             () -> {
-              if (turret != null && turret.getVisualizer() != null) {
-                turret.getVisualizer().setFuelCount(25);
+              if (shootingCoordinator != null && shootingCoordinator.getVisualizer() != null) {
+                shootingCoordinator.getVisualizer().setFuelCount(25);
               }
             }));
 
     // Wait until all fuel has been fired (with timeout for jams)
-    // Use in autos that should empty their hopper before driving
     NamedCommands.registerCommand(
         "waitUntilFuelEmpty",
         Commands.waitUntil(
                 () -> {
-                  if (turret == null || turret.getVisualizer() == null) return true;
-                  return turret.getVisualizer().getFuelCount() <= 0;
+                  if (shootingCoordinator == null || shootingCoordinator.getVisualizer() == null)
+                    return true;
+                  return shootingCoordinator.getVisualizer().getFuelCount() <= 0;
                 })
-            .withTimeout(5.0) // 5 second timeout in case of jams
+            .withTimeout(5.0)
             .withName("WaitUntilFuelEmpty"));
 
     // Reset simulation commands
-    if (turret != null) {
-      NamedCommands.registerCommand("resetSim", ShootingCommands.resetSimulationCommand(turret));
+    if (shootingCoordinator != null) {
       NamedCommands.registerCommand(
-          "resetStartingField", ShootingCommands.resetStartingFieldCommand(turret));
+          "resetSim", ShootingCommands.resetSimulationCommand(shootingCoordinator));
+      NamedCommands.registerCommand(
+          "resetStartingField", ShootingCommands.resetStartingFieldCommand(shootingCoordinator));
     }
 
     // RunIntake: deploy intake and start rollers (used by Depot auto)
@@ -800,7 +806,7 @@ public class RobotContainer {
             () -> {
               if (launcher != null) launcher.setVelocity(1700.0);
               if (motivator != null) motivator.setMotivatorVelocity(1000.0);
-              if (turret != null) turret.enableAutoShoot();
+              if (shootingCoordinator != null) shootingCoordinator.enableAutoShoot();
             }));
   }
 
@@ -881,7 +887,7 @@ public class RobotContainer {
     // Register intake with fuel simulation for pickup collision detection
     // Intake zone: 10 inches (0.254m) from front frame, 30 inches (0.762m) wide
     // centered
-    if (intake != null && turret != null) {
+    if (intake != null && shootingCoordinator != null) {
       fuelSim.registerIntake(
           0.35,
           0.604, // xMin, xMax (front bumper edge to 10" past it)
@@ -889,11 +895,11 @@ public class RobotContainer {
           0.381, // yMin, yMax (30" wide, centered)
           () ->
               intake.isDeployed()
-                  && turret.getVisualizer() != null
-                  && turret.getVisualizer().canIntake(),
+                  && shootingCoordinator.getVisualizer() != null
+                  && shootingCoordinator.getVisualizer().canIntake(),
           () -> {
-            if (turret.getVisualizer() != null) {
-              turret.getVisualizer().queueFuel();
+            if (shootingCoordinator.getVisualizer() != null) {
+              shootingCoordinator.getVisualizer().queueFuel();
             }
           });
     }

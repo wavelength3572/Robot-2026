@@ -123,8 +123,8 @@ public class Robot extends LoggedRobot {
     // Reset scores and shot counters at the start of each autonomous period
     FuelSim.Hub.BLUE_HUB.resetScore();
     FuelSim.Hub.RED_HUB.resetScore();
-    if (robotContainer.getTurret() != null) {
-      robotContainer.getTurret().resetShotCounts();
+    if (robotContainer.getShootingCoordinator() != null) {
+      robotContainer.getShootingCoordinator().resetShotCounts();
     }
 
     autonomousCommand = robotContainer.getAutonomousCommand();
@@ -151,8 +151,8 @@ public class Robot extends LoggedRobot {
     }
 
     // Disable auto-shoot when entering teleop (safety: prevent autonomous firing)
-    if (robotContainer.getTurret() != null) {
-      robotContainer.getTurret().disableAutoShoot();
+    if (robotContainer.getShootingCoordinator() != null) {
+      robotContainer.getShootingCoordinator().disableAutoShoot();
     }
 
     // Force OI rebind on teleop init to ensure controls are bound

@@ -16,9 +16,10 @@ import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeConstants;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
+import frc.robot.subsystems.shooting.ShootingCoordinator;
+import frc.robot.subsystems.shooting.ShotCalculator;
+import frc.robot.subsystems.shooting.ShotVisualizer;
 import frc.robot.subsystems.turret.Turret;
-import frc.robot.subsystems.turret.TurretCalculator;
-import frc.robot.subsystems.turret.TurretVisualizer;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.BenchTestMetrics;
 import frc.robot.util.FuelSim;
@@ -34,6 +35,7 @@ public class ButtonsAndDashboardBindings {
   private static Launcher launcher;
   private static Motivator motivator;
   private static Hood hood;
+  private static ShootingCoordinator shootingCoordinator;
 
   // Intake bench test tunables
   private static final LoggedTunableNumber testIntakeSpeed =
@@ -66,7 +68,8 @@ public class ButtonsAndDashboardBindings {
       Turret turret,
       Launcher launcher,
       Motivator motivator,
-      Hood hood) {
+      Hood hood,
+      ShootingCoordinator shootingCoordinator) {
     ButtonsAndDashboardBindings.oi = operatorInterface;
     ButtonsAndDashboardBindings.drive = drive;
     ButtonsAndDashboardBindings.vision = vision;
@@ -75,15 +78,16 @@ public class ButtonsAndDashboardBindings {
     ButtonsAndDashboardBindings.launcher = launcher;
     ButtonsAndDashboardBindings.motivator = motivator;
     ButtonsAndDashboardBindings.hood = hood;
+    ButtonsAndDashboardBindings.shootingCoordinator = shootingCoordinator;
 
     configureDriverButtonBindings();
     configureOperatorButtonBindings();
     configureDashboardBindings();
   }
 
-  // Legacy method without vision/intake/turret/launcher/motivator/hood parameters
+  // Legacy method without vision/intake/turret/launcher/motivator/hood/coordinator parameters
   public static void configureBindings(OperatorInterface operatorInterface, Drive drive) {
-    configureBindings(operatorInterface, drive, null, null, null, null, null, null);
+    configureBindings(operatorInterface, drive, null, null, null, null, null, null, null);
   }
 
   /****************************** */
@@ -117,11 +121,12 @@ public class ButtonsAndDashboardBindings {
       configureTurretBotTestControls();
     }
 
-    // Simulation fuel management (available for any robot with a turret)
-    if (turret != null) {
-      SmartDashboard.putData("Sim/FuelReset", ShootingCommands.resetSimulationCommand(turret));
+    // Simulation fuel management (available for any robot with a coordinator)
+    if (shootingCoordinator != null) {
       SmartDashboard.putData(
-          "Sim/ResetStartOfMatch", ShootingCommands.resetStartingFieldCommand(turret));
+          "Sim/FuelReset", ShootingCommands.resetSimulationCommand(shootingCoordinator));
+      SmartDashboard.putData(
+          "Sim/ResetStartOfMatch", ShootingCommands.resetStartingFieldCommand(shootingCoordinator));
       SmartDashboard.putData(
           "Sim/ToggleOutpostBarriers",
           Commands.runOnce(() -> FuelSim.getInstance().toggleOutpostBarriers())
@@ -129,8 +134,8 @@ public class ButtonsAndDashboardBindings {
               .withName("Toggle Outpost Barriers"));
     }
 
-    // Coordinated shooting controls (requires both turret and launcher)
-    if (turret != null && launcher != null) {
+    // Coordinated shooting controls (requires coordinator and launcher)
+    if (shootingCoordinator != null && launcher != null) {
       configureShootingControls();
     }
 
@@ -138,7 +143,7 @@ public class ButtonsAndDashboardBindings {
     configureTuningControls();
 
     // Trajectory calculators (what-if arc and distance-to-pose)
-    if (turret != null) {
+    if (shootingCoordinator != null) {
       configureShotCalculator();
     }
   }
@@ -151,27 +156,28 @@ public class ButtonsAndDashboardBindings {
     // === Auto Launch Command ===
     // Auto-calculated trajectory - works for both sim and physical
     SmartDashboard.putData(
-        "Match/SmartLaunch", ShootingCommands.launchCommand(launcher, turret, motivator));
+        "Match/SmartLaunch",
+        ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
 
     // === Manual Launch Command ===
     // Manual test mode using BenchTest/Shooting/* dashboard values for controlled testing
     SmartDashboard.putData(
         "BenchTest/Shooting/Launch",
-        ShootingCommands.testLaunchCommand(launcher, turret, motivator, hood));
+        ShootingCommands.testLaunchCommand(launcher, shootingCoordinator, motivator, hood));
 
     // === Bench Test Controls ===
     // Stripped-down launch for bench testing (no turret/hood wait)
     SmartDashboard.putData(
         "BenchTest/Shooting/LauncherOnly",
-        ShootingCommands.benchTestLaunchCommand(launcher, turret, motivator));
+        ShootingCommands.benchTestLaunchCommand(launcher, shootingCoordinator, motivator));
 
     // Set fuel stored to 8 (works while disabled)
     SmartDashboard.putData(
         "Match/SetFuel8",
         Commands.runOnce(
                 () -> {
-                  if (turret.getVisualizer() != null) {
-                    turret.getVisualizer().setFuelCount(8);
+                  if (shootingCoordinator.getVisualizer() != null) {
+                    shootingCoordinator.getVisualizer().setFuelCount(8);
                   }
                 })
             .ignoringDisable(true)
@@ -360,7 +366,7 @@ public class ButtonsAndDashboardBindings {
         "TrajectoryCalculators/WhatIf/Toggle",
         Commands.runOnce(
                 () -> {
-                  TurretVisualizer vis = turret.getVisualizer();
+                  ShotVisualizer vis = shootingCoordinator.getVisualizer();
                   if (vis == null) return;
                   whatIfVisible = !whatIfVisible;
                   if (whatIfVisible) {
@@ -368,7 +374,7 @@ public class ButtonsAndDashboardBindings {
                         SmartDashboard.getNumber("TrajectoryCalculators/WhatIf/RPM", 2500.0);
                     double angleDeg =
                         SmartDashboard.getNumber("TrajectoryCalculators/WhatIf/HoodAngleDeg", 45.0);
-                    double exitVelocity = TurretCalculator.calculateExitVelocityFromRPM(rpm);
+                    double exitVelocity = ShotCalculator.calculateExitVelocityFromRPM(rpm);
                     double launchAngleRad = Math.toRadians(angleDeg);
                     double azimuth = vis.getCurrentAzimuthAngle();
                     vis.updateWhatIfTrajectory(exitVelocity, launchAngleRad, azimuth);
@@ -400,19 +406,19 @@ public class ButtonsAndDashboardBindings {
             .ignoringDisable(true)
             .withName("Set Pose From Distance"));
 
-    // Read back the turret's optimized shot (press after SetPose to populate RPM/angle)
+    // Read back the coordinator's optimized shot (press after SetPose to populate RPM/angle)
     SmartDashboard.putData(
         "TrajectoryCalculators/Distance/ReadShot",
         Commands.runOnce(
                 () -> {
-                  TurretCalculator.ShotData shot = turret.getCurrentShot();
+                  ShotCalculator.ShotResult shot = shootingCoordinator.getCurrentShot();
                   if (shot == null) return;
-                  double rpm = TurretCalculator.calculateRPMForVelocity(shot.getExitVelocity());
+                  double rpm = ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps());
                   SmartDashboard.putNumber(
                       "TrajectoryCalculators/Distance/OptimalRPM", Math.round(rpm * 10.0) / 10.0);
                   SmartDashboard.putNumber(
                       "TrajectoryCalculators/Distance/OptimalHoodAngleDeg",
-                      Math.round(shot.getLaunchAngleDegrees() * 10.0) / 10.0);
+                      Math.round(shot.hoodAngleDeg() * 10.0) / 10.0);
                 })
             .ignoringDisable(true)
             .withName("Read Optimized Shot"));
@@ -445,8 +451,8 @@ public class ButtonsAndDashboardBindings {
                   .ignoringDisable(true));
     }
 
-    // Turret controls (only in simulation or if turret exists)
-    if (turret != null) {
+    // Turret/shooting controls (only if coordinator exists)
+    if (shootingCoordinator != null) {
       // Button V: Calculate shot to hub (enables trajectory visualization)
       oi.getButtonV()
           .onTrue(
@@ -456,29 +462,32 @@ public class ButtonsAndDashboardBindings {
                             DriverStation.getAlliance()
                                 .orElse(DriverStation.Alliance.Blue)
                                 .equals(DriverStation.Alliance.Blue);
-                        turret.calculateShotToHub(isBlue);
+                        shootingCoordinator.calculateShotToHub(isBlue);
                       },
-                      turret)
+                      shootingCoordinator)
                   .ignoringDisable(true));
 
       // Shoot button - bench test launch for TURRETBOT, normal launch for others
       if (launcher != null) {
         if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
           oi.getShootButton()
-              .whileTrue(ShootingCommands.benchTestLaunchCommand(launcher, turret, motivator));
+              .whileTrue(
+                  ShootingCommands.benchTestLaunchCommand(
+                      launcher, shootingCoordinator, motivator));
         } else {
           oi.getShootButton()
-              .whileTrue(ShootingCommands.launchCommand(launcher, turret, motivator));
+              .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
         }
       } else {
         // No launcher - just launch fuel visually
-        oi.getShootButton().whileTrue(turret.repeatedlyLaunchFuelCommand());
+        oi.getShootButton().whileTrue(shootingCoordinator.repeatedlyLaunchFuelCommand());
       }
     }
 
     // Launcher button - same as shoot button (unified launch command)
-    if (launcher != null) {
-      oi.getLauncherButton().whileTrue(ShootingCommands.launchCommand(launcher, turret, motivator));
+    if (launcher != null && shootingCoordinator != null) {
+      oi.getLauncherButton()
+          .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
     }
   }
 
@@ -505,12 +514,12 @@ public class ButtonsAndDashboardBindings {
     }
 
     // Shooting controls - unified launch command
-    if (turret != null && launcher != null) {
+    if (shootingCoordinator != null && launcher != null) {
       oi.getButtonBox1Button2()
-          .whileTrue(ShootingCommands.launchCommand(launcher, turret, motivator));
-    } else if (turret != null) {
+          .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
+    } else if (shootingCoordinator != null) {
       // Fallback if no launcher: just launch fuel visually
-      oi.getButtonBox1Button2().whileTrue(turret.repeatedlyLaunchFuelCommand());
+      oi.getButtonBox1Button2().whileTrue(shootingCoordinator.repeatedlyLaunchFuelCommand());
     }
   }
 }

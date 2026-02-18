@@ -8,7 +8,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
-import frc.robot.subsystems.turret.TurretCalculator;
+import frc.robot.subsystems.shooting.ShotCalculator;
 import frc.robot.util.BenchTestMetrics;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.ArrayList;
@@ -116,8 +116,8 @@ public class Launcher extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs("Launcher", inputs);
 
-    // Update TurretCalculator with current wheel RPM for trajectory calculations
-    TurretCalculator.setLauncherRPM(inputs.wheelVelocityRPM);
+    // Update ShotCalculator with current wheel RPM for trajectory calculations
+    ShotCalculator.setLauncherRPM(inputs.wheelVelocityRPM);
 
     // Log velocity error
     double velocityError = inputs.targetVelocityRPM - inputs.wheelVelocityRPM;
@@ -192,8 +192,8 @@ public class Launcher extends SubsystemBase {
     Logger.recordOutput("Launcher/RecoveryBoostVolts", boost);
 
     io.setVelocityWithBoost(velocityRPM, boost, recoveryActive);
-    // Update TurretCalculator with target RPM for setpoint trajectory
-    TurretCalculator.setTargetLauncherRPM(velocityRPM);
+    // Update ShotCalculator with target RPM for setpoint trajectory
+    ShotCalculator.setTargetLauncherRPM(velocityRPM);
   }
 
   /**
@@ -210,7 +210,7 @@ public class Launcher extends SubsystemBase {
   public void stop() {
     feedingActive = false;
     io.stop();
-    TurretCalculator.setTargetLauncherRPM(0.0);
+    ShotCalculator.setTargetLauncherRPM(0.0);
   }
 
   /**

@@ -1,7 +1,7 @@
 package frc.robot.subsystems.hood;
 
 import edu.wpi.first.math.geometry.Translation3d;
-import frc.robot.subsystems.turret.TurretCalculator;
+import frc.robot.subsystems.shooting.ShotCalculator;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
@@ -283,7 +283,7 @@ public class TrajectoryOptimizer {
     double velocity = Math.sqrt(vSquared);
 
     // Convert to RPM
-    double rpm = TurretCalculator.calculateRPMForVelocity(velocity);
+    double rpm = ShotCalculator.calculateRPMForVelocity(velocity);
 
     // Check RPM limits
     if (rpm < minRPM.get() || rpm > maxRPM.get()) {
