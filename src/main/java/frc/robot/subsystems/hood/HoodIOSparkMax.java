@@ -97,7 +97,7 @@ public class HoodIOSparkMax implements HoodIO {
     }
 
     // Connection status
-    inputs.connected = false;
+    inputs.connected = true;
 
     // Position data
     inputs.currentMotorRotations = motorEncoder.getPosition();
@@ -109,7 +109,7 @@ public class HoodIOSparkMax implements HoodIO {
     inputs.tempCelsius = motorSpark.getMotorTemperature();
 
     // Control state
-    inputs.atTarget = false;
+    inputs.atTarget = Math.abs(inputs.currentAngleDeg - targetAngle) < 1.0;
   }
 
   /** Convert hood degrees to motor rotations (applies software inversion if configured). */

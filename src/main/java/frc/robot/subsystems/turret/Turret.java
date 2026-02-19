@@ -1,6 +1,5 @@
 package frc.robot.subsystems.turret;
 
-import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
@@ -72,7 +71,9 @@ public class Turret extends SubsystemBase {
     // Initialize tunable limits (adjustable via NetworkTables at runtime)
     configMin = config.getTurretMinAngleDegrees();
     configMax = config.getTurretMaxAngleDegrees();
-    centerDeg = (configMax + configMin) / 2.0;
+    // Center and flip angle in robot-relative space (shifted by turret zero offset)
+    double offset = config.getTurretZeroOffset();
+    centerDeg = (configMax + configMin) / 2.0 + offset;
     flipAngleDeg = (configMax - configMin) / 2.0;
 
     warningZoneDeg = new LoggedTunableNumber("Tuning/Turret/WarningZoneDeg", 20.0);
@@ -85,9 +86,11 @@ public class Turret extends SubsystemBase {
 
   /** Update effective min/max limits from tunable flip angle, center offset, and active mode. */
   private void updateEffectiveLimits() {
+    double offset = config.getTurretZeroOffset();
     double flipAngle = launchModeActive ? flipAngleDeg : trackingFlipAngleDeg.get();
-    effectiveMinAngleDeg = Math.max(config.getTurretMinAngleDegrees(), centerDeg - flipAngle);
-    effectiveMaxAngleDeg = Math.min(config.getTurretMaxAngleDegrees(), centerDeg + flipAngle);
+    // Effective limits in robot-relative space
+    effectiveMinAngleDeg = Math.max(configMin + offset, centerDeg - flipAngle);
+    effectiveMaxAngleDeg = Math.min(configMax + offset, centerDeg + flipAngle);
   }
 
   @Override
@@ -112,6 +115,7 @@ public class Turret extends SubsystemBase {
    * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
   public void setTurretAngle(double angleDegrees) {
+    // Clamp in robot-relative space
     double clampedAngle =
         Math.max(effectiveMinAngleDeg, Math.min(effectiveMaxAngleDeg, angleDegrees));
 
@@ -119,7 +123,9 @@ public class Turret extends SubsystemBase {
       Logger.recordOutput("Turret/Safety/ClampedRequestDeg", clampedAngle);
     }
 
-    io.setTurretAngle(Rotation2d.fromDegrees(clampedAngle));
+    // Convert from robot-relative to encoder-space for the IO layer
+    double encoderAngle = clampedAngle - config.getTurretZeroOffset();
+    io.setTurretAngle(Rotation2d.fromDegrees(encoderAngle));
   }
 
   public void setTurretVolts(double volts) {
@@ -220,13 +226,15 @@ public class Turret extends SubsystemBase {
       }
     }
 
-    // If bestAngle is still out of range, clamp to nearest limit
+    // If bestAngle is still out of range, clamp to nearest limit (robot-relative)
     // This should actually never come into play since one of the candidates
     // should always work and be within range.
-    if (bestAngle < config.getTurretMinAngleDegrees()) {
-      bestAngle = config.getTurretMinAngleDegrees();
-    } else if (bestAngle > config.getTurretMaxAngleDegrees()) {
-      bestAngle = config.getTurretMaxAngleDegrees();
+    double minRobotRel = config.getTurretMinAngleDegrees() + config.getTurretZeroOffset();
+    double maxRobotRel = config.getTurretMaxAngleDegrees() + config.getTurretZeroOffset();
+    if (bestAngle < minRobotRel) {
+      bestAngle = minRobotRel;
+    } else if (bestAngle > maxRobotRel) {
+      bestAngle = maxRobotRel;
     }
 
     Logger.recordOutput("Turret/bestAngle", bestAngle);
@@ -269,7 +277,8 @@ public class Turret extends SubsystemBase {
    * @return Current angle in degrees
    */
   public double getCurrentAngle() {
-    return inputs.currentAngleDegrees;
+    // Convert from encoder-space to robot-relative
+    return inputs.currentAngleDegrees + config.getTurretZeroOffset();
   }
 
   /**
@@ -278,7 +287,8 @@ public class Turret extends SubsystemBase {
    * @return Target angle in degrees
    */
   public double getTargetAngle() {
-    return inputs.targetAngleDegrees;
+    // Convert from encoder-space to robot-relative
+    return inputs.targetAngleDegrees + config.getTurretZeroOffset();
   }
 
   /**
@@ -333,7 +343,7 @@ public class Turret extends SubsystemBase {
    * @return Degrees of room until CW limit
    */
   public double getRoomCW() {
-    return effectiveMaxAngleDeg - inputs.currentAngleDegrees;
+    return effectiveMaxAngleDeg - getCurrentAngle();
   }
 
   /**
@@ -342,7 +352,7 @@ public class Turret extends SubsystemBase {
    * @return Degrees of room until CCW limit
    */
   public double getRoomCCW() {
-    return inputs.currentAngleDegrees - effectiveMinAngleDeg;
+    return getCurrentAngle() - effectiveMinAngleDeg;
   }
 
   /**
