@@ -302,18 +302,33 @@ public class ButtonsAndDashboardBindings {
           spindexer.runSpindexerCommand(ShootingCommands.getTestSpindexerRPM()));
     }
 
-    // Turret: direct angle command, reads BenchTest/Shooting/AngleDegTurret
+    // Turret: direct outside angle command
     if (turret != null) {
       ShootingCommands.initTunables();
       SmartDashboard.putData(
-          "BenchTest/Turret/SetAngle",
+          "BenchTest/Turret/SetOutsideAngle",
           Commands.run(
-                  () -> turret.setTurretAngle(ShootingCommands.getTestTurretAngleDeg().get()),
+                  () ->
+                      turret.setOutsideTurretAngle(
+                          ShootingCommands.getOutsideTurretAngleDeg().get()),
                   turret)
               .withName("Turret SetAngle"));
     }
 
-    // Turret: direct angle command, reads BenchTest/Shooting/AngleDegTurret
+    // Turret: direct inside angle command
+    if (turret != null) {
+      ShootingCommands.initTunables();
+      SmartDashboard.putData(
+          "BenchTest/Turret/SetInsideAngle",
+          Commands.run(
+                  () ->
+                      turret.setInsideTurretAngle_ONLY_FOR_TESTING(
+                          ShootingCommands.getInsideTurretAngleDeg().get()),
+                  turret)
+              .withName("Turret SetAngle"));
+    }
+
+    // Turret: direct voltage command
     if (turret != null) {
       ShootingCommands.initTunables();
       SmartDashboard.putData(

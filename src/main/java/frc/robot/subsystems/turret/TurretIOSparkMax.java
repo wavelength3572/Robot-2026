@@ -73,10 +73,10 @@ public class TurretIOSparkMax implements TurretIO {
     kD = new LoggedTunableNumber("Tuning/Turret/kD", config.getTurretKd());
 
     // Store config values
-    maxOutsideAngleDegrees = config.getTurretMaxAngleDegrees();
-    minOutsideAngleDegrees = config.getTurretMinAngleDegrees();
-    maxInsideAngleDegrees = config.getTurretMaxAngleDegrees() - config.getTurretZeroOffset();
-    minInsideAngleDegrees = config.getTurretMinAngleDegrees() - config.getTurretZeroOffset();
+    maxOutsideAngleDegrees = config.getTurretOutsideMaxAngleDeg();
+    minOutsideAngleDegrees = config.getTurretOutsideMinAngleDeg();
+    maxInsideAngleDegrees = config.getTurretOutsideMaxAngleDeg() - config.getTurretZeroOffset();
+    minInsideAngleDegrees = config.getTurretOutsideMinAngleDeg() - config.getTurretZeroOffset();
     totalGearRatio = config.getTurretGearRatio();
     absoluteEncoderOffset = config.getTurretAbsoluteEncoderOffset();
 
@@ -211,8 +211,12 @@ public class TurretIOSparkMax implements TurretIO {
     ifOk(motorSpark, motorEncoder::getPosition, (value) -> inputs.motorPosition = value);
     currentInsideAngleDegrees = motorRotationsToDegrees(inputs.motorPosition);
     inputs.currentInsideAngleDeg = currentInsideAngleDegrees;
-    currentOutsideAngleDegrees = currentInsideAngleDegrees + config.getTurretZeroOffset();
+    currentOutsideAngleDegrees = currentInsideAngleDegrees - config.getTurretZeroOffset();
     inputs.currentOutsideAngleDeg = currentOutsideAngleDegrees;
+
+    // Update target angle
+    inputs.targetInsideAngleDeg = targetInsideDeg;
+    inputs.targetOutsideAngleDeg = targetOutsideDeg;
 
     ifOk(motorSpark, absoluteEncoder::getPosition, (value) -> inputs.absEncoder = value);
 
@@ -225,10 +229,6 @@ public class TurretIOSparkMax implements TurretIO {
     ifOk(motorSpark, motorSpark::getOutputCurrent, (value) -> inputs.currentAmps = value);
     boolean motorOk = motorConnectedDebounce.calculate(!sparkStickyFault);
 
-    // Update target angle
-    inputs.targetInsideAngleDeg = targetInsideDeg;
-    inputs.targetOutsideAngleDeg = targetOutsideDeg;
-
     // Log connection status
     if (!motorOk) {
       System.err.println("[TurretIOSparkMax] Spark Max disconnected!");
@@ -238,12 +238,12 @@ public class TurretIOSparkMax implements TurretIO {
   @Override
   public void setOutsideTurretAngle(Rotation2d outsideTurretTarget) {
     // Clamp the target angle to valid range
-    targetInsideDeg =
+    targetOutsideDeg =
         Math.max(
             minOutsideAngleDegrees,
             Math.min(maxOutsideAngleDegrees, outsideTurretTarget.getDegrees()));
 
-    targetOutsideDeg = targetInsideDeg + config.getTurretZeroOffset();
+    targetInsideDeg = targetOutsideDeg + config.getTurretZeroOffset();
 
     // Convert degrees to motor rotations for the PID controller
     motorController.setSetpoint(
@@ -251,6 +251,11 @@ public class TurretIOSparkMax implements TurretIO {
         ControlType.kPosition,
         ClosedLoopSlot.kSlot0,
         0.13);
+  }
+
+  public void setInsideTurretAngle_ONLY_FOR_TESTING(Rotation2d insideTurretTarget) {
+    targetOutsideDeg = insideTurretTarget.getDegrees() + config.getTurretZeroOffset();
+    setOutsideTurretAngle(Rotation2d.fromDegrees(targetOutsideDeg));
   }
 
   @Override

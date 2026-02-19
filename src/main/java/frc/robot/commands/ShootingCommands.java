@@ -97,8 +97,11 @@ public class ShootingCommands {
   private static final LoggedTunableNumber testMotivatorRPM =
       new LoggedTunableNumber("BenchTest/Shooting/MotivatorRPM", 1000.0);
 
-  private static final LoggedTunableNumber testTurretAngleDeg =
-      new LoggedTunableNumber("BenchTest/Shooting/AngleDegTurret", 0.0);
+  private static final LoggedTunableNumber testOutsideTurretAngleDeg =
+      new LoggedTunableNumber("BenchTest/Shooting/OutsideTurretAngleDeg", 0.0);
+
+  private static final LoggedTunableNumber testInsideTurretAngleDeg =
+      new LoggedTunableNumber("BenchTest/Shooting/InsideTurretAngleDeg", 0.0);
 
   private static final LoggedTunableNumber testTurretVolts =
       new LoggedTunableNumber("BenchTest/Shooting/TurretVolts", 0.0);
@@ -129,7 +132,8 @@ public class ShootingCommands {
 
     testLauncherRPM.get();
     testMotivatorRPM.get();
-    testTurretAngleDeg.get();
+    testOutsideTurretAngleDeg.get();
+    testInsideTurretAngleDeg.get();
     testTurretVolts.get();
     testHoodAngleDeg.get();
     testSpindexerRPM.get();
@@ -159,8 +163,12 @@ public class ShootingCommands {
     return testSpindexerRPM;
   }
 
-  public static LoggedTunableNumber getTestTurretAngleDeg() {
-    return testTurretAngleDeg;
+  public static LoggedTunableNumber getOutsideTurretAngleDeg() {
+    return testOutsideTurretAngleDeg;
+  }
+
+  public static LoggedTunableNumber getInsideTurretAngleDeg() {
+    return testOutsideTurretAngleDeg;
   }
 
   public static LoggedTunableNumber getTestTurretVolts() {
@@ -380,7 +388,7 @@ public class ShootingCommands {
                 () -> {
                   coordinator.enableLaunchMode();
 
-                  double turretAngle = testTurretAngleDeg.get();
+                  double turretAngle = testOutsideTurretAngleDeg.get();
                   coordinator.setTurretAngle(turretAngle);
 
                   double hoodAngle = testHoodAngleDeg.get();
@@ -463,7 +471,7 @@ public class ShootingCommands {
                     () -> {
                       double rpm = testLauncherRPM.get();
                       double hoodAngle = testHoodAngleDeg.get();
-                      double turretAngle = testTurretAngleDeg.get();
+                      double turretAngle = testOutsideTurretAngleDeg.get();
                       launcher.setVelocity(rpm);
                       coordinator.setManualShotParameters(rpm, hoodAngle, turretAngle);
                       SmartDashboard.putNumber("Match/Status/CurrentRPM", launcher.getVelocity());
@@ -471,7 +479,7 @@ public class ShootingCommands {
                     launcher),
 
                 // Keep turret positioned
-                Commands.run(() -> coordinator.setTurretAngle(testTurretAngleDeg.get())),
+                Commands.run(() -> coordinator.setTurretAngle(testOutsideTurretAngleDeg.get())),
 
                 // Keep hood positioned
                 hood != null

@@ -60,8 +60,8 @@ public class Turret extends SubsystemBase {
     this.turretYOffset = config.getTurretOffsetY();
 
     // Initialize tunable limits (adjustable via NetworkTables at runtime)
-    outsideAngleMin = config.getTurretMinAngleDegrees(); // example -116.127
-    outsideAngleMax = config.getTurretMaxAngleDegrees(); // example 243.873
+    outsideAngleMin = config.getTurretOutsideMinAngleDeg(); // example -116.127
+    outsideAngleMax = config.getTurretOutsideMaxAngleDeg(); // example 243.873
     outsideCenterDeg = (outsideAngleMax + outsideAngleMin) / 2.0; // Example 63.873 - Same as offset
     flipAngleDeg =
         (outsideAngleMax - outsideAngleMin) / 2.0; // Example 180 - Not sure how this helps
@@ -112,7 +112,7 @@ public class Turret extends SubsystemBase {
    *
    * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
-  public void setTurretAngle(double angleDegrees) {
+  public void setOutsideTurretAngle(double angleDegrees) {
     double clampedAngle =
         Math.max(effectiveOutsideMinAngleDeg, Math.min(effectiveOutsideMaxAngleDeg, angleDegrees));
 
@@ -121,6 +121,16 @@ public class Turret extends SubsystemBase {
     }
 
     io.setOutsideTurretAngle(Rotation2d.fromDegrees(clampedAngle));
+  }
+
+  /**
+   * Set the turret to point at a specific angle relative to the robot's front. The angle will be
+   * clamped to the effective limits.
+   *
+   * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
+   */
+  public void setInsideTurretAngle_ONLY_FOR_TESTING(double angleDegrees) {
+    io.setInsideTurretAngle_ONLY_FOR_TESTING(Rotation2d.fromDegrees(angleDegrees));
   }
 
   public void setTurretVolts(double volts) {
@@ -140,7 +150,7 @@ public class Turret extends SubsystemBase {
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
     double turretAngle =
         calculateOutsideTurretAngleFromTurret(robotX, robotY, robotOmega, targetX, targetY);
-    setTurretAngle(turretAngle);
+    setOutsideTurretAngle(turretAngle);
   }
 
   /**

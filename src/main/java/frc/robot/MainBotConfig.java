@@ -109,8 +109,8 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretInsideMaxAngleDeg = 180.0;
   private static final double turretInsideMinAngleDeg = -180.0;
   private static final double turretZeroOffset = 63.873;
-  private static final double turretMaxAngleDegrees = turretZeroOffset + turretInsideMaxAngleDeg;
-  private static final double turretMinAngleDegrees = turretZeroOffset + turretInsideMinAngleDeg;
+  private static final double turretOutsideMaxAngleDeg = turretInsideMaxAngleDeg + turretZeroOffset;
+  private static final double turretOutsideMinAngleDeg = turretInsideMinAngleDeg + turretZeroOffset;
   private static final double turretAbsoluteEncoderOffset = 0.078061;
   private static final int turretCurrentLimitAmps = 10;
   private static final double turretKp = 0.15;
@@ -121,7 +121,8 @@ public class MainBotConfig implements RobotConfig {
   // - NEO 550 internal gearbox: 10:1
   // - External gearing from encoder to turret: 66:12 (~5.5:1)
   // - Total ratio: 55:1 (motor rotations per turret rotation)
-  // The absolute encoder sits AFTER the 10:1 gearbox but BEFORE the 66:12 external gearing
+  // The absolute encoder sits AFTER the 10:1 gearbox but BEFORE the 66:12
+  // external gearing
   private static final double turretExternalGearRatio = 66.0 / 12.0; // ~5.5 (encoder to turret)
   private static final double turretMotorGearRatio = 10.0;
   private static final double turretGearRatio = turretExternalGearRatio * turretMotorGearRatio;
@@ -512,18 +513,23 @@ public class MainBotConfig implements RobotConfig {
   }
 
   @Override
-  public double getTurretMaxAngleDegrees() {
-    return turretMaxAngleDegrees;
+  public double getTurretOutsideMaxAngleDeg() {
+    return turretOutsideMaxAngleDeg;
+  }
+
+  @Override
+  public double getTurretOutsideMinAngleDeg() {
+    return turretOutsideMinAngleDeg;
+  }
+
+  @Override
+  public double getTurretZeroOffset() {
+    return turretZeroOffset;
   }
 
   @Override
   public double getTurretAbsoluteEncoderOffset() {
     return turretAbsoluteEncoderOffset;
-  }
-
-  @Override
-  public double getTurretMinAngleDegrees() {
-    return turretMinAngleDegrees;
   }
 
   @Override
@@ -539,11 +545,6 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getTurretKd() {
     return turretKd;
-  }
-
-  @Override
-  public double getTurretZeroOffset() {
-    return turretZeroOffset;
   }
 
   // ========== Launcher Configuration ==========

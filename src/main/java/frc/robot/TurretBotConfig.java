@@ -446,12 +446,12 @@ public class TurretBotConfig implements RobotConfig {
   }
 
   @Override
-  public double getTurretMaxAngleDegrees() {
+  public double getTurretOutsideMaxAngleDeg() {
     return turretMaxAngleDegrees;
   }
 
   @Override
-  public double getTurretMinAngleDegrees() {
+  public double getTurretOutsideMinAngleDeg() {
     return turretMinAngleDegrees;
   }
 

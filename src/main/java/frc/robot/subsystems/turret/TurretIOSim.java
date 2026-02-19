@@ -35,8 +35,8 @@ public class TurretIOSim implements TurretIO {
     config = Constants.getRobotConfig();
 
     // Get config values
-    maxAngleDegrees = config.getTurretMaxAngleDegrees();
-    minAngleDegrees = config.getTurretMinAngleDegrees();
+    maxAngleDegrees = config.getTurretOutsideMaxAngleDeg();
+    minAngleDegrees = config.getTurretOutsideMinAngleDeg();
 
     // Create motion profile constraints
     constraints =

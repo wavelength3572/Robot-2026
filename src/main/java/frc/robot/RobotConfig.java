@@ -185,12 +185,12 @@ public interface RobotConfig {
   }
 
   /** Maximum turret angle in degrees (forward soft limit). */
-  default double getTurretMaxAngleDegrees() {
+  default double getTurretOutsideMaxAngleDeg() {
     return 0.0;
   }
 
   /** Minimum turret angle in degrees (reverse soft limit). */
-  default double getTurretMinAngleDegrees() {
+  default double getTurretOutsideMinAngleDeg() {
     return 0.0;
   }
 
