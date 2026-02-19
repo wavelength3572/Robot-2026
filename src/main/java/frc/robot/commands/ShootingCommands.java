@@ -84,10 +84,10 @@ public class ShootingCommands {
   // ===== BenchTest/Shooting/* Values =====
 
   private static final LoggedTunableNumber testLauncherRPM =
-      new LoggedTunableNumber("BenchTest/Shooting/LauncherRPM", 1700.0);
+      new LoggedTunableNumber("BenchTest/Shooting/LauncherRPM", 2500.0);
 
   private static final LoggedTunableNumber testMotivatorRPM =
-      new LoggedTunableNumber("BenchTest/Shooting/MotivatorRPM", 1000.0);
+      new LoggedTunableNumber("BenchTest/Shooting/MotivatorRPM", 1500.0);
 
   private static final LoggedTunableNumber testTurretAngleDeg =
       new LoggedTunableNumber("BenchTest/Shooting/AngleDegTurret", 0.0);
@@ -96,10 +96,10 @@ public class ShootingCommands {
       new LoggedTunableNumber("BenchTest/Shooting/TurretVolts", 0.0);
 
   private static final LoggedTunableNumber testHoodAngleDeg =
-      new LoggedTunableNumber("BenchTest/Shooting/AngleDegHood", 45.0);
+      new LoggedTunableNumber("BenchTest/Shooting/AngleDegHood", 16.0);
 
   private static final LoggedTunableNumber testSpindexerRPM =
-      new LoggedTunableNumber("BenchTest/Shooting/SpindexerRPM", 1000.0);
+      new LoggedTunableNumber("BenchTest/Shooting/SpindexerRPM", 750.0);
 
   // ===== Command Behavior Constants =====
 
