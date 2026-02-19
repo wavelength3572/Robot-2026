@@ -312,7 +312,7 @@ public class ButtonsAndDashboardBindings {
                       turret.setOutsideTurretAngle(
                           ShootingCommands.getOutsideTurretAngleDeg().get()),
                   turret)
-              .withName("Turret SetAngle"));
+              .withName("Turret Outside SetAngle"));
     }
 
     // Turret: direct inside angle command
@@ -325,10 +325,10 @@ public class ButtonsAndDashboardBindings {
                       turret.setInsideTurretAngle_ONLY_FOR_TESTING(
                           ShootingCommands.getInsideTurretAngleDeg().get()),
                   turret)
-              .withName("Turret SetAngle"));
+              .withName("Turret Inside SetAngle"));
     }
 
-    // Turret: direct voltage command
+    // Turret: direct angle command, reads BenchTest/Shooting/AngleDegTurret
     if (turret != null) {
       ShootingCommands.initTunables();
       SmartDashboard.putData(
@@ -337,9 +337,6 @@ public class ButtonsAndDashboardBindings {
                   () -> turret.setTurretVolts(ShootingCommands.getTestTurretVolts().get()), turret)
               .withName("Turret Set Volts"));
     }
-
-    // Intake: PID tunables are under Tuning/Intake/Roller_*, run buttons are in BenchTest
-
   }
 
   /** Configure BenchTest intake areas: deploy, power control, and velocity control. */
