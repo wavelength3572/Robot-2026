@@ -113,6 +113,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretKp = 0.15;
   private static final double turretKd = 0.0;
   private static final boolean turretMotorInverted = true;
+  private static final double turretZeroOffset = 63.873;
 
   // Gear ratios:
   // - NEO 550 internal gearbox: 10:1
@@ -536,6 +537,11 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getTurretKd() {
     return turretKd;
+  }
+
+  @Override
+  public double getTurretZeroOffset() {
+    return turretZeroOffset;
   }
 
   // ========== Launcher Configuration ==========

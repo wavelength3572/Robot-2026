@@ -235,6 +235,11 @@ public interface RobotConfig {
     return 0.0;
   }
 
+  /** Offset from Turret pointing to Robot Up to actual turret 0 */
+  default double getTurretZeroOffset() {
+    return 0.0;
+  }
+
   // ========== Launcher Configuration ==========
   // Default implementations return 0/false for robots without launchers
 

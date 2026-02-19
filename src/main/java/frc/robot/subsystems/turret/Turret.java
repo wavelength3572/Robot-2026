@@ -153,7 +153,7 @@ public class Turret extends SubsystemBase {
    * @return Angle in degrees the turret needs to rotate relative to robot heading Range: -180 to
    *     +180 degrees
    */
-  private double originalCalculateTurretAngle(
+  private double calculateTurretAngle(
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
 
     // Get current turret angle (could be outside -180 to +180 range)
@@ -209,8 +209,8 @@ public class Turret extends SubsystemBase {
 
     for (double candidate : candidates) {
       // Check if this candidate is within physical limits
-      if (candidate >= config.getTurretMinAngleDegrees()
-          && candidate <= config.getTurretMaxAngleDegrees()) {
+      if (candidate >= config.getTurretMinAngleDegrees() + config.getTurretZeroOffset()
+          && candidate <= config.getTurretMaxAngleDegrees() + config.getTurretZeroOffset()) {
 
         double moveDistance = Math.abs(candidate - currentAngle);
         if (moveDistance < smallestMove) {
@@ -232,33 +232,6 @@ public class Turret extends SubsystemBase {
     Logger.recordOutput("Turret/bestAngle", bestAngle);
 
     return bestAngle;
-  }
-
-  /**
-   * Calculate robot-relative turret angle to point at a field target. Accounts for turret offset,
-   * wraps to minimize rotation from current position, and clamps to effective limits.
-   */
-  private double calculateTurretAngle(
-      double robotX, double robotY, double robotOmega, double targetX, double targetY) {
-    double robotOmegaRad = Math.toRadians(robotOmega);
-
-    double turretFieldX =
-        robotX
-            + (turretXOffset * Math.cos(robotOmegaRad) - turretYOffset * Math.sin(robotOmegaRad));
-    double turretFieldY =
-        robotY
-            + (turretXOffset * Math.sin(robotOmegaRad) + turretYOffset * Math.cos(robotOmegaRad));
-
-    double deltaX = targetX - turretFieldX;
-    double deltaY = targetY - turretFieldY;
-    double absoluteAngle = Math.toDegrees(Math.atan2(deltaY, deltaX));
-
-    double baseAngle = absoluteAngle - robotOmega;
-    double wrapped =
-        MathUtil.inputModulus(
-            baseAngle, inputs.currentAngleDegrees - 180, inputs.currentAngleDegrees + 180);
-
-    return Math.max(effectiveMinAngleDeg, Math.min(effectiveMaxAngleDeg, wrapped));
   }
 
   // ========== Dual-Mode Range Methods ==========
