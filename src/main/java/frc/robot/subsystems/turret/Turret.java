@@ -277,8 +277,7 @@ public class Turret extends SubsystemBase {
    * @return Current angle in degrees
    */
   public double getCurrentAngle() {
-    // Convert from encoder-space to robot-relative
-    return inputs.currentAngleDegrees + config.getTurretZeroOffset();
+    return io.getTurretAngle().getDegrees();
   }
 
   /**

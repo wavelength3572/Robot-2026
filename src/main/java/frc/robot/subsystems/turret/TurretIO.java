@@ -24,6 +24,10 @@ public interface TurretIO {
   /** Set the target angle for the turret in degrees relative to robot front */
   public default void setTurretAngle(Rotation2d rotation) {}
 
+  public default Rotation2d getTurretAngle() {
+    return Rotation2d.kZero;
+  }
+
   /** Set the target angle for the turret in degrees relative to robot front */
   public default void setTurretVolts(double volts) {}
 }
