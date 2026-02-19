@@ -26,6 +26,8 @@ public class TurretIOSim implements TurretIO {
 
   // Target tracking
   private Rotation2d targetRotation = new Rotation2d();
+  private double currentOutsideAngleDeg = 0.0;
+  private double targetOutsideAngleDeg = 0.0;
 
   // Tunable speed - increase if turret can't keep up
   private static final double MAX_VELOCITY_DEG_PER_SEC = 540.0; // 1.5 rotations per second
@@ -66,12 +68,27 @@ public class TurretIOSim implements TurretIO {
     // Update current state with clamped values
     currentState = new TrapezoidProfile.State(clampedPosition, clampedVelocity);
 
-    // Populate inputs
-    inputs.targetInsideAngleDeg = targetRotation.getDegrees();
-    inputs.currentInsideAngleDeg = currentState.position;
+    // Populate inputs - sim works in outside angle space
+    currentOutsideAngleDeg = currentState.position;
+    targetOutsideAngleDeg = targetRotation.getDegrees();
+
+    inputs.currentOutsideAngleDeg = currentOutsideAngleDeg;
+    inputs.targetOutsideAngleDeg = targetOutsideAngleDeg;
+    inputs.currentInsideAngleDeg = currentOutsideAngleDeg + config.getTurretZeroOffset();
+    inputs.targetInsideAngleDeg = targetOutsideAngleDeg + config.getTurretZeroOffset();
     inputs.velocityDegreesPerSec = currentState.velocity;
     inputs.appliedVolts = 0.0;
     inputs.currentAmps = 0.0;
+  }
+
+  @Override
+  public Rotation2d getOutsideTargetAngle() {
+    return Rotation2d.fromDegrees(targetOutsideAngleDeg);
+  }
+
+  @Override
+  public Rotation2d getOutsideCurrentAngle() {
+    return Rotation2d.fromDegrees(currentOutsideAngleDeg);
   }
 
   @Override
