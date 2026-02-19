@@ -98,8 +98,11 @@ public class TurretBotConfig implements RobotConfig {
 
   // Travel limits: ±185° = 370° total travel (physical limit is ±200°, this provides 15° safety
   // margin)
-  private static final double turretMaxAngleDegrees = 185.0;
-  private static final double turretMinAngleDegrees = -185.0;
+  private static final double turretInsideMaxAngleDeg = 180.0;
+  private static final double turretInsideMinAngleDeg = -180.0;
+  private static final double turretZeroOffset = 63.873;
+  private static final double turretMaxAngleDegrees = turretZeroOffset + turretInsideMaxAngleDeg;
+  private static final double turretMinAngleDegrees = turretZeroOffset + turretInsideMinAngleDeg;
 
   // NEO 550-specific settings
   private static final int turretCurrentLimitAmps = 20; // NEO 550 is smaller than NEO/Falcon
@@ -443,12 +446,12 @@ public class TurretBotConfig implements RobotConfig {
   }
 
   @Override
-  public double getTurretMaxAngleDegrees() {
+  public double getTurretOutsideMaxAngleDeg() {
     return turretMaxAngleDegrees;
   }
 
   @Override
-  public double getTurretMinAngleDegrees() {
+  public double getTurretOutsideMinAngleDeg() {
     return turretMinAngleDegrees;
   }
 

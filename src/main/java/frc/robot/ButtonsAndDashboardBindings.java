@@ -290,15 +290,30 @@ public class ButtonsAndDashboardBindings {
           spindexer.runSpindexerCommand(ShootingCommands.getTestSpindexerRPM()));
     }
 
-    // Turret: direct angle command, reads BenchTest/Shooting/AngleDegTurret
+    // Turret: direct outside angle command
     if (turret != null) {
       ShootingCommands.initTunables();
       SmartDashboard.putData(
-          "BenchTest/Turret/SetAngle",
+          "BenchTest/Turret/SetOutsideAngle",
           Commands.run(
-                  () -> turret.setTurretAngle(ShootingCommands.getTestTurretAngleDeg().get()),
+                  () ->
+                      turret.setOutsideTurretAngle(
+                          ShootingCommands.getOutsideTurretAngleDeg().get()),
                   turret)
-              .withName("Turret SetAngle"));
+              .withName("Turret Outside SetAngle"));
+    }
+
+    // Turret: direct inside angle command
+    if (turret != null) {
+      ShootingCommands.initTunables();
+      SmartDashboard.putData(
+          "BenchTest/Turret/SetInsideAngle",
+          Commands.run(
+                  () ->
+                      turret.setInsideTurretAngle_ONLY_FOR_TESTING(
+                          ShootingCommands.getInsideTurretAngleDeg().get()),
+                  turret)
+              .withName("Turret Inside SetAngle"));
     }
 
     // Turret: direct angle command, reads BenchTest/Shooting/AngleDegTurret
@@ -310,9 +325,6 @@ public class ButtonsAndDashboardBindings {
                   () -> turret.setTurretVolts(ShootingCommands.getTestTurretVolts().get()), turret)
               .withName("Turret Set Volts"));
     }
-
-    // Intake: PID tunables are under Tuning/Intake/Roller_*, run buttons are in BenchTest
-
   }
 
   /** Configure BenchTest intake areas: deploy, power control, and velocity control. */

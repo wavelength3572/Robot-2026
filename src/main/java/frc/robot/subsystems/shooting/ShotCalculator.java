@@ -7,6 +7,7 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import frc.robot.util.LoggedTunableNumber;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Utility class for all shot-related calculations. Converts robot pose + target into shot
@@ -212,7 +213,7 @@ public final class ShotCalculator {
    * Calculate robot-relative turret angle to point at a field target. Accounts for turret offset,
    * wraps to minimize rotation from current position, and clamps to effective limits.
    */
-  public static double calculateTurretAngle(
+  public static double calculateOutsideTurretAngle(
       double robotX,
       double robotY,
       double robotHeadingDeg,
@@ -222,18 +223,81 @@ public final class ShotCalculator {
       double effectiveMinDeg,
       double effectiveMaxDeg,
       TurretConfig config) {
-    double robotHeadingRad = Math.toRadians(robotHeadingDeg);
-    double[] turretFieldPos = getTurretFieldPosition(robotX, robotY, robotHeadingRad, config);
+    // Get current turret angle
+    double currentAngle = currentTurretAngleDeg;
 
-    double deltaX = targetX - turretFieldPos[0];
-    double deltaY = targetY - turretFieldPos[1];
+    // Normalize robotOmega to -180 to +180 range
+    // This code actually probably doesn't do anything
+    // Since our robot omega is always -180 to +180
+    double robotOmegaNormalized = robotHeadingDeg % 360;
+    if (robotOmegaNormalized > 180) {
+      robotOmegaNormalized -= 360;
+    } else if (robotOmegaNormalized <= -180) {
+      robotOmegaNormalized += 360;
+    }
+    // Convert robot heading to radians for rotation calculations
+    double robotOmegaRad = Math.toRadians(robotHeadingDeg);
+
+    // Calculate turret's actual position on the field
+    // The turret offset is in robot-relative coordinates, so we need to rotate it
+    // to field coordinates based on the robot's heading
+    double turretFieldX =
+        robotX
+            + (config.xOffset() * Math.cos(robotOmegaRad)
+                - config.yOffset() * Math.sin(robotOmegaRad));
+
+    double turretFieldY =
+        robotY
+            + (config.xOffset() * Math.sin(robotOmegaRad)
+                + config.yOffset() * Math.cos(robotOmegaRad));
+
+    // Calculate vector from turret position to target
+    double deltaX = targetX - turretFieldX;
+    double deltaY = targetY - turretFieldY;
+
+    // Calculate absolute angle to target from field coordinates
     double absoluteAngle = Math.toDegrees(Math.atan2(deltaY, deltaX));
 
-    double baseAngle = absoluteAngle - robotHeadingDeg;
-    double wrapped =
-        MathUtil.inputModulus(baseAngle, currentTurretAngleDeg - 180, currentTurretAngleDeg + 180);
+    // Calculate relative (desired) angle (turret angle relative to robot heading)
+    double relativeAngle = absoluteAngle - robotHeadingDeg;
 
-    return Math.max(effectiveMinDeg, Math.min(effectiveMaxDeg, wrapped));
+    // Log calculation values
+    Logger.recordOutput("Turret/RobotOmegaNormalized", robotOmegaNormalized);
+    Logger.recordOutput("Turret/AbsoluteAngle", absoluteAngle);
+    Logger.recordOutput("Turret/RelativeAngle", relativeAngle);
+
+    // Find the equivalent angle closest to current position
+    // Check desiredAngle and its ±360° versions
+    double[] candidates = {relativeAngle, relativeAngle + 360.0, relativeAngle - 360.0};
+
+    double bestOutsideAngle =
+        relativeAngle; // doesn't matter what we set this to, it's just for initalization
+    double smallestMove = 1000000.0; // Set this high do first viable candidate becomes the best.
+
+    for (double candidate : candidates) {
+      // Check if this candidate is within physical limits
+      if (candidate >= effectiveMinDeg && candidate <= effectiveMaxDeg) {
+
+        double moveDistance = Math.abs(candidate - currentAngle);
+        if (moveDistance < smallestMove) {
+          smallestMove = moveDistance;
+          bestOutsideAngle = candidate;
+        }
+      }
+    }
+
+    // If bestAngle is still out of range, clamp to nearest limit
+    // This should actually never come into play since one of the candidates
+    // should always work and be within range.
+    if (bestOutsideAngle < effectiveMinDeg) {
+      bestOutsideAngle = effectiveMinDeg;
+    } else if (bestOutsideAngle > effectiveMaxDeg) {
+      bestOutsideAngle = effectiveMaxDeg;
+    }
+
+    Logger.recordOutput("Turret/bestOutsideAngle", bestOutsideAngle);
+
+    return bestOutsideAngle;
   }
 
   // ========== Shot Calculations ==========
@@ -292,7 +356,7 @@ public final class ShotCalculator {
         TrajectoryOptimizer.calculateOptimalShot(turretPos, aimTarget);
 
     double turretAngleDeg =
-        calculateTurretAngle(
+        calculateOutsideTurretAngle(
             robotPose.getX(),
             robotPose.getY(),
             robotPose.getRotation().getDegrees(),
@@ -370,7 +434,7 @@ public final class ShotCalculator {
     }
 
     double turretAngleDeg =
-        calculateTurretAngle(
+        calculateOutsideTurretAngle(
             robotPose.getX(),
             robotPose.getY(),
             robotPose.getRotation().getDegrees(),

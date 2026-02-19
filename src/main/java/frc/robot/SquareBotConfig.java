@@ -109,8 +109,11 @@ public class SquareBotConfig implements RobotConfig {
   private static final int turretMotorCanId = 50;
   private static final double turretGearRatio = 1.0;
   private static final double turretHeightMeters = 0.3597275;
-  private static final double turretMaxAngleDegrees = 200.0;
-  private static final double turretMinAngleDegrees = -200.0;
+  private static final double turretInsideMaxAngleDeg = 180.0;
+  private static final double turretInsideMinAngleDeg = -180.0;
+  private static final double turretZeroOffset = 63.873;
+  private static final double turretMaxAngleDegrees = turretZeroOffset + turretInsideMaxAngleDeg;
+  private static final double turretMinAngleDegrees = turretZeroOffset + turretInsideMinAngleDeg;
   private static final int turretCurrentLimitAmps = 40;
   private static final double turretKp = 5.0;
   private static final double turretKd = 0.1;
@@ -430,12 +433,12 @@ public class SquareBotConfig implements RobotConfig {
   }
 
   @Override
-  public double getTurretMaxAngleDegrees() {
+  public double getTurretOutsideMaxAngleDeg() {
     return turretMaxAngleDegrees;
   }
 
   @Override
-  public double getTurretMinAngleDegrees() {
+  public double getTurretOutsideMinAngleDeg() {
     return turretMinAngleDegrees;
   }
 

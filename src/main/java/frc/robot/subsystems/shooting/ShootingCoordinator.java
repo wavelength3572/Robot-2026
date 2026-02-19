@@ -270,7 +270,7 @@ public class ShootingCoordinator extends SubsystemBase {
             fieldSpeeds,
             target,
             turretConfig,
-            turret.getCurrentAngle(),
+            turret.getOutsideCurrentAngle(),
             turret.getEffectiveMinAngle(),
             turret.getEffectiveMaxAngle());
 
@@ -333,7 +333,7 @@ public class ShootingCoordinator extends SubsystemBase {
             target,
             turretConfig,
             passLaunchAngleDeg.get(),
-            turret.getCurrentAngle(),
+            turret.getOutsideCurrentAngle(),
             turret.getEffectiveMinAngle(),
             turret.getEffectiveMaxAngle());
 
@@ -439,7 +439,7 @@ public class ShootingCoordinator extends SubsystemBase {
       Logger.recordOutput("Match/ShotLog/RobotSpeedMps", robotSpeedMps);
       Logger.recordOutput("Match/ShotLog/ExitVelocityMps", currentShot.exitVelocityMps());
       Logger.recordOutput("Match/ShotLog/LaunchAngleDeg", currentShot.getLaunchAngleDegrees());
-      Logger.recordOutput("Match/ShotLog/TurretAngleDeg", turret.getCurrentAngle());
+      Logger.recordOutput("Match/ShotLog/TurretAngleDeg", turret.getOutsideCurrentAngle());
 
       launchFuel();
       lastShotTimestamp = now;
@@ -661,11 +661,11 @@ public class ShootingCoordinator extends SubsystemBase {
         robotPoseSupplier.get(),
         fieldSpeedsSupplier.get(),
         isBlueAlliance,
-        turret.getCurrentAngle(),
-        turret.getTargetAngle(),
+        turret.getOutsideCurrentAngle(),
+        turret.getOutsideTargetAngle(),
         turret.getEffectiveMinAngle(),
         turret.getEffectiveMaxAngle(),
-        turret.getCenterDeg(),
+        turret.getOutsideCenterDeg(),
         turret.getWarningZoneDeg(),
         currentShot,
         turretConfig.heightMeters(),

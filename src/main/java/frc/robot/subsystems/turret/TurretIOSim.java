@@ -35,8 +35,8 @@ public class TurretIOSim implements TurretIO {
     config = Constants.getRobotConfig();
 
     // Get config values
-    maxAngleDegrees = config.getTurretMaxAngleDegrees();
-    minAngleDegrees = config.getTurretMinAngleDegrees();
+    maxAngleDegrees = config.getTurretOutsideMaxAngleDeg();
+    minAngleDegrees = config.getTurretOutsideMinAngleDeg();
 
     // Create motion profile constraints
     constraints =
@@ -67,17 +67,15 @@ public class TurretIOSim implements TurretIO {
     currentState = new TrapezoidProfile.State(clampedPosition, clampedVelocity);
 
     // Populate inputs
-    inputs.targetAngleDegrees = targetRotation.getDegrees();
-    inputs.targetAngleRadians = targetRotation.getRadians();
-    inputs.currentAngleDegrees = currentState.position;
-    inputs.currentAngleRadians = Math.toRadians(currentState.position);
+    inputs.targetInsideAngleDeg = targetRotation.getDegrees();
+    inputs.currentInsideAngleDeg = currentState.position;
     inputs.velocityDegreesPerSec = currentState.velocity;
     inputs.appliedVolts = 0.0;
     inputs.currentAmps = 0.0;
   }
 
   @Override
-  public void setTurretAngle(Rotation2d rotation) {
+  public void setOutsideTurretAngle(Rotation2d rotation) {
     // Clamp the target angle to valid range
     double clampedDegrees = MathUtil.clamp(rotation.getDegrees(), minAngleDegrees, maxAngleDegrees);
     targetRotation = Rotation2d.fromDegrees(clampedDegrees);
