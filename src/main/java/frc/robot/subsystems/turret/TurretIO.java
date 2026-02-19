@@ -11,6 +11,7 @@ public interface TurretIO {
     public double targetAngleDegrees = 0.0;
     public double targetAngleRadians = 0.0;
     public double velocityDegreesPerSec = 0.0;
+    public double velocityMotor = 0.0;
     public double appliedVolts = 0.0;
     public double currentAmps = 0.0;
     public double motorPosition = 0.0;
@@ -22,4 +23,7 @@ public interface TurretIO {
 
   /** Set the target angle for the turret in degrees relative to robot front */
   public default void setTurretAngle(Rotation2d rotation) {}
+
+  /** Set the target angle for the turret in degrees relative to robot front */
+  public default void setTurretVolts(double volts) {}
 }

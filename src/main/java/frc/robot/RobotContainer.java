@@ -54,6 +54,7 @@ import frc.robot.subsystems.spindexer.SpindexerIOSparkMax;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.TurretIO;
 import frc.robot.subsystems.turret.TurretIOSim;
+import frc.robot.subsystems.turret.TurretIOSparkMax;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
@@ -102,7 +103,7 @@ public class RobotContainer {
     // Instantiate turret subsystem
     switch (Constants.currentMode) {
       case REAL:
-        turret = new Turret(new TurretIO() {});
+        turret = new Turret(new TurretIOSparkMax());
         break;
 
       case SIM:

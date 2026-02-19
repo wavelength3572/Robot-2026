@@ -6,7 +6,9 @@ import com.revrobotics.AbsoluteEncoder;
 import com.revrobotics.PersistMode;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.ResetMode;
+import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.FeedbackSensor;
+import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
@@ -86,13 +88,17 @@ public class TurretIOSparkMax implements TurretIO {
     motorConfig
         .smartCurrentLimit(config.getTurretCurrentLimitAmps())
         .voltageCompensation(12.0)
-        .idleMode(com.revrobotics.spark.config.SparkBaseConfig.IdleMode.kBrake);
+        .idleMode(com.revrobotics.spark.config.SparkBaseConfig.IdleMode.kBrake)
+        .inverted(config.getTurretMotorInverted());
+
+    motorConfig.absoluteEncoder.inverted(true);
 
     // PID control using motor's relative encoder (units: motor rotations)
     motorConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(kP.get(), 0.0, kD.get());
+        .pid(kP.get(), 0.0, kD.get())
+        .outputRange(-0.25, 0.25);
 
     // ========== HARDWARE SOFT LIMITS (Critical Safety Feature) ==========
     // These limits are enforced by the SparkMax itself, providing protection even
@@ -134,11 +140,12 @@ public class TurretIOSparkMax implements TurretIO {
     // applied)
     double rawEncoder = absoluteEncoder.getPosition();
     // The 1.0 before the modulo prevents negative results
-    double adjustedEncoder = (rawEncoder - absoluteEncoderOffset + 1.0) % 1.0;
-    adjustedEncoder = adjustedEncoder - 0.5; // Normalize to [.5,-.5)
-    double seedMotorRotations = adjustedEncoder * config.getTurretMotorGearRatio();
+    double encoderDelta = rawEncoder - absoluteEncoderOffset;
+    if (encoderDelta > 0.5) encoderDelta -= 1.0;
+    if (encoderDelta < -0.5) encoderDelta += 1.0;
+    double seedMotorRotations = encoderDelta * config.getTurretMotorGearRatio();
     double turretPositionDegrees =
-        motorRotationsToDegrees(adjustedEncoder * config.getTurretMotorGearRatio());
+        motorRotationsToDegrees(encoderDelta * config.getTurretMotorGearRatio());
     tryUntilOk(motorSpark, 5, () -> motorEncoder.setPosition(seedMotorRotations));
 
     // --- Startup diagnostics ---
@@ -235,10 +242,8 @@ public class TurretIOSparkMax implements TurretIO {
 
     ifOk(motorSpark, absoluteEncoder::getPosition, (value) -> inputs.absEncoder = value);
 
-    ifOk(
-        motorSpark,
-        motorEncoder::getVelocity,
-        (value) -> inputs.velocityDegreesPerSec = value * 360.0 / totalGearRatio / 60.0);
+    ifOk(motorSpark, motorEncoder::getVelocity, (value) -> inputs.velocityMotor = value);
+    inputs.velocityDegreesPerSec = inputs.velocityMotor * 360.0 / totalGearRatio / 60.0;
     ifOk(
         motorSpark,
         new DoubleSupplier[] {motorSpark::getAppliedOutput, motorSpark::getBusVoltage},
@@ -264,8 +269,18 @@ public class TurretIOSparkMax implements TurretIO {
     targetRotation = Rotation2d.fromDegrees(clampedDegrees);
 
     // Convert degrees to motor rotations for the PID controller
-    // motorController.setSetpoint(degreesToMotorRotations(clampedDegrees),
-    // ControlType.kPosition);
+    motorController.setSetpoint(
+        degreesToMotorRotations(clampedDegrees),
+        ControlType.kPosition,
+        ClosedLoopSlot.kSlot0,
+        0.13);
+  }
+
+  @Override
+  public void setTurretVolts(double volts) {
+    if (volts > .5) volts = .5;
+    // Convert degrees to motor rotations for the PID controller
+    motorController.setSetpoint(volts, ControlType.kVoltage);
   }
 
   // --- Conversion helpers ---

@@ -301,6 +301,16 @@ public class ButtonsAndDashboardBindings {
               .withName("Turret SetAngle"));
     }
 
+    // Turret: direct angle command, reads BenchTest/Shooting/AngleDegTurret
+    if (turret != null) {
+      ShootingCommands.initTunables();
+      SmartDashboard.putData(
+          "BenchTest/Turret/SetVolts",
+          Commands.run(
+                  () -> turret.setTurretVolts(ShootingCommands.getTestTurretVolts().get()), turret)
+              .withName("Turret Set Volts"));
+    }
+
     // Intake: PID tunables are under Tuning/Intake/Roller_*, run buttons are in BenchTest
 
   }
