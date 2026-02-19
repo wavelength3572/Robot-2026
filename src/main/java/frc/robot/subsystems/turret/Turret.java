@@ -1,6 +1,5 @@
 package frc.robot.subsystems.turret;
 
-import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
@@ -269,7 +268,7 @@ public class Turret extends SubsystemBase {
    * @return Current angle in degrees
    */
   public double getCurrentAngle() {
-    return inputs.currentAngleDegrees;
+    return io.getTurretAngle().getDegrees();
   }
 
   /**

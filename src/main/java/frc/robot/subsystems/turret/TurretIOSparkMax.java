@@ -59,6 +59,8 @@ public class TurretIOSparkMax implements TurretIO {
   // Target tracking
   private Rotation2d targetRotation = new Rotation2d();
 
+  private double currentAngleDegrees;
+
   public TurretIOSparkMax() {
     config = Constants.getRobotConfig();
 
@@ -237,7 +239,8 @@ public class TurretIOSparkMax implements TurretIO {
     // software
     sparkStickyFault = false;
     ifOk(motorSpark, motorEncoder::getPosition, (value) -> inputs.motorPosition = value);
-    inputs.currentAngleDegrees = motorRotationsToDegrees(inputs.motorPosition);
+    currentAngleDegrees = motorRotationsToDegrees(inputs.motorPosition);
+    inputs.currentAngleDegrees = currentAngleDegrees;
     inputs.currentAngleRadians = Math.toRadians(inputs.currentAngleDegrees);
 
     ifOk(motorSpark, absoluteEncoder::getPosition, (value) -> inputs.absEncoder = value);
@@ -265,15 +268,24 @@ public class TurretIOSparkMax implements TurretIO {
   public void setTurretAngle(Rotation2d rotation) {
     // Clamp the target angle to valid range
     double clampedDegrees =
-        Math.max(minAngleDegrees, Math.min(maxAngleDegrees, rotation.getDegrees()));
+        Math.max(
+            minAngleDegrees + config.getTurretZeroOffset(),
+            Math.min(maxAngleDegrees + config.getTurretZeroOffset(), rotation.getDegrees()));
     targetRotation = Rotation2d.fromDegrees(clampedDegrees);
+
+    double offsetTargetRotation = clampedDegrees - config.getTurretZeroOffset();
 
     // Convert degrees to motor rotations for the PID controller
     motorController.setSetpoint(
-        degreesToMotorRotations(clampedDegrees),
+        degreesToMotorRotations(offsetTargetRotation),
         ControlType.kPosition,
         ClosedLoopSlot.kSlot0,
         0.13);
+  }
+
+  @Override
+  public Rotation2d getTurretAngle() {
+    return Rotation2d.fromDegrees(currentAngleDegrees + config.getTurretZeroOffset());
   }
 
   @Override
