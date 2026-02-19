@@ -109,9 +109,9 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretMaxAngleDegrees = 180.0;
   private static final double turretMinAngleDegrees = -180.0;
   private static final double turretAbsoluteEncoderOffset = 0.078061;
-  private static final int turretCurrentLimitAmps = 40;
-  private static final double turretKp = 5.0;
-  private static final double turretKd = 0.1;
+  private static final int turretCurrentLimitAmps = 10;
+  private static final double turretKp = 0.15;
+  private static final double turretKd = 0.0;
   private static final boolean turretMotorInverted = true;
 
   // Gear ratios:

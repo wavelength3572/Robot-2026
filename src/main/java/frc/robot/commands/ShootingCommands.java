@@ -100,6 +100,9 @@ public class ShootingCommands {
   private static final LoggedTunableNumber testTurretAngleDeg =
       new LoggedTunableNumber("BenchTest/Shooting/AngleDegTurret", 0.0);
 
+  private static final LoggedTunableNumber testTurretVolts =
+      new LoggedTunableNumber("BenchTest/Shooting/TurretVolts", 0.0);
+
   private static final LoggedTunableNumber testHoodAngleDeg =
       new LoggedTunableNumber("BenchTest/Shooting/AngleDegHood", 45.0);
 
@@ -127,6 +130,7 @@ public class ShootingCommands {
     testLauncherRPM.get();
     testMotivatorRPM.get();
     testTurretAngleDeg.get();
+    testTurretVolts.get();
     testHoodAngleDeg.get();
     testSpindexerRPM.get();
 
@@ -157,6 +161,10 @@ public class ShootingCommands {
 
   public static LoggedTunableNumber getTestTurretAngleDeg() {
     return testTurretAngleDeg;
+  }
+
+  public static LoggedTunableNumber getTestTurretVolts() {
+    return testTurretVolts;
   }
 
   /**

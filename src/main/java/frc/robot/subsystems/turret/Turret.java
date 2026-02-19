@@ -122,6 +122,10 @@ public class Turret extends SubsystemBase {
     io.setTurretAngle(Rotation2d.fromDegrees(clampedAngle));
   }
 
+  public void setTurretVolts(double volts) {
+    io.setTurretVolts(volts);
+  }
+
   /**
    * Calculate and set the turret angle to point at a field position.
    *
