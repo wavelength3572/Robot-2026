@@ -560,5 +560,55 @@ public class ButtonsAndDashboardBindings {
       // Fallback if no launcher: just launch fuel visually
       oi.getButtonBox1Button2().whileTrue(shootingCoordinator.repeatedlyLaunchFuelCommand());
     }
+
+    // Hub shot: Button 8 — fixed position launch for close-range hub shots
+    if (launcher != null && turret != null) {
+      oi.getButtonBox1Button8()
+          .whileTrue(
+              ShootingCommands.fixedPositionLaunchCommand(
+                  launcher,
+                  shootingCoordinator,
+                  motivator,
+                  turret,
+                  hood,
+                  spindexer,
+                  2600.0,
+                  1100.0,
+                  16.0,
+                  -90.0,
+                  750.0));
+
+      // Left trench shot: Button 6
+      oi.getButtonBox1Button6()
+          .whileTrue(
+              ShootingCommands.fixedPositionLaunchCommand(
+                  launcher,
+                  shootingCoordinator,
+                  motivator,
+                  turret,
+                  hood,
+                  spindexer,
+                  3080.0,
+                  1100.0,
+                  19.0,
+                  208.0,
+                  750.0));
+
+      // Right trench shot: Button 5
+      oi.getButtonBox1Button5()
+          .whileTrue(
+              ShootingCommands.fixedPositionLaunchCommand(
+                  launcher,
+                  shootingCoordinator,
+                  motivator,
+                  turret,
+                  hood,
+                  spindexer,
+                  3080.0,
+                  1100.0,
+                  19.0,
+                  -25.0,
+                  750.0));
+    }
   }
 }
