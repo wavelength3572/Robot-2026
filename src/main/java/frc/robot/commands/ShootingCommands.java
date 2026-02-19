@@ -168,7 +168,7 @@ public class ShootingCommands {
   }
 
   public static LoggedTunableNumber getInsideTurretAngleDeg() {
-    return testOutsideTurretAngleDeg;
+    return testInsideTurretAngleDeg;
   }
 
   public static LoggedTunableNumber getTestTurretVolts() {
