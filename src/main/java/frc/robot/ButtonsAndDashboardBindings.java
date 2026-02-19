@@ -310,7 +310,8 @@ public class ButtonsAndDashboardBindings {
           Commands.run(
                   () ->
                       turret.setOutsideTurretAngle(
-                          ShootingCommands.getOutsideTurretAngleDeg().get()),
+                          turret.flipOutsideAngle(
+                              ShootingCommands.getOutsideTurretAngleDeg().get())),
                   turret)
               .withName("Turret Outside SetAngle"));
     }

@@ -168,9 +168,6 @@ public class Turret extends SubsystemBase {
   private double calculateOutsideTurretAngleFromTurret(
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
 
-    // Get current turret angle (could be outside -180 to +180 range)
-    double currentAngle = getOutsideCurrentAngle();
-
     // Normalize robotOmega to -180 to +180 range
     // This code actually probably doesn't do anything
     // Since our robot omega is always -180 to +180
@@ -211,12 +208,24 @@ public class Turret extends SubsystemBase {
     Logger.recordOutput("Turret/AbsoluteAngle", absoluteAngle);
     Logger.recordOutput("Turret/RelativeAngle", relativeAngle);
 
+    double bestOutsideAngle = flipOutsideAngle(relativeAngle);
+
+    return bestOutsideAngle;
+  }
+
+  public double flipOutsideAngle(double unflippedOutsideAngle) {
+
+    // Get current turret angle (could be outside -180 to +180 range)
+    double currentAngle = getOutsideCurrentAngle();
+
     // Find the equivalent angle closest to current position
     // Check desiredAngle and its ±360° versions
-    double[] candidates = {relativeAngle, relativeAngle + 360.0, relativeAngle - 360.0};
+    double[] candidates = {
+      unflippedOutsideAngle, unflippedOutsideAngle + 360.0, unflippedOutsideAngle - 360.0
+    };
 
     double bestOutsideAngle =
-        relativeAngle; // doesn't matter what we set this to, it's just for initalization
+        unflippedOutsideAngle; // doesn't matter what we set this to, it's just for initalization
     double smallestMove = 1000000.0; // Set this high do first viable candidate becomes the best.
 
     for (double candidate : candidates) {
