@@ -222,10 +222,10 @@ public class Turret extends SubsystemBase {
     // If bestAngle is still out of range, clamp to nearest limit
     // This should actually never come into play since one of the candidates
     // should always work and be within range.
-    if (bestAngle < config.getTurretMinAngleDegrees()) {
-      bestAngle = config.getTurretMinAngleDegrees();
-    } else if (bestAngle > config.getTurretMaxAngleDegrees()) {
-      bestAngle = config.getTurretMaxAngleDegrees();
+    if (bestAngle < config.getTurretMinAngleDegrees() + config.getTurretZeroOffset()) {
+      bestAngle = config.getTurretMinAngleDegrees() + config.getTurretZeroOffset();
+    } else if (bestAngle > config.getTurretMaxAngleDegrees() + config.getTurretZeroOffset()) {
+      bestAngle = config.getTurretMaxAngleDegrees() + config.getTurretZeroOffset();
     }
 
     Logger.recordOutput("Turret/bestAngle", bestAngle);
