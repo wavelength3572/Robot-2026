@@ -266,18 +266,14 @@ public class TurretIOSparkMax implements TurretIO {
 
   @Override
   public void setTurretAngle(Rotation2d rotation) {
-    // Clamp the target angle to valid range
+    // Clamp the target angle to valid range (encoder-space)
     double clampedDegrees =
-        Math.max(
-            minAngleDegrees + config.getTurretZeroOffset(),
-            Math.min(maxAngleDegrees + config.getTurretZeroOffset(), rotation.getDegrees()));
+        Math.max(minAngleDegrees, Math.min(maxAngleDegrees, rotation.getDegrees()));
     targetRotation = Rotation2d.fromDegrees(clampedDegrees);
-
-    double offsetTargetRotation = clampedDegrees - config.getTurretZeroOffset();
 
     // Convert degrees to motor rotations for the PID controller
     motorController.setSetpoint(
-        degreesToMotorRotations(offsetTargetRotation),
+        degreesToMotorRotations(clampedDegrees),
         ControlType.kPosition,
         ClosedLoopSlot.kSlot0,
         0.13);
