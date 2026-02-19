@@ -152,25 +152,11 @@ public class ButtonsAndDashboardBindings {
     // Initialize all tunables and status values so they appear on dashboard immediately
     ShootingCommands.initTunables();
 
-    // === Auto Launch Command ===
-    // Auto-calculated trajectory - works for both sim and physical
-    SmartDashboard.putData(
-        "Match/SmartLaunch",
-        ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator, spindexer));
-
-    // === Manual Launch Command ===
-    // Manual test mode using BenchTest/Shooting/* dashboard values for controlled testing
+    // === Unified Launch Command ===
+    // Uses ShootingMode (MANUAL/AUTO) to determine parameter source
     SmartDashboard.putData(
         "BenchTest/Shooting/Launch",
-        ShootingCommands.testLaunchCommand(
-            launcher, shootingCoordinator, motivator, hood, spindexer));
-
-    // === Bench Test Controls ===
-    // Stripped-down launch for bench testing (no turret/hood wait)
-    SmartDashboard.putData(
-        "BenchTest/Shooting/LauncherOnly",
-        ShootingCommands.benchTestLaunchCommand(
-            launcher, shootingCoordinator, motivator, spindexer));
+        ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator, hood, spindexer));
 
     // Set fuel stored to 8 (works while disabled)
     SmartDashboard.putData(
@@ -485,19 +471,12 @@ public class ButtonsAndDashboardBindings {
                       shootingCoordinator)
                   .ignoringDisable(true));
 
-      // Shoot button - bench test launch for TURRETBOT, normal launch for others
+      // Shoot button - unified launch command for all robots
       if (launcher != null) {
-        if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
-          oi.getShootButton()
-              .whileTrue(
-                  ShootingCommands.benchTestLaunchCommand(
-                      launcher, shootingCoordinator, motivator, spindexer));
-        } else {
-          oi.getShootButton()
-              .whileTrue(
-                  ShootingCommands.launchCommand(
-                      launcher, shootingCoordinator, motivator, spindexer));
-        }
+        oi.getShootButton()
+            .whileTrue(
+                ShootingCommands.launchCommand(
+                    launcher, shootingCoordinator, motivator, hood, spindexer));
       } else {
         // No launcher - just launch fuel visually
         oi.getShootButton().whileTrue(shootingCoordinator.repeatedlyLaunchFuelCommand());
@@ -508,7 +487,8 @@ public class ButtonsAndDashboardBindings {
     if (launcher != null && shootingCoordinator != null) {
       oi.getLauncherButton()
           .whileTrue(
-              ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator, spindexer));
+              ShootingCommands.launchCommand(
+                  launcher, shootingCoordinator, motivator, hood, spindexer));
     }
   }
 
@@ -538,7 +518,8 @@ public class ButtonsAndDashboardBindings {
     if (shootingCoordinator != null && launcher != null) {
       oi.getButtonBox1Button2()
           .whileTrue(
-              ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator, spindexer));
+              ShootingCommands.launchCommand(
+                  launcher, shootingCoordinator, motivator, hood, spindexer));
     } else if (shootingCoordinator != null) {
       // Fallback if no launcher: just launch fuel visually
       oi.getButtonBox1Button2().whileTrue(shootingCoordinator.repeatedlyLaunchFuelCommand());

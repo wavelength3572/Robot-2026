@@ -242,8 +242,7 @@ public class RobotContainer {
                   new ModuleIOSpark(0),
                   new ModuleIOSpark(1),
                   new ModuleIOSpark(2),
-                  new ModuleIOSpark(3),
-                  turret);
+                  new ModuleIOSpark(3));
           // Only FrontLeft (CAMERA_A) and FrontRight (CAMERA_B) are installed on Squarebot
           // BackLeft and BackRight Pis are not present, using no-op VisionIO to avoid
           // loop overruns
@@ -264,8 +263,7 @@ public class RobotContainer {
                   new ModuleIOSpark(0),
                   new ModuleIOSpark(1),
                   new ModuleIOSpark(2),
-                  new ModuleIOSpark(3),
-                  turret);
+                  new ModuleIOSpark(3));
           // MainBot uses corner-mounted cameras aimed diagonally outward + front center
           // for intake
           vision = null;
@@ -290,8 +288,7 @@ public class RobotContainer {
                   new ModuleIOVirtual(),
                   new ModuleIOVirtual(),
                   new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  turret);
+                  new ModuleIOVirtual());
           // Vision for SquareBot and MainBot
           // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
           if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
@@ -337,8 +334,7 @@ public class RobotContainer {
                 new ModuleIOSim(),
                 new ModuleIOSim(),
                 new ModuleIOSim(),
-                new ModuleIOSim(),
-                turret);
+                new ModuleIOSim());
         // Vision for SquareBot and MainBot in simulation
         // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
         // This order determines PhotonVision sim ports: A=1182, B=1183, C=1184, D=1185
@@ -404,8 +400,7 @@ public class RobotContainer {
                 new ModuleIO() {},
                 new ModuleIO() {},
                 new ModuleIO() {},
-                new ModuleIO() {},
-                turret);
+                new ModuleIO() {});
         // Vision for SquareBot and MainBot (replay mode)
         if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
           vision =

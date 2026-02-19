@@ -30,6 +30,16 @@ import org.littletonrobotics.junction.Logger;
  */
 public class ShootingCoordinator extends SubsystemBase {
 
+  /** Controls what the coordinator is allowed to command. */
+  public enum CoordinatorMode {
+    IDLE, // Calculations run (logging/viz), no actuators commanded
+    TRACKING, // Turret + hood track the target, no auto-firing
+    AUTO_SHOOT // Full tracking + automatic firing when conditions met
+  }
+
+  // Current coordinator mode (default: nothing moves)
+  private CoordinatorMode coordinatorMode = CoordinatorMode.IDLE;
+
   // Subsystem references
   private final Turret turret;
   private final Hood hood;
@@ -66,8 +76,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber passFuelThreshold =
       new LoggedTunableNumber("Tuning/Turret/Pass/FuelThresholdPct", 0.8);
 
-  // Auto-shoot: fires automatically when conditions are met (for autonomous)
-  private boolean autoShootEnabled = false;
+  // Auto-shoot callback and timing
   private Runnable onShotFiredCallback = null;
   private double lastShotTimestamp = 0.0;
 
@@ -145,6 +154,8 @@ public class ShootingCoordinator extends SubsystemBase {
         DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue);
     boolean isBlueAlliance = (alliance == DriverStation.Alliance.Blue);
 
+    Logger.recordOutput("Turret/CoordinatorMode", coordinatorMode.name());
+
     // Never command actuators while disabled — only run visualization
     if (DriverStation.isDisabled()) {
       if (visualizer != null && robotPoseSupplier != null) {
@@ -179,7 +190,7 @@ public class ShootingCoordinator extends SubsystemBase {
     // Only auto-calculate shot in COMPETITION mode
     if (robotPoseSupplier != null
         && fieldSpeedsSupplier != null
-        && !frc.robot.commands.ShootingCommands.isTestMode()) {
+        && !frc.robot.commands.ShootingCommands.isManualMode()) {
       Pose2d robotPose = robotPoseSupplier.get();
       ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
       TurretAimingHelper.AimResult aimResult =
@@ -265,12 +276,12 @@ public class ShootingCoordinator extends SubsystemBase {
 
     currentShot = result;
 
-    // Command turret to aim
-    // turret.setTurretAngle(result.turretAngleDeg());
-
-    // Command hood to the mechanical angle if available
-    if (hood != null && result.achievable()) {
-      hood.setAngle(result.hoodAngleDeg());
+    // Command turret + hood only when tracking or higher
+    if (isTrackingOrHigher()) {
+      turret.setTurretAngle(result.turretAngleDeg());
+      if (hood != null && result.achievable()) {
+        hood.setAngle(result.hoodAngleDeg());
+      }
     }
 
     // Log shot data
@@ -328,8 +339,10 @@ public class ShootingCoordinator extends SubsystemBase {
 
     currentShot = result;
 
-    // Command turret to aim
-    // turret.setTurretAngle(result.turretAngleDeg());
+    // Command turret only when tracking or higher
+    if (isTrackingOrHigher()) {
+      turret.setTurretAngle(result.turretAngleDeg());
+    }
 
     // Log pass shot data
     double robotHeadingRad = robotPose.getRotation().getRadians();
@@ -370,8 +383,10 @@ public class ShootingCoordinator extends SubsystemBase {
 
   /** Check auto-shoot conditions and fire when all criteria are met. */
   private void runAutoShoot(DriverStation.Alliance alliance) {
-    Logger.recordOutput("Turret/AutoShootEnabled", autoShootEnabled);
-    if (!autoShootEnabled || launcher == null || robotPoseSupplier == null) return;
+    Logger.recordOutput("Turret/AutoShootEnabled", coordinatorMode == CoordinatorMode.AUTO_SHOOT);
+    if (coordinatorMode != CoordinatorMode.AUTO_SHOOT
+        || launcher == null
+        || robotPoseSupplier == null) return;
 
     boolean launcherReady = launcher.atSetpoint();
     boolean hasShot = currentShot != null && currentShot.exitVelocityMps() > 0;
@@ -537,17 +552,35 @@ public class ShootingCoordinator extends SubsystemBase {
     Logger.recordOutput("Turret/ManualShot/HoodAngleDeg", 0.0);
   }
 
+  // ========== Coordinator Mode ==========
+
+  /** Set the coordinator mode. */
+  public void setCoordinatorMode(CoordinatorMode mode) {
+    this.coordinatorMode = mode;
+  }
+
+  /** Get the current coordinator mode. */
+  public CoordinatorMode getCoordinatorMode() {
+    return coordinatorMode;
+  }
+
+  /** Returns true if mode is TRACKING or AUTO_SHOOT (actuators should be commanded). */
+  public boolean isTrackingOrHigher() {
+    return coordinatorMode == CoordinatorMode.TRACKING
+        || coordinatorMode == CoordinatorMode.AUTO_SHOOT;
+  }
+
   // ========== Auto-Shoot Mode ==========
 
   /** Enable auto-shoot mode. Turret will fire automatically when all conditions are met. */
   public void enableAutoShoot() {
-    autoShootEnabled = true;
+    setCoordinatorMode(CoordinatorMode.AUTO_SHOOT);
     turret.enableLaunchMode();
   }
 
-  /** Disable auto-shoot mode. Returns turret to normal tracking range. */
+  /** Disable auto-shoot mode. Returns to IDLE. */
   public void disableAutoShoot() {
-    autoShootEnabled = false;
+    setCoordinatorMode(CoordinatorMode.IDLE);
     turret.disableLaunchMode();
   }
 
@@ -557,28 +590,30 @@ public class ShootingCoordinator extends SubsystemBase {
    * @return True if auto-shoot is active
    */
   public boolean isAutoShootEnabled() {
-    return autoShootEnabled;
+    return coordinatorMode == CoordinatorMode.AUTO_SHOOT;
   }
 
   // ========== Facade Methods (delegate to turret) ==========
 
-  /** Enable launch mode (full turret range). */
+  /** Enable launch mode (TRACKING + full turret range). */
   public void enableLaunchMode() {
+    setCoordinatorMode(CoordinatorMode.TRACKING);
     turret.enableLaunchMode();
   }
 
-  /** Disable launch mode (narrower tracking range). */
+  /** Disable launch mode (return to IDLE + narrower tracking range). */
   public void disableLaunchMode() {
+    setCoordinatorMode(CoordinatorMode.IDLE);
     turret.disableLaunchMode();
   }
 
   /**
-   * Set the turret angle directly (for test mode).
+   * Set the turret angle directly (for test mode). Always works — bypasses coordinator mode.
    *
    * @param angleDeg Turret angle in degrees
    */
   public void setTurretAngle(double angleDeg) {
-    // turret.setTurretAngle(angleDeg);
+    turret.setTurretAngle(angleDeg);
   }
 
   /**
