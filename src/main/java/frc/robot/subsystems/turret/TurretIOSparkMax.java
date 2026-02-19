@@ -47,8 +47,10 @@ public class TurretIOSparkMax implements TurretIO {
   private final LoggedTunableNumber kD;
 
   // Configuration values
-  private final double maxAngleDegrees;
-  private final double minAngleDegrees;
+  private final double maxOutsideAngleDegrees;
+  private final double minOutsideAngleDegrees;
+  private final double maxInsideAngleDegrees;
+  private final double minInsideAngleDegrees;
   private final double totalGearRatio;
   private final double absoluteEncoderOffset;
 
@@ -57,9 +59,11 @@ public class TurretIOSparkMax implements TurretIO {
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
   // Target tracking
-  private Rotation2d targetRotation = new Rotation2d();
+  private double targetInsideDeg;
+  private double targetOutsideDeg;
 
-  private double currentAngleDegrees;
+  private double currentInsideAngleDegrees;
+  private double currentOutsideAngleDegrees;
 
   public TurretIOSparkMax() {
     config = Constants.getRobotConfig();
@@ -69,8 +73,10 @@ public class TurretIOSparkMax implements TurretIO {
     kD = new LoggedTunableNumber("Tuning/Turret/kD", config.getTurretKd());
 
     // Store config values
-    maxAngleDegrees = config.getTurretMaxAngleDegrees();
-    minAngleDegrees = config.getTurretMinAngleDegrees();
+    maxOutsideAngleDegrees = config.getTurretMaxAngleDegrees();
+    minOutsideAngleDegrees = config.getTurretMinAngleDegrees();
+    maxInsideAngleDegrees = config.getTurretMaxAngleDegrees() - config.getTurretZeroOffset();
+    minInsideAngleDegrees = config.getTurretMinAngleDegrees() - config.getTurretZeroOffset();
     totalGearRatio = config.getTurretGearRatio();
     absoluteEncoderOffset = config.getTurretAbsoluteEncoderOffset();
 
@@ -104,11 +110,10 @@ public class TurretIOSparkMax implements TurretIO {
 
     // ========== HARDWARE SOFT LIMITS (Critical Safety Feature) ==========
     // These limits are enforced by the SparkMax itself, providing protection even
-    // if
-    // software bugs out. The motor will refuse to drive past these positions.
+    // if software bugs out. The motor will refuse to drive past these positions.
     // Units: motor rotations (must convert from turret degrees)
-    double forwardLimitMotorRot = degreesToMotorRotations(maxAngleDegrees);
-    double reverseLimitMotorRot = degreesToMotorRotations(minAngleDegrees);
+    double forwardLimitMotorRot = degreesToMotorRotations(maxInsideAngleDegrees);
+    double reverseLimitMotorRot = degreesToMotorRotations(minInsideAngleDegrees);
 
     motorConfig
         .softLimit
@@ -146,15 +151,9 @@ public class TurretIOSparkMax implements TurretIO {
     if (encoderDelta > 0.5) encoderDelta -= 1.0;
     if (encoderDelta < -0.5) encoderDelta += 1.0;
     double seedMotorRotations = encoderDelta * config.getTurretMotorGearRatio();
-    double turretPositionDegrees =
-        motorRotationsToDegrees(encoderDelta * config.getTurretMotorGearRatio());
     tryUntilOk(motorSpark, 5, () -> motorEncoder.setPosition(seedMotorRotations));
 
     // --- Startup diagnostics ---
-    double wrapDegrees = 360.0 / config.getTurretExternalGearRatio();
-    double roomCW = maxAngleDegrees - turretPositionDegrees;
-    double roomCCW = turretPositionDegrees - minAngleDegrees;
-
     System.out.println();
     System.out.println(
         "+=========================================================================+");
@@ -167,10 +166,6 @@ public class TurretIOSparkMax implements TurretIO {
     System.out.printf(
         "|    CAN ID: %d  |  Gear Ratio: %.1f:1  |  External: %.2f:1            %n",
         config.getTurretMotorCanId(), totalGearRatio, config.getTurretExternalGearRatio());
-    System.out.printf(
-        "|    Encoder wraps every: %.1f deg of turret rotation                   %n", wrapDegrees);
-    System.out.println(
-        "|                                                                         |");
     System.out.println(
         "|  ENCODER READINGS                                                       |");
     System.out.printf(
@@ -184,44 +179,19 @@ public class TurretIOSparkMax implements TurretIO {
         "|  +---------------------------------------------------------------------+|");
     System.out.printf(
         "|  |  BELIEVED POSITION: %+7.1f deg                                   ||%n",
-        turretPositionDegrees);
+        motorRotationsToDegrees(encoderDelta * config.getTurretMotorGearRatio()));
     System.out.println(
         "|  +---------------------------------------------------------------------+|");
-    System.out.println(
-        "|                                                                         |");
-    System.out.println(
-        "|  ROOM TO ROTATE                                                         |");
-    System.out.printf(
-        "|    -> CW  (positive): %6.1f deg until %+.1f deg limit                %n",
-        roomCW, maxAngleDegrees);
-    System.out.printf(
-        "|    <- CCW (negative): %6.1f deg until %+.1f deg limit               %n",
-        roomCCW, minAngleDegrees);
-    System.out.println(
-        "|                                                                         |");
     System.out.println(
         "|  HARDWARE SOFT LIMITS (SparkMax enforced)                               |");
     System.out.printf(
         "|    Reverse: %.2f motor rot (%.1f deg)                                %n",
-        reverseLimitMotorRot, minAngleDegrees);
+        reverseLimitMotorRot, minInsideAngleDegrees);
     System.out.printf(
         "|    Forward: %.2f motor rot (%.1f deg)                                 %n",
-        forwardLimitMotorRot, maxAngleDegrees);
-    System.out.println(
-        "|                                                                         |");
-    System.out.println(
-        "|  *** WARNING: Encoder wraps within travel range!                        |");
-    System.out.printf(
-        "|      If turret is >%.1f deg from center at startup, position is WRONG %n",
-        wrapDegrees / 2.0);
-    System.out.println(
-        "|      VERIFY physical position matches believed position above!          |");
+        forwardLimitMotorRot, maxInsideAngleDegrees);
     System.out.println(
         "+=========================================================================+");
-    System.out.println();
-    System.out.println("[TurretIOSparkMax] CALIBRATION TIP: To set zero offset, position turret");
-    System.out.println("  at physical 0 deg, note the AbsRaw value above, and set that as");
-    System.out.println("  turretAbsoluteEncoderOffset in TurretBotConfig.java");
     System.out.println();
   }
 
@@ -239,9 +209,10 @@ public class TurretIOSparkMax implements TurretIO {
     // software
     sparkStickyFault = false;
     ifOk(motorSpark, motorEncoder::getPosition, (value) -> inputs.motorPosition = value);
-    currentAngleDegrees = motorRotationsToDegrees(inputs.motorPosition);
-    inputs.currentAngleDegrees = currentAngleDegrees;
-    inputs.currentAngleRadians = Math.toRadians(inputs.currentAngleDegrees);
+    currentInsideAngleDegrees = motorRotationsToDegrees(inputs.motorPosition);
+    inputs.currentInsideAngleDeg = currentInsideAngleDegrees;
+    currentOutsideAngleDegrees = currentInsideAngleDegrees + config.getTurretZeroOffset();
+    inputs.currentOutsideAngleDeg = currentOutsideAngleDegrees;
 
     ifOk(motorSpark, absoluteEncoder::getPosition, (value) -> inputs.absEncoder = value);
 
@@ -255,8 +226,8 @@ public class TurretIOSparkMax implements TurretIO {
     boolean motorOk = motorConnectedDebounce.calculate(!sparkStickyFault);
 
     // Update target angle
-    inputs.targetAngleDegrees = targetRotation.getDegrees();
-    inputs.targetAngleRadians = targetRotation.getRadians();
+    inputs.targetInsideAngleDeg = targetInsideDeg;
+    inputs.targetOutsideAngleDeg = targetOutsideDeg;
 
     // Log connection status
     if (!motorOk) {
@@ -265,27 +236,31 @@ public class TurretIOSparkMax implements TurretIO {
   }
 
   @Override
-  public void setTurretAngle(Rotation2d rotation) {
+  public void setOutsideTurretAngle(Rotation2d outsideTurretTarget) {
     // Clamp the target angle to valid range
-    double clampedDegrees =
+    targetInsideDeg =
         Math.max(
-            minAngleDegrees + config.getTurretZeroOffset(),
-            Math.min(maxAngleDegrees + config.getTurretZeroOffset(), rotation.getDegrees()));
-    targetRotation = Rotation2d.fromDegrees(clampedDegrees);
+            minOutsideAngleDegrees,
+            Math.min(maxOutsideAngleDegrees, outsideTurretTarget.getDegrees()));
 
-    double offsetTargetRotation = clampedDegrees - config.getTurretZeroOffset();
+    targetOutsideDeg = targetInsideDeg + config.getTurretZeroOffset();
 
     // Convert degrees to motor rotations for the PID controller
     motorController.setSetpoint(
-        degreesToMotorRotations(offsetTargetRotation),
+        degreesToMotorRotations(targetInsideDeg),
         ControlType.kPosition,
         ClosedLoopSlot.kSlot0,
         0.13);
   }
 
   @Override
-  public Rotation2d getTurretAngle() {
-    return Rotation2d.fromDegrees(currentAngleDegrees + config.getTurretZeroOffset());
+  public Rotation2d getOutsideTargetAngle() {
+    return Rotation2d.fromDegrees(targetOutsideDeg);
+  }
+
+  @Override
+  public Rotation2d getOutsideCurrentAngle() {
+    return Rotation2d.fromDegrees(currentOutsideAngleDegrees);
   }
 
   @Override

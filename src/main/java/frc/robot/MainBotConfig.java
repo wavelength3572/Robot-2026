@@ -106,14 +106,16 @@ public class MainBotConfig implements RobotConfig {
   // Turret configuration
   private static final int turretMotorCanId = 50;
   private static final double turretHeightMeters = 0.3597275;
-  private static final double turretMaxAngleDegrees = 180.0;
-  private static final double turretMinAngleDegrees = -180.0;
+  private static final double turretInsideMaxAngleDeg = 180.0;
+  private static final double turretInsideMinAngleDeg = -180.0;
+  private static final double turretZeroOffset = 63.873;
+  private static final double turretMaxAngleDegrees = turretZeroOffset + turretInsideMaxAngleDeg;
+  private static final double turretMinAngleDegrees = turretZeroOffset + turretInsideMinAngleDeg;
   private static final double turretAbsoluteEncoderOffset = 0.078061;
   private static final int turretCurrentLimitAmps = 10;
   private static final double turretKp = 0.15;
   private static final double turretKd = 0.0;
   private static final boolean turretMotorInverted = true;
-  private static final double turretZeroOffset = 63.873;
 
   // Gear ratios:
   // - NEO 550 internal gearbox: 10:1

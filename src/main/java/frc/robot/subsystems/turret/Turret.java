@@ -26,9 +26,9 @@ public class Turret extends SubsystemBase {
   private final double turretXOffset;
   private final double turretYOffset;
 
-  private final double configMin;
-  private final double configMax;
-  private final double centerDeg;
+  private final double outsideAngleMin;
+  private final double outsideAngleMax;
+  private final double outsideCenterDeg;
   private final double flipAngleDeg;
 
   // ========== Tunable Limits (adjust in AdvantageScope without recompiling!)
@@ -44,8 +44,8 @@ public class Turret extends SubsystemBase {
   private boolean launchModeActive = false;
 
   // Cached effective limits (updated when tunables change or mode switches)
-  private double effectiveMinAngleDeg;
-  private double effectiveMaxAngleDeg;
+  private double effectiveOutsideMinAngleDeg;
+  private double effectiveOutsideMaxAngleDeg;
 
   /**
    * Creates a new Turret subsystem.
@@ -59,20 +59,12 @@ public class Turret extends SubsystemBase {
     this.turretXOffset = config.getTurretOffsetX();
     this.turretYOffset = config.getTurretOffsetY();
 
-    // Log turret configuration (logged once at startup)
-    Logger.recordOutput("Turret/Config/hardLimitMinDeg", config.getTurretMinAngleDegrees());
-    Logger.recordOutput("Turret/Config/hardLimitMaxDeg", config.getTurretMaxAngleDegrees());
-    Logger.recordOutput("Turret/Config/heightMeters", turretHeightMeters);
-    Logger.recordOutput("Turret/Config/gearRatio", config.getTurretGearRatio());
-    Logger.recordOutput("Turret/Config/kP", config.getTurretKp());
-    Logger.recordOutput("Turret/Config/kD", config.getTurretKd());
-    Logger.recordOutput("Turret/Config/currentLimitAmps", config.getTurretCurrentLimitAmps());
-
     // Initialize tunable limits (adjustable via NetworkTables at runtime)
-    configMin = config.getTurretMinAngleDegrees();
-    configMax = config.getTurretMaxAngleDegrees();
-    centerDeg = (configMax + configMin) / 2.0;
-    flipAngleDeg = (configMax - configMin) / 2.0;
+    outsideAngleMin = config.getTurretMinAngleDegrees(); // example -116.127
+    outsideAngleMax = config.getTurretMaxAngleDegrees(); // example 243.873
+    outsideCenterDeg = (outsideAngleMax + outsideAngleMin) / 2.0; // Example 63.873 - Same as offset
+    flipAngleDeg =
+        (outsideAngleMax - outsideAngleMin) / 2.0; // Example 180 - Not sure how this helps
 
     warningZoneDeg = new LoggedTunableNumber("Tuning/Turret/WarningZoneDeg", 20.0);
     trackingFlipAngleDeg =
@@ -80,13 +72,24 @@ public class Turret extends SubsystemBase {
 
     // Calculate initial effective limits
     updateEffectiveLimits();
+
+    // Log turret configuration (logged once at startup)
+    Logger.recordOutput("Turret/Config/outsideAngleMin", outsideAngleMin);
+    Logger.recordOutput("Turret/Config/outsideAngleMax", outsideAngleMax);
+    Logger.recordOutput("Turret/Config/heightMeters", turretHeightMeters);
+    Logger.recordOutput("Turret/Config/gearRatio", config.getTurretGearRatio());
+    Logger.recordOutput("Turret/Config/kP", config.getTurretKp());
+    Logger.recordOutput("Turret/Config/kD", config.getTurretKd());
+    Logger.recordOutput("Turret/Config/currentLimitAmps", config.getTurretCurrentLimitAmps());
   }
 
   /** Update effective min/max limits from tunable flip angle, center offset, and active mode. */
   private void updateEffectiveLimits() {
     double flipAngle = launchModeActive ? flipAngleDeg : trackingFlipAngleDeg.get();
-    effectiveMinAngleDeg = Math.max(config.getTurretMinAngleDegrees(), centerDeg - flipAngle);
-    effectiveMaxAngleDeg = Math.min(config.getTurretMaxAngleDegrees(), centerDeg + flipAngle);
+    effectiveOutsideMinAngleDeg =
+        Math.max(outsideAngleMin, outsideCenterDeg - flipAngle); // -116.127
+    effectiveOutsideMaxAngleDeg =
+        Math.min(outsideAngleMax, outsideCenterDeg + flipAngle); // 243.873
   }
 
   @Override
@@ -97,8 +100,7 @@ public class Turret extends SubsystemBase {
       updateEffectiveLimits();
     }
     Logger.recordOutput("Turret/LaunchModeActive", launchModeActive);
-    Logger.recordOutput(
-        "Turret/AngleError", inputs.targetAngleDegrees - inputs.currentAngleDegrees);
+    Logger.recordOutput("Turret/AngleError", getOutsideTargetAngle() - getOutsideCurrentAngle());
     Logger.recordOutput("Turret/AtTarget", atTarget());
   }
 
@@ -112,13 +114,13 @@ public class Turret extends SubsystemBase {
    */
   public void setTurretAngle(double angleDegrees) {
     double clampedAngle =
-        Math.max(effectiveMinAngleDeg, Math.min(effectiveMaxAngleDeg, angleDegrees));
+        Math.max(effectiveOutsideMinAngleDeg, Math.min(effectiveOutsideMaxAngleDeg, angleDegrees));
 
     if (clampedAngle != angleDegrees) {
       Logger.recordOutput("Turret/Safety/ClampedRequestDeg", clampedAngle);
     }
 
-    io.setTurretAngle(Rotation2d.fromDegrees(clampedAngle));
+    io.setOutsideTurretAngle(Rotation2d.fromDegrees(clampedAngle));
   }
 
   public void setTurretVolts(double volts) {
@@ -136,8 +138,9 @@ public class Turret extends SubsystemBase {
    */
   public void aimAtFieldPosition(
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
-    double turretAngle = calculateTurretAngle(robotX, robotY, robotOmega, targetX, targetY);
-    // setTurretAngle(turretAngle);
+    double turretAngle =
+        calculateOutsideTurretAngleFromTurret(robotX, robotY, robotOmega, targetX, targetY);
+    setTurretAngle(turretAngle);
   }
 
   /**
@@ -152,11 +155,11 @@ public class Turret extends SubsystemBase {
    * @return Angle in degrees the turret needs to rotate relative to robot heading Range: -180 to
    *     +180 degrees
    */
-  private double calculateTurretAngle(
+  private double calculateOutsideTurretAngleFromTurret(
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
 
     // Get current turret angle (could be outside -180 to +180 range)
-    double currentAngle = getCurrentAngle();
+    double currentAngle = getOutsideCurrentAngle();
 
     // Normalize robotOmega to -180 to +180 range
     // This code actually probably doesn't do anything
@@ -202,19 +205,18 @@ public class Turret extends SubsystemBase {
     // Check desiredAngle and its ±360° versions
     double[] candidates = {relativeAngle, relativeAngle + 360.0, relativeAngle - 360.0};
 
-    double bestAngle =
+    double bestOutsideAngle =
         relativeAngle; // doesn't matter what we set this to, it's just for initalization
     double smallestMove = 1000000.0; // Set this high do first viable candidate becomes the best.
 
     for (double candidate : candidates) {
       // Check if this candidate is within physical limits
-      if (candidate >= config.getTurretMinAngleDegrees() + config.getTurretZeroOffset()
-          && candidate <= config.getTurretMaxAngleDegrees() + config.getTurretZeroOffset()) {
+      if (candidate >= outsideAngleMin && candidate <= outsideAngleMax) {
 
         double moveDistance = Math.abs(candidate - currentAngle);
         if (moveDistance < smallestMove) {
           smallestMove = moveDistance;
-          bestAngle = candidate;
+          bestOutsideAngle = candidate;
         }
       }
     }
@@ -222,15 +224,15 @@ public class Turret extends SubsystemBase {
     // If bestAngle is still out of range, clamp to nearest limit
     // This should actually never come into play since one of the candidates
     // should always work and be within range.
-    if (bestAngle < config.getTurretMinAngleDegrees() + config.getTurretZeroOffset()) {
-      bestAngle = config.getTurretMinAngleDegrees() + config.getTurretZeroOffset();
-    } else if (bestAngle > config.getTurretMaxAngleDegrees() + config.getTurretZeroOffset()) {
-      bestAngle = config.getTurretMaxAngleDegrees() + config.getTurretZeroOffset();
+    if (bestOutsideAngle < outsideAngleMin) {
+      bestOutsideAngle = outsideAngleMin;
+    } else if (bestOutsideAngle > outsideAngleMax) {
+      bestOutsideAngle = outsideAngleMax;
     }
 
-    Logger.recordOutput("Turret/bestAngle", bestAngle);
+    Logger.recordOutput("Turret/bestOutsideAngle", bestOutsideAngle);
 
-    return bestAngle;
+    return bestOutsideAngle;
   }
 
   // ========== Dual-Mode Range Methods ==========
@@ -267,8 +269,8 @@ public class Turret extends SubsystemBase {
    *
    * @return Current angle in degrees
    */
-  public double getCurrentAngle() {
-    return io.getTurretAngle().getDegrees();
+  public double getOutsideCurrentAngle() {
+    return io.getOutsideCurrentAngle().getDegrees();
   }
 
   /**
@@ -276,8 +278,8 @@ public class Turret extends SubsystemBase {
    *
    * @return Target angle in degrees
    */
-  public double getTargetAngle() {
-    return inputs.targetAngleDegrees;
+  public double getOutsideTargetAngle() {
+    return io.getOutsideTargetAngle().getDegrees();
   }
 
   /**
@@ -286,7 +288,7 @@ public class Turret extends SubsystemBase {
    * @return True if at target
    */
   public boolean atTarget() {
-    return Math.abs(inputs.currentAngleDegrees - inputs.targetAngleDegrees)
+    return Math.abs(getOutsideCurrentAngle() - getOutsideTargetAngle())
         <= TurretConstants.ANGLE_TOLERANCE_DEGREES;
   }
 
@@ -296,7 +298,7 @@ public class Turret extends SubsystemBase {
    * @return Minimum angle in degrees
    */
   public double getEffectiveMinAngle() {
-    return effectiveMinAngleDeg;
+    return effectiveOutsideMinAngleDeg;
   }
 
   /**
@@ -305,7 +307,7 @@ public class Turret extends SubsystemBase {
    * @return Maximum angle in degrees
    */
   public double getEffectiveMaxAngle() {
-    return effectiveMaxAngleDeg;
+    return effectiveOutsideMaxAngleDeg;
   }
 
   /**
@@ -313,8 +315,8 @@ public class Turret extends SubsystemBase {
    *
    * @return Center offset in degrees
    */
-  public double getCenterDeg() {
-    return centerDeg;
+  public double getOutsideCenterDeg() {
+    return outsideCenterDeg;
   }
 
   /**
@@ -332,7 +334,7 @@ public class Turret extends SubsystemBase {
    * @return Degrees of room until CW limit
    */
   public double getRoomCW() {
-    return effectiveMaxAngleDeg - inputs.currentAngleDegrees;
+    return effectiveOutsideMaxAngleDeg - getOutsideCurrentAngle();
   }
 
   /**
@@ -341,7 +343,7 @@ public class Turret extends SubsystemBase {
    * @return Degrees of room until CCW limit
    */
   public double getRoomCCW() {
-    return inputs.currentAngleDegrees - effectiveMinAngleDeg;
+    return getOutsideCurrentAngle() - effectiveOutsideMinAngleDeg;
   }
 
   /**
@@ -363,7 +365,7 @@ public class Turret extends SubsystemBase {
         turretXOffset,
         turretYOffset,
         turretHeightMeters,
-        new Rotation3d(0.0, 0.0, Rotation2d.fromDegrees(getCurrentAngle()).getRadians()));
+        new Rotation3d(0.0, 0.0, Rotation2d.fromDegrees(getOutsideCurrentAngle()).getRadians()));
   }
 
   /**

@@ -194,6 +194,11 @@ public interface RobotConfig {
     return 0.0;
   }
 
+  /** Offset from Turret pointing to Robot Up to actual turret 0 */
+  default double getTurretZeroOffset() {
+    return 0.0;
+  }
+
   /** Turret motor current limit in amps. */
   default int getTurretCurrentLimitAmps() {
     return 0;
@@ -232,11 +237,6 @@ public interface RobotConfig {
 
   /** Absolute encoder zero offset in raw rotations (0.0 to 1.0) for turret calibration. */
   default double getTurretAbsoluteEncoderOffset() {
-    return 0.0;
-  }
-
-  /** Offset from Turret pointing to Robot Up to actual turret 0 */
-  default double getTurretZeroOffset() {
     return 0.0;
   }
 
