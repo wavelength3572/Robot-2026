@@ -229,12 +229,10 @@ public class Turret extends SubsystemBase {
     // If bestAngle is still out of range, clamp to nearest limit (robot-relative)
     // This should actually never come into play since one of the candidates
     // should always work and be within range.
-    double minRobotRel = config.getTurretMinAngleDegrees() + config.getTurretZeroOffset();
-    double maxRobotRel = config.getTurretMaxAngleDegrees() + config.getTurretZeroOffset();
-    if (bestAngle < minRobotRel) {
-      bestAngle = minRobotRel;
-    } else if (bestAngle > maxRobotRel) {
-      bestAngle = maxRobotRel;
+    if (bestAngle < config.getTurretMinAngleDegrees() + config.getTurretZeroOffset()) {
+      bestAngle = config.getTurretMinAngleDegrees() + config.getTurretZeroOffset();
+    } else if (bestAngle > config.getTurretMaxAngleDegrees() + config.getTurretZeroOffset()) {
+      bestAngle = config.getTurretMaxAngleDegrees() + config.getTurretZeroOffset();
     }
 
     Logger.recordOutput("Turret/bestAngle", bestAngle);
