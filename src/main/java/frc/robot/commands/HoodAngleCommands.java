@@ -9,7 +9,7 @@ public class HoodAngleCommands {
   public static Command setHoodAngleCommand(Hood hood) {
     return Commands.runOnce(
         () -> {
-          hood.setAngle(10);
+          hood.setHoodAngle(16);
         });
   }
 }

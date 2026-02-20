@@ -63,7 +63,7 @@ public class Hood extends SubsystemBase {
    *
    * @param angleDeg Target angle in degrees (clamped to limits)
    */
-  public void setAngle(double angleDeg) {
+  public void setHoodAngle(double angleDeg) {
     double clamped = clampToLimits(angleDeg);
     io.setAngle(clamped);
 
@@ -158,7 +158,7 @@ public class Hood extends SubsystemBase {
    * @return Command that completes when at target
    */
   public Command setAngleCommand(double angleDeg) {
-    return runOnce(() -> setAngle(angleDeg))
+    return runOnce(() -> setHoodAngle(angleDeg))
         .andThen(run(() -> {}).until(this::atTarget))
         .withName("Hood: Set to " + angleDeg + " deg");
   }

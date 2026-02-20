@@ -162,7 +162,6 @@ public interface RobotConfig {
     return 1.0;
   }
 
-  // TurretBot-specific: external gear ratio (encoder to turret)
   // Only used when absolute encoder is after motor gearbox but before external
   // gearing
   default double getTurretMotorGearRatio() {
@@ -224,7 +223,6 @@ public interface RobotConfig {
     return 0.0;
   }
 
-  // TurretBot-specific: external gear ratio (encoder to turret)
   // Only used when absolute encoder is after motor gearbox but before external gearing
   default double getTurretExternalGearRatio() {
     return 0.0;

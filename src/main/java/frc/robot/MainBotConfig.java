@@ -134,7 +134,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double TURRET_X_OFFSET = -0.085211539; // meters
   private static final double TURRET_Y_OFFSET = 0.1819604184; // meters
 
-  // Launcher configuration (same as TurretBot for now)
+  // Launcher configuration
   private static final int launcherLeaderCanId = 58;
   private static final int launcherFollowerCanId = 59;
   private static final double launcherGearRatio = 1.5; // 1 motor rot = 1.5 wheel rot
