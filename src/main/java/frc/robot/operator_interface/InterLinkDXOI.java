@@ -37,7 +37,7 @@ public class InterLinkDXOI implements OperatorInterface {
 
   @Override
   public double getRotate() {
-    return -interLinkJoystick.getRawAxis(3);
+    return interLinkJoystick.getRawAxis(3);
   }
 
   @Override

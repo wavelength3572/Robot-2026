@@ -238,9 +238,7 @@ public class TurretIOSparkMax implements TurretIO {
   public void setOutsideTurretAngle(double outsideTurretTarget) {
     // Clamp the target angle to valid range
     targetOutsideDeg =
-        Math.max(
-            minOutsideAngleDegrees,
-            Math.min(maxOutsideAngleDegrees, outsideTurretTarget));
+        Math.max(minOutsideAngleDegrees, Math.min(maxOutsideAngleDegrees, outsideTurretTarget));
 
     targetInsideDeg = targetOutsideDeg - config.getTurretZeroOffset();
 

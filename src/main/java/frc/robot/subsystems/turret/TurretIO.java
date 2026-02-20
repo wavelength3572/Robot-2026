@@ -1,6 +1,5 @@
 package frc.robot.subsystems.turret;
 
-import edu.wpi.first.math.geometry.Rotation2d;
 import org.littletonrobotics.junction.AutoLog;
 
 public interface TurretIO {
