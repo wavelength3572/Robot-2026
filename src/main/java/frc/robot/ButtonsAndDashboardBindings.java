@@ -111,14 +111,14 @@ public class ButtonsAndDashboardBindings {
     // Vision toggle on dashboard
     if (vision != null) {
       // Vision ON by default in simulation (use SmartDashboard toggle to disable if needed)
-      SmartDashboard.putBoolean("BenchTest/Subsystems/Vision/Enable", vision.isVisionOn());
+      SmartDashboard.putBoolean("Tuning/Vision/Enable", vision.isVisionOn());
       SmartDashboard.putData(
-          "BenchTest/Subsystems/Vision/Toggle",
+          "Tuning/Vision/Toggle",
           Commands.runOnce(
                   () -> {
                     vision.toggleVision();
                     SmartDashboard.putBoolean(
-                        "BenchTest/Subsystems/Vision/Enable", vision.isVisionOn());
+                        "Tuning/Vision/Enable", vision.isVisionOn());
                   })
               .ignoringDisable(true)
               .withName("Toggle Vision"));
@@ -171,6 +171,29 @@ public class ButtonsAndDashboardBindings {
     SmartDashboard.putData(
         "Match/SmartLaunch",
         ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
+
+    // === Shot Preset Fire Buttons (mirrors button box, usable from dashboard) ===
+    if (turret != null) {
+      SmartDashboard.putData(
+          "Shots/HubShot/Fire",
+          ShootingCommands.hubShotCommand(
+              launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+      SmartDashboard.putData(
+          "Shots/LeftTrench/Fire",
+          ShootingCommands.leftTrenchShotCommand(
+              launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+      SmartDashboard.putData(
+          "Shots/RightTrench/Fire",
+          ShootingCommands.rightTrenchShotCommand(
+              launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+      SmartDashboard.putData(
+          "Shots/SmartLaunch/Fire",
+          ShootingCommands.smartLaunchCommand(
+              launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+      SmartDashboard.putData(
+          "Shots/AutoTrack/Toggle",
+          ShootingCommands.autoTrackCommand(shootingCoordinator, turret, hood));
+    }
 
     // Set fuel stored to 8 (works while disabled)
     SmartDashboard.putData(
@@ -525,7 +548,7 @@ public class ButtonsAndDashboardBindings {
                       () -> {
                         vision.toggleVision();
                         SmartDashboard.putBoolean(
-                            "BenchTest/Subsystems/Vision/Enable", vision.isVisionOn());
+                            "Tuning/Vision/Enable", vision.isVisionOn());
                       })
                   .ignoringDisable(true));
     }

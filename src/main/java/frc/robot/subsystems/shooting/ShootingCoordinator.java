@@ -48,17 +48,17 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Pass target offset tunables — separate for left and right trench
   private final LoggedTunableNumber passLeftAdjustX =
-      new LoggedTunableNumber("Match/Shooting/Pass/Left/AdjustX", 0.0);
+      new LoggedTunableNumber("Shots/Pass/Left/AdjustX", 0.0);
   private final LoggedTunableNumber passLeftAdjustY =
-      new LoggedTunableNumber("Match/Shooting/Pass/Left/AdjustY", 0.0);
+      new LoggedTunableNumber("Shots/Pass/Left/AdjustY", 0.0);
   private final LoggedTunableNumber passRightAdjustX =
-      new LoggedTunableNumber("Match/Shooting/Pass/Right/AdjustX", 0.0);
+      new LoggedTunableNumber("Shots/Pass/Right/AdjustX", 0.0);
   private final LoggedTunableNumber passRightAdjustY =
-      new LoggedTunableNumber("Match/Shooting/Pass/Right/AdjustY", 0.0);
+      new LoggedTunableNumber("Shots/Pass/Right/AdjustY", 0.0);
 
   // Pass shot launch angle (tunable for adjusting pass arc)
   private final LoggedTunableNumber passLaunchAngleDeg =
-      new LoggedTunableNumber("Match/Shooting/Pass/LaunchAngleDeg", 44.0);
+      new LoggedTunableNumber("Shots/Pass/LaunchAngleDeg", 44.0);
 
   // Auto-shoot: fires automatically when conditions are met (for autonomous)
   private boolean autoShootEnabled = false;
@@ -243,7 +243,9 @@ public class ShootingCoordinator extends SubsystemBase {
             turretConfig,
             turret.getOutsideCurrentAngle(),
             turret.getMinAngle(),
-            turret.getMaxAngle());
+            turret.getMaxAngle(),
+            hood != null ? hood.getMinAngle() : 16.0,
+            hood != null ? hood.getMaxAngle() : 46.0);
 
     currentShot = result;
 

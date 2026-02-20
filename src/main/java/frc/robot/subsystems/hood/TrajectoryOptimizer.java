@@ -33,33 +33,27 @@ public class TrajectoryOptimizer {
   // PRIMARY TUNABLE: Descent angle (angle of line from hub edge to hub center)
   // Tune this to match the hub wall angle visually (60° matches well)
   private static final LoggedTunableNumber descentAngleDeg =
-      new LoggedTunableNumber("Match/Shooting/Trajectory/DescentAngleDeg", 60.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/DescentAngleDeg", 60.0);
 
   // Minimum descent angle for fallback. When the preferred angle requires a hood position
   // below the mechanical limit (too close to hub), the optimizer steps down in 1° increments
   // until it finds an achievable shot or hits this floor.
   private static final LoggedTunableNumber minDescentAngleDeg =
-      new LoggedTunableNumber("Match/Shooting/Trajectory/MinDescentAngleDeg", 40.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MinDescentAngleDeg", 40.0);
 
   // Clearance constraints (inches above the lip)
   private static final LoggedTunableNumber minClearanceInches =
-      new LoggedTunableNumber("Match/Shooting/Trajectory/MinClearanceInches", 2.0); // Safety margin
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MinClearanceInches", 2.0); // Safety margin
   private static final LoggedTunableNumber maxClearanceInches =
-      new LoggedTunableNumber("Match/Shooting/Trajectory/MaxClearanceInches", 24.0); // Sanity check
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxClearanceInches", 24.0); // Sanity check
 
   // RPM limits
   private static final LoggedTunableNumber minRPM =
-      new LoggedTunableNumber("Match/Shooting/Trajectory/MinRPM", 1500.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MinRPM", 1500.0);
   private static final LoggedTunableNumber maxRPM =
-      new LoggedTunableNumber("Match/Shooting/Trajectory/MaxRPM", 4000.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxRPM", 4000.0);
   private static final LoggedTunableNumber maxPeakHeightFt =
-      new LoggedTunableNumber("Match/Shooting/Trajectory/MaxPeakHeightFt", 13.0);
-
-  // Hood angle limits (mechanical position). The ball's physics launch angle = 90 - hoodAngle.
-  private static final LoggedTunableNumber hoodMinAngleDeg =
-      new LoggedTunableNumber("Match/Shooting/Trajectory/HoodAngleMinDeg", 16.0);
-  private static final LoggedTunableNumber hoodMaxAngleDeg =
-      new LoggedTunableNumber("Match/Shooting/Trajectory/HoodAngleMaxDeg", 46.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxPeakHeightFt", 13.0);
 
   /** Result of trajectory optimization. */
   public static class OptimalShot {
@@ -110,7 +104,8 @@ public class TrajectoryOptimizer {
    * <p>The resulting clearance (height above lip) must be within min/max bounds.
    */
   public static OptimalShot calculateOptimalShot(
-      Translation3d turretPosition, Translation3d target) {
+      Translation3d turretPosition, Translation3d target,
+      double hoodMinAngleDeg, double hoodMaxAngleDeg) {
     // Calculate geometry (shared across all descent angle attempts)
     double dx = target.getX() - turretPosition.getX();
     double dy = target.getY() - turretPosition.getY();
@@ -131,7 +126,7 @@ public class TrajectoryOptimizer {
     OptimalShot lastFailure = null;
 
     for (double descent = preferredDescent; descent >= minDescent; descent -= 1.0) {
-      OptimalShot shot = tryDescentAngle(descent, D, D_edge, turretHeightM);
+      OptimalShot shot = tryDescentAngle(descent, D, D_edge, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg);
 
       if (shot.achievable) {
         // Log the descent angle actually used (may differ from preferred)
@@ -160,10 +155,13 @@ public class TrajectoryOptimizer {
    * @param D Horizontal distance to hub center
    * @param D_edge Horizontal distance to hub edge
    * @param turretHeightM Turret height in meters
+   * @param hoodMinAngleDeg Minimum hood angle from Hood subsystem
+   * @param hoodMaxAngleDeg Maximum hood angle from Hood subsystem
    * @return OptimalShot result (check achievable flag)
    */
   private static OptimalShot tryDescentAngle(
-      double descent, double D, double D_edge, double turretHeightM) {
+      double descent, double D, double D_edge, double turretHeightM,
+      double hoodMinAngleDeg, double hoodMaxAngleDeg) {
     double descentRad = Math.toRadians(descent);
     double heightDrop = HUB_ENTRY_RADIUS * Math.tan(descentRad);
     double heightAtEdge = HUB_CENTER_HEIGHT + heightDrop;
@@ -206,7 +204,7 @@ public class TrajectoryOptimizer {
     double H_edge = heightAtEdge - turretHeightM;
     double H_target = HUB_CENTER_HEIGHT - turretHeightM;
 
-    return calculateTrajectoryThroughTwoPoints(D_edge, H_edge, D, H_target, turretHeightM);
+    return calculateTrajectoryThroughTwoPoints(D_edge, H_edge, D, H_target, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg);
   }
 
   /**
@@ -225,7 +223,8 @@ public class TrajectoryOptimizer {
    * (x1*x2*(x2 - x1))
    */
   private static OptimalShot calculateTrajectoryThroughTwoPoints(
-      double x1, double y1, double x2, double y2, double turretHeightM) {
+      double x1, double y1, double x2, double y2, double turretHeightM,
+      double hoodMinAngleDeg, double hoodMaxAngleDeg) {
 
     // Compute descent angle for this trajectory (angle of line from point A to point B)
     double heightAtEdge = turretHeightM + y1;
@@ -244,8 +243,8 @@ public class TrajectoryOptimizer {
     double thetaDeg = Math.toDegrees(theta); // physics launch angle from horizontal
     double hoodAngleDeg = 90.0 - thetaDeg; // convert to hood mechanical angle
 
-    // Check against hood mechanical limits
-    if (hoodAngleDeg < hoodMinAngleDeg.get() || hoodAngleDeg > hoodMaxAngleDeg.get()) {
+    // Check against hood mechanical limits (passed from Hood subsystem via caller)
+    if (hoodAngleDeg < hoodMinAngleDeg || hoodAngleDeg > hoodMaxAngleDeg) {
       return new OptimalShot(
           0,
           thetaDeg,
@@ -256,7 +255,7 @@ public class TrajectoryOptimizer {
           false,
           String.format(
               "Hood angle %.1f deg outside range [%.0f-%.0f]",
-              hoodAngleDeg, hoodMinAngleDeg.get(), hoodMaxAngleDeg.get()));
+              hoodAngleDeg, hoodMinAngleDeg, hoodMaxAngleDeg));
     }
 
     // Solve for K = g / (2*v^2*cos^2(theta)) using first point

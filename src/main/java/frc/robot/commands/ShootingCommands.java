@@ -26,7 +26,7 @@ import org.littletonrobotics.junction.Logger;
  * <p>Supports two modes:
  *
  * <ul>
- *   <li>COMPETITION: Auto-calculates optimal trajectory to hub (Match/Shooting/*)
+ *   <li>COMPETITION: Auto-calculates optimal trajectory to hub (Shots/*)
  *   <li>TEST: Uses manual BenchTest/Shooting/* dashboard values for controlled testing
  * </ul>
  *
@@ -42,7 +42,7 @@ public class ShootingCommands {
 
   /** Shooting mode determines trajectory calculation and parameter source. */
   public enum ShootingMode {
-    /** Auto-calculated trajectory to hub, optimized RPM/angle for distance (Match/Shooting/*). */
+    /** Auto-calculated trajectory to hub, optimized RPM/angle for distance (Shots/*). */
     COMPETITION,
     /** Manual parameters from BenchTest/Shooting/* dashboard values. */
     TEST
@@ -87,39 +87,39 @@ public class ShootingCommands {
 
   // Hub shot — close-range shot into the hub
   private static final LoggedTunableNumber hubShotLauncherRPM =
-      new LoggedTunableNumber("Match/Shooting/HubShot/LauncherRPM", 2850.0);
+      new LoggedTunableNumber("Shots/HubShot/LauncherRPM", 2850.0);
   private static final LoggedTunableNumber hubShotHoodAngleDeg =
-      new LoggedTunableNumber("Match/Shooting/HubShot/HoodAngleDeg", 13.0);
+      new LoggedTunableNumber("Shots/HubShot/HoodAngleDeg", 13.0);
   private static final LoggedTunableNumber hubShotTurretAngleDeg =
-      new LoggedTunableNumber("Match/Shooting/HubShot/TurretAngleDeg", 0.0);
+      new LoggedTunableNumber("Shots/HubShot/TurretAngleDeg", 0.0);
   private static final LoggedTunableNumber hubShotMotivatorRPM =
-      new LoggedTunableNumber("Match/Shooting/HubShot/MotivatorRPM", 1100.0);
+      new LoggedTunableNumber("Shots/HubShot/MotivatorRPM", 1100.0);
   private static final LoggedTunableNumber hubShotSpindexerRPM =
-      new LoggedTunableNumber("Match/Shooting/HubShot/SpindexerRPM", 750.0);
+      new LoggedTunableNumber("Shots/HubShot/SpindexerRPM", 750.0);
 
   // Left trench shot
   private static final LoggedTunableNumber leftTrenchLauncherRPM =
-      new LoggedTunableNumber("Match/Shooting/LeftTrench/LauncherRPM", 3300.0);
+      new LoggedTunableNumber("Shots/LeftTrench/LauncherRPM", 3300.0);
   private static final LoggedTunableNumber leftTrenchHoodAngleDeg =
-      new LoggedTunableNumber("Match/Shooting/LeftTrench/HoodAngleDeg", 26.0);
+      new LoggedTunableNumber("Shots/LeftTrench/HoodAngleDeg", 26.0);
   private static final LoggedTunableNumber leftTrenchTurretAngleDeg =
-      new LoggedTunableNumber("Match/Shooting/LeftTrench/TurretAngleDeg", 208.0);
+      new LoggedTunableNumber("Shots/LeftTrench/TurretAngleDeg", 208.0);
   private static final LoggedTunableNumber leftTrenchMotivatorRPM =
-      new LoggedTunableNumber("Match/Shooting/LeftTrench/MotivatorRPM", 1100.0);
+      new LoggedTunableNumber("Shots/LeftTrench/MotivatorRPM", 1100.0);
   private static final LoggedTunableNumber leftTrenchSpindexerRPM =
-      new LoggedTunableNumber("Match/Shooting/LeftTrench/SpindexerRPM", 750.0);
+      new LoggedTunableNumber("Shots/LeftTrench/SpindexerRPM", 750.0);
 
   // Right trench shot
   private static final LoggedTunableNumber rightTrenchLauncherRPM =
-      new LoggedTunableNumber("Match/Shooting/RightTrench/LauncherRPM", 3300.0);
+      new LoggedTunableNumber("Shots/RightTrench/LauncherRPM", 3300.0);
   private static final LoggedTunableNumber rightTrenchHoodAngleDeg =
-      new LoggedTunableNumber("Match/Shooting/RightTrench/HoodAngleDeg", 26.0);
+      new LoggedTunableNumber("Shots/RightTrench/HoodAngleDeg", 26.0);
   private static final LoggedTunableNumber rightTrenchTurretAngleDeg =
-      new LoggedTunableNumber("Match/Shooting/RightTrench/TurretAngleDeg", -25.0);
+      new LoggedTunableNumber("Shots/RightTrench/TurretAngleDeg", -25.0);
   private static final LoggedTunableNumber rightTrenchMotivatorRPM =
-      new LoggedTunableNumber("Match/Shooting/RightTrench/MotivatorRPM", 1100.0);
+      new LoggedTunableNumber("Shots/RightTrench/MotivatorRPM", 1100.0);
   private static final LoggedTunableNumber rightTrenchSpindexerRPM =
-      new LoggedTunableNumber("Match/Shooting/RightTrench/SpindexerRPM", 750.0);
+      new LoggedTunableNumber("Shots/RightTrench/SpindexerRPM", 750.0);
 
   // ===== Robot Tuning (affects real robot behavior) =====
 
@@ -135,9 +135,9 @@ public class ShootingCommands {
 
   // Smart shot motivator/spindexer speeds (separate from basic launch)
   private static final LoggedTunableNumber smartShotMotivatorRPM =
-      new LoggedTunableNumber("Match/Shooting/SmartShot/MotivatorRPM", 1100.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorRPM", 1100.0);
   private static final LoggedTunableNumber smartShotSpindexerRPM =
-      new LoggedTunableNumber("Match/Shooting/SmartShot/SpindexerRPM", 750.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerRPM", 750.0);
 
   // ===== BenchTest/Shooting/* Override Values (for controlled manual testing)
   // =====
