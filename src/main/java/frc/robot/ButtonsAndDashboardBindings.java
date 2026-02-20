@@ -117,8 +117,7 @@ public class ButtonsAndDashboardBindings {
           Commands.runOnce(
                   () -> {
                     vision.toggleVision();
-                    SmartDashboard.putBoolean(
-                        "Tuning/Vision/Enable", vision.isVisionOn());
+                    SmartDashboard.putBoolean("Tuning/Vision/Enable", vision.isVisionOn());
                   })
               .ignoringDisable(true)
               .withName("Toggle Vision"));
@@ -547,8 +546,7 @@ public class ButtonsAndDashboardBindings {
               Commands.runOnce(
                       () -> {
                         vision.toggleVision();
-                        SmartDashboard.putBoolean(
-                            "Tuning/Vision/Enable", vision.isVisionOn());
+                        SmartDashboard.putBoolean("Tuning/Vision/Enable", vision.isVisionOn());
                       })
                   .ignoringDisable(true));
     }

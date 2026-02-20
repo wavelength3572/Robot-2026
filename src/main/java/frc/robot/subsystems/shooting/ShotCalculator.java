@@ -22,7 +22,7 @@ public final class ShotCalculator {
 
   // Efficiency factor: how much of wheel surface velocity transfers to ball (0.0-1.0)
   private static final LoggedTunableNumber launchEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.45);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.4);
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -329,7 +329,8 @@ public final class ShotCalculator {
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     if (robotSpeed > 0.1) {
       TrajectoryOptimizer.OptimalShot initialShot =
-          TrajectoryOptimizer.calculateOptimalShot(turretPos, hubTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+          TrajectoryOptimizer.calculateOptimalShot(
+              turretPos, hubTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
       double distanceToTarget =
           Math.sqrt(
               Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
@@ -345,7 +346,8 @@ public final class ShotCalculator {
             Math.sqrt(
                 Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));
         TrajectoryOptimizer.OptimalShot refinedShot =
-            TrajectoryOptimizer.calculateOptimalShot(turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+            TrajectoryOptimizer.calculateOptimalShot(
+                turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
         tof =
             calculateTimeOfFlight(
                 refinedShot.exitVelocityMps,
@@ -355,7 +357,8 @@ public final class ShotCalculator {
     }
 
     TrajectoryOptimizer.OptimalShot optimalShot =
-        TrajectoryOptimizer.calculateOptimalShot(turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+        TrajectoryOptimizer.calculateOptimalShot(
+            turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
 
     double turretAngleDeg =
         calculateOutsideTurretAngle(

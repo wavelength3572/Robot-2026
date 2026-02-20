@@ -91,7 +91,7 @@ public class ShootingCommands {
   private static final LoggedTunableNumber hubShotHoodAngleDeg =
       new LoggedTunableNumber("Shots/HubShot/HoodAngleDeg", 13.0);
   private static final LoggedTunableNumber hubShotTurretAngleDeg =
-      new LoggedTunableNumber("Shots/HubShot/TurretAngleDeg", 0.0);
+      new LoggedTunableNumber("Shots/HubShot/TurretAngleDeg", -90);
   private static final LoggedTunableNumber hubShotMotivatorRPM =
       new LoggedTunableNumber("Shots/HubShot/MotivatorRPM", 1100.0);
   private static final LoggedTunableNumber hubShotSpindexerRPM =
