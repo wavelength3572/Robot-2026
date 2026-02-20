@@ -33,33 +33,33 @@ public class TrajectoryOptimizer {
   // PRIMARY TUNABLE: Descent angle (angle of line from hub edge to hub center)
   // Tune this to match the hub wall angle visually (60° matches well)
   private static final LoggedTunableNumber descentAngleDeg =
-      new LoggedTunableNumber("Tuning/Trajectory/DescentAngleDeg", 60.0);
+      new LoggedTunableNumber("Match/Shooting/Trajectory/DescentAngleDeg", 60.0);
 
   // Minimum descent angle for fallback. When the preferred angle requires a hood position
   // below the mechanical limit (too close to hub), the optimizer steps down in 1° increments
   // until it finds an achievable shot or hits this floor.
   private static final LoggedTunableNumber minDescentAngleDeg =
-      new LoggedTunableNumber("Tuning/Trajectory/MinDescentAngleDeg", 40.0);
+      new LoggedTunableNumber("Match/Shooting/Trajectory/MinDescentAngleDeg", 40.0);
 
   // Clearance constraints (inches above the lip)
   private static final LoggedTunableNumber minClearanceInches =
-      new LoggedTunableNumber("Tuning/Trajectory/MinClearanceInches", 2.0); // Safety margin
+      new LoggedTunableNumber("Match/Shooting/Trajectory/MinClearanceInches", 2.0); // Safety margin
   private static final LoggedTunableNumber maxClearanceInches =
-      new LoggedTunableNumber("Tuning/Trajectory/MaxClearanceInches", 24.0); // Sanity check
+      new LoggedTunableNumber("Match/Shooting/Trajectory/MaxClearanceInches", 24.0); // Sanity check
 
   // RPM limits
   private static final LoggedTunableNumber minRPM =
-      new LoggedTunableNumber("Tuning/Trajectory/MinRPM", 1500.0);
+      new LoggedTunableNumber("Match/Shooting/Trajectory/MinRPM", 1500.0);
   private static final LoggedTunableNumber maxRPM =
-      new LoggedTunableNumber("Tuning/Trajectory/MaxRPM", 4000.0);
+      new LoggedTunableNumber("Match/Shooting/Trajectory/MaxRPM", 4000.0);
   private static final LoggedTunableNumber maxPeakHeightFt =
-      new LoggedTunableNumber("Tuning/Trajectory/MaxPeakHeightFt", 13.0);
+      new LoggedTunableNumber("Match/Shooting/Trajectory/MaxPeakHeightFt", 13.0);
 
   // Hood angle limits (mechanical position). The ball's physics launch angle = 90 - hoodAngle.
   private static final LoggedTunableNumber hoodMinAngleDeg =
-      new LoggedTunableNumber("Tuning/Trajectory/HoodAngleMinDeg", 16.0);
+      new LoggedTunableNumber("Match/Shooting/Trajectory/HoodAngleMinDeg", 16.0);
   private static final LoggedTunableNumber hoodMaxAngleDeg =
-      new LoggedTunableNumber("Tuning/Trajectory/HoodAngleMaxDeg", 46.0);
+      new LoggedTunableNumber("Match/Shooting/Trajectory/HoodAngleMaxDeg", 46.0);
 
   /** Result of trajectory optimization. */
   public static class OptimalShot {

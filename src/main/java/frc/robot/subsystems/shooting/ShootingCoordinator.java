@@ -48,17 +48,17 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Pass target offset tunables — separate for left and right trench
   private final LoggedTunableNumber passLeftAdjustX =
-      new LoggedTunableNumber("Tuning/Turret/Pass/Left/AdjustX", 0.0);
+      new LoggedTunableNumber("Match/Shooting/Pass/Left/AdjustX", 0.0);
   private final LoggedTunableNumber passLeftAdjustY =
-      new LoggedTunableNumber("Tuning/Turret/Pass/Left/AdjustY", 0.0);
+      new LoggedTunableNumber("Match/Shooting/Pass/Left/AdjustY", 0.0);
   private final LoggedTunableNumber passRightAdjustX =
-      new LoggedTunableNumber("Tuning/Turret/Pass/Right/AdjustX", 0.0);
+      new LoggedTunableNumber("Match/Shooting/Pass/Right/AdjustX", 0.0);
   private final LoggedTunableNumber passRightAdjustY =
-      new LoggedTunableNumber("Tuning/Turret/Pass/Right/AdjustY", 0.0);
+      new LoggedTunableNumber("Match/Shooting/Pass/Right/AdjustY", 0.0);
 
   // Pass shot launch angle (tunable for adjusting pass arc)
   private final LoggedTunableNumber passLaunchAngleDeg =
-      new LoggedTunableNumber("Tuning/Turret/Pass/LaunchAngleDeg", 44.0);
+      new LoggedTunableNumber("Match/Shooting/Pass/LaunchAngleDeg", 44.0);
 
   // Auto-shoot: fires automatically when conditions are met (for autonomous)
   private boolean autoShootEnabled = false;
@@ -70,9 +70,9 @@ public class ShootingCoordinator extends SubsystemBase {
   private int autoShots = 0;
   private int teleopShots = 0;
   private final LoggedTunableNumber autoShootMinInterval =
-      new LoggedTunableNumber("Tuning/Turret/AutoShootMinInterval", 0.15);
+      new LoggedTunableNumber("BenchTest/AutoShoot/MinInterval", 0.15);
   private final LoggedTunableNumber autoShootMaxSpeedMps =
-      new LoggedTunableNumber("Tuning/Turret/AutoShootMaxSpeedMps", 0.01);
+      new LoggedTunableNumber("BenchTest/AutoShoot/MaxSpeedMps", 0.01);
 
   /**
    * Creates a new ShootingCoordinator.
@@ -242,8 +242,8 @@ public class ShootingCoordinator extends SubsystemBase {
             target,
             turretConfig,
             turret.getOutsideCurrentAngle(),
-            turret.getEffectiveMinAngle(),
-            turret.getEffectiveMaxAngle());
+            turret.getMinAngle(),
+            turret.getMaxAngle());
 
     currentShot = result;
 
@@ -299,8 +299,8 @@ public class ShootingCoordinator extends SubsystemBase {
             turretConfig,
             passLaunchAngleDeg.get(),
             turret.getOutsideCurrentAngle(),
-            turret.getEffectiveMinAngle(),
-            turret.getEffectiveMaxAngle());
+            turret.getMinAngle(),
+            turret.getMaxAngle());
 
     currentShot = result;
 
@@ -424,13 +424,7 @@ public class ShootingCoordinator extends SubsystemBase {
     Logger.recordOutput(
         "Turret/AutoShoot/FuelRemaining", visualizer != null ? visualizer.getFuelCount() : 0);
 
-    if (launcherReady
-        && hasShot
-        && aimed
-        && hasFuel
-        && intervalElapsed
-        && robotSlow
-        && zoneOk) {
+    if (launcherReady && hasShot && aimed && hasFuel && intervalElapsed && robotSlow && zoneOk) {
       // Snapshot key calibration data at the instant of firing
       double distAtFire =
           Math.sqrt(
@@ -559,13 +553,11 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Enable auto-shoot mode. Turret will fire automatically when all conditions are met. */
   public void enableAutoShoot() {
     autoShootEnabled = true;
-    turret.enableLaunchMode();
   }
 
-  /** Disable auto-shoot mode. Returns turret to normal tracking range. */
+  /** Disable auto-shoot mode. */
   public void disableAutoShoot() {
     autoShootEnabled = false;
-    turret.disableLaunchMode();
   }
 
   /**
@@ -575,18 +567,6 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   public boolean isAutoShootEnabled() {
     return autoShootEnabled;
-  }
-
-  // ========== Facade Methods (delegate to turret) ==========
-
-  /** Enable launch mode (full turret range). */
-  public void enableLaunchMode() {
-    turret.enableLaunchMode();
-  }
-
-  /** Disable launch mode (narrower tracking range). */
-  public void disableLaunchMode() {
-    turret.disableLaunchMode();
   }
 
   /**
@@ -627,8 +607,8 @@ public class ShootingCoordinator extends SubsystemBase {
         isBlueAlliance,
         turret.getOutsideCurrentAngle(),
         turret.getOutsideTargetAngle(),
-        turret.getEffectiveMinAngle(),
-        turret.getEffectiveMaxAngle(),
+        turret.getMinAngle(),
+        turret.getMaxAngle(),
         turret.getOutsideCenterDeg(),
         turret.getWarningZoneDeg(),
         currentShot,

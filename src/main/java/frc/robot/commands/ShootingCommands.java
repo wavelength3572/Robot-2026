@@ -26,7 +26,7 @@ import org.littletonrobotics.junction.Logger;
  * <p>Supports two modes:
  *
  * <ul>
- *   <li>COMPETITION: Auto-calculates optimal trajectory to hub (Tuning/Shooting/*)
+ *   <li>COMPETITION: Auto-calculates optimal trajectory to hub (Match/Shooting/*)
  *   <li>TEST: Uses manual BenchTest/Shooting/* dashboard values for controlled testing
  * </ul>
  *
@@ -42,7 +42,7 @@ public class ShootingCommands {
 
   /** Shooting mode determines trajectory calculation and parameter source. */
   public enum ShootingMode {
-    /** Auto-calculated trajectory to hub, optimized RPM/angle for distance (Tuning/Shooting/*). */
+    /** Auto-calculated trajectory to hub, optimized RPM/angle for distance (Match/Shooting/*). */
     COMPETITION,
     /** Manual parameters from BenchTest/Shooting/* dashboard values. */
     TEST
@@ -87,57 +87,57 @@ public class ShootingCommands {
 
   // Hub shot — close-range shot into the hub
   private static final LoggedTunableNumber hubShotLauncherRPM =
-      new LoggedTunableNumber("Tuning/Shooting/HubShot/LauncherRPM", 2850.0);
+      new LoggedTunableNumber("Match/Shooting/HubShot/LauncherRPM", 2850.0);
   private static final LoggedTunableNumber hubShotHoodAngleDeg =
-      new LoggedTunableNumber("Tuning/Shooting/HubShot/HoodAngleDeg", 13.0);
+      new LoggedTunableNumber("Match/Shooting/HubShot/HoodAngleDeg", 13.0);
   private static final LoggedTunableNumber hubShotTurretAngleDeg =
-      new LoggedTunableNumber("Tuning/Shooting/HubShot/TurretAngleDeg", 0.0);
+      new LoggedTunableNumber("Match/Shooting/HubShot/TurretAngleDeg", 0.0);
   private static final LoggedTunableNumber hubShotMotivatorRPM =
-      new LoggedTunableNumber("Tuning/Shooting/HubShot/MotivatorRPM", 1100.0);
+      new LoggedTunableNumber("Match/Shooting/HubShot/MotivatorRPM", 1100.0);
   private static final LoggedTunableNumber hubShotSpindexerRPM =
-      new LoggedTunableNumber("Tuning/Shooting/HubShot/SpindexerRPM", 750.0);
+      new LoggedTunableNumber("Match/Shooting/HubShot/SpindexerRPM", 750.0);
 
   // Left trench shot
   private static final LoggedTunableNumber leftTrenchLauncherRPM =
-      new LoggedTunableNumber("Tuning/Shooting/LeftTrench/LauncherRPM", 3300.0);
+      new LoggedTunableNumber("Match/Shooting/LeftTrench/LauncherRPM", 3300.0);
   private static final LoggedTunableNumber leftTrenchHoodAngleDeg =
-      new LoggedTunableNumber("Tuning/Shooting/LeftTrench/HoodAngleDeg", 26.0);
+      new LoggedTunableNumber("Match/Shooting/LeftTrench/HoodAngleDeg", 26.0);
   private static final LoggedTunableNumber leftTrenchTurretAngleDeg =
-      new LoggedTunableNumber("Tuning/Shooting/LeftTrench/TurretAngleDeg", 208.0);
+      new LoggedTunableNumber("Match/Shooting/LeftTrench/TurretAngleDeg", 208.0);
   private static final LoggedTunableNumber leftTrenchMotivatorRPM =
-      new LoggedTunableNumber("Tuning/Shooting/LeftTrench/MotivatorRPM", 1100.0);
+      new LoggedTunableNumber("Match/Shooting/LeftTrench/MotivatorRPM", 1100.0);
   private static final LoggedTunableNumber leftTrenchSpindexerRPM =
-      new LoggedTunableNumber("Tuning/Shooting/LeftTrench/SpindexerRPM", 750.0);
+      new LoggedTunableNumber("Match/Shooting/LeftTrench/SpindexerRPM", 750.0);
 
   // Right trench shot
   private static final LoggedTunableNumber rightTrenchLauncherRPM =
-      new LoggedTunableNumber("Tuning/Shooting/RightTrench/LauncherRPM", 3300.0);
+      new LoggedTunableNumber("Match/Shooting/RightTrench/LauncherRPM", 3300.0);
   private static final LoggedTunableNumber rightTrenchHoodAngleDeg =
-      new LoggedTunableNumber("Tuning/Shooting/RightTrench/HoodAngleDeg", 26.0);
+      new LoggedTunableNumber("Match/Shooting/RightTrench/HoodAngleDeg", 26.0);
   private static final LoggedTunableNumber rightTrenchTurretAngleDeg =
-      new LoggedTunableNumber("Tuning/Shooting/RightTrench/TurretAngleDeg", -25.0);
+      new LoggedTunableNumber("Match/Shooting/RightTrench/TurretAngleDeg", -25.0);
   private static final LoggedTunableNumber rightTrenchMotivatorRPM =
-      new LoggedTunableNumber("Tuning/Shooting/RightTrench/MotivatorRPM", 1100.0);
+      new LoggedTunableNumber("Match/Shooting/RightTrench/MotivatorRPM", 1100.0);
   private static final LoggedTunableNumber rightTrenchSpindexerRPM =
-      new LoggedTunableNumber("Tuning/Shooting/RightTrench/SpindexerRPM", 750.0);
+      new LoggedTunableNumber("Match/Shooting/RightTrench/SpindexerRPM", 750.0);
 
   // ===== Robot Tuning (affects real robot behavior) =====
 
   // Target velocities for the basic launch command
   private static final LoggedTunableNumber launchVelocityRPM =
-      new LoggedTunableNumber("Tuning/Shooting/LaunchVelocityRPM", 1700.0);
+      new LoggedTunableNumber("Match/Shooting/LaunchVelocityRPM", 1700.0);
 
   private static final LoggedTunableNumber motivatorVelocityRPM =
-      new LoggedTunableNumber("Tuning/Shooting/MotivatorVelocityRPM", 1100.0);
+      new LoggedTunableNumber("Match/Shooting/MotivatorVelocityRPM", 1100.0);
 
   private static final LoggedTunableNumber spindexerFeedRPM =
-      new LoggedTunableNumber("Tuning/Shooting/SpindexerFeedRPM", 750.0);
+      new LoggedTunableNumber("Match/Shooting/SpindexerFeedRPM", 750.0);
 
   // Smart shot motivator/spindexer speeds (separate from basic launch)
   private static final LoggedTunableNumber smartShotMotivatorRPM =
-      new LoggedTunableNumber("Tuning/Shooting/SmartShot/MotivatorRPM", 1100.0);
+      new LoggedTunableNumber("Match/Shooting/SmartShot/MotivatorRPM", 1100.0);
   private static final LoggedTunableNumber smartShotSpindexerRPM =
-      new LoggedTunableNumber("Tuning/Shooting/SmartShot/SpindexerRPM", 750.0);
+      new LoggedTunableNumber("Match/Shooting/SmartShot/SpindexerRPM", 750.0);
 
   // ===== BenchTest/Shooting/* Override Values (for controlled manual testing)
   // =====
@@ -267,7 +267,7 @@ public class ShootingCommands {
                 () -> {
                   double targetRPM = launchVelocityRPM.get();
                   launcher.setVelocity(targetRPM);
-                  coordinator.enableLaunchMode();
+
                   if (motivator != null) {
                     motivator.setMotivatorVelocity(motivatorVelocityRPM.get());
                   }
@@ -333,7 +333,6 @@ public class ShootingCommands {
             () -> {
               launcher.setFeedingActive(false);
               launcher.stop();
-              coordinator.disableLaunchMode();
               if (motivator != null) {
                 motivator.stopMotivator();
               }
@@ -542,9 +541,7 @@ public class ShootingCommands {
             // Phase 1: Spin up and position all subsystems in parallel
             Commands.runOnce(
                 () -> {
-                  if (coordinator != null) {
-                    coordinator.enableLaunchMode();
-                  }
+                  if (coordinator != null) {}
 
                   double turretAngle = turretAngleDegSupplier.getAsDouble();
                   double hoodAngle = hoodAngleDegSupplier.getAsDouble();
@@ -648,8 +645,7 @@ public class ShootingCommands {
 
                 // Keep hood positioned (reads tunable each cycle)
                 hood != null
-                    ? Commands.run(
-                        () -> hood.setAngle(hoodAngleDegSupplier.getAsDouble()), hood)
+                    ? Commands.run(() -> hood.setAngle(hoodAngleDegSupplier.getAsDouble()), hood)
                     : Commands.none(),
 
                 // Keep motivator running (reads tunable each cycle)
@@ -662,8 +658,7 @@ public class ShootingCommands {
                 // Run spindexer to feed fuel (reads tunable each cycle)
                 spindexer != null
                     ? Commands.run(
-                        () ->
-                            spindexer.setSpindexerVelocity(spindexerRPMSupplier.getAsDouble()),
+                        () -> spindexer.setSpindexerVelocity(spindexerRPMSupplier.getAsDouble()),
                         spindexer)
                     : Commands.none(),
 
@@ -683,7 +678,6 @@ public class ShootingCommands {
               }
               if (coordinator != null) {
                 coordinator.clearManualShotParameters();
-                coordinator.disableLaunchMode();
               }
               setMode(ShootingMode.COMPETITION);
               SmartDashboard.putString("Match/Status/State", "Stopped");
@@ -718,8 +712,6 @@ public class ShootingCommands {
             // Phase 1: Start subsystems using initial shot calculation
             Commands.runOnce(
                 () -> {
-                  coordinator.enableLaunchMode();
-
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
                     double rpm = ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps());
@@ -868,7 +860,6 @@ public class ShootingCommands {
                             rpm, shot.hoodAngleDeg(), shot.turretAngleDeg());
                         SmartDashboard.putNumber("Match/Status/CurrentRPM", launcher.getVelocity());
                       }
-
                     },
                     launcher),
 
@@ -897,13 +888,15 @@ public class ShootingCommands {
                 // Keep motivator running (reads smart shot tunable each cycle)
                 motivator != null
                     ? Commands.run(
-                        () -> motivator.setMotivatorVelocity(smartShotMotivatorRPM.get()), motivator)
+                        () -> motivator.setMotivatorVelocity(smartShotMotivatorRPM.get()),
+                        motivator)
                     : Commands.none(),
 
                 // Run spindexer to feed fuel (reads smart shot tunable each cycle)
                 spindexer != null
                     ? Commands.run(
-                        () -> spindexer.setSpindexerVelocity(smartShotSpindexerRPM.get()), spindexer)
+                        () -> spindexer.setSpindexerVelocity(smartShotSpindexerRPM.get()),
+                        spindexer)
                     : Commands.none(),
 
                 // Fire balls in simulation
@@ -919,7 +912,6 @@ public class ShootingCommands {
                 spindexer.stopSpindexer();
               }
               coordinator.clearManualShotParameters();
-              coordinator.disableLaunchMode();
               setMode(ShootingMode.COMPETITION);
               Logger.recordOutput("SmartLaunch/Active", false);
               Logger.recordOutput("SmartLaunch/Phase", "Idle");
@@ -965,14 +957,12 @@ public class ShootingCommands {
             turret)
         .beforeStarting(
             () -> {
-              coordinator.enableLaunchMode();
               Logger.recordOutput("SmartLaunch/AutoTrack/Active", true);
               SmartDashboard.putBoolean("Match/Status/AutoTracking", true);
               System.out.println("[AutoTrack] Started — turret tracking target");
             })
         .finallyDo(
             () -> {
-              coordinator.disableLaunchMode();
               Logger.recordOutput("SmartLaunch/AutoTrack/Active", false);
               Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", false);
               SmartDashboard.putBoolean("Match/Status/AutoTracking", false);
