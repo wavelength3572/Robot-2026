@@ -67,7 +67,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.function.BooleanSupplier;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -485,40 +484,19 @@ public class RobotContainer {
       return selectedAuto;
     }
 
-    // Supplier for wait-until-fuel-empty (sim: checks visualizer, real: passes
-    // through)
-    BooleanSupplier fuelEmpty =
-        () -> {
-          if (shootingCoordinator == null || shootingCoordinator.getVisualizer() == null)
-            return true;
-          return shootingCoordinator.getVisualizer().getFuelCount() <= 0;
-        };
-
-    // Wrap with auto-shoot setup and teardown
+    // Wrap with shooting setup and teardown using smartLaunchCommand
     return Commands.sequence(
-            // Setup: load fuel, clear field, spin up, enable auto-shoot
+            // 1. SETUP: load fuel, sim reset, deploy intake
             Commands.runOnce(
                 () -> {
-                  // Set fuel count
+                  // Set fuel count (sim visualizer)
                   if (shootingCoordinator != null && shootingCoordinator.getVisualizer() != null) {
                     shootingCoordinator.getVisualizer().setFuelCount(AUTO_START_FUEL_COUNT);
                   }
-                  // Clear field fuel and respawn starting fuel for auto
+                  // Clear/respawn field fuel (sim)
                   if (Constants.currentMode == Constants.Mode.SIM) {
                     frc.robot.util.FuelSim.getInstance().clearFuel();
                     frc.robot.util.FuelSim.getInstance().spawnStartingFuel();
-                  }
-                  // Spin up launcher and motivator
-                  if (launcher != null) {
-                    launcher.setVelocity(1700.0);
-                    launcher.setFeedingActive(true);
-                  }
-                  if (motivator != null) {
-                    motivator.setMotivatorVelocity(1000.0);
-                  }
-                  // Enable auto-shoot
-                  if (shootingCoordinator != null) {
-                    shootingCoordinator.enableAutoShoot();
                   }
                   // Deploy and run intake
                   if (intake != null) {
@@ -526,19 +504,30 @@ public class RobotContainer {
                     intake.runIntake();
                   }
                 }),
-            // Wait for preloaded fuel to be shot before driving
-            Commands.waitUntil(fuelEmpty).withTimeout(5.0),
-            // Run the selected auto path (asProxy avoids "command already composed" on
-            // re-run)
+            // 2. INITIAL SHOT: fire preloaded balls with proper hood angle.
+            //    smartLaunch handles turret+hood+launcher+motivator+spindexer+readiness.
+            //    5s timeout controls duration (no fuel sensor yet).
+            ShootingCommands.smartLaunchCommand(
+                    launcher, shootingCoordinator, motivator, turret, hood, spindexer)
+                .withTimeout(5.0),
+            // 3. HOOD STOW: wait for hood to return to 13 after smartLaunch releases it
+            hood != null
+                ? Commands.waitUntil(() -> hood.atTarget()).withTimeout(0.75)
+                : Commands.none(),
+            // 4. PATH: run auto path.
+            //    PathPlanner "SmartLaunch" event zones trigger full smartLaunchCommand
+            //    at path-designer-chosen safe moments (turret+hood+firing).
+            //    When zone ends, hood stows back to 13 automatically.
             selectedAuto.asProxy(),
-            // Wait for remaining fuel to be shot after path completes
-            Commands.waitUntil(fuelEmpty).withTimeout(5.0))
+            // 5. POST-PATH: fire all collected fuel with proper hood angle.
+            //    smartLaunch positions turret+hood and fires via spindexer.
+            //    10s timeout controls duration (no fuel sensor yet).
+            ShootingCommands.smartLaunchCommand(
+                    launcher, shootingCoordinator, motivator, turret, hood, spindexer)
+                .withTimeout(10.0))
         .finallyDo(
             () -> {
-              // Teardown: disable auto-shoot, stop motors
-              if (shootingCoordinator != null) {
-                shootingCoordinator.disableAutoShoot();
-              }
+              // 6. TEARDOWN: stop everything
               if (launcher != null) {
                 launcher.stop();
               }
@@ -751,6 +740,12 @@ public class RobotContainer {
               if (motivator != null) motivator.setMotivatorVelocity(1000.0);
               if (shootingCoordinator != null) shootingCoordinator.enableAutoShoot();
             }));
+
+    // SmartLaunch: full smartLaunch command for PathPlanner event zones
+    NamedCommands.registerCommand(
+        "SmartLaunch",
+        ShootingCommands.smartLaunchCommand(
+            launcher, shootingCoordinator, motivator, turret, hood, spindexer));
   }
 
   // Track last alliance to detect changes
