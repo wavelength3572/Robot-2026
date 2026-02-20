@@ -568,6 +568,12 @@ public class ButtonsAndDashboardBindings {
                   launcher, shootingCoordinator, motivator, turret, hood, spindexer));
     }
 
+    // Auto-tracking toggle: APAC right — turret/hood continuously track target
+    if (shootingCoordinator != null && turret != null) {
+      oi.getButtonBox1XAxisPositive()
+          .toggleOnTrue(ShootingCommands.autoTrackCommand(shootingCoordinator, turret, hood));
+    }
+
     // Hub shot: Button 8 — fixed position launch for close-range hub shots
     if (launcher != null && turret != null) {
       oi.getButtonBox1Button8()

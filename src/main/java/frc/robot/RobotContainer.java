@@ -192,6 +192,14 @@ public class RobotContainer {
       hood = null;
     }
 
+    // Hood default command: hold at minimum angle (safe for trench clearance).
+    // Fire commands (smartLaunch, fixedPositionLaunch) interrupt this via subsystem
+    // requirements; when they end, hood automatically returns to min angle.
+    if (hood != null) {
+      hood.setDefaultCommand(
+          Commands.run(() -> hood.setAngle(hood.getMinAngle()), hood).withName("HoodStow"));
+    }
+
     // Instantiate motivator subsystem (robots with motivator hardware)
     if (Constants.getRobotConfig().hasMotivator()) {
       switch (Constants.currentMode) {
