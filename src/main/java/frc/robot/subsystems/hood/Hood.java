@@ -4,6 +4,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
@@ -17,14 +18,39 @@ public class Hood extends SubsystemBase {
 
   private final RobotConfig config = Constants.getRobotConfig();
 
+  // Tunable PID gains
+  private static final LoggedTunableNumber kP =
+      new LoggedTunableNumber("Tuning/Hood/kP", Constants.getRobotConfig().getHoodKp());
+  private static final LoggedTunableNumber kD =
+      new LoggedTunableNumber("Tuning/Hood/kD", Constants.getRobotConfig().getHoodKd());
+
+  // TODO: Hood uses PD-only control (no kI, no feedforward). This causes steady-state error
+  // where the motor can't push through friction/gravity at small errors. Consider adding kI and/or
+  // kS.
+
+  // Tunable ready-gate tolerance for atTarget() — does NOT affect motor control
+  private static final LoggedTunableNumber readyToleranceAngleDeg =
+      new LoggedTunableNumber("Tuning/Hood/ReadyToleranceAngleDeg", 1.0);
+
   public Hood(HoodIO io) {
     this.io = io;
+
+    // Push initial tolerance to IO
+    io.setAngleTolerance(readyToleranceAngleDeg.get());
   }
 
   @Override
   public void periodic() {
     io.updateInputs(inputs);
     Logger.processInputs("Hood", inputs);
+
+    // Push tunable PID changes to IO
+    if (LoggedTunableNumber.hasChanged(kP, kD)) {
+      io.configurePID(kP.get(), kD.get());
+    }
+    if (LoggedTunableNumber.hasChanged(readyToleranceAngleDeg)) {
+      io.setAngleTolerance(readyToleranceAngleDeg.get());
+    }
 
     // Log additional useful values
     Logger.recordOutput("Hood/AngleError", inputs.targetAngleDeg - inputs.currentAngleDeg);

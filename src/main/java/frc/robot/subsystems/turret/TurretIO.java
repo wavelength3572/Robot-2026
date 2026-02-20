@@ -36,4 +36,12 @@ public interface TurretIO {
 
   /** Set the target angle for the turret in degrees relative to robot front */
   public default void setTurretVolts(double volts) {}
+
+  /**
+   * Configure PID gains for the turret motor.
+   *
+   * @param kP Proportional gain
+   * @param kD Derivative gain
+   */
+  public default void configurePID(double kP, double kD) {}
 }

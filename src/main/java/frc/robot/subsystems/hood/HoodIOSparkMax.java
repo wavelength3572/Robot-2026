@@ -13,7 +13,6 @@ import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
-import frc.robot.util.LoggedTunableNumber;
 
 public class HoodIOSparkMax implements HoodIO {
   private final RobotConfig config;
@@ -27,11 +26,7 @@ public class HoodIOSparkMax implements HoodIO {
   private final double minAngleDegrees;
 
   private double targetAngle;
-
-  // Tunable PID gains
-  private final LoggedTunableNumber kP;
-  private final LoggedTunableNumber kD;
-  private final LoggedTunableNumber hoodAngle;
+  private double toleranceDeg = 1.0;
 
   public HoodIOSparkMax() {
     config = Constants.getRobotConfig();
@@ -50,12 +45,6 @@ public class HoodIOSparkMax implements HoodIO {
 
     minAngleDegrees = config.getHoodMinAngleDegrees();
 
-    // Initialize tunable numbers from config
-    kP = new LoggedTunableNumber("Tuning/Hood/kP", config.getHoodKp());
-    kD = new LoggedTunableNumber("Tuning/Hood/kD", config.getHoodKd());
-
-    hoodAngle = new LoggedTunableNumber("Tuning/Hood/Hood Angle", 15);
-
     var motorConfig = new SparkMaxConfig();
     motorConfig
         .smartCurrentLimit(config.getHoodCurrentLimitAmps())
@@ -72,7 +61,7 @@ public class HoodIOSparkMax implements HoodIO {
     motorConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(kP.get(), 0.0, kD.get());
+        .pid(config.getHoodKp(), 0.0, config.getHoodKd());
 
     tryUntilOk(
         motorSpark,
@@ -85,16 +74,6 @@ public class HoodIOSparkMax implements HoodIO {
   /** Updates the set of loggable inputs. */
   @Override
   public void updateInputs(HoodIOInputs inputs) {
-
-    if (LoggedTunableNumber.hasChanged(kP, kD)) {
-      var pidConfig = new SparkMaxConfig();
-      pidConfig.closedLoop.pid(kP.get(), 0.0, kD.get());
-      motorSpark.configure(
-          pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-    }
-    if (LoggedTunableNumber.hasChanged(hoodAngle)) {
-      setAngle(hoodAngle.get());
-    }
 
     // Connection status
     inputs.connected = true;
@@ -109,7 +88,7 @@ public class HoodIOSparkMax implements HoodIO {
     inputs.tempCelsius = motorSpark.getMotorTemperature();
 
     // Control state
-    inputs.atTarget = Math.abs(inputs.currentAngleDeg - targetAngle) < 1.0;
+    inputs.atTarget = Math.abs(inputs.currentAngleDeg - targetAngle) < toleranceDeg;
   }
 
   /** Convert hood degrees to motor rotations (applies software inversion if configured). */
@@ -122,6 +101,19 @@ public class HoodIOSparkMax implements HoodIO {
   private double motorRotationsToDegrees(double rotations) {
     double degrees = (rotations + 38) / 3.0;
     return degrees;
+  }
+
+  @Override
+  public void configurePID(double kP, double kD) {
+    var pidConfig = new SparkMaxConfig();
+    pidConfig.closedLoop.pid(kP, 0.0, kD);
+    motorSpark.configure(
+        pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void setAngleTolerance(double toleranceDeg) {
+    this.toleranceDeg = toleranceDeg;
   }
 
   @Override

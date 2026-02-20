@@ -13,8 +13,8 @@ public class HoodIOSim implements HoodIO {
   // Sim response rate (how fast hood moves to target)
   private static final double SIM_RESPONSE_RATE = 0.2; // Reaches target in ~0.25 seconds
 
-  // Tolerance for atTarget (matches Hood.java default)
-  private static final double TOLERANCE_DEG = 1.0;
+  // Tolerance for atTarget
+  private double toleranceDeg = 1.0;
 
   @Override
   public void updateInputs(HoodIOInputs inputs) {
@@ -27,7 +27,12 @@ public class HoodIOSim implements HoodIO {
     inputs.appliedVolts = (targetAngleDeg - currentAngleDeg) * 0.5; // Rough estimate
     inputs.currentAmps = Math.abs(inputs.appliedVolts) * 0.5;
     inputs.tempCelsius = 25.0;
-    inputs.atTarget = Math.abs(currentAngleDeg - targetAngleDeg) < TOLERANCE_DEG;
+    inputs.atTarget = Math.abs(currentAngleDeg - targetAngleDeg) < toleranceDeg;
+  }
+
+  @Override
+  public void setAngleTolerance(double toleranceDeg) {
+    this.toleranceDeg = toleranceDeg;
   }
 
   @Override

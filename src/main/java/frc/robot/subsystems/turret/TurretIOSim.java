@@ -23,10 +23,11 @@ public class TurretIOSim implements TurretIO {
   private TrapezoidProfile.State currentState = new TrapezoidProfile.State(0, 0);
   private TrapezoidProfile.State goalState = new TrapezoidProfile.State(0, 0);
 
-  // Target tracking
-  private double targetRotation = 0.0;
-  private double currentOutsideAngleDeg = 0.0;
-  private double targetOutsideAngleDeg = 0.0;
+  // Target tracking — start at the zero offset (where the real turret homes to)
+  private final double startingOutsideAngleDeg;
+  private double targetRotation;
+  private double currentOutsideAngleDeg;
+  private double targetOutsideAngleDeg;
 
   // Tunable speed - increase if turret can't keep up
   private static final double MAX_VELOCITY_DEG_PER_SEC = 540.0; // 1.5 rotations per second
@@ -39,9 +40,19 @@ public class TurretIOSim implements TurretIO {
     maxAngleDegrees = config.getTurretOutsideMaxAngleDeg();
     minAngleDegrees = config.getTurretOutsideMinAngleDeg();
 
+    // Start at the zero offset (where inside angle = 0, i.e. motor home position)
+    startingOutsideAngleDeg = config.getTurretZeroOffset();
+    targetRotation = startingOutsideAngleDeg;
+    currentOutsideAngleDeg = startingOutsideAngleDeg;
+    targetOutsideAngleDeg = startingOutsideAngleDeg;
+
     // Create motion profile constraints
     constraints =
         new TrapezoidProfile.Constraints(MAX_VELOCITY_DEG_PER_SEC, MAX_ACCEL_DEG_PER_SEC_SQ);
+
+    // Initialize profile state at the starting position
+    currentState = new TrapezoidProfile.State(startingOutsideAngleDeg, 0);
+    goalState = new TrapezoidProfile.State(startingOutsideAngleDeg, 0);
   }
 
   @Override
@@ -73,8 +84,8 @@ public class TurretIOSim implements TurretIO {
 
     inputs.currentOutsideAngleDeg = currentOutsideAngleDeg;
     inputs.targetOutsideAngleDeg = targetOutsideAngleDeg;
-    inputs.currentInsideAngleDeg = currentOutsideAngleDeg + config.getTurretZeroOffset();
-    inputs.targetInsideAngleDeg = targetOutsideAngleDeg + config.getTurretZeroOffset();
+    inputs.currentInsideAngleDeg = currentOutsideAngleDeg - config.getTurretZeroOffset();
+    inputs.targetInsideAngleDeg = targetOutsideAngleDeg - config.getTurretZeroOffset();
     inputs.velocityDegreesPerSec = currentState.velocity;
     inputs.appliedVolts = 0.0;
     inputs.currentAmps = 0.0;

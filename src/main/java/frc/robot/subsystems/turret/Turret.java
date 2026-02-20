@@ -5,7 +5,6 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
-import frc.robot.Constants.TurretConstants;
 import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -29,23 +28,22 @@ public class Turret extends SubsystemBase {
   private final double outsideAngleMin;
   private final double outsideAngleMax;
   private final double outsideCenterDeg;
-  private final double flipAngleDeg;
 
-  // ========== Tunable Limits (adjust in AdvantageScope without recompiling!)
-  // ==========
-  // FlipAngleDeg: How far can the turret rotate before it must "flip" (go the
-  // other way)
-  // Effective limits = [CenterOffset - FlipAngle, CenterOffset + FlipAngle]
-  private final LoggedTunableNumber warningZoneDeg;
+  // Tunable PID gains (visible in all modes including sim)
+  private static final LoggedTunableNumber kP =
+      new LoggedTunableNumber("Tuning/Turret/kP", Constants.getRobotConfig().getTurretKp());
+  private static final LoggedTunableNumber kD =
+      new LoggedTunableNumber("Tuning/Turret/kD", Constants.getRobotConfig().getTurretKd());
 
-  // Dual-mode range: narrower range when tracking (idle) to reduce cable wear,
-  // full range only when actively launching.
-  private final LoggedTunableNumber trackingFlipAngleDeg;
-  private boolean launchModeActive = false;
+  // TODO: Turret uses PD-only control (no kI, no feedforward). This causes steady-state error
+  // where the motor can't push through friction at small errors. Consider adding kI and/or kS.
 
-  // Cached effective limits (updated when tunables change or mode switches)
-  private double effectiveOutsideMinAngleDeg;
-  private double effectiveOutsideMaxAngleDeg;
+  // Tunable ready-gate tolerance for atTarget() — does NOT affect motor control
+  private static final LoggedTunableNumber readyToleranceAngleDeg =
+      new LoggedTunableNumber("Tuning/Turret/ReadyToleranceAngleDeg", 2.0);
+
+  // How close to a limit (degrees) before safety indicators fire
+  private static final double WARNING_ZONE_DEG = 20.0;
 
   /**
    * Creates a new Turret subsystem.
@@ -59,19 +57,10 @@ public class Turret extends SubsystemBase {
     this.turretXOffset = config.getTurretOffsetX();
     this.turretYOffset = config.getTurretOffsetY();
 
-    // Initialize tunable limits (adjustable via NetworkTables at runtime)
-    outsideAngleMin = config.getTurretOutsideMinAngleDeg(); // example -116.127
-    outsideAngleMax = config.getTurretOutsideMaxAngleDeg(); // example 243.873
-    outsideCenterDeg = (outsideAngleMax + outsideAngleMin) / 2.0; // Example 63.873 - Same as offset
-    flipAngleDeg =
-        (outsideAngleMax - outsideAngleMin) / 2.0; // Example 180 - Not sure how this helps
-
-    warningZoneDeg = new LoggedTunableNumber("Tuning/Turret/WarningZoneDeg", 20.0);
-    trackingFlipAngleDeg =
-        new LoggedTunableNumber("Tuning/Turret/TrackingFlipAngleDeg", flipAngleDeg);
-
-    // Calculate initial effective limits
-    updateEffectiveLimits();
+    // Physical angle limits from config
+    outsideAngleMin = config.getTurretOutsideMinAngleDeg();
+    outsideAngleMax = config.getTurretOutsideMaxAngleDeg();
+    outsideCenterDeg = (outsideAngleMax + outsideAngleMin) / 2.0;
 
     // Log turret configuration (logged once at startup)
     Logger.recordOutput("Turret/Config/outsideAngleMin", outsideAngleMin);
@@ -83,23 +72,16 @@ public class Turret extends SubsystemBase {
     Logger.recordOutput("Turret/Config/currentLimitAmps", config.getTurretCurrentLimitAmps());
   }
 
-  /** Update effective min/max limits from tunable flip angle, center offset, and active mode. */
-  private void updateEffectiveLimits() {
-    double flipAngle = launchModeActive ? flipAngleDeg : trackingFlipAngleDeg.get();
-    effectiveOutsideMinAngleDeg =
-        Math.max(outsideAngleMin, outsideCenterDeg - flipAngle); // -116.127
-    effectiveOutsideMaxAngleDeg =
-        Math.min(outsideAngleMax, outsideCenterDeg + flipAngle); // 243.873
-  }
-
   @Override
   public void periodic() {
     io.updateInputs(inputs);
     Logger.processInputs("Turret", inputs);
-    if (LoggedTunableNumber.hasChanged(trackingFlipAngleDeg)) {
-      updateEffectiveLimits();
+
+    // Push tunable PID changes to IO
+    if (LoggedTunableNumber.hasChanged(kP, kD)) {
+      io.configurePID(kP.get(), kD.get());
     }
-    Logger.recordOutput("Turret/LaunchModeActive", launchModeActive);
+
     Logger.recordOutput("Turret/AngleError", getOutsideTargetAngle() - getOutsideCurrentAngle());
     Logger.recordOutput("Turret/AtTarget", atTarget());
   }
@@ -113,8 +95,7 @@ public class Turret extends SubsystemBase {
    * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
   public void setOutsideTurretAngle(double angleDegrees) {
-    double clampedAngle =
-        Math.max(effectiveOutsideMinAngleDeg, Math.min(effectiveOutsideMaxAngleDeg, angleDegrees));
+    double clampedAngle = Math.max(outsideAngleMin, Math.min(outsideAngleMax, angleDegrees));
 
     if (clampedAngle != angleDegrees) {
       Logger.recordOutput("Turret/Safety/ClampedRequestDeg", clampedAngle);
@@ -310,33 +291,6 @@ public class Turret extends SubsystemBase {
     return bestOutsideAngle;
   }
 
-  // ========== Dual-Mode Range Methods ==========
-
-  /** Enable launch mode (full turret range). */
-  public void enableLaunchMode() {
-    if (!launchModeActive) {
-      launchModeActive = true;
-      updateEffectiveLimits();
-    }
-  }
-
-  /** Disable launch mode (narrower tracking range). */
-  public void disableLaunchMode() {
-    if (launchModeActive) {
-      launchModeActive = false;
-      updateEffectiveLimits();
-    }
-  }
-
-  /**
-   * Check if launch mode is active.
-   *
-   * @return True if turret is using full launch range
-   */
-  public boolean isLaunchModeActive() {
-    return launchModeActive;
-  }
-
   // ========== State Queries ==========
 
   /**
@@ -364,25 +318,25 @@ public class Turret extends SubsystemBase {
    */
   public boolean atTarget() {
     return Math.abs(getOutsideCurrentAngle() - getOutsideTargetAngle())
-        <= TurretConstants.ANGLE_TOLERANCE_DEGREES;
+        <= readyToleranceAngleDeg.get();
   }
 
   /**
-   * Get the effective minimum angle (CCW limit).
+   * Get the minimum angle (CCW limit).
    *
    * @return Minimum angle in degrees
    */
-  public double getEffectiveMinAngle() {
-    return effectiveOutsideMinAngleDeg;
+  public double getMinAngle() {
+    return outsideAngleMin;
   }
 
   /**
-   * Get the effective maximum angle (CW limit).
+   * Get the maximum angle (CW limit).
    *
    * @return Maximum angle in degrees
    */
-  public double getEffectiveMaxAngle() {
-    return effectiveOutsideMaxAngleDeg;
+  public double getMaxAngle() {
+    return outsideAngleMax;
   }
 
   /**
@@ -400,7 +354,7 @@ public class Turret extends SubsystemBase {
    * @return Warning zone in degrees
    */
   public double getWarningZoneDeg() {
-    return warningZoneDeg.get();
+    return WARNING_ZONE_DEG;
   }
 
   /**
@@ -409,7 +363,7 @@ public class Turret extends SubsystemBase {
    * @return Degrees of room until CW limit
    */
   public double getRoomCW() {
-    return effectiveOutsideMaxAngleDeg - getOutsideCurrentAngle();
+    return outsideAngleMax - getOutsideCurrentAngle();
   }
 
   /**
@@ -418,7 +372,7 @@ public class Turret extends SubsystemBase {
    * @return Degrees of room until CCW limit
    */
   public double getRoomCCW() {
-    return getOutsideCurrentAngle() - effectiveOutsideMinAngleDeg;
+    return getOutsideCurrentAngle() - outsideAngleMin;
   }
 
   /**
@@ -427,8 +381,7 @@ public class Turret extends SubsystemBase {
    * @return True if within warning zone of either limit
    */
   public boolean isNearLimit() {
-    double warningZone = warningZoneDeg.get();
-    return getRoomCW() <= warningZone || getRoomCCW() <= warningZone;
+    return getRoomCW() <= WARNING_ZONE_DEG || getRoomCCW() <= WARNING_ZONE_DEG;
   }
 
   // ========== 3D Pose & Config ==========

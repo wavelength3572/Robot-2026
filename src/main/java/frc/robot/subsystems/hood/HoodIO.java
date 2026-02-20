@@ -34,4 +34,19 @@ public interface HoodIO {
    * @param angleDeg Target angle in degrees (0 = flat, positive = angled up)
    */
   public default void setAngle(double angleDeg) {}
+
+  /**
+   * Configure PID gains for the hood motor.
+   *
+   * @param kP Proportional gain
+   * @param kD Derivative gain
+   */
+  public default void configurePID(double kP, double kD) {}
+
+  /**
+   * Set the angle tolerance used for atTarget calculation.
+   *
+   * @param toleranceDeg Tolerance in degrees
+   */
+  public default void setAngleTolerance(double toleranceDeg) {}
 }

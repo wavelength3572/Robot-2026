@@ -38,9 +38,9 @@ public class Launcher extends SubsystemBase {
 
   // Tunable feedforward gains
 
-  // Tunable velocity tolerance
+  // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control
   private static final LoggedTunableNumber velocityToleranceRPM =
-      new LoggedTunableNumber("Tuning/Launcher/VelocityToleranceRPM", 50.0);
+      new LoggedTunableNumber("Tuning/Launcher/ReadyToleranceRPM", 50.0);
 
   // Recovery boost tunables
   private static final LoggedTunableNumber recoveryBoostThresholdRPM =

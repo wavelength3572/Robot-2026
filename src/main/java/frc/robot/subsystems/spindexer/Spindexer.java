@@ -34,9 +34,9 @@ public class Spindexer extends SubsystemBase {
     kV = new LoggedTunableNumber("Tuning/Spindexer/kV", config.getSpindexerKv());
   }
 
-  // Tunable velocity tolerances
+  // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control
   private static final LoggedTunableNumber spindexerToleranceRPM =
-      new LoggedTunableNumber("Tuning/Spindexer/ToleranceRPM", 100.0);
+      new LoggedTunableNumber("Tuning/Spindexer/ReadyToleranceRPM", 100.0);
 
   public Spindexer(SpindexerIO io) {
     this.io = io;
@@ -53,6 +53,9 @@ public class Spindexer extends SubsystemBase {
     // Push tunable changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
       io.configureSpindexerPID(kP.get(), kI.get(), kD.get(), kS.get(), kV.get());
+    }
+    if (LoggedTunableNumber.hasChanged(spindexerToleranceRPM)) {
+      io.setVelocityTolerance(spindexerToleranceRPM.get());
     }
   }
 

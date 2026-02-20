@@ -103,12 +103,11 @@ public class LauncherIOSparkFlex implements LauncherIO {
     double initKp = config.getLauncherKp();
     double initKi = config.getLauncherKi();
     double initKd = config.getLauncherKd();
-    double initRecoveryKpBoost = 0.0001;
     leaderConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(initKp, initKi, initKd);
-    // .pid(initKp + initRecoveryKpBoost, initKi, initKd, ClosedLoopSlot.kSlot1);
+        .pid(initKp, initKi, initKd)
+        .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot1);
 
     // Signal update rates
     leaderConfig

@@ -34,9 +34,9 @@ public class Motivator extends SubsystemBase {
     kV = new LoggedTunableNumber("Tuning/Motivator/kV", config.getMotivatorKv());
   }
 
-  // Tunable velocity tolerances
+  // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control
   private static final LoggedTunableNumber motivatorToleranceRPM =
-      new LoggedTunableNumber("Tuning/Motivator/ToleranceRPM", 100.0);
+      new LoggedTunableNumber("Tuning/Motivator/ReadyToleranceRPM", 100.0);
 
   public Motivator(MotivatorIO io) {
     this.io = io;
@@ -53,6 +53,9 @@ public class Motivator extends SubsystemBase {
     // Push tunable changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
       io.configureMotivatorPID(kP.get(), kI.get(), kD.get(), kS.get(), kV.get());
+    }
+    if (LoggedTunableNumber.hasChanged(motivatorToleranceRPM)) {
+      io.setVelocityTolerance(motivatorToleranceRPM.get());
     }
   }
 

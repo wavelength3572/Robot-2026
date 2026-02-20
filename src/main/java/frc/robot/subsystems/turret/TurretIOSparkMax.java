@@ -16,7 +16,6 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.filter.Debouncer;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
-import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
 
 /**
@@ -41,10 +40,6 @@ public class TurretIOSparkMax implements TurretIO {
   private final AbsoluteEncoder absoluteEncoder;
   private final SparkClosedLoopController motorController;
 
-  // Tunable PID gains
-  private final LoggedTunableNumber kP;
-  private final LoggedTunableNumber kD;
-
   // Configuration values
   private final double maxOutsideAngleDegrees;
   private final double minOutsideAngleDegrees;
@@ -66,10 +61,6 @@ public class TurretIOSparkMax implements TurretIO {
 
   public TurretIOSparkMax() {
     config = Constants.getRobotConfig();
-
-    // Initialize tunable numbers from config
-    kP = new LoggedTunableNumber("Tuning/Turret/kP", config.getTurretKp());
-    kD = new LoggedTunableNumber("Tuning/Turret/kD", config.getTurretKd());
 
     // Store config values
     maxOutsideAngleDegrees = config.getTurretOutsideMaxAngleDeg();
@@ -104,7 +95,7 @@ public class TurretIOSparkMax implements TurretIO {
     motorConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(kP.get(), 0.0, kD.get())
+        .pid(config.getTurretKp(), 0.0, config.getTurretKd())
         .outputRange(-0.25, 0.25);
 
     // ========== HARDWARE SOFT LIMITS (Critical Safety Feature) ==========
@@ -196,14 +187,6 @@ public class TurretIOSparkMax implements TurretIO {
 
   @Override
   public void updateInputs(TurretIOInputs inputs) {
-    // Check if PID values have changed and apply new configuration
-    if (LoggedTunableNumber.hasChanged(kP, kD)) {
-      var pidConfig = new SparkMaxConfig();
-      pidConfig.closedLoop.pid(kP.get(), 0.0, kD.get());
-      motorSpark.configure(
-          pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-    }
-
     // Read raw motor encoder (motor rotations) and convert to turret degrees in
     // software
     sparkStickyFault = false;
@@ -232,6 +215,14 @@ public class TurretIOSparkMax implements TurretIO {
     if (!motorOk) {
       System.err.println("[TurretIOSparkMax] Spark Max disconnected!");
     }
+  }
+
+  @Override
+  public void configurePID(double kP, double kD) {
+    var pidConfig = new SparkMaxConfig();
+    pidConfig.closedLoop.pid(kP, 0.0, kD);
+    motorSpark.configure(
+        pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 
   @Override
