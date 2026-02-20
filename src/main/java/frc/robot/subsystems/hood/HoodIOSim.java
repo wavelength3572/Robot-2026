@@ -7,8 +7,8 @@ package frc.robot.subsystems.hood;
  * tracks whatever angle the subsystem requests.
  */
 public class HoodIOSim implements HoodIO {
-  private double currentAngleDeg = 45.0; // Start at middle position
-  private double targetAngleDeg = 45.0;
+  private double currentAngleDeg = 13; // Start at middle position
+  private double targetAngleDeg = 13;
 
   // Sim response rate (how fast hood moves to target)
   private static final double SIM_RESPONSE_RATE = 0.2; // Reaches target in ~0.25 seconds

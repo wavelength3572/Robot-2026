@@ -369,7 +369,7 @@ public class ButtonsAndDashboardBindings {
   private static void configureShotCalculator() {
     // === What-If: hypothetical trajectory for arbitrary RPM + hood angle ===
     SmartDashboard.putNumber("TrajectoryCalculators/WhatIf/RPM", 2500.0);
-    SmartDashboard.putNumber("TrajectoryCalculators/WhatIf/HoodAngleDeg", 45.0);
+    SmartDashboard.putNumber("TrajectoryCalculators/WhatIf/HoodAngleDeg", 13);
 
     SmartDashboard.putData(
         "TrajectoryCalculators/WhatIf/Toggle",
