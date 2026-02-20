@@ -25,7 +25,7 @@ import org.littletonrobotics.junction.Logger;
  * auto-shoot logic. This is the "shooting brain" that coordinates all shot-related subsystems.
  *
  * <p>The turret subsystem only handles physical rotation. ShootingCoordinator decides WHAT to aim
- * at, WHEN to fire, and commands turret + hood + launcher accordingly.
+ * at, WHEN to fire, and provides shot parameters for commands to act on.
  */
 public class ShootingCoordinator extends SubsystemBase {
 
@@ -59,10 +59,6 @@ public class ShootingCoordinator extends SubsystemBase {
   // Pass shot launch angle (tunable for adjusting pass arc)
   private final LoggedTunableNumber passLaunchAngleDeg =
       new LoggedTunableNumber("Tuning/Turret/Pass/LaunchAngleDeg", 44.0);
-
-  // Minimum fuel % before auto-shoot fires in PASS mode (0.0-1.0, default 0.8 = 80%)
-  private final LoggedTunableNumber passFuelThreshold =
-      new LoggedTunableNumber("Tuning/Turret/Pass/FuelThresholdPct", 0.8);
 
   // Auto-shoot: fires automatically when conditions are met (for autonomous)
   private boolean autoShootEnabled = false;
@@ -236,7 +232,7 @@ public class ShootingCoordinator extends SubsystemBase {
     calculateShotToTarget(robotPose, fieldSpeeds, hubTarget);
   }
 
-  /** Calculate shot to a specific target, command turret + hood, and log results. */
+  /** Calculate shot to a specific target and log results. */
   private void calculateShotToTarget(
       Pose2d robotPose, ChassisSpeeds fieldSpeeds, Translation3d target) {
     ShotCalculator.ShotResult result =
@@ -307,9 +303,6 @@ public class ShootingCoordinator extends SubsystemBase {
             turret.getEffectiveMaxAngle());
 
     currentShot = result;
-
-    // Command turret to aim
-    // turret.setTurretAngle(result.turretAngleDeg());
 
     // Log pass shot data
     double robotHeadingRad = robotPose.getRotation().getRadians();
@@ -417,8 +410,6 @@ public class ShootingCoordinator extends SubsystemBase {
     boolean inAllianceZone = aimResult.mode() == TurretAimingHelper.AimMode.SHOOT;
     boolean zoneOk = aimResult.mode() != TurretAimingHelper.AimMode.HOLDFIRE;
 
-    boolean fuelThresholdMet = true;
-
     ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
     double robotSpeedMps = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     boolean robotSlow = !inAllianceZone || robotSpeedMps <= autoShootMaxSpeedMps.get();
@@ -428,7 +419,6 @@ public class ShootingCoordinator extends SubsystemBase {
     Logger.recordOutput("Turret/AutoShoot/HasFuel", hasFuel);
     Logger.recordOutput("Turret/AutoShoot/ZoneOk", zoneOk);
     Logger.recordOutput("Turret/AutoShoot/AimMode", aimResult.mode().name());
-    Logger.recordOutput("Turret/AutoShoot/FuelThresholdMet", fuelThresholdMet);
     Logger.recordOutput("Turret/AutoShoot/RobotSpeedMps", robotSpeedMps);
     Logger.recordOutput("Turret/AutoShoot/RobotSlow", robotSlow);
     Logger.recordOutput(
@@ -439,7 +429,6 @@ public class ShootingCoordinator extends SubsystemBase {
         && aimed
         && hasFuel
         && intervalElapsed
-        && fuelThresholdMet
         && robotSlow
         && zoneOk) {
       // Snapshot key calibration data at the instant of firing
