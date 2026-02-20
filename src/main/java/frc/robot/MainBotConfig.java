@@ -12,6 +12,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
+import lombok.Getter;
 
 /**
  * Configuration for MainBot2026 - 31" wide x 23.5" deep chassis with NEO Vortex drive motors.
@@ -21,8 +22,11 @@ import edu.wpi.first.math.util.Units;
 public class MainBotConfig implements RobotConfig {
 
   // Physical dimensions (bumper-to-bumper, from PathPlanner settings.json)
-  private static final double bumperLength = 0.787; // meters, front to back with bumpers
-  private static final double bumperWidth = 0.978; // meters, side to side with bumpers
+  @Getter(onMethod_ = @__({@Override}))
+  private final double bumperLength = 0.787; // meters, front to back with bumpers
+
+  @Getter(onMethod_ = @__({@Override}))
+  private final double bumperWidth = 0.978; // meters, side to side with bumpers
 
   private static final double trackWidth = Units.inchesToMeters(31.0);
   private static final double wheelBase = Units.inchesToMeters(23.5);
@@ -191,16 +195,6 @@ public class MainBotConfig implements RobotConfig {
               driveMotorCurrentLimit,
               1),
           moduleTranslations);
-
-  @Override
-  public double getBumperLength() {
-    return bumperLength;
-  }
-
-  @Override
-  public double getBumperWidth() {
-    return bumperWidth;
-  }
 
   @Override
   public double getTrackWidth() {
