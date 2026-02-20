@@ -158,18 +158,6 @@ public class ButtonsAndDashboardBindings {
         "Match/SmartLaunch",
         ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
 
-    // === Manual Launch Command ===
-    // Manual test mode using BenchTest/Shooting/* dashboard values for controlled testing
-    SmartDashboard.putData(
-        "BenchTest/Shooting/Launch",
-        ShootingCommands.testLaunchCommand(launcher, shootingCoordinator, motivator, hood));
-
-    // === Bench Test Controls ===
-    // Stripped-down launch for bench testing (no turret/hood wait)
-    SmartDashboard.putData(
-        "BenchTest/Shooting/LauncherOnly",
-        ShootingCommands.benchTestLaunchCommand(launcher, shootingCoordinator, motivator));
-
     // Set fuel stored to 8 (works while disabled)
     SmartDashboard.putData(
         "Match/SetFuel8",
@@ -520,17 +508,10 @@ public class ButtonsAndDashboardBindings {
                       shootingCoordinator)
                   .ignoringDisable(true));
 
-      // Shoot button - bench test launch for TURRETBOT, normal launch for others
+      // Shoot button - smart launch for all robot types
       if (launcher != null) {
-        if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
-          oi.getShootButton()
-              .whileTrue(
-                  ShootingCommands.benchTestLaunchCommand(
-                      launcher, shootingCoordinator, motivator));
-        } else {
-          oi.getShootButton()
-              .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
-        }
+        oi.getShootButton()
+            .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
       } else {
         // No launcher - just launch fuel visually
         oi.getShootButton().whileTrue(shootingCoordinator.repeatedlyLaunchFuelCommand());

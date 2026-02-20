@@ -601,24 +601,6 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Set the turret angle directly (for test mode).
-   *
-   * @param angleDeg Turret angle in degrees
-   */
-  public void setTurretAngle(double angleDeg) {
-    // turret.setTurretAngle(angleDeg);
-  }
-
-  /**
-   * Check if the turret is at the target angle.
-   *
-   * @return True if at target
-   */
-  public boolean turretAtTarget() {
-    return turret.atTarget();
-  }
-
-  /**
    * Calculate shot to the alliance hub (for one-shot button presses).
    *
    * @param isBlueAlliance True if targeting blue hub
