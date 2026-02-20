@@ -56,7 +56,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Pass shot launch angle (tunable for adjusting pass arc)
   private final LoggedTunableNumber passLaunchAngleDeg =
-      new LoggedTunableNumber("Tuning/Turret/Pass/LaunchAngleDeg", 46.0);
+      new LoggedTunableNumber("Tuning/Turret/Pass/LaunchAngleDeg", 44.0);
 
   // Minimum fuel % before auto-shoot fires in PASS mode (0.0-1.0, default 0.8 = 80%)
   private final LoggedTunableNumber passFuelThreshold =
@@ -246,13 +246,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     currentShot = result;
 
-    // Command turret to aim
-    // turret.setTurretAngle(result.turretAngleDeg());
-
-    // Command hood to the mechanical angle if available
-    if (hood != null && result.achievable()) {
-      hood.setAngle(result.hoodAngleDeg());
-    }
+    // Shot parameters are calculated only — commands use getCurrentShot() to drive actuators
 
     // Log shot data
     double robotHeadingRad = robotPose.getRotation().getRadians();

@@ -448,7 +448,7 @@ public final class ShotCalculator {
     return new ShotResult(
         exitVelocity,
         launchAngleRad,
-        launchAngleDeg, // for pass shots, hood angle = launch angle
+        90.0 - launchAngleDeg, // convert launch angle to hood angle
         turretAngleDeg,
         aimTarget,
         true);
