@@ -147,7 +147,7 @@ public class MainBotConfig implements RobotConfig {
 
   // Hood Configuration
   private static final int hoodMotorCanId = 60;
-  private static final double hoodMinAngleDegrees = 16;
+  private static final double hoodMinAngleDegrees = 13;
   private static final double hoodMaxAngleDegrees = 46;
   private static final int hoodCurrentLimitAmps = 40;
   private static final double hoodKp = 0.06;
