@@ -46,6 +46,20 @@ public class ButtonsAndDashboardBindings {
       new LoggedTunableNumber(
           "BenchTest/IntakeVelocityControl/RollerRPM", IntakeConstants.ROLLER_INTAKE_RPM);
 
+  // Per-subsystem tuning setpoints
+  private static final LoggedTunableNumber tuningLauncherVelocity =
+      new LoggedTunableNumber("Tuning/Launcher/TuningVelocity", 1700.0);
+  private static final LoggedTunableNumber tuningMotivatorVelocity =
+      new LoggedTunableNumber("Tuning/Motivator/TuningVelocity", 1000.0);
+  private static final LoggedTunableNumber tuningSpindexerVelocity =
+      new LoggedTunableNumber("Tuning/Spindexer/TuningVelocity", 1000.0);
+  private static final LoggedTunableNumber tuningHoodAngle =
+      new LoggedTunableNumber("Tuning/Hood/TuningAngle", 15.0);
+  private static final LoggedTunableNumber tuningTurretAngle =
+      new LoggedTunableNumber("Tuning/Turret/TuningAngle", 0.0);
+  private static final LoggedTunableNumber tuningIntakeRollerVelocity =
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/TuningVelocity", 1500.0);
+
   // Preset field positions for simulation (label, x_meters, y_meters, rotation_degrees)
   private static final String[][] PRESET_POSITIONS = {
     {"DepotStart", "3.50", "6.00", "180.0"},
@@ -270,27 +284,57 @@ public class ButtonsAndDashboardBindings {
 
   /** Configure per-subsystem tuning run buttons. Always called for all robot types. */
   private static void configureTuningControls() {
-    // Launcher: single Run button, reads BenchTest/Shooting/LauncherRPM
+    // Launcher: Run button reads local TuningVelocity
     if (launcher != null) {
       SmartDashboard.putData(
-          "Tuning/Launcher/Run",
-          launcher.runAtTunableVelocityCommand(ShootingCommands.getTestLauncherRPM()));
+          "Tuning/Launcher/RunAtTuningVelocity",
+          launcher.runAtTunableVelocityCommand(tuningLauncherVelocity));
     }
 
-    // Motivator:
+    // Motivator: Run button reads local TuningVelocity
     if (motivator != null) {
       SmartDashboard.putData(
-          "Tuning/Motivator/RunLeadMotivator",
-          motivator.runMotivatorCommand(ShootingCommands.getTestMotivatorRPM()));
-    }
-    // Spindexer:
-    if (spindexer != null) {
-      SmartDashboard.putData(
-          "Tuning/Spindexer/RunSpindexer",
-          spindexer.runSpindexerCommand(ShootingCommands.getTestSpindexerRPM()));
+          "Tuning/Motivator/RunAtTuningVelocity",
+          motivator.runMotivatorCommand(tuningMotivatorVelocity));
     }
 
-    // Turret: direct outside angle command
+    // Spindexer: Run button reads local TuningVelocity
+    if (spindexer != null) {
+      SmartDashboard.putData(
+          "Tuning/Spindexer/RunAtTuningVelocity",
+          spindexer.runSpindexerCommand(tuningSpindexerVelocity));
+    }
+
+    // Hood: SetAngle button reads local TuningAngle
+    if (hood != null) {
+      SmartDashboard.putData(
+          "Tuning/Hood/SetToTuningAngle",
+          Commands.run(() -> hood.setAngle(tuningHoodAngle.get()), hood)
+              .withName("Hood: Set Tuning Angle"));
+    }
+
+    // Turret: SetAngle button reads local TuningAngle
+    if (turret != null) {
+      SmartDashboard.putData(
+          "Tuning/Turret/SetToTuningAngle",
+          Commands.run(() -> turret.setOutsideTurretAngle(tuningTurretAngle.get()), turret)
+              .withName("Turret: Set Tuning Angle"));
+    }
+
+    // Intake: Deploy/Toggle and Rollers/Run
+    if (intake != null) {
+      SmartDashboard.putData(
+          "Tuning/Intake/IntakeDeploy/Toggle",
+          Commands.startEnd(intake::deploy, intake::retract, intake)
+              .withName("Intake: Deploy/Retract Toggle"));
+      SmartDashboard.putData(
+          "Tuning/Intake/IntakeRollers/RunAtTuningVelocity",
+          Commands.run(() -> intake.setRollerVelocity(tuningIntakeRollerVelocity.get()))
+              .finallyDo(intake::stopRollers)
+              .withName("Intake: Run at Tuning Velocity"));
+    }
+
+    // Turret BenchTest buttons (kept separate from Tuning/)
     if (turret != null) {
       ShootingCommands.initTunables();
       SmartDashboard.putData(
@@ -304,9 +348,7 @@ public class ButtonsAndDashboardBindings {
               .withName("Turret Outside SetAngle"));
     }
 
-    // Turret: hold outside angle command
     if (turret != null) {
-      ShootingCommands.initTunables();
       SmartDashboard.putData(
           "BenchTest/Turret/HoldOutsideAngle",
           Commands.run(
@@ -318,9 +360,7 @@ public class ButtonsAndDashboardBindings {
               .withName("Turret Outside SetAngle"));
     }
 
-    // Turret: direct inside angle command
     if (turret != null) {
-      ShootingCommands.initTunables();
       SmartDashboard.putData(
           "BenchTest/Turret/SetInsideAngle",
           Commands.run(
@@ -331,9 +371,7 @@ public class ButtonsAndDashboardBindings {
               .withName("Turret Inside SetAngle"));
     }
 
-    // Turret: direct angle command, reads BenchTest/Shooting/AngleDegTurret
     if (turret != null) {
-      ShootingCommands.initTunables();
       SmartDashboard.putData(
           "BenchTest/Turret/SetVolts",
           Commands.run(

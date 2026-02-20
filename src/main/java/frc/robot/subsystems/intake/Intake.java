@@ -20,24 +20,24 @@ public class Intake extends SubsystemBase {
 
   // Tunable PID gains for deploy motor
   private static final LoggedTunableNumber deployKP =
-      new LoggedTunableNumber("Tuning/Intake/Deploy_kP", IntakeConstants.DEPLOY_KP);
+      new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kP", IntakeConstants.DEPLOY_KP);
   private static final LoggedTunableNumber deployKI =
-      new LoggedTunableNumber("Tuning/Intake/Deploy_kI", IntakeConstants.DEPLOY_KI);
+      new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kI", IntakeConstants.DEPLOY_KI);
   private static final LoggedTunableNumber deployKD =
-      new LoggedTunableNumber("Tuning/Intake/Deploy_kD", IntakeConstants.DEPLOY_KD);
+      new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kD", IntakeConstants.DEPLOY_KD);
 
   // Velocity control toggle (default: velocity control on)
   private boolean useVelocityControl = true;
 
   // Tunable PID gains for roller velocity control
   private static final LoggedTunableNumber rollerKP =
-      new LoggedTunableNumber("Tuning/Intake/Roller_kP", IntakeConstants.ROLLER_KP);
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kP", IntakeConstants.ROLLER_KP);
   private static final LoggedTunableNumber rollerKI =
-      new LoggedTunableNumber("Tuning/Intake/Roller_kI", IntakeConstants.ROLLER_KI);
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kI", IntakeConstants.ROLLER_KI);
   private static final LoggedTunableNumber rollerKD =
-      new LoggedTunableNumber("Tuning/Intake/Roller_kD", IntakeConstants.ROLLER_KD);
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kD", IntakeConstants.ROLLER_KD);
   private static final LoggedTunableNumber rollerKFF =
-      new LoggedTunableNumber("Tuning/Intake/Roller_kFF", IntakeConstants.ROLLER_KFF);
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kFF", IntakeConstants.ROLLER_KFF);
 
   // Optional: supplier for robot velocity (for velocity-based roller speed)
   private DoubleSupplier robotVelocitySupplier = () -> 0.0;
