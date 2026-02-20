@@ -33,5 +33,5 @@ public interface HoodIO {
    *
    * @param angleDeg Target angle in degrees (0 = flat, positive = angled up)
    */
-  public default void setAngle(double angleDeg) {}
+  public default void setHoodAngle(double angleDeg) {}
 }

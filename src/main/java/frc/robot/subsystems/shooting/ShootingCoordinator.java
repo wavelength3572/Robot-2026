@@ -251,7 +251,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Command hood to the mechanical angle if available
     if (hood != null && result.achievable()) {
-      hood.setAngle(result.hoodAngleDeg());
+      hood.setHoodAngle(result.hoodAngleDeg());
     }
 
     // Log shot data
