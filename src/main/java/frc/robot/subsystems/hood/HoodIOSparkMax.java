@@ -31,7 +31,6 @@ public class HoodIOSparkMax implements HoodIO {
   // Tunable PID gains
   private final LoggedTunableNumber kP;
   private final LoggedTunableNumber kD;
-  private final LoggedTunableNumber hoodAngle;
 
   public HoodIOSparkMax() {
     config = Constants.getRobotConfig();
@@ -53,8 +52,6 @@ public class HoodIOSparkMax implements HoodIO {
     // Initialize tunable numbers from config
     kP = new LoggedTunableNumber("Tuning/Hood/kP", config.getHoodKp());
     kD = new LoggedTunableNumber("Tuning/Hood/kD", config.getHoodKd());
-
-    hoodAngle = new LoggedTunableNumber("Tuning/Hood/Hood Angle", 15);
 
     var motorConfig = new SparkMaxConfig();
     motorConfig
@@ -92,9 +89,6 @@ public class HoodIOSparkMax implements HoodIO {
       motorSpark.configure(
           pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
     }
-    if (LoggedTunableNumber.hasChanged(hoodAngle)) {
-      setAngle(hoodAngle.get());
-    }
 
     // Connection status
     inputs.connected = true;
@@ -125,7 +119,7 @@ public class HoodIOSparkMax implements HoodIO {
   }
 
   @Override
-  public void setAngle(double angleDeg) {
+  public void setHoodAngle(double angleDeg) {
     // Clamp the target angle to valid range
     // double clampedDegrees =
     // Math.max(minAngleDegrees, Math.min(maxAngleDegrees, rotation.getDegrees()));

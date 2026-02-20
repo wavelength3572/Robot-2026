@@ -395,7 +395,7 @@ public class ShootingCommands {
 
                   double hoodAngle = testHoodAngleDeg.get();
                   if (hood != null) {
-                    hood.setAngle(hoodAngle);
+                    hood.setHoodAngle(hoodAngle);
                   }
 
                   double launcherRPM = testLauncherRPM.get();
@@ -485,7 +485,7 @@ public class ShootingCommands {
 
                 // Keep hood positioned
                 hood != null
-                    ? Commands.run(() -> hood.setAngle(testHoodAngleDeg.get()), hood)
+                    ? Commands.run(() -> hood.setHoodAngle(testHoodAngleDeg.get()), hood)
                     : Commands.none(),
 
                 // Keep motivator feeders running AND add prefeed
@@ -556,7 +556,7 @@ public class ShootingCommands {
                   turret.setOutsideTurretAngle(turretAngleDeg);
 
                   if (hood != null) {
-                    hood.setAngle(hoodAngleDeg);
+                    hood.setHoodAngle(hoodAngleDeg);
                   }
 
                   launcher.setVelocity(launcherRPM);
@@ -647,7 +647,7 @@ public class ShootingCommands {
 
                 // Keep hood positioned
                 hood != null
-                    ? Commands.run(() -> hood.setAngle(hoodAngleDeg), hood)
+                    ? Commands.run(() -> hood.setHoodAngle(hoodAngleDeg), hood)
                     : Commands.none(),
 
                 // Keep motivator running
