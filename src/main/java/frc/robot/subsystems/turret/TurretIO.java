@@ -22,17 +22,17 @@ public interface TurretIO {
   public default void updateInputs(TurretIOInputs inputs) {}
 
   /** Set the target angle for the turret in degrees relative to robot front */
-  public default void setOutsideTurretAngle(Rotation2d rotation) {}
+  public default void setOutsideTurretAngle(double rotation) {}
 
   /** Set the target angle for the turret in degrees relative to robot front */
-  public default void setInsideTurretAngle_ONLY_FOR_TESTING(Rotation2d rotation) {}
+  public default void setInsideTurretAngle_ONLY_FOR_TESTING(double rotation) {}
 
-  public default Rotation2d getOutsideTargetAngle() {
-    return Rotation2d.kZero;
+  public default double getOutsideTargetAngle() {
+    return 0.0;
   }
 
-  public default Rotation2d getOutsideCurrentAngle() {
-    return Rotation2d.kZero;
+  public default double getOutsideCurrentAngle() {
+    return 0.0;
   }
 
   /** Set the target angle for the turret in degrees relative to robot front */

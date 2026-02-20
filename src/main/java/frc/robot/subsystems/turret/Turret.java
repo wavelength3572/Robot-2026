@@ -120,7 +120,7 @@ public class Turret extends SubsystemBase {
       Logger.recordOutput("Turret/Safety/ClampedRequestDeg", clampedAngle);
     }
 
-    io.setOutsideTurretAngle(Rotation2d.fromDegrees(clampedAngle));
+    io.setOutsideTurretAngle(clampedAngle);
   }
 
   /**
@@ -175,7 +175,7 @@ public class Turret extends SubsystemBase {
       }
     }
 
-    io.setOutsideTurretAngle(Rotation2d.fromDegrees(bestAngle));
+    io.setOutsideTurretAngle(bestAngle);
   }
 
   /**
@@ -185,7 +185,7 @@ public class Turret extends SubsystemBase {
    * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
   public void setInsideTurretAngle_ONLY_FOR_TESTING(double angleDegrees) {
-    io.setInsideTurretAngle_ONLY_FOR_TESTING(Rotation2d.fromDegrees(angleDegrees));
+    io.setInsideTurretAngle_ONLY_FOR_TESTING(angleDegrees);
   }
 
   public void setTurretVolts(double volts) {
@@ -345,7 +345,7 @@ public class Turret extends SubsystemBase {
    * @return Current angle in degrees
    */
   public double getOutsideCurrentAngle() {
-    return io.getOutsideCurrentAngle().getDegrees();
+    return io.getOutsideCurrentAngle();
   }
 
   /**
@@ -354,7 +354,7 @@ public class Turret extends SubsystemBase {
    * @return Target angle in degrees
    */
   public double getOutsideTargetAngle() {
-    return io.getOutsideTargetAngle().getDegrees();
+    return io.getOutsideTargetAngle();
   }
 
   /**
