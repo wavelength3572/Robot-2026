@@ -645,7 +645,8 @@ public class ShootingCommands {
 
                 // Keep hood positioned (reads tunable each cycle)
                 hood != null
-                    ? Commands.run(() -> hood.setAngle(hoodAngleDegSupplier.getAsDouble()), hood)
+                    ? Commands.run(
+                        () -> hood.setHoodAngle(hoodAngleDegSupplier.getAsDouble()), hood)
                     : Commands.none(),
 
                 // Keep motivator running (reads tunable each cycle)
@@ -718,7 +719,7 @@ public class ShootingCommands {
                     launcher.setVelocity(rpm);
                     turret.setOutsideTurretAngle(shot.turretAngleDeg());
                     if (hood != null) {
-                      hood.setAngle(shot.hoodAngleDeg());
+                      hood.setHoodAngle(shot.hoodAngleDeg());
                     }
                   }
 
@@ -745,7 +746,7 @@ public class ShootingCommands {
                             launcher.setVelocity(rpm);
                             turret.setOutsideTurretAngle(shot.turretAngleDeg());
                             if (hood != null) {
-                              hood.setAngle(shot.hoodAngleDeg());
+                              hood.setHoodAngle(shot.hoodAngleDeg());
                             }
                             coordinator.setManualShotParameters(
                                 rpm, shot.hoodAngleDeg(), shot.turretAngleDeg());
@@ -879,7 +880,7 @@ public class ShootingCommands {
                         () -> {
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                           if (shot != null) {
-                            hood.setAngle(shot.hoodAngleDeg());
+                            hood.setHoodAngle(shot.hoodAngleDeg());
                           }
                         },
                         hood)

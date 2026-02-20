@@ -65,7 +65,7 @@ public class Hood extends SubsystemBase {
    */
   public void setHoodAngle(double angleDeg) {
     double clamped = clampToLimits(angleDeg);
-    io.setHoodAngle(clamped);
+    io.setAngle(clamped);
 
     if (clamped != angleDeg) {
       Logger.recordOutput("Hood/ClampedRequest", angleDeg);

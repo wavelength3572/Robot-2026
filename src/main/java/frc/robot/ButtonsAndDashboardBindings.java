@@ -116,8 +116,7 @@ public class ButtonsAndDashboardBindings {
           Commands.runOnce(
                   () -> {
                     vision.toggleVision();
-                    SmartDashboard.putBoolean(
-                        "Tuning/Vision/Enable", vision.isVisionOn());
+                    SmartDashboard.putBoolean("Tuning/Vision/Enable", vision.isVisionOn());
                   })
               .ignoringDisable(true)
               .withName("Toggle Vision"));
@@ -239,7 +238,7 @@ public class ButtonsAndDashboardBindings {
     if (hood != null) {
       SmartDashboard.putData(
           "Tuning/Hood/SetToTuningAngle",
-          Commands.run(() -> hood.setAngle(tuningHoodAngle.get()), hood)
+          Commands.run(() -> hood.setHoodAngle(tuningHoodAngle.get()), hood)
               .withName("Hood: Set Tuning Angle"));
     }
 
@@ -456,8 +455,7 @@ public class ButtonsAndDashboardBindings {
               Commands.runOnce(
                       () -> {
                         vision.toggleVision();
-                        SmartDashboard.putBoolean(
-                            "Tuning/Vision/Enable", vision.isVisionOn());
+                        SmartDashboard.putBoolean("Tuning/Vision/Enable", vision.isVisionOn());
                       })
                   .ignoringDisable(true));
     }

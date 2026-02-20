@@ -36,7 +36,7 @@ public class HoodIOSim implements HoodIO {
   }
 
   @Override
-  public void setHoodAngle(double angleDeg) {
+  public void setAngle(double angleDeg) {
     // Trust that Hood.java already clamped the angle
     targetAngleDeg = angleDeg;
   }

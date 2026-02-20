@@ -43,9 +43,11 @@ public class TrajectoryOptimizer {
 
   // Clearance constraints (inches above the lip)
   private static final LoggedTunableNumber minClearanceInches =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MinClearanceInches", 2.0); // Safety margin
+      new LoggedTunableNumber(
+          "Shots/SmartLaunch/Trajectory/MinClearanceInches", 2.0); // Safety margin
   private static final LoggedTunableNumber maxClearanceInches =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxClearanceInches", 24.0); // Sanity check
+      new LoggedTunableNumber(
+          "Shots/SmartLaunch/Trajectory/MaxClearanceInches", 24.0); // Sanity check
 
   // RPM limits
   private static final LoggedTunableNumber minRPM =
@@ -104,8 +106,10 @@ public class TrajectoryOptimizer {
    * <p>The resulting clearance (height above lip) must be within min/max bounds.
    */
   public static OptimalShot calculateOptimalShot(
-      Translation3d turretPosition, Translation3d target,
-      double hoodMinAngleDeg, double hoodMaxAngleDeg) {
+      Translation3d turretPosition,
+      Translation3d target,
+      double hoodMinAngleDeg,
+      double hoodMaxAngleDeg) {
     // Calculate geometry (shared across all descent angle attempts)
     double dx = target.getX() - turretPosition.getX();
     double dy = target.getY() - turretPosition.getY();
@@ -126,7 +130,8 @@ public class TrajectoryOptimizer {
     OptimalShot lastFailure = null;
 
     for (double descent = preferredDescent; descent >= minDescent; descent -= 1.0) {
-      OptimalShot shot = tryDescentAngle(descent, D, D_edge, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg);
+      OptimalShot shot =
+          tryDescentAngle(descent, D, D_edge, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg);
 
       if (shot.achievable) {
         // Log the descent angle actually used (may differ from preferred)
@@ -160,8 +165,12 @@ public class TrajectoryOptimizer {
    * @return OptimalShot result (check achievable flag)
    */
   private static OptimalShot tryDescentAngle(
-      double descent, double D, double D_edge, double turretHeightM,
-      double hoodMinAngleDeg, double hoodMaxAngleDeg) {
+      double descent,
+      double D,
+      double D_edge,
+      double turretHeightM,
+      double hoodMinAngleDeg,
+      double hoodMaxAngleDeg) {
     double descentRad = Math.toRadians(descent);
     double heightDrop = HUB_ENTRY_RADIUS * Math.tan(descentRad);
     double heightAtEdge = HUB_CENTER_HEIGHT + heightDrop;
@@ -204,7 +213,8 @@ public class TrajectoryOptimizer {
     double H_edge = heightAtEdge - turretHeightM;
     double H_target = HUB_CENTER_HEIGHT - turretHeightM;
 
-    return calculateTrajectoryThroughTwoPoints(D_edge, H_edge, D, H_target, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg);
+    return calculateTrajectoryThroughTwoPoints(
+        D_edge, H_edge, D, H_target, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg);
   }
 
   /**
@@ -223,8 +233,13 @@ public class TrajectoryOptimizer {
    * (x1*x2*(x2 - x1))
    */
   private static OptimalShot calculateTrajectoryThroughTwoPoints(
-      double x1, double y1, double x2, double y2, double turretHeightM,
-      double hoodMinAngleDeg, double hoodMaxAngleDeg) {
+      double x1,
+      double y1,
+      double x2,
+      double y2,
+      double turretHeightM,
+      double hoodMinAngleDeg,
+      double hoodMaxAngleDeg) {
 
     // Compute descent angle for this trajectory (angle of line from point A to point B)
     double heightAtEdge = turretHeightM + y1;

@@ -189,7 +189,7 @@ public class RobotContainer {
     // requirements; when they end, hood automatically returns to min angle.
     if (hood != null) {
       hood.setDefaultCommand(
-          Commands.run(() -> hood.setAngle(hood.getMinAngle()), hood).withName("HoodStow"));
+          Commands.run(() -> hood.setHoodAngle(hood.getMinAngle()), hood).withName("HoodStow"));
     }
 
     // Instantiate motivator subsystem (robots with motivator hardware)
@@ -386,114 +386,6 @@ public class RobotContainer {
           vision = null;
         }
         break;
-    }
-
-    // Instantiate intake only for SquareBot and MainBot
-    if (Constants.currentRobot == Constants.RobotType.SQUAREBOT
-        || Constants.currentRobot == Constants.RobotType.MAINBOT) {
-      switch (Constants.currentMode) {
-        case REAL:
-          if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
-            // SquareBot: roller-only intake (no deploy mechanism)
-            intake = new Intake(new IntakeIOSparkMaxRollerOnly());
-          } else {
-            // MainBot: full intake with deploy + rollers
-            intake = new Intake(new IntakeIO() {});
-          }
-          break;
-
-        case SIM:
-          // Sim SquareBot - instantiate intake simulation
-          intake = new Intake(new IntakeIOSim());
-          break;
-
-        default:
-          // Replay mode - disable intake IO
-          intake = new Intake(new IntakeIO() {});
-          break;
-      }
-    } else {
-      intake = null;
-    }
-
-    // Instantiate launcher subsystem
-    if (Constants.getRobotConfig().hasLauncher()) {
-      switch (Constants.currentMode) {
-        case REAL:
-          launcher = new Launcher(new LauncherIOSparkFlex());
-          break;
-
-        case SIM:
-          launcher = new Launcher(new LauncherIOSim());
-          break;
-
-        default:
-          // Replay mode - disable launcher IO
-          launcher = new Launcher(new LauncherIO() {});
-          break;
-      }
-    } else {
-      launcher = null;
-    }
-
-    // Instantiate hood subsystem
-    if (Constants.getRobotConfig().hasHood()) {
-      switch (Constants.currentMode) {
-        case REAL:
-          hood = new Hood(new HoodIOSparkMax());
-          break;
-
-        case SIM:
-          hood = new Hood(new HoodIOSim());
-          break;
-
-        default:
-          // Replay mode - disable hood IO
-          hood = new Hood(new HoodIO() {});
-          break;
-      }
-    } else {
-      hood = null;
-    }
-
-    // Instantiate motivator subsystem (robots with motivator hardware)
-    if (Constants.getRobotConfig().hasMotivator()) {
-      switch (Constants.currentMode) {
-        case REAL:
-          motivator = new Motivator(new MotivatorIOSparkMax());
-          break;
-
-        case SIM:
-          motivator = new Motivator(new MotivatorIOSim());
-          break;
-
-        default:
-          // Replay mode - disable motivator IO
-          motivator = new Motivator(new MotivatorIO() {});
-          break;
-      }
-    } else {
-      motivator = null;
-    }
-
-    // Instantiate spindexer subsystem (robots with spindexer hardware)
-    if (Constants.getRobotConfig().hasSpindexer()) {
-      switch (Constants.currentMode) {
-        case REAL:
-          spindexer = new Spindexer(new SpindexerIOSparkMax());
-          break;
-
-        case SIM:
-          spindexer = new Spindexer(new SpindexerIOSim());
-          break;
-
-        default:
-          // Replay mode - disable motivator IO
-          spindexer = new Spindexer(new SpindexerIO() {});
-          break;
-      }
-    } else {
-      spindexer = null;
     }
 
     // Instantiate drive and vision subsystems
