@@ -537,78 +537,55 @@ public class ButtonsAndDashboardBindings {
   private static void configureOperatorButtonBindings() {
     // Intake controls
     if (intake != null) {
-      // Button 4: Deploy intake
-      oi.getButtonBox1Button4().onTrue(Commands.runOnce(intake::deploy, intake));
-
-      // Button 3: Retract intake
-      oi.getButtonBox1Button3().onTrue(Commands.runOnce(intake::retract, intake));
-
-      // Button 6: Toggle rollers on/off
-      oi.getButtonBox1Button6()
+      // Button 4: Toggle intake (deploy + run rollers / retract + stop rollers)
+      oi.getButtonBox1Button4()
           .onTrue(
               Commands.either(
-                  Commands.runOnce(intake::stopRollers, intake),
-                  Commands.runOnce(intake::runIntake, intake),
-                  () -> intake.getRollerVelocityRPM() > 10));
+                  Commands.runOnce(
+                      () -> {
+                        intake.retract();
+                        intake.stopRollers();
+                      },
+                      intake),
+                  Commands.runOnce(
+                      () -> {
+                        intake.deploy();
+                        intake.runIntake();
+                      },
+                      intake),
+                  intake::isDeployed));
     }
 
-    // Shooting controls - unified launch command
-    if (shootingCoordinator != null && launcher != null) {
+    // Smart launch: D-pad Up + Button 2 — odometry-based aiming (hub or pass)
+    if (shootingCoordinator != null && launcher != null && turret != null) {
+      oi.getButtonBox1YAxisNegative()
+          .whileTrue(
+              ShootingCommands.smartLaunchCommand(
+                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
       oi.getButtonBox1Button2()
-          .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
-    } else if (shootingCoordinator != null) {
-      // Fallback if no launcher: just launch fuel visually
-      oi.getButtonBox1Button2().whileTrue(shootingCoordinator.repeatedlyLaunchFuelCommand());
+          .whileTrue(
+              ShootingCommands.smartLaunchCommand(
+                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
     }
 
     // Hub shot: Button 8 — fixed position launch for close-range hub shots
     if (launcher != null && turret != null) {
       oi.getButtonBox1Button8()
           .whileTrue(
-              ShootingCommands.fixedPositionLaunchCommand(
-                  launcher,
-                  shootingCoordinator,
-                  motivator,
-                  turret,
-                  hood,
-                  spindexer,
-                  2600.0,
-                  1100.0,
-                  16.0,
-                  -90.0,
-                  750.0));
+              ShootingCommands.hubShotCommand(
+                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
 
       // Left trench shot: Button 6
       oi.getButtonBox1Button6()
           .whileTrue(
-              ShootingCommands.fixedPositionLaunchCommand(
-                  launcher,
-                  shootingCoordinator,
-                  motivator,
-                  turret,
-                  hood,
-                  spindexer,
-                  3080.0,
-                  1100.0,
-                  19.0,
-                  208.0,
-                  750.0));
+              ShootingCommands.leftTrenchShotCommand(
+                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
 
       // Right trench shot: Button 5
       oi.getButtonBox1Button5()
           .whileTrue(
-              ShootingCommands.fixedPositionLaunchCommand(
-                  launcher,
-                  shootingCoordinator,
-                  motivator,
-                  turret,
-                  hood,
-                  spindexer,
-                  3080.0,
-                  1100.0,
-                  19.0,
-                  -25.0,
-                  750.0));
+              ShootingCommands.rightTrenchShotCommand(
+                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
     }
   }
 }

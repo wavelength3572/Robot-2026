@@ -8,6 +8,7 @@ import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
+import frc.robot.subsystems.shooting.ShotCalculator;
 import frc.robot.subsystems.shooting.ShotVisualizer;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
@@ -81,6 +82,23 @@ public class ShootingCommands {
     return currentMode == ShootingMode.TEST;
   }
 
+  // ===== Fixed Shot Presets =====
+
+  // Hub shot — close-range shot into the hub
+  private static final double HUB_SHOT_LAUNCHER_RPM = 2600.0;
+  private static final double HUB_SHOT_HOOD_ANGLE_DEG = 16.0;
+  private static final double HUB_SHOT_TURRET_ANGLE_DEG = -90.0;
+
+  // Left trench shot
+  private static final double LEFT_TRENCH_LAUNCHER_RPM = 3080.0;
+  private static final double LEFT_TRENCH_HOOD_ANGLE_DEG = 19.0;
+  private static final double LEFT_TRENCH_TURRET_ANGLE_DEG = 208.0;
+
+  // Right trench shot
+  private static final double RIGHT_TRENCH_LAUNCHER_RPM = 3080.0;
+  private static final double RIGHT_TRENCH_HOOD_ANGLE_DEG = 19.0;
+  private static final double RIGHT_TRENCH_TURRET_ANGLE_DEG = -25.0;
+
   // ===== Robot Tuning (affects real robot behavior) =====
 
   // Target velocities for shooting
@@ -88,7 +106,10 @@ public class ShootingCommands {
       new LoggedTunableNumber("Tuning/Shooting/LaunchVelocityRPM", 1700.0);
 
   private static final LoggedTunableNumber motivatorVelocityRPM =
-      new LoggedTunableNumber("Tuning/Shooting/MotivatorVelocityRPM", 1000.0);
+      new LoggedTunableNumber("Tuning/Shooting/MotivatorVelocityRPM", 1100.0);
+
+  private static final LoggedTunableNumber spindexerFeedRPM =
+      new LoggedTunableNumber("Tuning/Shooting/SpindexerFeedRPM", 750.0);
 
   // ===== BenchTest/Shooting/* Override Values (for controlled manual testing)
   // =====
@@ -512,6 +533,66 @@ public class ShootingCommands {
         .withName("ManualFire");
   }
 
+  /** Hub shot — close-range fixed-position launch into the hub. */
+  public static Command hubShotCommand(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer) {
+    return fixedPositionLaunchCommand(
+        launcher,
+        coordinator,
+        motivator,
+        turret,
+        hood,
+        spindexer,
+        HUB_SHOT_LAUNCHER_RPM,
+        HUB_SHOT_HOOD_ANGLE_DEG,
+        HUB_SHOT_TURRET_ANGLE_DEG);
+  }
+
+  /** Left trench — fixed-position launch toward the left trench. */
+  public static Command leftTrenchShotCommand(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer) {
+    return fixedPositionLaunchCommand(
+        launcher,
+        coordinator,
+        motivator,
+        turret,
+        hood,
+        spindexer,
+        LEFT_TRENCH_LAUNCHER_RPM,
+        LEFT_TRENCH_HOOD_ANGLE_DEG,
+        LEFT_TRENCH_TURRET_ANGLE_DEG);
+  }
+
+  /** Right trench — fixed-position launch toward the right trench. */
+  public static Command rightTrenchShotCommand(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer) {
+    return fixedPositionLaunchCommand(
+        launcher,
+        coordinator,
+        motivator,
+        turret,
+        hood,
+        spindexer,
+        RIGHT_TRENCH_LAUNCHER_RPM,
+        RIGHT_TRENCH_HOOD_ANGLE_DEG,
+        RIGHT_TRENCH_TURRET_ANGLE_DEG);
+  }
+
   /**
    * Fixed-position launch command. Moves all subsystems to hardcoded setpoints in parallel, waits
    * for ready (with 5s timeout), then feeds via spindexer. Parameterized so multiple field
@@ -524,10 +605,8 @@ public class ShootingCommands {
    * @param hood The hood subsystem (can be null)
    * @param spindexer The spindexer subsystem (can be null)
    * @param launcherRPM Target launcher RPM
-   * @param motivatorRPM Target motivator RPM
    * @param hoodAngleDeg Target hood angle in degrees
    * @param turretAngleDeg Target outside turret angle in degrees
-   * @param spindexerRPM Target spindexer RPM for feeding
    * @return Command that positions, spins up, feeds, and fires while held
    */
   public static Command fixedPositionLaunchCommand(
@@ -538,10 +617,8 @@ public class ShootingCommands {
       Hood hood,
       Spindexer spindexer,
       double launcherRPM,
-      double motivatorRPM,
       double hoodAngleDeg,
-      double turretAngleDeg,
-      double spindexerRPM) {
+      double turretAngleDeg) {
     return Commands.sequence(
             Commands.runOnce(() -> setMode(ShootingMode.TEST)),
             Commands.runOnce(() -> BenchTestMetrics.getInstance().reset()),
@@ -566,7 +643,7 @@ public class ShootingCommands {
                   }
 
                   if (motivator != null) {
-                    motivator.setMotivatorVelocity(motivatorRPM);
+                    motivator.setMotivatorVelocity(motivatorVelocityRPM.get());
                   }
 
                   SmartDashboard.putString("Match/Status/State", "Positioning & Spinning Up");
@@ -652,12 +729,14 @@ public class ShootingCommands {
 
                 // Keep motivator running
                 motivator != null
-                    ? Commands.run(() -> motivator.setMotivatorVelocity(motivatorRPM), motivator)
+                    ? Commands.run(
+                        () -> motivator.setMotivatorVelocity(motivatorVelocityRPM.get()), motivator)
                     : Commands.none(),
 
                 // Run spindexer to feed fuel
                 spindexer != null
-                    ? Commands.run(() -> spindexer.setSpindexerVelocity(spindexerRPM), spindexer)
+                    ? Commands.run(
+                        () -> spindexer.setSpindexerVelocity(spindexerFeedRPM.get()), spindexer)
                     : Commands.none(),
 
                 // Fire balls in simulation
@@ -683,6 +762,236 @@ public class ShootingCommands {
               System.out.println("[HubShot] Stopped");
             })
         .withName("HubShot");
+  }
+
+  /**
+   * Smart launch command. Continuously reads shot parameters from the ShootingCoordinator's
+   * odometry-based calculations (hub or pass depending on field position) and commands all
+   * subsystems accordingly. The coordinator calculates, this command executes.
+   *
+   * @param launcher The launcher subsystem
+   * @param coordinator The shooting coordinator (provides shot calculations)
+   * @param motivator The motivator subsystem (can be null)
+   * @param turret The turret subsystem
+   * @param hood The hood subsystem (can be null)
+   * @param spindexer The spindexer subsystem (can be null)
+   * @return Command that aims and fires based on odometry while held
+   */
+  public static Command smartLaunchCommand(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer) {
+    return Commands.sequence(
+            Commands.runOnce(() -> setMode(ShootingMode.COMPETITION)),
+
+            // Phase 1: Start subsystems using initial shot calculation
+            Commands.runOnce(
+                () -> {
+                  coordinator.enableLaunchMode();
+
+                  ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                  if (shot != null) {
+                    double rpm = ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps());
+                    launcher.setVelocity(rpm);
+                    turret.setOutsideTurretAngle(shot.turretAngleDeg());
+                    if (hood != null) {
+                      hood.setAngle(shot.hoodAngleDeg());
+                    }
+                  }
+
+                  if (motivator != null) {
+                    motivator.setMotivatorVelocity(motivatorVelocityRPM.get());
+                  }
+
+                  SmartDashboard.putString("Match/Status/State", "Smart Launch - Positioning");
+                  System.out.println("[SmartLaunch] Starting odometry-based launch");
+                }),
+
+            // Phase 2: Wait for all subsystems to reach setpoint (with 5s timeout)
+            Commands.race(
+                Commands.sequence(
+                    Commands.waitUntil(
+                        () -> {
+                          // Continuously update targets while waiting
+                          ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                          if (shot != null) {
+                            double rpm =
+                                ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps());
+                            launcher.setVelocity(rpm);
+                            turret.setOutsideTurretAngle(shot.turretAngleDeg());
+                            if (hood != null) {
+                              hood.setAngle(shot.hoodAngleDeg());
+                            }
+                            coordinator.setManualShotParameters(
+                                rpm, shot.hoodAngleDeg(), shot.turretAngleDeg());
+                          }
+
+                          boolean launcherReady = launcher.atSetpoint();
+                          boolean motivatorReady =
+                              motivator == null || motivator.isMotivatorAtSetpoint();
+                          boolean turretReady = turret.atTarget();
+                          boolean hoodReady = hood == null || hood.atTarget();
+                          boolean hasShot = shot != null && shot.achievable();
+
+                          boolean allReady =
+                              launcherReady
+                                  && motivatorReady
+                                  && turretReady
+                                  && hoodReady
+                                  && hasShot;
+
+                          SmartDashboard.putBoolean("Match/Status/ReadyLauncher", launcherReady);
+                          SmartDashboard.putBoolean("Match/Status/ReadyMotivators", motivatorReady);
+                          SmartDashboard.putBoolean("Match/Status/ReadyTurret", turretReady);
+                          SmartDashboard.putBoolean("Match/Status/ReadyHood", hoodReady);
+                          SmartDashboard.putBoolean("Match/Status/ReadyAchievable", hasShot);
+                          SmartDashboard.putBoolean("Match/Status/ReadyAll", allReady);
+                          if (shot != null) {
+                            SmartDashboard.putNumber(
+                                "Match/Status/SmartLaunchRPM",
+                                ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps()));
+                            SmartDashboard.putNumber(
+                                "Match/Status/SmartLaunchHoodDeg", shot.hoodAngleDeg());
+                            SmartDashboard.putNumber(
+                                "Match/Status/SmartLaunchTurretDeg", shot.turretAngleDeg());
+                            SmartDashboard.putNumber(
+                                "Match/Status/SmartLaunchExitVel", shot.exitVelocityMps());
+                          }
+
+                          return allReady;
+                        }),
+                    Commands.waitSeconds(0.1),
+                    Commands.waitUntil(
+                        () -> {
+                          ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                          boolean launcherReady = launcher.atSetpoint();
+                          boolean motivatorReady =
+                              motivator == null || motivator.isMotivatorAtSetpoint();
+                          boolean turretReady = turret.atTarget();
+                          boolean hoodReady = hood == null || hood.atTarget();
+                          boolean hasShot = shot != null && shot.achievable();
+                          return launcherReady
+                              && motivatorReady
+                              && turretReady
+                              && hoodReady
+                              && hasShot;
+                        })),
+                Commands.sequence(
+                    Commands.waitSeconds(5.0),
+                    Commands.runOnce(
+                        () -> {
+                          ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                          boolean launcherReady = launcher.atSetpoint();
+                          boolean motivatorReady =
+                              motivator == null || motivator.isMotivatorAtSetpoint();
+                          boolean turretReady = turret.atTarget();
+                          boolean hoodReady = hood == null || hood.atTarget();
+                          boolean hasShot = shot != null && shot.achievable();
+                          System.out.println(
+                              "[SmartLaunch] WARNING: Setup timeout! Conditions: "
+                                  + "launcher="
+                                  + launcherReady
+                                  + " motivator="
+                                  + motivatorReady
+                                  + " turret="
+                                  + turretReady
+                                  + " hood="
+                                  + hoodReady
+                                  + " achievable="
+                                  + hasShot
+                                  + (shot != null
+                                      ? " rpm="
+                                          + ShotCalculator.calculateRPMForVelocity(
+                                              shot.exitVelocityMps())
+                                          + " hood="
+                                          + shot.hoodAngleDeg()
+                                          + " turret="
+                                          + shot.turretAngleDeg()
+                                      : " shot=null"));
+                          SmartDashboard.putString(
+                              "Match/Status/State", "TIMEOUT - continuing anyway");
+                        }))),
+
+            // Log ready state
+            Commands.runOnce(
+                () -> {
+                  SmartDashboard.putString("Match/Status/State", "Smart Launch - Feeding");
+                  System.out.println("[SmartLaunch] Ready, starting feed");
+                  launcher.setFeedingActive(true);
+                }),
+
+            // Phase 3: Continuously update from odometry while feeding
+            Commands.parallel(
+                // Keep launcher + turret + hood tracking the shot
+                Commands.run(
+                    () -> {
+                      ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                      if (shot != null) {
+                        double rpm = ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps());
+                        launcher.setVelocity(rpm);
+                        coordinator.setManualShotParameters(
+                            rpm, shot.hoodAngleDeg(), shot.turretAngleDeg());
+                        SmartDashboard.putNumber("Match/Status/CurrentRPM", launcher.getVelocity());
+                      }
+                    },
+                    launcher),
+
+                // Keep turret tracking
+                Commands.run(
+                    () -> {
+                      ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                      if (shot != null) {
+                        turret.setOutsideTurretAngle(shot.turretAngleDeg());
+                      }
+                    },
+                    turret),
+
+                // Keep hood tracking
+                hood != null
+                    ? Commands.run(
+                        () -> {
+                          ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                          if (shot != null) {
+                            hood.setAngle(shot.hoodAngleDeg());
+                          }
+                        },
+                        hood)
+                    : Commands.none(),
+
+                // Keep motivator running
+                motivator != null
+                    ? Commands.run(
+                        () -> motivator.setMotivatorVelocity(motivatorVelocityRPM.get()), motivator)
+                    : Commands.none(),
+
+                // Run spindexer to feed fuel
+                spindexer != null
+                    ? Commands.run(
+                        () -> spindexer.setSpindexerVelocity(spindexerFeedRPM.get()), spindexer)
+                    : Commands.none(),
+
+                // Fire balls in simulation
+                createBenchTestFiringLoop(coordinator, launcher)))
+        .finallyDo(
+            () -> {
+              launcher.setFeedingActive(false);
+              launcher.stop();
+              if (motivator != null) {
+                motivator.stopMotivator();
+              }
+              if (spindexer != null) {
+                spindexer.stopSpindexer();
+              }
+              coordinator.clearManualShotParameters();
+              coordinator.disableLaunchMode();
+              setMode(ShootingMode.COMPETITION);
+              SmartDashboard.putString("Match/Status/State", "Stopped");
+              System.out.println("[SmartLaunch] Stopped");
+            })
+        .withName("SmartLaunch");
   }
 
   /**
