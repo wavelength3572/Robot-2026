@@ -120,7 +120,62 @@ public class Turret extends SubsystemBase {
       Logger.recordOutput("Turret/Safety/ClampedRequestDeg", clampedAngle);
     }
 
-    io.setOutsideTurretAngle(Rotation2d.fromDegrees(clampedAngle));
+    io.setOutsideTurretAngle(clampedAngle);
+  }
+
+  /**
+   * Set the turret to point at a specific angle relative to the robot's front. And maintain that
+   * angle reletive to the robot position The angle will be clamped to the effective limits.
+   *
+   * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
+   */
+  public void holdOutsideTurretAngle(double angleDegrees, double robotOmega) {
+
+    // Normalize robotOmega to -180 to +180 range
+    // This code actually probably doesn't do anything
+    // Since our robot omega is always -180 to +180
+    double robotOmegaNormalized = robotOmega % 360;
+    if (robotOmegaNormalized > 180) {
+      robotOmegaNormalized -= 360;
+    } else if (robotOmegaNormalized <= -180) {
+      robotOmegaNormalized += 360;
+    }
+
+    // Normalize desired field angle to -180 to +180 range
+    double desiredFieldAngleNormalized = angleDegrees % 360;
+    if (desiredFieldAngleNormalized > 180) {
+      desiredFieldAngleNormalized -= 360;
+    } else if (desiredFieldAngleNormalized <= -180) {
+      desiredFieldAngleNormalized += 360;
+    }
+
+    // Calculate the relative angle needed
+    // If turret points at 0° relative to robot, it points at robotOmega in field
+    // coords
+    // To point at desiredFieldAngle, turret needs: desiredFieldAngle - robotOmega
+    double relativeAngle = desiredFieldAngleNormalized - robotOmegaNormalized;
+
+    // Find the equivalent angle closest to current position to maintain continuity
+    // Check relativeAngle and its ±360° versions
+    double[] candidates = {relativeAngle, relativeAngle + 360.0, relativeAngle - 360.0};
+
+    double bestAngle = relativeAngle;
+    double smallestMove =
+        Double.MAX_VALUE; // Set this high do first viable candidate becomes the best.
+
+    for (double candidate : candidates) {
+      // Check if this candidate is within physical limits
+      if (candidate >= outsideAngleMin && candidate <= outsideAngleMax) {
+
+        double moveDistance = Math.abs(candidate - getOutsideCurrentAngle());
+        if (moveDistance < smallestMove) {
+          smallestMove = moveDistance;
+          bestAngle = candidate;
+        }
+      }
+    }
+
+    io.setOutsideTurretAngle(bestAngle);
   }
 
   /**
@@ -130,7 +185,7 @@ public class Turret extends SubsystemBase {
    * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
   public void setInsideTurretAngle_ONLY_FOR_TESTING(double angleDegrees) {
-    io.setInsideTurretAngle_ONLY_FOR_TESTING(Rotation2d.fromDegrees(angleDegrees));
+    io.setInsideTurretAngle_ONLY_FOR_TESTING(angleDegrees);
   }
 
   public void setTurretVolts(double volts) {
@@ -226,7 +281,8 @@ public class Turret extends SubsystemBase {
 
     double bestOutsideAngle =
         unflippedOutsideAngle; // doesn't matter what we set this to, it's just for initalization
-    double smallestMove = 1000000.0; // Set this high do first viable candidate becomes the best.
+    double smallestMove =
+        Double.MAX_VALUE; // Set this high do first viable candidate becomes the best.
 
     for (double candidate : candidates) {
       // Check if this candidate is within physical limits
@@ -289,7 +345,7 @@ public class Turret extends SubsystemBase {
    * @return Current angle in degrees
    */
   public double getOutsideCurrentAngle() {
-    return io.getOutsideCurrentAngle().getDegrees();
+    return io.getOutsideCurrentAngle();
   }
 
   /**
@@ -298,7 +354,7 @@ public class Turret extends SubsystemBase {
    * @return Target angle in degrees
    */
   public double getOutsideTargetAngle() {
-    return io.getOutsideTargetAngle().getDegrees();
+    return io.getOutsideTargetAngle();
   }
 
   /**

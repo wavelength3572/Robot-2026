@@ -261,7 +261,7 @@ public class RobotContainer {
           // MainBot: Full swerve drive
           drive =
               new Drive(
-                  new GyroIO() {},
+                  new GyroIOPigeon2() {},
                   new ModuleIOSpark(0),
                   new ModuleIOSpark(1),
                   new ModuleIOSpark(2),
@@ -888,7 +888,8 @@ public class RobotContainer {
             "Drive Wheel Radius Characterization",
             DriveCommands.wheelRadiusCharacterization(drive));
         chooser.addOption(
-            "Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
+            "Drive Simple FF Characterization",
+            DriveCommands.feedforwardCharacterizationDrive(drive));
         chooser.addOption(
             "Drive SysId (Quasistatic Forward)",
             drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));

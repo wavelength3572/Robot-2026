@@ -1,7 +1,6 @@
 package frc.robot.subsystems.turret;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
@@ -25,7 +24,7 @@ public class TurretIOSim implements TurretIO {
   private TrapezoidProfile.State goalState = new TrapezoidProfile.State(0, 0);
 
   // Target tracking
-  private Rotation2d targetRotation = new Rotation2d();
+  private double targetRotation = 0.0;
   private double currentOutsideAngleDeg = 0.0;
   private double targetOutsideAngleDeg = 0.0;
 
@@ -70,7 +69,7 @@ public class TurretIOSim implements TurretIO {
 
     // Populate inputs - sim works in outside angle space
     currentOutsideAngleDeg = currentState.position;
-    targetOutsideAngleDeg = targetRotation.getDegrees();
+    targetOutsideAngleDeg = targetRotation;
 
     inputs.currentOutsideAngleDeg = currentOutsideAngleDeg;
     inputs.targetOutsideAngleDeg = targetOutsideAngleDeg;
@@ -82,20 +81,20 @@ public class TurretIOSim implements TurretIO {
   }
 
   @Override
-  public Rotation2d getOutsideTargetAngle() {
-    return Rotation2d.fromDegrees(targetOutsideAngleDeg);
+  public double getOutsideTargetAngle() {
+    return targetOutsideAngleDeg;
   }
 
   @Override
-  public Rotation2d getOutsideCurrentAngle() {
-    return Rotation2d.fromDegrees(currentOutsideAngleDeg);
+  public double getOutsideCurrentAngle() {
+    return currentOutsideAngleDeg;
   }
 
   @Override
-  public void setOutsideTurretAngle(Rotation2d rotation) {
+  public void setOutsideTurretAngle(double rotation) {
     // Clamp the target angle to valid range
-    double clampedDegrees = MathUtil.clamp(rotation.getDegrees(), minAngleDegrees, maxAngleDegrees);
-    targetRotation = Rotation2d.fromDegrees(clampedDegrees);
+    double clampedDegrees = MathUtil.clamp(rotation, minAngleDegrees, maxAngleDegrees);
+    targetRotation = clampedDegrees;
 
     // Set the goal state (target position, zero velocity at goal)
     goalState = new TrapezoidProfile.State(clampedDegrees, 0);

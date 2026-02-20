@@ -160,7 +160,7 @@ public class DriveCommands {
    *
    * <p>This command should only be used in voltage control mode.
    */
-  public static Command feedforwardCharacterization(Drive drive) {
+  public static Command feedforwardCharacterizationDrive(Drive drive) {
     List<Double> velocitySamples = new LinkedList<>();
     List<Double> voltageSamples = new LinkedList<>();
     Timer timer = new Timer();
