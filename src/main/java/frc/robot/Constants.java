@@ -25,26 +25,8 @@ public final class Constants {
    */
   public static final RobotType simRobotType = RobotType.MAINBOT;
 
-  /**
-   * The detected or configured robot type. Set FORCE_ROBOT_TYPE to override auto-detection. Set to
-   * null to use auto-detection.
-   */
-  public static final RobotType FORCE_ROBOT_TYPE = null;
-  // RobotType.TURRETBOT; // Bench testing: force TURRETBOT to avoid CAN errors from disconnected
   // swerve modules
-
-  public static final RobotType currentRobot = initRobotType();
-
-  private static RobotType initRobotType() {
-    if (FORCE_ROBOT_TYPE != null) {
-      System.out.println(
-          "[RobotConfig] *** FORCED ROBOT TYPE: "
-              + FORCE_ROBOT_TYPE
-              + " *** (auto-detect disabled)");
-      return FORCE_ROBOT_TYPE;
-    }
-    return detectRobotType();
-  }
+  public static final RobotType currentRobot = detectRobotType();
 
   private static RobotConfig robotConfig = null;
 
@@ -87,9 +69,6 @@ public final class Constants {
         case MAINBOT:
           robotConfig = new MainBotConfig();
           break;
-        case TURRETBOT:
-          robotConfig = new TurretBotConfig();
-          break;
       }
     }
     return robotConfig;
@@ -111,10 +90,7 @@ public final class Constants {
     SQUAREBOT,
 
     /** MainBot2026 - 23.5" x 31" chassis with NEO Vortex drive motors */
-    MAINBOT,
-
-    /** TurretBot - turret-only test platform with no drivetrain */
-    TURRETBOT
+    MAINBOT
   }
 
   /**

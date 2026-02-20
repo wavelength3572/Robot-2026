@@ -19,8 +19,8 @@ import frc.robot.RobotConfig;
 import java.util.function.DoubleSupplier;
 
 /**
- * TurretIO implementation for TurretBot using NEO 550 motor with Spark Max and REV Through Bore
- * Encoder for absolute position. Configuration is loaded from the current RobotConfig.
+ * TurretIO implementation using NEO 550 motor with Spark Max and REV Through Bore Encoder for
+ * absolute position. Configuration is loaded from the current RobotConfig.
  *
  * <p>NO conversion factors are set on the SparkMax. All encoder readings are raw: Motor encoder:
  * position in motor rotations, velocity in RPM Absolute encoder: position in raw rotations (0.0 to

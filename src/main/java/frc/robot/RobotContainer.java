@@ -29,7 +29,6 @@ import frc.robot.subsystems.drive.GyroIOPigeon2;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
-import frc.robot.subsystems.drive.ModuleIOVirtual;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.hood.HoodIO;
 import frc.robot.subsystems.hood.HoodIOSim;
@@ -79,9 +78,9 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
  */
 public class RobotContainer {
   // Subsystems
-  private final Drive drive;
+  private Drive drive = null;
   private final Turret turret;
-  private final Vision vision;
+  private Vision vision = null;
   private final Intake intake;
   private final Launcher launcher;
   private final Hood hood;
@@ -91,7 +90,8 @@ public class RobotContainer {
       shootingCoordinator; // Orchestrates turret+hood+motivator+launcher
   private OperatorInterface oi = new OperatorInterface() {};
 
-  // Dashboard inputs — single auto chooser, rebuilt when Competition Mode toggle changes
+  // Dashboard inputs — single auto chooser, rebuilt when Competition Mode toggle
+  // changes
   private LoggedDashboardChooser<Command> autoChooser;
   private boolean lastCompetitionMode = true;
 
@@ -100,16 +100,15 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
-    // Instantiate turret subsystem
+
+    // Instantiate Turret subsystem
     switch (Constants.currentMode) {
       case REAL:
         turret = new Turret(new TurretIOSparkMax());
         break;
-
       case SIM:
         turret = new Turret(new TurretIOSim());
         break;
-
       default:
         // Replay mode - disable turret IO
         turret = new Turret(new TurretIO() {});
@@ -246,7 +245,8 @@ public class RobotContainer {
                   new ModuleIOSpark(2),
                   new ModuleIOSpark(3),
                   turret);
-          // Only FrontLeft (CAMERA_A) and FrontRight (CAMERA_B) are installed on Squarebot
+          // Only FrontLeft (CAMERA_A) and FrontRight (CAMERA_B) are installed on
+          // Squarebot
           // BackLeft and BackRight Pis are not present, using no-op VisionIO to avoid
           // loop overruns
           vision =
@@ -262,7 +262,7 @@ public class RobotContainer {
           // MainBot: Full swerve drive
           drive =
               new Drive(
-                  new GyroIOPigeon2() {},
+                  new GyroIOPigeon2(),
                   new ModuleIOSpark(0),
                   new ModuleIOSpark(1),
                   new ModuleIOSpark(2),
@@ -284,51 +284,6 @@ public class RobotContainer {
           // new VisionIOPhotonVision(
           // VisionConstants.objectDetectionFrontLeftCam,
           // VisionConstants.mainBotToObjectDetectionFrontLeftCam));
-        } else {
-          // SquareBot and MainBot: Full swerve drive
-          drive =
-              new Drive(
-                  new GyroIO() {},
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  new ModuleIOVirtual(),
-                  turret);
-          // Vision for SquareBot and MainBot
-          // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
-          if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
-            vision =
-                new Vision(
-                    drive::addVisionMeasurement,
-                    new VisionIOPhotonVision(
-                        VisionConstants.frontLeftCam, VisionConstants.robotToFrontLeftCam),
-                    new VisionIOPhotonVision(
-                        VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam),
-                    new VisionIOPhotonVision(
-                        VisionConstants.backLeftCam, VisionConstants.robotToBackLeftCam),
-                    new VisionIOPhotonVision(
-                        VisionConstants.backRightCam, VisionConstants.robotToBackRightCam));
-          } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
-            // MainBot uses corner-mounted cameras aimed diagonally outward + front center
-            // for
-            // intake
-            vision = null;
-            // new Vision(
-            // drive::addVisionMeasurement,
-            // new VisionIOPhotonVision(
-            // VisionConstants.frontLeftCam, VisionConstants.mainBotToFrontLeftCam),
-            // new VisionIOPhotonVision(
-            // VisionConstants.frontRightCam, VisionConstants.mainBotToFrontRightCam),
-            // new VisionIOPhotonVision(
-            // VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
-            // new VisionIOPhotonVision(
-            // VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam),
-            // new VisionIOPhotonVision(
-            // VisionConstants.objectDetectionFrontLeftCam,
-            // VisionConstants.mainBotToObjectDetectionFrontLeftCam));
-          } else {
-            vision = null;
-          }
         }
         break;
 
@@ -433,6 +388,116 @@ public class RobotContainer {
         break;
     }
 
+    // Instantiate intake only for SquareBot and MainBot
+    if (Constants.currentRobot == Constants.RobotType.SQUAREBOT
+        || Constants.currentRobot == Constants.RobotType.MAINBOT) {
+      switch (Constants.currentMode) {
+        case REAL:
+          if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
+            // SquareBot: roller-only intake (no deploy mechanism)
+            intake = new Intake(new IntakeIOSparkMaxRollerOnly());
+          } else {
+            // MainBot: full intake with deploy + rollers
+            intake = new Intake(new IntakeIO() {});
+          }
+          break;
+
+        case SIM:
+          // Sim SquareBot - instantiate intake simulation
+          intake = new Intake(new IntakeIOSim());
+          break;
+
+        default:
+          // Replay mode - disable intake IO
+          intake = new Intake(new IntakeIO() {});
+          break;
+      }
+    } else {
+      intake = null;
+    }
+
+    // Instantiate launcher subsystem
+    if (Constants.getRobotConfig().hasLauncher()) {
+      switch (Constants.currentMode) {
+        case REAL:
+          launcher = new Launcher(new LauncherIOSparkFlex());
+          break;
+
+        case SIM:
+          launcher = new Launcher(new LauncherIOSim());
+          break;
+
+        default:
+          // Replay mode - disable launcher IO
+          launcher = new Launcher(new LauncherIO() {});
+          break;
+      }
+    } else {
+      launcher = null;
+    }
+
+    // Instantiate hood subsystem
+    if (Constants.getRobotConfig().hasHood()) {
+      switch (Constants.currentMode) {
+        case REAL:
+          hood = new Hood(new HoodIOSparkMax());
+          break;
+
+        case SIM:
+          hood = new Hood(new HoodIOSim());
+          break;
+
+        default:
+          // Replay mode - disable hood IO
+          hood = new Hood(new HoodIO() {});
+          break;
+      }
+    } else {
+      hood = null;
+    }
+
+    // Instantiate motivator subsystem (robots with motivator hardware)
+    if (Constants.getRobotConfig().hasMotivator()) {
+      switch (Constants.currentMode) {
+        case REAL:
+          motivator = new Motivator(new MotivatorIOSparkMax());
+          break;
+
+        case SIM:
+          motivator = new Motivator(new MotivatorIOSim());
+          break;
+
+        default:
+          // Replay mode - disable motivator IO
+          motivator = new Motivator(new MotivatorIO() {});
+          break;
+      }
+    } else {
+      motivator = null;
+    }
+
+    // Instantiate spindexer subsystem (robots with spindexer hardware)
+    if (Constants.getRobotConfig().hasSpindexer()) {
+      switch (Constants.currentMode) {
+        case REAL:
+          spindexer = new Spindexer(new SpindexerIOSparkMax());
+          break;
+
+        case SIM:
+          spindexer = new Spindexer(new SpindexerIOSim());
+          break;
+
+        default:
+          // Replay mode - disable motivator IO
+          spindexer = new Spindexer(new SpindexerIO() {});
+          break;
+      }
+    } else {
+      spindexer = null;
+    }
+
+    // Instantiate drive and vision subsystems
+
     // Initialize RobotStatus with subsystem references (vision may be null for
     // RectangleBot)
     RobotStatus.initialize(drive, vision);
@@ -456,7 +521,8 @@ public class RobotContainer {
     }
 
     // Create ShootingCoordinator (orchestrates turret + hood + launcher)
-    // Must be created BEFORE FuelSim so intake registration can reference the coordinator
+    // Must be created BEFORE FuelSim so intake registration can reference the
+    // coordinator
     if (turret != null) {
       shootingCoordinator = new ShootingCoordinator(turret, hood, launcher, motivator);
       shootingCoordinator.initialize(drive::getPose, () -> drive.getChassisSpeeds());
@@ -464,7 +530,8 @@ public class RobotContainer {
       shootingCoordinator = null;
     }
 
-    // Initialize FuelSim for simulation mode (after coordinator so intake can be registered)
+    // Initialize FuelSim for simulation mode (after coordinator so intake can be
+    // registered)
     if (Constants.currentMode == Constants.Mode.SIM) {
       initializeFuelSim();
     }
@@ -510,9 +577,11 @@ public class RobotContainer {
   // Starting fuel count for autonomous (always 8)
   private static final int AUTO_START_FUEL_COUNT = 8;
 
-  // Comp autos get the full shooting wrap (fuel, auto-shoot, intake, launcher spin-up).
+  // Comp autos get the full shooting wrap (fuel, auto-shoot, intake, launcher
+  // spin-up).
   // Test autos run bare — no setup/teardown, just the path.
-  // Built dynamically at startup by scanning PathPlanner auto files for "folder": "Comp".
+  // Built dynamically at startup by scanning PathPlanner auto files for "folder":
+  // "Comp".
   private final Set<String> compAutos = loadCompAutoNames();
 
   /**
@@ -532,7 +601,8 @@ public class RobotContainer {
       return selectedAuto;
     }
 
-    // Supplier for wait-until-fuel-empty (sim: checks visualizer, real: passes through)
+    // Supplier for wait-until-fuel-empty (sim: checks visualizer, real: passes
+    // through)
     BooleanSupplier fuelEmpty =
         () -> {
           if (shootingCoordinator == null || shootingCoordinator.getVisualizer() == null)
@@ -661,7 +731,7 @@ public class RobotContainer {
   }
 
   /**
-   * Get the launcher subsystem if it exists (TurretBot only).
+   * Get the launcher subsystem if it exists
    *
    * @return Launcher subsystem or null if not present
    */

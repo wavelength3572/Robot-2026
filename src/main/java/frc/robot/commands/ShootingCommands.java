@@ -550,7 +550,7 @@ public class ShootingCommands {
                   turret.setOutsideTurretAngle(turretAngle);
 
                   if (hood != null) {
-                    hood.setAngle(hoodAngle);
+                    hood.setHoodAngle(hoodAngle);
                   }
 
                   launcher.setVelocity(launcherRPM);
