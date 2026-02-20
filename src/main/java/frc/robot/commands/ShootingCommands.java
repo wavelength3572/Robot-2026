@@ -90,13 +90,13 @@ public class ShootingCommands {
   private static final double HUB_SHOT_TURRET_ANGLE_DEG = 0;
 
   // Left trench shot
-  private static final double LEFT_TRENCH_LAUNCHER_RPM = 3080.0;
-  private static final double LEFT_TRENCH_HOOD_ANGLE_DEG = 19.0;
+  private static final double LEFT_TRENCH_LAUNCHER_RPM = 3300.0;
+  private static final double LEFT_TRENCH_HOOD_ANGLE_DEG = 26.0;
   private static final double LEFT_TRENCH_TURRET_ANGLE_DEG = 208.0;
 
   // Right trench shot
-  private static final double RIGHT_TRENCH_LAUNCHER_RPM = 3200.0;
-  private static final double RIGHT_TRENCH_HOOD_ANGLE_DEG = 19.0;
+  private static final double RIGHT_TRENCH_LAUNCHER_RPM = 3300.0;
+  private static final double RIGHT_TRENCH_HOOD_ANGLE_DEG = 26.0;
   private static final double RIGHT_TRENCH_TURRET_ANGLE_DEG = -25.0;
 
   // ===== Robot Tuning (affects real robot behavior) =====
