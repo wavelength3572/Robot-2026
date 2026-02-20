@@ -324,13 +324,6 @@ public class RobotContainer {
       switch (Constants.currentMode) {
         case REAL:
           hood = new Hood(new HoodIOSparkMax());
-          SmartDashboard.putData(
-              "Hood/setAngle",
-              Commands.runOnce(
-                  () -> {
-                    hood.setAngle(SmartDashboard.getNumber("Tuning/Hood/Hood Angle", 0.0));
-                  },
-                  hood));
           break;
 
         case SIM:
