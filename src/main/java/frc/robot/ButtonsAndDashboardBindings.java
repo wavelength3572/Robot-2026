@@ -2,7 +2,6 @@ package frc.robot;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -46,7 +45,8 @@ public class ButtonsAndDashboardBindings {
       new LoggedTunableNumber(
           "BenchTest/IntakeVelocityControl/RollerRPM", IntakeConstants.ROLLER_INTAKE_RPM);
 
-  // Preset field positions for simulation (label, x_meters, y_meters, rotation_degrees)
+  // Preset field positions for simulation (label, x_meters, y_meters,
+  // rotation_degrees)
   private static final String[][] PRESET_POSITIONS = {
     {"DepotStart", "3.50", "6.00", "180.0"},
     {"HPStart", "3.56", "0.65", "180.0"},
@@ -96,7 +96,8 @@ public class ButtonsAndDashboardBindings {
   private static void configureDashboardBindings() {
     // Vision toggle on dashboard
     if (vision != null) {
-      // Vision ON by default in simulation (use SmartDashboard toggle to disable if needed)
+      // Vision ON by default in simulation (use SmartDashboard toggle to disable if
+      // needed)
       SmartDashboard.putBoolean("BenchTest/Subsystems/Vision/Enable", vision.isVisionOn());
       SmartDashboard.putData(
           "BenchTest/Subsystems/Vision/Toggle",
@@ -113,11 +114,6 @@ public class ButtonsAndDashboardBindings {
     // Intake bench test area
     if (intake != null) {
       configureIntakeBenchTest();
-    }
-
-    // TurretBot-specific testing controls
-    if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
-      configureTurretBotTestControls();
     }
 
     // Simulation fuel management (available for any robot with a coordinator)
@@ -149,7 +145,8 @@ public class ButtonsAndDashboardBindings {
 
   /** Configure dashboard controls for coordinated shooting system. */
   private static void configureShootingControls() {
-    // Initialize all tunables and status values so they appear on dashboard immediately
+    // Initialize all tunables and status values so they appear on dashboard
+    // immediately
     ShootingCommands.initTunables();
 
     // === Auto Launch Command ===
@@ -159,7 +156,8 @@ public class ButtonsAndDashboardBindings {
         ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
 
     // === Manual Launch Command ===
-    // Manual test mode using BenchTest/Shooting/* dashboard values for controlled testing
+    // Manual test mode using BenchTest/Shooting/* dashboard values for controlled
+    // testing
     SmartDashboard.putData(
         "BenchTest/Shooting/Launch",
         ShootingCommands.testLaunchCommand(launcher, shootingCoordinator, motivator, hood));
@@ -190,94 +188,6 @@ public class ButtonsAndDashboardBindings {
             .withName("Reset BenchTest Metrics"));
 
     System.out.println("[Shooting] Shooting controls configured on SmartDashboard");
-  }
-
-  /** Configure dashboard controls for testing TurretBot without a drive system. */
-  private static void configureTurretBotTestControls() {
-    // === Manual Pose Setting ===
-    // Set default test position values
-    SmartDashboard.putNumber("Sim/Pose/SimPoseX", 2.0);
-    SmartDashboard.putNumber("Sim/Pose/SimPoseY", 4.0);
-    SmartDashboard.putNumber("Sim/Pose/SimPoseRotation", 0.0);
-
-    // Button to apply the test pose
-    SmartDashboard.putData(
-        "Sim/Pose/SimSetPose",
-        Commands.runOnce(
-                () -> {
-                  double x = SmartDashboard.getNumber("Sim/Pose/SimPoseX", 0);
-                  double y = SmartDashboard.getNumber("Sim/Pose/SimPoseY", 0);
-                  double rotDeg = SmartDashboard.getNumber("Sim/Pose/SimPoseRotation", 0);
-                  drive.setPose(new Pose2d(x, y, Rotation2d.fromDegrees(rotDeg)));
-                  System.out.println(
-                      "[Sim] Set pose to X=" + x + ", Y=" + y + ", Rotation=" + rotDeg + " deg");
-                },
-                drive)
-            .ignoringDisable(true)
-            .withName("SimSetPose"));
-
-    // === Preset Field Positions (from PathPlanner auto start poses) ===
-    for (String[] preset : PRESET_POSITIONS) {
-      String label = preset[0];
-      double x = Double.parseDouble(preset[1]);
-      double y = Double.parseDouble(preset[2]);
-      double rot = Double.parseDouble(preset[3]);
-      SmartDashboard.putData(
-          "Sim/Pose/Preset" + label,
-          Commands.runOnce(
-                  () -> {
-                    drive.setPose(new Pose2d(x, y, Rotation2d.fromDegrees(rot)));
-                  },
-                  drive)
-              .ignoringDisable(true)
-              .withName("Preset " + label));
-    }
-
-    // === Key Field Location Poses ===
-    // Robot faces 180° (intake toward alliance wall) — turret aims independently.
-    // Offset = half bumper length + intake extension past bumpers (from PathPlanner features).
-    double halfBumperLength = Constants.getRobotConfig().getBumperLength() / 2.0;
-    double intakeExtensionPastBumper = 0.21; // meters (~8.3in)
-    double robotCenterToIntakeTip = halfBumperLength + intakeExtensionPastBumper;
-
-    // Outpost: robot centered on human player drop path, intake reaching the wall
-    SmartDashboard.putData(
-        "Sim/Pose/Outpost",
-        Commands.runOnce(
-                () -> {
-                  Translation2d outpost = FieldConstants.Outpost.centerPoint;
-                  drive.setPose(
-                      new Pose2d(
-                          robotCenterToIntakeTip, outpost.getY(), Rotation2d.fromDegrees(180.0)));
-                },
-                drive)
-            .ignoringDisable(true)
-            .withName("Pose: Outpost"));
-
-    // Depot: robot positioned with intake reaching the depot
-    SmartDashboard.putData(
-        "Sim/Pose/Depot",
-        Commands.runOnce(
-                () -> {
-                  Translation3d depot = FieldConstants.Depot.depotCenter;
-                  drive.setPose(
-                      new Pose2d(
-                          depot.getX() + robotCenterToIntakeTip,
-                          depot.getY(),
-                          Rotation2d.fromDegrees(180.0)));
-                },
-                drive)
-            .ignoringDisable(true)
-            .withName("Pose: Depot"));
-
-    // Initialize shooting velocity tunables so they appear in dashboard immediately
-    // Just accessing them triggers LoggedTunableNumber to register with NetworkTables
-    if (launcher != null || motivator != null) {
-      ShootingCommands.initTunables();
-      System.out.println("[Sim] Shooting velocity tunables initialized");
-    }
-
-    System.out.println("[Sim] Test controls configured on SmartDashboard");
   }
 
   /** Configure per-subsystem tuning run buttons. Always called for all robot types. */
@@ -365,7 +275,8 @@ public class ButtonsAndDashboardBindings {
         Commands.runOnce(intake::retract, intake).withName("Retract Intake"));
 
     // Open-loop power control (hold to run, release to stop)
-    // Run button reads the Power slider live — adjust slider while running to change speed
+    // Run button reads the Power slider live — adjust slider while running to
+    // change speed
     SmartDashboard.putData(
         "BenchTest/IntakePowerControl/Run",
         Commands.run(() -> intake.setRollerSpeed(testIntakeSpeed.get()), intake)
@@ -438,7 +349,8 @@ public class ButtonsAndDashboardBindings {
             .ignoringDisable(true)
             .withName("Toggle What-If"));
 
-    // === Distance: move robot to a distance from hub, read back the optimized shot ===
+    // === Distance: move robot to a distance from hub, read back the optimized shot
+    // ===
     SmartDashboard.putNumber("TrajectoryCalculators/Distance/Inches", 118.0);
     SmartDashboard.putNumber("TrajectoryCalculators/Distance/OptimalRPM", 0.0);
     SmartDashboard.putNumber("TrajectoryCalculators/Distance/OptimalHoodAngleDeg", 0.0);
@@ -459,7 +371,8 @@ public class ButtonsAndDashboardBindings {
             .ignoringDisable(true)
             .withName("Set Pose From Distance"));
 
-    // Read back the coordinator's optimized shot (press after SetPose to populate RPM/angle)
+    // Read back the coordinator's optimized shot (press after SetPose to populate
+    // RPM/angle)
     SmartDashboard.putData(
         "TrajectoryCalculators/Distance/ReadShot",
         Commands.runOnce(
@@ -483,7 +396,6 @@ public class ButtonsAndDashboardBindings {
 
   private static void configureDriverButtonBindings() {
     // Enable joystick driving for all robots
-    // For TurretBot, this enables "virtual driving" to update odometry and test turret auto-aiming
     drive.setDefaultCommand(
         DriveCommands.joystickDrive(drive, oi::getTranslateX, oi::getTranslateY, oi::getRotate));
 
@@ -520,17 +432,10 @@ public class ButtonsAndDashboardBindings {
                       shootingCoordinator)
                   .ignoringDisable(true));
 
-      // Shoot button - bench test launch for TURRETBOT, normal launch for others
+      // Shoot button normal launch for others
       if (launcher != null) {
-        if (Constants.currentRobot == Constants.RobotType.TURRETBOT) {
-          oi.getShootButton()
-              .whileTrue(
-                  ShootingCommands.benchTestLaunchCommand(
-                      launcher, shootingCoordinator, motivator));
-        } else {
-          oi.getShootButton()
-              .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
-        }
+        oi.getShootButton()
+            .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
       } else {
         // No launcher - just launch fuel visually
         oi.getShootButton().whileTrue(shootingCoordinator.repeatedlyLaunchFuelCommand());
