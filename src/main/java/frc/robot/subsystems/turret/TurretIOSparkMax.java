@@ -14,7 +14,6 @@ import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.math.geometry.Rotation2d;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
@@ -236,12 +235,12 @@ public class TurretIOSparkMax implements TurretIO {
   }
 
   @Override
-  public void setOutsideTurretAngle(Rotation2d outsideTurretTarget) {
+  public void setOutsideTurretAngle(double outsideTurretTarget) {
     // Clamp the target angle to valid range
     targetOutsideDeg =
         Math.max(
             minOutsideAngleDegrees,
-            Math.min(maxOutsideAngleDegrees, outsideTurretTarget.getDegrees()));
+            Math.min(maxOutsideAngleDegrees, outsideTurretTarget));
 
     targetInsideDeg = targetOutsideDeg - config.getTurretZeroOffset();
 
@@ -253,19 +252,19 @@ public class TurretIOSparkMax implements TurretIO {
         0.13);
   }
 
-  public void setInsideTurretAngle_ONLY_FOR_TESTING(Rotation2d insideTurretTarget) {
-    targetOutsideDeg = insideTurretTarget.getDegrees() + config.getTurretZeroOffset();
-    setOutsideTurretAngle(Rotation2d.fromDegrees(targetOutsideDeg));
+  public void setInsideTurretAngle_ONLY_FOR_TESTING(double insideTurretTarget) {
+    targetOutsideDeg = insideTurretTarget + config.getTurretZeroOffset();
+    setOutsideTurretAngle(targetOutsideDeg);
   }
 
   @Override
-  public Rotation2d getOutsideTargetAngle() {
-    return Rotation2d.fromDegrees(targetOutsideDeg);
+  public double getOutsideTargetAngle() {
+    return targetOutsideDeg;
   }
 
   @Override
-  public Rotation2d getOutsideCurrentAngle() {
-    return Rotation2d.fromDegrees(currentOutsideAngleDegrees);
+  public double getOutsideCurrentAngle() {
+    return currentOutsideAngleDegrees;
   }
 
   @Override
