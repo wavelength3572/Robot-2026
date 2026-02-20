@@ -38,9 +38,6 @@ public final class VisionConstants {
   public static String backRightCam = "BackRight";
   public static String frontLeftCam = "CAMERA_A";
   public static String backLeftCam = "BackLeft";
-  public static String objectDetectionFrontLeftCam =
-      "ObjectDetectionFrontLeft"; // Object detection camera
-
   // Robot to camera transforms
   // TODO: Calibrate these transforms for your 2026 robot - these are placeholders
   // All cameras are mounted near swerve pods at the four corners of the robot
@@ -89,15 +86,13 @@ public final class VisionConstants {
 
   // Standard deviation multipliers for each camera
   // (Adjust to trust some cameras more than others)
-  // Order matches camera instantiation: FrontLeft, FrontRight, BackLeft, BackRight,
-  // ObjectDetectionFrontLeft
+  // Order matches camera instantiation: FrontLeft, FrontRight, BackLeft, BackRight
   public static double[] cameraStdDevFactors =
       new double[] {
         1.0, // FrontLeft
         1.0, // FrontRight
         1.0, // BackLeft
-        1.0, // BackRight
-        1.0 // ObjectDetectionFrontLeft - MainBot only
+        1.0 // BackRight
       };
 
   // Multipliers to apply for MegaTag 2 observations
@@ -145,7 +140,7 @@ public final class VisionConstants {
           new Rotation3d(
               0.0,
               Rotation2d.fromDegrees(-21).getRadians(), // Pitch up 21°
-              Rotation2d.fromDegrees(83).getRadians())); // Yaw left 83°
+              Rotation2d.fromDegrees(97).getRadians())); // Yaw left 97°
 
   public static Transform3d mainBotToBackRightCam =
       new Transform3d(
@@ -156,18 +151,6 @@ public final class VisionConstants {
               0.0,
               Rotation2d.fromDegrees(-10).getRadians(), // Pitch 10° up from horizontal
               Rotation2d.fromDegrees(180).getRadians())); // Yaw straight backward
-
-  // MainBot object detection camera - front left
-  // Mounted just below frame near front left swerve pod, looking straight ahead
-  public static Transform3d mainBotToObjectDetectionFrontLeftCam =
-      new Transform3d(
-          0.2726, // X: 1" back from front of robot
-          0.1744, // Y: ~6.9" left of center
-          0.0381, // Z: 1.5 inches off ground (just below bumper line for intake detection)
-          new Rotation3d(
-              0.0,
-              Rotation2d.fromDegrees(0).getRadians(), // Pitch level
-              Rotation2d.fromDegrees(0).getRadians())); // Yaw straight ahead
 
   private VisionConstants() {}
 }

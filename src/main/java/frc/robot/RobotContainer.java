@@ -280,10 +280,7 @@ public class RobotContainer {
           // new VisionIOPhotonVision(
           // VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
           // new VisionIOPhotonVision(
-          // VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam),
-          // new VisionIOPhotonVision(
-          // VisionConstants.objectDetectionFrontLeftCam,
-          // VisionConstants.mainBotToObjectDetectionFrontLeftCam));
+          // VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam));
         }
         break;
 
@@ -342,10 +339,6 @@ public class RobotContainer {
                   new VisionIOPhotonVisionSim(
                       VisionConstants.backRightCam,
                       VisionConstants.mainBotToBackRightCam,
-                      RobotStatus::getRobotPose),
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.objectDetectionFrontLeftCam,
-                      VisionConstants.mainBotToObjectDetectionFrontLeftCam,
                       RobotStatus::getRobotPose));
         } else {
           vision = null;
@@ -373,11 +366,10 @@ public class RobotContainer {
                   new VisionIO() {},
                   new VisionIO() {});
         } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
-          // MainBot has 5 cameras
+          // MainBot has 4 cameras
           vision =
               new Vision(
                   (pose, time, stdDevs) -> {},
-                  new VisionIO() {},
                   new VisionIO() {},
                   new VisionIO() {},
                   new VisionIO() {},
