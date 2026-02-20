@@ -9,6 +9,8 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.shooting.ShotVisualizer;
+import frc.robot.subsystems.spindexer.Spindexer;
+import frc.robot.subsystems.turret.Turret;
 import frc.robot.util.BenchTestMetrics;
 import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
@@ -508,6 +510,179 @@ public class ShootingCommands {
               System.out.println("[ManualFire] Stopped");
             })
         .withName("ManualFire");
+  }
+
+  /**
+   * Fixed-position launch command. Moves all subsystems to hardcoded setpoints in parallel, waits
+   * for ready (with 5s timeout), then feeds via spindexer. Parameterized so multiple field
+   * positions can reuse this with different values.
+   *
+   * @param launcher The launcher subsystem
+   * @param coordinator The shooting coordinator
+   * @param motivator The motivator subsystem (can be null)
+   * @param turret The turret subsystem
+   * @param hood The hood subsystem (can be null)
+   * @param spindexer The spindexer subsystem (can be null)
+   * @param launcherRPM Target launcher RPM
+   * @param motivatorRPM Target motivator RPM
+   * @param hoodAngleDeg Target hood angle in degrees
+   * @param turretAngleDeg Target outside turret angle in degrees
+   * @param spindexerRPM Target spindexer RPM for feeding
+   * @return Command that positions, spins up, feeds, and fires while held
+   */
+  public static Command fixedPositionLaunchCommand(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer,
+      double launcherRPM,
+      double motivatorRPM,
+      double hoodAngleDeg,
+      double turretAngleDeg,
+      double spindexerRPM) {
+    return Commands.sequence(
+            Commands.runOnce(() -> setMode(ShootingMode.TEST)),
+            Commands.runOnce(() -> BenchTestMetrics.getInstance().reset()),
+
+            // Phase 1: Spin up and position all subsystems in parallel
+            Commands.runOnce(
+                () -> {
+                  if (coordinator != null) {
+                    coordinator.enableLaunchMode();
+                  }
+
+                  turret.setOutsideTurretAngle(turretAngleDeg);
+
+                  if (hood != null) {
+                    hood.setAngle(hoodAngleDeg);
+                  }
+
+                  launcher.setVelocity(launcherRPM);
+
+                  if (coordinator != null) {
+                    coordinator.setManualShotParameters(launcherRPM, hoodAngleDeg, turretAngleDeg);
+                  }
+
+                  if (motivator != null) {
+                    motivator.setMotivatorVelocity(motivatorRPM);
+                  }
+
+                  SmartDashboard.putString("Match/Status/State", "Positioning & Spinning Up");
+                  System.out.println(
+                      "[HubShot] Positioning turret to "
+                          + turretAngleDeg
+                          + "° and spinning up to "
+                          + launcherRPM
+                          + " RPM");
+                }),
+
+            // Phase 2: Wait for everything to reach setpoint (with 5s timeout)
+            Commands.race(
+                Commands.sequence(
+                    Commands.waitUntil(
+                        () -> {
+                          boolean launcherReady = launcher.atSetpoint();
+                          boolean motivatorReady =
+                              motivator == null || motivator.isMotivatorAtSetpoint();
+                          boolean turretReady = turret.atTarget();
+                          boolean hoodReady = hood == null || hood.atTarget();
+
+                          boolean allReady =
+                              launcherReady && motivatorReady && turretReady && hoodReady;
+
+                          SmartDashboard.putBoolean("Match/Status/ReadyLauncher", launcherReady);
+                          SmartDashboard.putBoolean("Match/Status/ReadyMotivators", motivatorReady);
+                          SmartDashboard.putBoolean("Match/Status/ReadyTurret", turretReady);
+                          SmartDashboard.putBoolean("Match/Status/ReadyHood", hoodReady);
+                          SmartDashboard.putBoolean("Match/Status/ReadyAll", allReady);
+
+                          return allReady;
+                        }),
+                    Commands.waitSeconds(0.1),
+                    Commands.waitUntil(
+                        () -> {
+                          boolean launcherReady = launcher.atSetpoint();
+                          boolean motivatorReady =
+                              motivator == null || motivator.isMotivatorAtSetpoint();
+                          boolean turretReady = turret.atTarget();
+                          boolean hoodReady = hood == null || hood.atTarget();
+                          return launcherReady && motivatorReady && turretReady && hoodReady;
+                        })),
+                Commands.sequence(
+                    Commands.waitSeconds(5.0),
+                    Commands.runOnce(
+                        () -> {
+                          System.out.println(
+                              "[HubShot] WARNING: Setup timeout - continuing anyway!");
+                          SmartDashboard.putString(
+                              "Match/Status/State", "TIMEOUT - continuing anyway");
+                        }))),
+
+            // Log ready state
+            Commands.runOnce(
+                () -> {
+                  SmartDashboard.putString("Match/Status/State", "Ready - Feeding");
+                  System.out.println("[HubShot] All mechanisms ready, starting feed");
+                  launcher.setFeedingActive(true);
+                }),
+
+            // Phase 3: Feed via spindexer while keeping all subsystems running
+            Commands.parallel(
+                // Keep launcher at speed
+                Commands.run(
+                    () -> {
+                      launcher.setVelocity(launcherRPM);
+                      if (coordinator != null) {
+                        coordinator.setManualShotParameters(
+                            launcherRPM, hoodAngleDeg, turretAngleDeg);
+                      }
+                      SmartDashboard.putNumber("Match/Status/CurrentRPM", launcher.getVelocity());
+                    },
+                    launcher),
+
+                // Keep turret positioned
+                Commands.run(() -> turret.setOutsideTurretAngle(turretAngleDeg), turret),
+
+                // Keep hood positioned
+                hood != null
+                    ? Commands.run(() -> hood.setAngle(hoodAngleDeg), hood)
+                    : Commands.none(),
+
+                // Keep motivator running
+                motivator != null
+                    ? Commands.run(() -> motivator.setMotivatorVelocity(motivatorRPM), motivator)
+                    : Commands.none(),
+
+                // Run spindexer to feed fuel
+                spindexer != null
+                    ? Commands.run(() -> spindexer.setSpindexerVelocity(spindexerRPM), spindexer)
+                    : Commands.none(),
+
+                // Fire balls in simulation
+                coordinator != null
+                    ? createBenchTestFiringLoop(coordinator, launcher)
+                    : Commands.none()))
+        .finallyDo(
+            () -> {
+              launcher.setFeedingActive(false);
+              launcher.stop();
+              if (motivator != null) {
+                motivator.stopMotivator();
+              }
+              if (spindexer != null) {
+                spindexer.stopSpindexer();
+              }
+              if (coordinator != null) {
+                coordinator.clearManualShotParameters();
+                coordinator.disableLaunchMode();
+              }
+              setMode(ShootingMode.COMPETITION);
+              SmartDashboard.putString("Match/Status/State", "Stopped");
+              System.out.println("[HubShot] Stopped");
+            })
+        .withName("HubShot");
   }
 
   /**

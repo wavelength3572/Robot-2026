@@ -22,7 +22,7 @@ public final class ShotCalculator {
 
   // Efficiency factor: how much of wheel surface velocity transfers to ball (0.0-1.0)
   private static final LoggedTunableNumber launchEfficiency =
-      new LoggedTunableNumber("Tuning/Trajectory/LaunchEfficiency", 0.70);
+      new LoggedTunableNumber("Tuning/Trajectory/LaunchEfficiency", 0.45);
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -466,7 +466,7 @@ public final class ShotCalculator {
       double turretAngleDeg) {
 
     double exitVelocity = calculateExitVelocityFromRPM(launcherRPM);
-    double launchAngleRad = Math.toRadians(hoodAngleDeg);
+    double launchAngleRad = Math.toRadians(90.0 - hoodAngleDeg);
     double robotHeadingRad = robotPose.getRotation().getRadians();
 
     double[] turretFieldPos =
