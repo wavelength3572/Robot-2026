@@ -211,7 +211,7 @@ public class TurretIOSparkMax implements TurretIO {
     ifOk(motorSpark, motorEncoder::getPosition, (value) -> inputs.motorPosition = value);
     currentInsideAngleDegrees = motorRotationsToDegrees(inputs.motorPosition);
     inputs.currentInsideAngleDeg = currentInsideAngleDegrees;
-    currentOutsideAngleDegrees = currentInsideAngleDegrees - config.getTurretZeroOffset();
+    currentOutsideAngleDegrees = currentInsideAngleDegrees + config.getTurretZeroOffset();
     inputs.currentOutsideAngleDeg = currentOutsideAngleDegrees;
 
     // Update target angle
@@ -243,7 +243,7 @@ public class TurretIOSparkMax implements TurretIO {
             minOutsideAngleDegrees,
             Math.min(maxOutsideAngleDegrees, outsideTurretTarget.getDegrees()));
 
-    targetInsideDeg = targetOutsideDeg + config.getTurretZeroOffset();
+    targetInsideDeg = targetOutsideDeg - config.getTurretZeroOffset();
 
     // Convert degrees to motor rotations for the PID controller
     motorController.setSetpoint(

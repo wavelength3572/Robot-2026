@@ -316,6 +316,20 @@ public class ButtonsAndDashboardBindings {
               .withName("Turret Outside SetAngle"));
     }
 
+    // Turret: hold outside angle command
+    if (turret != null) {
+      ShootingCommands.initTunables();
+      SmartDashboard.putData(
+          "BenchTest/Turret/HoldOutsideAngle",
+          Commands.run(
+                  () ->
+                      turret.holdOutsideTurretAngle(
+                          ShootingCommands.getOutsideTurretAngleDeg().get(),
+                          drive.getPose().getRotation().getDegrees()),
+                  turret)
+              .withName("Turret Outside SetAngle"));
+    }
+
     // Turret: direct inside angle command
     if (turret != null) {
       ShootingCommands.initTunables();
