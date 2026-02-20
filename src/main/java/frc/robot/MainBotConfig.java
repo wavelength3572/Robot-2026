@@ -36,10 +36,10 @@ public class MainBotConfig implements RobotConfig {
       };
 
   // Module zero rotations (needs calibration for MainBot)
-  private static final Rotation2d frontLeftZeroRotation = new Rotation2d(1.77948);
-  private static final Rotation2d frontRightZeroRotation = new Rotation2d(1.290078);
-  private static final Rotation2d backLeftZeroRotation = new Rotation2d(1.377515);
-  private static final Rotation2d backRightZeroRotation = new Rotation2d(1.994175);
+  private static final Rotation2d frontLeftZeroRotation = new Rotation2d(1.756408);
+  private static final Rotation2d frontRightZeroRotation = new Rotation2d(1.282408);
+  private static final Rotation2d backLeftZeroRotation = new Rotation2d(1.337631);
+  private static final Rotation2d backRightZeroRotation = new Rotation2d(1.969631);
 
   // CAN IDs
   private static final int pigeonCanId = 19;
