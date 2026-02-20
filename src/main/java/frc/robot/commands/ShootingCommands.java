@@ -921,19 +921,6 @@ public class ShootingCommands {
                                   && hoodReady
                                   && hasShot;
 
-                          // --- AdvantageKit logging ---
-                          logSmartLaunchState(
-                              shot,
-                              launcher,
-                              turret,
-                              hood,
-                              motivator,
-                              launcherReady,
-                              motivatorReady,
-                              turretReady,
-                              hoodReady,
-                              hasShot);
-
                           SmartDashboard.putBoolean("Match/Status/ReadyLauncher", launcherReady);
                           SmartDashboard.putBoolean("Match/Status/ReadyMotivators", motivatorReady);
                           SmartDashboard.putBoolean("Match/Status/ReadyTurret", turretReady);
@@ -1030,24 +1017,6 @@ public class ShootingCommands {
                         SmartDashboard.putNumber("Match/Status/CurrentRPM", launcher.getVelocity());
                       }
 
-                      // --- AdvantageKit logging during firing ---
-                      boolean launcherReady = launcher.atSetpoint();
-                      boolean motivatorReady =
-                          motivator == null || motivator.isMotivatorAtSetpoint();
-                      boolean turretReady = turret.atTarget();
-                      boolean hoodReady = hood == null || hood.atTarget();
-                      boolean hasShot = shot != null && shot.achievable();
-                      logSmartLaunchState(
-                          shot,
-                          launcher,
-                          turret,
-                          hood,
-                          motivator,
-                          launcherReady,
-                          motivatorReady,
-                          turretReady,
-                          hoodReady,
-                          hasShot);
                     },
                     launcher),
 
@@ -1128,22 +1097,8 @@ public class ShootingCommands {
                 // Command turret only — hood stays on its default (stow) command
                 turret.setOutsideTurretAngle(shot.turretAngleDeg());
 
-                // Reuse shared logging (null launcher/motivator — not involved in tracking)
-                boolean turretReady = turret.atTarget();
-                boolean hoodReady = hood == null || hood.atTarget();
-                logSmartLaunchState(
-                    shot,
-                    null,
-                    turret,
-                    hood,
-                    null,
-                    false,
-                    true,
-                    turretReady,
-                    hoodReady,
-                    shot.achievable());
-
                 // Auto-track specific: aim readiness (turret only, hood handled by fire commands)
+                boolean turretReady = turret.atTarget();
                 boolean aimReady = turretReady && shot.achievable();
                 Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", aimReady);
 
@@ -1152,7 +1107,6 @@ public class ShootingCommands {
                     shot.achievable() ? "Tracking" : "Out of Range");
                 SmartDashboard.putBoolean("Match/Status/AutoTrackAimReady", aimReady);
               } else {
-                Logger.recordOutput("SmartLaunch/Ready/Achievable", false);
                 Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", false);
               }
             },
@@ -1264,76 +1218,6 @@ public class ShootingCommands {
               System.out.println("[BenchTest] Stopped");
             })
         .withName("BenchTestLaunch");
-  }
-
-  /**
-   * Firing loop for bench testing with BenchTestMetrics integration.
-   *
-   * @param coordinator The shooting coordinator
-   * @param launcher The launcher subsystem
-   * @return Command that fires repeatedly and records metrics
-   */
-  /**
-   * Log SmartLaunch state to AdvantageKit. Called every cycle by both smartLaunchCommand (during
-   * phase 2 positioning and phase 3 feeding) and autoTrackCommand (continuous tracking). Shared
-   * logging keeps all aiming data under one {@code SmartLaunch/} tree regardless of which command
-   * is driving the turret/hood.
-   *
-   * @param shot Current shot result (can be null if no calculation available)
-   * @param launcher The launcher subsystem (null when called from autoTrack)
-   * @param turret The turret subsystem
-   * @param hood The hood subsystem (can be null)
-   * @param motivator The motivator subsystem (null when called from autoTrack)
-   * @param launcherReady Whether launcher is at setpoint (false when no launcher)
-   * @param motivatorReady Whether motivator is at setpoint (true when no motivator)
-   * @param turretReady Whether turret is at target angle
-   * @param hoodReady Whether hood is at target angle (true when no hood)
-   * @param achievable Whether the shot calculator says the target is reachable
-   */
-  private static void logSmartLaunchState(
-      ShotCalculator.ShotResult shot,
-      Launcher launcher,
-      Turret turret,
-      Hood hood,
-      Motivator motivator,
-      boolean launcherReady,
-      boolean motivatorReady,
-      boolean turretReady,
-      boolean hoodReady,
-      boolean achievable) {
-
-    // --- Readiness flags ---
-    Logger.recordOutput("SmartLaunch/Ready/Launcher", launcherReady);
-    Logger.recordOutput("SmartLaunch/Ready/Motivator", motivatorReady);
-    Logger.recordOutput("SmartLaunch/Ready/Turret", turretReady);
-    Logger.recordOutput("SmartLaunch/Ready/Hood", hoodReady);
-    Logger.recordOutput("SmartLaunch/Ready/Achievable", achievable);
-    Logger.recordOutput(
-        "SmartLaunch/Ready/All",
-        launcherReady && motivatorReady && turretReady && hoodReady && achievable);
-
-    if (shot != null) {
-      double targetRPM = ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps());
-
-      // --- Commanded targets ---
-      Logger.recordOutput("SmartLaunch/Target/RPM", targetRPM);
-      Logger.recordOutput("SmartLaunch/Target/TurretDeg", shot.turretAngleDeg());
-      Logger.recordOutput("SmartLaunch/Target/HoodDeg", shot.hoodAngleDeg());
-      Logger.recordOutput("SmartLaunch/Target/ExitVelocityMps", shot.exitVelocityMps());
-
-      // --- Tracking errors ---
-      double turretError = turret.getOutsideCurrentAngle() - shot.turretAngleDeg();
-      Logger.recordOutput("SmartLaunch/Error/TurretDeg", turretError);
-
-      if (launcher != null) {
-        Logger.recordOutput("SmartLaunch/Error/LauncherRPM", launcher.getVelocity() - targetRPM);
-      }
-
-      if (hood != null) {
-        double hoodError = hood.getCurrentAngle() - shot.hoodAngleDeg();
-        Logger.recordOutput("SmartLaunch/Error/HoodDeg", hoodError);
-      }
-    }
   }
 
   /**

@@ -465,7 +465,7 @@ public class RobotContainer {
     // Create ShootingCoordinator (orchestrates turret + hood + launcher)
     // Must be created BEFORE FuelSim so intake registration can reference the coordinator
     if (turret != null) {
-      shootingCoordinator = new ShootingCoordinator(turret, hood, launcher);
+      shootingCoordinator = new ShootingCoordinator(turret, hood, launcher, motivator);
       shootingCoordinator.initialize(drive::getPose, () -> drive.getChassisSpeeds());
     } else {
       shootingCoordinator = null;

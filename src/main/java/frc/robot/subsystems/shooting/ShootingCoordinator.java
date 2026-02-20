@@ -13,6 +13,7 @@ import frc.robot.Constants;
 import frc.robot.FieldConstants;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.launcher.Launcher;
+import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.TurretAimingHelper;
@@ -32,6 +33,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final Turret turret;
   private final Hood hood;
   private final Launcher launcher;
+  private final Motivator motivator;
 
   // Turret geometry config (immutable)
   private final ShotCalculator.TurretConfig turretConfig;
@@ -82,11 +84,13 @@ public class ShootingCoordinator extends SubsystemBase {
    * @param turret The turret subsystem (rotation control only)
    * @param hood The hood subsystem (launch angle control), may be null
    * @param launcher The launcher subsystem (RPM control), may be null
+   * @param motivator The motivator subsystem (ball feeder), may be null
    */
-  public ShootingCoordinator(Turret turret, Hood hood, Launcher launcher) {
+  public ShootingCoordinator(Turret turret, Hood hood, Launcher launcher, Motivator motivator) {
     this.turret = turret;
     this.hood = hood;
     this.launcher = launcher;
+    this.motivator = motivator;
 
     var config = Constants.getRobotConfig();
     this.turretConfig =
@@ -146,6 +150,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     updateShotCalculation(alliance, isBlueAlliance);
     runAutoShoot(alliance);
+    logShotState();
 
     // Visualization runs AFTER all control logic (passive observer)
     if (visualizer != null && robotPoseSupplier != null) {
@@ -339,6 +344,54 @@ public class ShootingCoordinator extends SubsystemBase {
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     Logger.recordOutput("Turret/Shot/VelocityCompensation/AimOffsetM", aimOffsetM);
     Logger.recordOutput("Turret/Shot/VelocityCompensation/RobotSpeedMps", robotSpeed);
+  }
+
+  // ========== Shot State Logging ==========
+
+  /**
+   * Log current shot state to AdvantageKit every cycle. Runs in periodic() so readiness, targets,
+   * and tracking errors are always visible — regardless of which command (smart launch, fixed shot,
+   * auto-track, or none) is active.
+   */
+  private void logShotState() {
+    // --- Readiness flags ---
+    boolean launcherReady = launcher != null && launcher.atSetpoint();
+    boolean motivatorReady = motivator == null || motivator.isMotivatorAtSetpoint();
+    boolean turretReady = turret.atTarget();
+    boolean hoodReady = hood == null || hood.atTarget();
+    boolean achievable = currentShot != null && currentShot.achievable();
+
+    Logger.recordOutput("SmartLaunch/Ready/Launcher", launcherReady);
+    Logger.recordOutput("SmartLaunch/Ready/Motivator", motivatorReady);
+    Logger.recordOutput("SmartLaunch/Ready/Turret", turretReady);
+    Logger.recordOutput("SmartLaunch/Ready/Hood", hoodReady);
+    Logger.recordOutput("SmartLaunch/Ready/Achievable", achievable);
+    Logger.recordOutput(
+        "SmartLaunch/Ready/All",
+        launcherReady && motivatorReady && turretReady && hoodReady && achievable);
+
+    if (currentShot != null) {
+      double targetRPM = ShotCalculator.calculateRPMForVelocity(currentShot.exitVelocityMps());
+
+      // --- Commanded targets ---
+      Logger.recordOutput("SmartLaunch/Target/RPM", targetRPM);
+      Logger.recordOutput("SmartLaunch/Target/TurretDeg", currentShot.turretAngleDeg());
+      Logger.recordOutput("SmartLaunch/Target/HoodDeg", currentShot.hoodAngleDeg());
+      Logger.recordOutput("SmartLaunch/Target/ExitVelocityMps", currentShot.exitVelocityMps());
+
+      // --- Tracking errors ---
+      double turretError = turret.getOutsideCurrentAngle() - currentShot.turretAngleDeg();
+      Logger.recordOutput("SmartLaunch/Error/TurretDeg", turretError);
+
+      if (launcher != null) {
+        Logger.recordOutput("SmartLaunch/Error/LauncherRPM", launcher.getVelocity() - targetRPM);
+      }
+
+      if (hood != null) {
+        double hoodError = hood.getCurrentAngle() - currentShot.hoodAngleDeg();
+        Logger.recordOutput("SmartLaunch/Error/HoodDeg", hoodError);
+      }
+    }
   }
 
   // ========== Auto-Shoot ==========
