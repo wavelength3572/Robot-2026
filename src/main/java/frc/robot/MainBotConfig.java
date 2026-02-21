@@ -183,12 +183,12 @@ public class MainBotConfig implements RobotConfig {
   private static final int intakeDeployCurrentLimit = 30;
   private static final int intakeRollerCurrentLimit = 110;
   private static final double intakeDeployStowedPosition = 0.0;
-  private static final double intakeDeployRetractedPosition = 0.04;
+  private static final double intakeDeployRetractedPosition = 0.05;
   private static final double intakeDeployExtendedPosition = 0.15;
   private static final double intakeDeployKp = 2.5;
   private static final double intakeDeployKi = 0.0;
   private static final double intakeDeployKd = 0.1;
-  private static final double intakeRollerKp = 0.0001;
+  private static final double intakeRollerKp = 0.0007;
   private static final double intakeRollerKi = 0.0;
   private static final double intakeRollerKd = 0.000001;
   private static final double intakeRollerKff = 0.000225;

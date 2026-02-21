@@ -71,14 +71,17 @@ public class Intake extends SubsystemBase {
 
   // Tracks whether we've commanded deploy (true) or retract (false)
   private boolean deployCommanded = false;
+  private boolean lastBrakeMode = true; // Track brake mode to avoid constant reconfiguration
 
   // Operational constants (not robot-specific)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
   public static final double ROLLER_EJECT_SPEED = -0.6;
   public static final double ROLLER_HOLD_SPEED = 0.1;
-  public static final double ROLLER_INTAKE_RPM = 1500.0;
+  public static final double ROLLER_INTAKE_RPM_RETRACTED = 2000.0;
+  public static final double ROLLER_INTAKE_RPM_DEPLOYED = 2000.0;
   public static final double ROLLER_EJECT_RPM = -1000.0;
   public static final double ROLLER_HOLD_RPM = 200.0;
+  public static final double ROLLER_SHOOTING_RPM = 1000.0;
 
   // Velocity control toggle (default: velocity control on)
   private boolean useVelocityControl = true;
@@ -140,7 +143,12 @@ public class Intake extends SubsystemBase {
     }
 
     // Coast when deploy is commanded for ground compliance, brake otherwise to hold position
-    io.setDeployBrakeMode(!deployCommanded);
+    // Only reconfigure when state changes — calling configure() every cycle disrupts SparkMax PID
+    boolean wantBrake = !deployCommanded;
+    if (wantBrake != lastBrakeMode) {
+      io.setDeployBrakeMode(wantBrake);
+      lastBrakeMode = wantBrake;
+    }
 
     // Update deploy arm angle
     // Retracted (0 rotations) = 90° (pointing up)
@@ -242,10 +250,11 @@ public class Intake extends SubsystemBase {
     return runOnce(this::toggleVelocityControl).withName("Intake: Toggle Velocity Control");
   }
 
-  /** Run rollers to intake game pieces. */
+  /** Run rollers to intake game pieces. RPM varies based on deploy state. */
   public void runIntake() {
     if (useVelocityControl) {
-      io.setRollerVelocity(ROLLER_INTAKE_RPM);
+      double rpm = deployCommanded ? ROLLER_INTAKE_RPM_DEPLOYED : ROLLER_INTAKE_RPM_RETRACTED;
+      io.setRollerVelocity(rpm);
     } else {
       io.setRollerDutyCycle(ROLLER_INTAKE_SPEED);
     }

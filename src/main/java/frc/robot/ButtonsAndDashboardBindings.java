@@ -4,6 +4,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.commands.DriveCommands;
@@ -42,7 +43,7 @@ public class ButtonsAndDashboardBindings {
       new LoggedTunableNumber("BenchTest/IntakePowerControl/Power", 0.8);
   private static final LoggedTunableNumber testIntakeRPM =
       new LoggedTunableNumber(
-          "BenchTest/IntakeVelocityControl/RollerRPM", Intake.ROLLER_INTAKE_RPM);
+          "BenchTest/IntakeVelocityControl/RollerRPM", Intake.ROLLER_INTAKE_RPM_DEPLOYED);
 
   // Per-subsystem tuning setpoints
   private static final LoggedTunableNumber tuningLauncherVelocity =
@@ -56,7 +57,7 @@ public class ButtonsAndDashboardBindings {
   private static final LoggedTunableNumber tuningTurretAngle =
       new LoggedTunableNumber("Tuning/Turret/TuningAngle", 0.0);
   private static final LoggedTunableNumber tuningIntakeRollerVelocity =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/TuningVelocity", 1500.0);
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/TuningVelocity", 3000.0);
 
   // Preset field positions for simulation (label, x_meters, y_meters, rotation_degrees)
   private static final String[][] PRESET_POSITIONS = {
@@ -469,16 +470,18 @@ public class ButtonsAndDashboardBindings {
   private static void configureOperatorButtonBindings() {
     // Intake controls
     if (intake != null) {
-      // Button 4: Toggle intake (deploy + run rollers / retract + stop rollers)
+      // Button 4: Toggle intake
+      // Deploy: extend and run rollers (rollers stay on)
+      // Retract: retract and run rollers for 1 second to feed, then stop
       oi.getButtonBox1Button4()
           .onTrue(
               Commands.either(
-                  Commands.runOnce(
-                      () -> {
-                        intake.retract();
-                        intake.stopRollers();
-                      },
-                      intake),
+                  // Retract: run rollers for 1s while retracting, then stop
+                  Commands.sequence(
+                      Commands.runOnce(intake::retract, intake),
+                      Commands.run(intake::runIntake, intake).withTimeout(1.0),
+                      Commands.runOnce(intake::stopRollers, intake)),
+                  // Deploy: extend and run rollers
                   Commands.runOnce(
                       () -> {
                         intake.deploy();
@@ -493,11 +496,13 @@ public class ButtonsAndDashboardBindings {
       oi.getButtonBox1YAxisNegative()
           .whileTrue(
               ShootingCommands.smartLaunchCommand(
-                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+                      launcher, shootingCoordinator, motivator, turret, hood, spindexer)
+                  .alongWith(intakeRollersWhileShooting()));
       oi.getButtonBox1Button2()
           .whileTrue(
               ShootingCommands.smartLaunchCommand(
-                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+                      launcher, shootingCoordinator, motivator, turret, hood, spindexer)
+                  .alongWith(intakeRollersWhileShooting()));
     }
 
     // Auto-tracking toggle: APAC right — turret/hood continuously track target
@@ -511,19 +516,43 @@ public class ButtonsAndDashboardBindings {
       oi.getButtonBox1Button8()
           .whileTrue(
               ShootingCommands.hubShotCommand(
-                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+                      launcher, shootingCoordinator, motivator, turret, hood, spindexer)
+                  .alongWith(intakeRollersWhileShooting()));
 
       // Left trench shot: Button 6
       oi.getButtonBox1Button6()
           .whileTrue(
               ShootingCommands.leftTrenchShotCommand(
-                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+                      launcher, shootingCoordinator, motivator, turret, hood, spindexer)
+                  .alongWith(intakeRollersWhileShooting()));
 
       // Right trench shot: Button 5
       oi.getButtonBox1Button5()
           .whileTrue(
               ShootingCommands.rightTrenchShotCommand(
-                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+                      launcher, shootingCoordinator, motivator, turret, hood, spindexer)
+                  .alongWith(intakeRollersWhileShooting()));
     }
+  }
+
+  /**
+   * Runs intake rollers at shooting RPM while a shooting command is active, but only when the
+   * intake is retracted. If the intake is deployed, does nothing so the normal roller speed is not
+   * interrupted.
+   */
+  private static Command intakeRollersWhileShooting() {
+    if (intake == null) return Commands.none();
+    return Commands.run(
+            () -> {
+              if (!intake.isDeployed()) {
+                intake.setRollerVelocity(Intake.ROLLER_SHOOTING_RPM);
+              }
+            })
+        .finallyDo(
+            () -> {
+              if (!intake.isDeployed()) {
+                intake.stopRollers();
+              }
+            });
   }
 }
