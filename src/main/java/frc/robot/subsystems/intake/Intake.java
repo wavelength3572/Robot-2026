@@ -31,11 +31,25 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber rollerKD;
   private static final LoggedTunableNumber rollerKFF;
 
+  // Tunable deploy positions (adjustable live for testing)
+  private static final LoggedTunableNumber deployExtendedPos;
+  private static final LoggedTunableNumber deployRetractedPos;
+  private static final LoggedTunableNumber deployTolerance;
+
   static {
     RobotConfig config = Constants.getRobotConfig();
     deployKP = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kP", config.getIntakeDeployKp());
     deployKI = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kI", config.getIntakeDeployKi());
     deployKD = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kD", config.getIntakeDeployKd());
+    deployExtendedPos =
+        new LoggedTunableNumber(
+            "Tuning/Intake/IntakeDeploy/ExtendedPosition",
+            config.getIntakeDeployExtendedPosition());
+    deployRetractedPos =
+        new LoggedTunableNumber(
+            "Tuning/Intake/IntakeDeploy/RetractedPosition",
+            config.getIntakeDeployRetractedPosition());
+    deployTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/Tolerance", 0.02);
     rollerKP =
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kP", config.getIntakeRollerKp());
     rollerKI =
@@ -46,9 +60,12 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kFF", config.getIntakeRollerKff());
   }
 
-  // Deploy positions (from config)
+  // Deploy positions (from config, used for soft limit init)
   private final double deployRetractedPosition;
   private final double deployExtendedPosition;
+
+  // Tracks whether we've commanded deploy (true) or retract (false)
+  private boolean deployCommanded = false;
 
   // Operational constants (not robot-specific)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
@@ -57,7 +74,6 @@ public class Intake extends SubsystemBase {
   public static final double ROLLER_INTAKE_RPM = 1500.0;
   public static final double ROLLER_EJECT_RPM = -1000.0;
   public static final double ROLLER_HOLD_RPM = 200.0;
-  private static final double DEPLOY_POSITION_TOLERANCE = 0.02;
 
   // Velocity control toggle (default: velocity control on)
   private boolean useVelocityControl = true;
@@ -117,6 +133,9 @@ public class Intake extends SubsystemBase {
       io.configureRollerPID(rollerKP.get(), rollerKI.get(), rollerKD.get(), rollerKFF.get());
     }
 
+    // Coast when deploy is commanded for ground compliance, brake otherwise to hold position
+    io.setDeployBrakeMode(!deployCommanded);
+
     // Update deploy arm angle
     // Retracted (0 rotations) = 90° (pointing up)
     // Deployed (0.5 rotations) = 0° (pointing forward over bumper)
@@ -137,12 +156,14 @@ public class Intake extends SubsystemBase {
 
   /** Deploy the intake (extend). */
   public void deploy() {
-    io.setDeployPosition(deployExtendedPosition);
+    deployCommanded = true;
+    io.setDeployPosition(deployExtendedPos.get());
   }
 
   /** Retract the intake. */
   public void retract() {
-    io.setDeployPosition(deployRetractedPosition);
+    deployCommanded = false;
+    io.setDeployPosition(deployRetractedPos.get());
   }
 
   /**
@@ -157,21 +178,21 @@ public class Intake extends SubsystemBase {
   /** Check if the intake is fully deployed. */
   @AutoLogOutput(key = "Intake/IsDeployed")
   public boolean isDeployed() {
-    return Math.abs(inputs.deployPositionRotations - deployExtendedPosition)
-        <= DEPLOY_POSITION_TOLERANCE;
+    return Math.abs(inputs.deployPositionRotations - deployExtendedPos.get())
+        <= deployTolerance.get();
   }
 
   /** Check if the intake is fully retracted. */
   @AutoLogOutput(key = "Intake/IsRetracted")
   public boolean isRetracted() {
-    return Math.abs(inputs.deployPositionRotations - deployRetractedPosition)
-        <= DEPLOY_POSITION_TOLERANCE;
+    return Math.abs(inputs.deployPositionRotations - deployRetractedPos.get())
+        <= deployTolerance.get();
   }
 
   /** Check if the deploy mechanism is at target. */
   public boolean deployAtTarget() {
     return Math.abs(inputs.deployPositionRotations - inputs.deployTargetPosition)
-        <= DEPLOY_POSITION_TOLERANCE;
+        <= deployTolerance.get();
   }
 
   /** Get the current deploy position. */

@@ -186,6 +186,14 @@ public class IntakeIOSparkMax implements IntakeIO {
   }
 
   @Override
+  public void setDeployBrakeMode(boolean brake) {
+    var config = new SparkMaxConfig();
+    config.idleMode(brake ? IdleMode.kBrake : IdleMode.kCoast);
+    deployMotor.configure(
+        config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+  }
+
+  @Override
   public void configureDeployPID(double kP, double kI, double kD) {
     var config = new SparkMaxConfig();
     config.closedLoop.pid(kP, kI, kD);
