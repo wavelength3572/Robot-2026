@@ -483,8 +483,37 @@ public class RobotContainer {
       return selectedAuto;
     }
 
+    // Reset odometry to the auto's starting pose BEFORE any shooting commands run.
+    // Without this, the initial SmartLaunch uses a stale pose (e.g. heading=0 from
+    // gyro reset) instead of the auto's actual starting heading, causing the turret
+    // to aim in the wrong direction.
+    edu.wpi.first.math.geometry.Pose2d autoStartingPose = null;
+    try {
+      PathPlannerAuto ppAuto = new PathPlannerAuto(selectedName);
+      autoStartingPose = ppAuto.getStartingPose();
+      if (autoStartingPose != null) {
+        edu.wpi.first.wpilibj.DriverStation.Alliance alliance =
+            edu.wpi.first.wpilibj.DriverStation.getAlliance()
+                .orElse(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue);
+        if (alliance == edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
+          autoStartingPose = com.pathplanner.lib.util.FlippingUtil.flipFieldPose(autoStartingPose);
+        }
+      }
+    } catch (Exception e) {
+      // Auto doesn't have a valid starting pose - will skip reset
+    }
+    final edu.wpi.first.math.geometry.Pose2d startingPose = autoStartingPose;
+
     // Wrap with shooting setup and teardown using smartLaunchCommand
     return Commands.sequence(
+            // 0. ODOM RESET: set robot pose to auto starting position so turret aiming
+            //    in the initial SmartLaunch uses the correct heading.
+            Commands.runOnce(
+                () -> {
+                  if (startingPose != null) {
+                    drive.setPose(startingPose);
+                  }
+                }),
             // 1. SETUP: load fuel, sim reset, deploy intake
             Commands.runOnce(
                 () -> {
