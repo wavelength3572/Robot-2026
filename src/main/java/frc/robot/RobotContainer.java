@@ -267,17 +267,15 @@ public class RobotContainer {
                   turret);
           // MainBot uses corner-mounted cameras aimed diagonally outward + front center
           // for intake
-          vision = null;
-          // new Vision(
-          // drive::addVisionMeasurement,
-          // new VisionIOPhotonVision(
-          // VisionConstants.frontLeftCam, VisionConstants.mainBotToFrontLeftCam),
-          // new VisionIOPhotonVision(
-          // VisionConstants.frontRightCam, VisionConstants.mainBotToFrontRightCam),
-          // new VisionIOPhotonVision(
-          // VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
-          // new VisionIOPhotonVision(
-          // VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam));
+          vision =
+              new Vision(
+                  drive::addVisionMeasurement,
+                  new VisionIO() {},
+                  new VisionIO() {},
+                  new VisionIOPhotonVision(
+                      VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
+                  new VisionIOPhotonVision(
+                      VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam));
         }
         break;
 
