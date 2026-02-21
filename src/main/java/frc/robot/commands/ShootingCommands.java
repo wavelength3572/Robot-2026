@@ -912,6 +912,12 @@ public class ShootingCommands {
               if (spindexer != null) {
                 spindexer.stopSpindexer();
               }
+              // Drive hood back to stow angle so it doesn't stay raised after
+              // event zones end (the PathPlanner auto group holds the hood
+              // subsystem requirement, so the HoodStow default command can't run).
+              if (hood != null) {
+                hood.setHoodAngle(hood.getMinAngle());
+              }
               coordinator.clearManualShotParameters();
               setMode(ShootingMode.COMPETITION);
               Logger.recordOutput("SmartLaunch/Active", false);

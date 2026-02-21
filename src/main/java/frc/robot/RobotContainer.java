@@ -505,24 +505,38 @@ public class RobotContainer {
             // 2. INITIAL SHOT: fire preloaded balls with proper hood angle.
             //    smartLaunch handles turret+hood+launcher+motivator+spindexer+readiness.
             //    5s timeout controls duration (no fuel sensor yet).
+            //    Wrapped in asProxy() so subsystem requirements don't leak into the
+            //    outer sequence — otherwise the group holds hood/launcher/etc. for its
+            //    entire lifetime, blocking default commands between steps.
             ShootingCommands.smartLaunchCommand(
                     launcher, shootingCoordinator, motivator, turret, hood, spindexer)
-                .withTimeout(5.0),
-            // 3. HOOD STOW: wait for hood to return to 13 after smartLaunch releases it
+                .withTimeout(5.0)
+                .asProxy(),
+            // 3. HOOD STOW: explicitly drive hood to min angle (13 deg) and wait.
+            //    We command the hood directly rather than relying on the default command
+            //    so the hood moves regardless of subsystem scheduling.
+            //    Wrapped in asProxy() so the outer sequence holds zero subsystem
+            //    requirements — preventing conflicts when step 4's PathPlanner auto
+            //    claims hood/launcher/etc. for SmartLaunch event zones.
             hood != null
-                ? Commands.waitUntil(() -> hood.atTarget()).withTimeout(0.75)
+                ? Commands.run(() -> hood.setHoodAngle(hood.getMinAngle()), hood)
+                    .until(() -> hood.atTarget())
+                    .withTimeout(0.75)
+                    .asProxy()
                 : Commands.none(),
             // 4. PATH: run auto path.
             //    PathPlanner "SmartLaunch" event zones trigger full smartLaunchCommand
             //    at path-designer-chosen safe moments (turret+hood+firing).
-            //    When zone ends, hood stows back to 13 automatically.
+            //    When zone ends, hood stows back to 13 via default command.
             selectedAuto.asProxy(),
             // 5. POST-PATH: fire all collected fuel with proper hood angle.
             //    smartLaunch positions turret+hood and fires via spindexer.
             //    10s timeout controls duration (no fuel sensor yet).
+            //    Wrapped in asProxy() to isolate subsystem requirements.
             ShootingCommands.smartLaunchCommand(
                     launcher, shootingCoordinator, motivator, turret, hood, spindexer)
-                .withTimeout(10.0))
+                .withTimeout(10.0)
+                .asProxy())
         .finallyDo(
             () -> {
               // 6. TEARDOWN: stop everything
