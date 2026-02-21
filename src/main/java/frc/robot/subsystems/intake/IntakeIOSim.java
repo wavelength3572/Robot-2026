@@ -5,24 +5,30 @@ import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
+import frc.robot.Constants;
+import frc.robot.RobotConfig;
 
 public class IntakeIOSim implements IntakeIO {
+  // Sim-only moment of inertia constants
+  private static final double DEPLOY_SIM_MOI = 0.01; // kg*m^2
+  private static final double ROLLER_SIM_MOI = 0.001; // kg*m^2
+
+  // Deploy position limits (from config)
+  private final double deployRetractedPosition;
+  private final double deployExtendedPosition;
+
   // Simulation motors
   private final DCMotorSim deploySim;
   private final DCMotorSim rollerSim;
 
   // Deploy control
-  private final PIDController deployController =
-      new PIDController(
-          IntakeConstants.DEPLOY_KP, IntakeConstants.DEPLOY_KI, IntakeConstants.DEPLOY_KD);
+  private final PIDController deployController;
   private double deployTargetPosition = 0.0;
   private double deployAppliedVolts = 0.0;
 
   // Roller control
-  private final PIDController rollerVelocityController =
-      new PIDController(
-          IntakeConstants.ROLLER_KP, IntakeConstants.ROLLER_KI, IntakeConstants.ROLLER_KD);
-  private double rollerKFF = IntakeConstants.ROLLER_KFF;
+  private final PIDController rollerVelocityController;
+  private double rollerKFF;
   private double rollerAppliedVolts = 0.0;
   private double rollerTargetSpeed = 0.0;
   private boolean rollerVelocityMode = false;
@@ -33,18 +39,32 @@ public class IntakeIOSim implements IntakeIO {
   private final DCMotor rollerGearbox = DCMotor.getNEO(1);
 
   public IntakeIOSim() {
+    RobotConfig config = Constants.getRobotConfig();
+
+    deployRetractedPosition = config.getIntakeDeployRetractedPosition();
+    deployExtendedPosition = config.getIntakeDeployExtendedPosition();
+
+    deployController =
+        new PIDController(
+            config.getIntakeDeployKp(), config.getIntakeDeployKi(), config.getIntakeDeployKd());
+
+    rollerVelocityController =
+        new PIDController(
+            config.getIntakeRollerKp(), config.getIntakeRollerKi(), config.getIntakeRollerKd());
+    rollerKFF = config.getIntakeRollerKff();
+
     // Create deploy motor simulation
     deploySim =
         new DCMotorSim(
             LinearSystemId.createDCMotorSystem(
-                deployGearbox, IntakeConstants.DEPLOY_SIM_MOI, IntakeConstants.DEPLOY_GEAR_RATIO),
+                deployGearbox, DEPLOY_SIM_MOI, config.getIntakeDeployGearRatio()),
             deployGearbox);
 
     // Create roller motor simulation
     rollerSim =
         new DCMotorSim(
             LinearSystemId.createDCMotorSystem(
-                rollerGearbox, IntakeConstants.ROLLER_SIM_MOI, IntakeConstants.ROLLER_GEAR_RATIO),
+                rollerGearbox, ROLLER_SIM_MOI, config.getIntakeRollerGearRatio()),
             rollerGearbox);
   }
 
@@ -56,9 +76,8 @@ public class IntakeIOSim implements IntakeIO {
 
     // Simulate soft limits for deploy
     double currentPosition = deploySim.getAngularPositionRotations();
-    if ((currentPosition >= IntakeConstants.DEPLOY_EXTENDED_POSITION && deployAppliedVolts > 0)
-        || (currentPosition <= IntakeConstants.DEPLOY_RETRACTED_POSITION
-            && deployAppliedVolts < 0)) {
+    if ((currentPosition >= deployExtendedPosition && deployAppliedVolts > 0)
+        || (currentPosition <= deployRetractedPosition && deployAppliedVolts < 0)) {
       deployAppliedVolts = 0.0;
     }
 
@@ -80,8 +99,8 @@ public class IntakeIOSim implements IntakeIO {
     double simDeployPosition =
         MathUtil.clamp(
             deploySim.getAngularPositionRotations(),
-            IntakeConstants.DEPLOY_RETRACTED_POSITION,
-            IntakeConstants.DEPLOY_EXTENDED_POSITION);
+            deployRetractedPosition,
+            deployExtendedPosition);
 
     // Update deploy inputs
     inputs.deployConnected = true;
@@ -103,9 +122,7 @@ public class IntakeIOSim implements IntakeIO {
   public void setDeployPosition(double positionRotations) {
     // Clamp to valid range
     deployTargetPosition =
-        Math.max(
-            IntakeConstants.DEPLOY_RETRACTED_POSITION,
-            Math.min(IntakeConstants.DEPLOY_EXTENDED_POSITION, positionRotations));
+        Math.max(deployRetractedPosition, Math.min(deployExtendedPosition, positionRotations));
     deployController.setSetpoint(deployTargetPosition);
   }
 

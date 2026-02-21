@@ -6,6 +6,8 @@ import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants;
+import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.AutoLogOutput;
@@ -19,25 +21,46 @@ public class Intake extends SubsystemBase {
   private final IntakeIOInputsAutoLogged inputs = new IntakeIOInputsAutoLogged();
 
   // Tunable PID gains for deploy motor
-  private static final LoggedTunableNumber deployKP =
-      new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kP", IntakeConstants.DEPLOY_KP);
-  private static final LoggedTunableNumber deployKI =
-      new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kI", IntakeConstants.DEPLOY_KI);
-  private static final LoggedTunableNumber deployKD =
-      new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kD", IntakeConstants.DEPLOY_KD);
+  private static final LoggedTunableNumber deployKP;
+  private static final LoggedTunableNumber deployKI;
+  private static final LoggedTunableNumber deployKD;
+
+  // Tunable PID gains for roller velocity control
+  private static final LoggedTunableNumber rollerKP;
+  private static final LoggedTunableNumber rollerKI;
+  private static final LoggedTunableNumber rollerKD;
+  private static final LoggedTunableNumber rollerKFF;
+
+  static {
+    RobotConfig config = Constants.getRobotConfig();
+    deployKP = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kP", config.getIntakeDeployKp());
+    deployKI = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kI", config.getIntakeDeployKi());
+    deployKD = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kD", config.getIntakeDeployKd());
+    rollerKP =
+        new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kP", config.getIntakeRollerKp());
+    rollerKI =
+        new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kI", config.getIntakeRollerKi());
+    rollerKD =
+        new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kD", config.getIntakeRollerKd());
+    rollerKFF =
+        new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kFF", config.getIntakeRollerKff());
+  }
+
+  // Deploy positions (from config)
+  private final double deployRetractedPosition;
+  private final double deployExtendedPosition;
+
+  // Operational constants (not robot-specific)
+  public static final double ROLLER_INTAKE_SPEED = 0.8;
+  public static final double ROLLER_EJECT_SPEED = -0.6;
+  public static final double ROLLER_HOLD_SPEED = 0.1;
+  public static final double ROLLER_INTAKE_RPM = 1500.0;
+  public static final double ROLLER_EJECT_RPM = -1000.0;
+  public static final double ROLLER_HOLD_RPM = 200.0;
+  private static final double DEPLOY_POSITION_TOLERANCE = 0.02;
 
   // Velocity control toggle (default: velocity control on)
   private boolean useVelocityControl = true;
-
-  // Tunable PID gains for roller velocity control
-  private static final LoggedTunableNumber rollerKP =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kP", IntakeConstants.ROLLER_KP);
-  private static final LoggedTunableNumber rollerKI =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kI", IntakeConstants.ROLLER_KI);
-  private static final LoggedTunableNumber rollerKD =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kD", IntakeConstants.ROLLER_KD);
-  private static final LoggedTunableNumber rollerKFF =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kFF", IntakeConstants.ROLLER_KFF);
 
   // Optional: supplier for robot velocity (for velocity-based roller speed)
   private DoubleSupplier robotVelocitySupplier = () -> 0.0;
@@ -56,6 +79,10 @@ public class Intake extends SubsystemBase {
    */
   public Intake(IntakeIO io) {
     this.io = io;
+
+    RobotConfig config = Constants.getRobotConfig();
+    deployRetractedPosition = config.getIntakeDeployRetractedPosition();
+    deployExtendedPosition = config.getIntakeDeployExtendedPosition();
 
     // Create deploy arm (pivots based on deploy position)
     deployArm =
@@ -110,12 +137,12 @@ public class Intake extends SubsystemBase {
 
   /** Deploy the intake (extend). */
   public void deploy() {
-    io.setDeployPosition(IntakeConstants.DEPLOY_EXTENDED_POSITION);
+    io.setDeployPosition(deployExtendedPosition);
   }
 
   /** Retract the intake. */
   public void retract() {
-    io.setDeployPosition(IntakeConstants.DEPLOY_RETRACTED_POSITION);
+    io.setDeployPosition(deployRetractedPosition);
   }
 
   /**
@@ -130,21 +157,21 @@ public class Intake extends SubsystemBase {
   /** Check if the intake is fully deployed. */
   @AutoLogOutput(key = "Intake/IsDeployed")
   public boolean isDeployed() {
-    return Math.abs(inputs.deployPositionRotations - IntakeConstants.DEPLOY_EXTENDED_POSITION)
-        <= IntakeConstants.DEPLOY_POSITION_TOLERANCE;
+    return Math.abs(inputs.deployPositionRotations - deployExtendedPosition)
+        <= DEPLOY_POSITION_TOLERANCE;
   }
 
   /** Check if the intake is fully retracted. */
   @AutoLogOutput(key = "Intake/IsRetracted")
   public boolean isRetracted() {
-    return Math.abs(inputs.deployPositionRotations - IntakeConstants.DEPLOY_RETRACTED_POSITION)
-        <= IntakeConstants.DEPLOY_POSITION_TOLERANCE;
+    return Math.abs(inputs.deployPositionRotations - deployRetractedPosition)
+        <= DEPLOY_POSITION_TOLERANCE;
   }
 
   /** Check if the deploy mechanism is at target. */
   public boolean deployAtTarget() {
     return Math.abs(inputs.deployPositionRotations - inputs.deployTargetPosition)
-        <= IntakeConstants.DEPLOY_POSITION_TOLERANCE;
+        <= DEPLOY_POSITION_TOLERANCE;
   }
 
   /** Get the current deploy position. */
@@ -178,27 +205,27 @@ public class Intake extends SubsystemBase {
   /** Run rollers to intake game pieces. */
   public void runIntake() {
     if (useVelocityControl) {
-      io.setRollerVelocity(IntakeConstants.ROLLER_INTAKE_RPM);
+      io.setRollerVelocity(ROLLER_INTAKE_RPM);
     } else {
-      io.setRollerDutyCycle(IntakeConstants.ROLLER_INTAKE_SPEED);
+      io.setRollerDutyCycle(ROLLER_INTAKE_SPEED);
     }
   }
 
   /** Run rollers to eject game pieces. */
   public void runEject() {
     if (useVelocityControl) {
-      io.setRollerVelocity(IntakeConstants.ROLLER_EJECT_RPM);
+      io.setRollerVelocity(ROLLER_EJECT_RPM);
     } else {
-      io.setRollerDutyCycle(IntakeConstants.ROLLER_EJECT_SPEED);
+      io.setRollerDutyCycle(ROLLER_EJECT_SPEED);
     }
   }
 
   /** Run rollers at hold speed. */
   public void runHold() {
     if (useVelocityControl) {
-      io.setRollerVelocity(IntakeConstants.ROLLER_HOLD_RPM);
+      io.setRollerVelocity(ROLLER_HOLD_RPM);
     } else {
-      io.setRollerDutyCycle(IntakeConstants.ROLLER_HOLD_SPEED);
+      io.setRollerDutyCycle(ROLLER_HOLD_SPEED);
     }
   }
 

@@ -12,7 +12,6 @@ import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.intake.Intake;
-import frc.robot.subsystems.intake.IntakeConstants;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
@@ -43,7 +42,7 @@ public class ButtonsAndDashboardBindings {
       new LoggedTunableNumber("BenchTest/IntakePowerControl/Power", 0.8);
   private static final LoggedTunableNumber testIntakeRPM =
       new LoggedTunableNumber(
-          "BenchTest/IntakeVelocityControl/RollerRPM", IntakeConstants.ROLLER_INTAKE_RPM);
+          "BenchTest/IntakeVelocityControl/RollerRPM", Intake.ROLLER_INTAKE_RPM);
 
   // Per-subsystem tuning setpoints
   private static final LoggedTunableNumber tuningLauncherVelocity =
@@ -329,17 +328,17 @@ public class ButtonsAndDashboardBindings {
             .withName("Run at Power"));
     SmartDashboard.putData(
         "BenchTest/IntakePowerControl/Run80%",
-        Commands.run(() -> intake.setRollerSpeed(IntakeConstants.ROLLER_INTAKE_SPEED), intake)
+        Commands.run(() -> intake.setRollerSpeed(Intake.ROLLER_INTAKE_SPEED), intake)
             .finallyDo(intake::stopRollers)
             .withName("Run 80% Power"));
     SmartDashboard.putData(
         "BenchTest/IntakePowerControl/Reverse60%",
-        Commands.run(() -> intake.setRollerSpeed(IntakeConstants.ROLLER_EJECT_SPEED), intake)
+        Commands.run(() -> intake.setRollerSpeed(Intake.ROLLER_EJECT_SPEED), intake)
             .finallyDo(intake::stopRollers)
             .withName("Reverse 60%"));
     SmartDashboard.putData(
         "BenchTest/IntakePowerControl/HoldSlow10%",
-        Commands.run(() -> intake.setRollerSpeed(IntakeConstants.ROLLER_HOLD_SPEED), intake)
+        Commands.run(() -> intake.setRollerSpeed(Intake.ROLLER_HOLD_SPEED), intake)
             .finallyDo(intake::stopRollers)
             .withName("Hold Slow 10%"));
 

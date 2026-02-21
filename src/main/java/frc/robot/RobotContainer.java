@@ -36,6 +36,7 @@ import frc.robot.subsystems.hood.HoodIOSparkMax;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeIO;
 import frc.robot.subsystems.intake.IntakeIOSim;
+import frc.robot.subsystems.intake.IntakeIOSparkMax;
 import frc.robot.subsystems.intake.IntakeIOSparkMaxRollerOnly;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.launcher.LauncherIO;
@@ -114,9 +115,8 @@ public class RobotContainer {
         break;
     }
 
-    // Instantiate intake only for SquareBot and MainBot
-    if (Constants.currentRobot == Constants.RobotType.SQUAREBOT
-        || Constants.currentRobot == Constants.RobotType.MAINBOT) {
+    // Instantiate intake for robots with intake hardware
+    if (Constants.getRobotConfig().hasIntake()) {
       switch (Constants.currentMode) {
         case REAL:
           if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
@@ -124,12 +124,11 @@ public class RobotContainer {
             intake = new Intake(new IntakeIOSparkMaxRollerOnly());
           } else {
             // MainBot: full intake with deploy + rollers
-            intake = new Intake(new IntakeIO() {});
+            intake = new Intake(new IntakeIOSparkMax());
           }
           break;
 
         case SIM:
-          // Sim SquareBot - instantiate intake simulation
           intake = new Intake(new IntakeIOSim());
           break;
 
@@ -139,7 +138,6 @@ public class RobotContainer {
           break;
       }
     } else {
-      // RectangleBot and TurretBot do not have an intake
       intake = null;
     }
 

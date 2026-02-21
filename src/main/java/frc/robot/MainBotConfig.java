@@ -173,6 +173,25 @@ public class MainBotConfig implements RobotConfig {
   private static final double spindexerKv = 0.0021;
   private static final double spindexerGearRatio = 1.0 / 3.0;
 
+  // Intake Configuration
+  private static final int intakeDeployMotorCanId = 45;
+  private static final int intakeRollerMotorCanId = 46;
+  private static final double intakeDeployGearRatio = 20.0;
+  private static final double intakeRollerGearRatio = 2.0;
+  private static final boolean intakeDeployMotorInverted = false;
+  private static final boolean intakeRollerMotorInverted = false;
+  private static final int intakeDeployCurrentLimit = 30;
+  private static final int intakeRollerCurrentLimit = 110;
+  private static final double intakeDeployRetractedPosition = 0.0;
+  private static final double intakeDeployExtendedPosition = 0.5;
+  private static final double intakeDeployKp = 5.0;
+  private static final double intakeDeployKi = 0.0;
+  private static final double intakeDeployKd = 0.1;
+  private static final double intakeRollerKp = 0.0001;
+  private static final double intakeRollerKi = 0.0;
+  private static final double intakeRollerKd = 0.000001;
+  private static final double intakeRollerKff = 0.000225;
+
   // Performance
   private static final double maxSpeedMetersPerSec =
       5676.0 / 60.0 / driveMotorReduction * 2.0 * Math.PI * wheelRadiusMeters * 0.95;
@@ -746,5 +765,97 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public int getSpindexerCurrentLimit() {
     return spindexerCurrentLimitAmps;
+  }
+
+  // ========== Intake Configuration ==========
+
+  @Override
+  public boolean hasIntake() {
+    return true;
+  }
+
+  @Override
+  public int getIntakeDeployMotorCanId() {
+    return intakeDeployMotorCanId;
+  }
+
+  @Override
+  public int getIntakeRollerMotorCanId() {
+    return intakeRollerMotorCanId;
+  }
+
+  @Override
+  public double getIntakeDeployGearRatio() {
+    return intakeDeployGearRatio;
+  }
+
+  @Override
+  public double getIntakeRollerGearRatio() {
+    return intakeRollerGearRatio;
+  }
+
+  @Override
+  public boolean getIntakeDeployMotorInverted() {
+    return intakeDeployMotorInverted;
+  }
+
+  @Override
+  public boolean getIntakeRollerMotorInverted() {
+    return intakeRollerMotorInverted;
+  }
+
+  @Override
+  public int getIntakeDeployCurrentLimit() {
+    return intakeDeployCurrentLimit;
+  }
+
+  @Override
+  public int getIntakeRollerCurrentLimit() {
+    return intakeRollerCurrentLimit;
+  }
+
+  @Override
+  public double getIntakeDeployRetractedPosition() {
+    return intakeDeployRetractedPosition;
+  }
+
+  @Override
+  public double getIntakeDeployExtendedPosition() {
+    return intakeDeployExtendedPosition;
+  }
+
+  @Override
+  public double getIntakeDeployKp() {
+    return intakeDeployKp;
+  }
+
+  @Override
+  public double getIntakeDeployKi() {
+    return intakeDeployKi;
+  }
+
+  @Override
+  public double getIntakeDeployKd() {
+    return intakeDeployKd;
+  }
+
+  @Override
+  public double getIntakeRollerKp() {
+    return intakeRollerKp;
+  }
+
+  @Override
+  public double getIntakeRollerKi() {
+    return intakeRollerKi;
+  }
+
+  @Override
+  public double getIntakeRollerKd() {
+    return intakeRollerKd;
+  }
+
+  @Override
+  public double getIntakeRollerKff() {
+    return intakeRollerKff;
   }
 }

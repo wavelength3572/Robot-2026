@@ -431,4 +431,97 @@ public interface RobotConfig {
   public default double getSpindexerGearRatio() {
     return 0;
   }
+
+  // ========== Intake Configuration ==========
+  // Default implementations return 0/false for robots without intakes
+
+  /** Whether this robot has an intake. */
+  default boolean hasIntake() {
+    return false;
+  }
+
+  /** Intake deploy motor CAN ID. */
+  default int getIntakeDeployMotorCanId() {
+    return 0;
+  }
+
+  /** Intake roller motor CAN ID. */
+  default int getIntakeRollerMotorCanId() {
+    return 0;
+  }
+
+  /** Intake deploy gear ratio (motor rotations per mechanism rotation). */
+  default double getIntakeDeployGearRatio() {
+    return 1.0;
+  }
+
+  /** Intake roller gear ratio (motor rotations per roller rotation). */
+  default double getIntakeRollerGearRatio() {
+    return 1.0;
+  }
+
+  /** Whether the intake deploy motor is inverted. */
+  default boolean getIntakeDeployMotorInverted() {
+    return false;
+  }
+
+  /** Whether the intake roller motor is inverted. */
+  default boolean getIntakeRollerMotorInverted() {
+    return false;
+  }
+
+  /** Intake deploy motor current limit in amps. */
+  default int getIntakeDeployCurrentLimit() {
+    return 0;
+  }
+
+  /** Intake roller motor current limit in amps. */
+  default int getIntakeRollerCurrentLimit() {
+    return 0;
+  }
+
+  /** Intake deploy retracted position in rotations. */
+  default double getIntakeDeployRetractedPosition() {
+    return 0.0;
+  }
+
+  /** Intake deploy extended position in rotations. */
+  default double getIntakeDeployExtendedPosition() {
+    return 0.0;
+  }
+
+  /** Intake deploy PID proportional gain. */
+  default double getIntakeDeployKp() {
+    return 0.0;
+  }
+
+  /** Intake deploy PID integral gain. */
+  default double getIntakeDeployKi() {
+    return 0.0;
+  }
+
+  /** Intake deploy PID derivative gain. */
+  default double getIntakeDeployKd() {
+    return 0.0;
+  }
+
+  /** Intake roller PID proportional gain. */
+  default double getIntakeRollerKp() {
+    return 0.0;
+  }
+
+  /** Intake roller PID integral gain. */
+  default double getIntakeRollerKi() {
+    return 0.0;
+  }
+
+  /** Intake roller PID derivative gain. */
+  default double getIntakeRollerKd() {
+    return 0.0;
+  }
+
+  /** Intake roller feedforward gain. */
+  default double getIntakeRollerKff() {
+    return 0.0;
+  }
 }

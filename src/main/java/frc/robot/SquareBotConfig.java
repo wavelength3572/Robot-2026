@@ -456,4 +456,51 @@ public class SquareBotConfig implements RobotConfig {
   public double getTurretKd() {
     return turretKd;
   }
+
+  // ========== Intake Configuration (roller-only) ==========
+
+  @Override
+  public boolean hasIntake() {
+    return true;
+  }
+
+  @Override
+  public int getIntakeRollerMotorCanId() {
+    return 46;
+  }
+
+  @Override
+  public double getIntakeRollerGearRatio() {
+    return 1.0;
+  }
+
+  @Override
+  public int getIntakeRollerCurrentLimit() {
+    return 110;
+  }
+
+  @Override
+  public double getIntakeDeployExtendedPosition() {
+    return 0.5;
+  }
+
+  @Override
+  public double getIntakeRollerKp() {
+    return 0.0001;
+  }
+
+  @Override
+  public double getIntakeRollerKi() {
+    return 0.0;
+  }
+
+  @Override
+  public double getIntakeRollerKd() {
+    return 0.000001;
+  }
+
+  @Override
+  public double getIntakeRollerKff() {
+    return 0.000225;
+  }
 }

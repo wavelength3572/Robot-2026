@@ -13,6 +13,8 @@ import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.filter.Debouncer;
+import frc.robot.Constants;
+import frc.robot.RobotConfig;
 import java.util.function.DoubleSupplier;
 
 public class IntakeIOSparkMax implements IntakeIO {
@@ -34,10 +36,19 @@ public class IntakeIOSparkMax implements IntakeIO {
   private double deployTargetPosition = 0.0;
   private double rollerTargetSpeed = 0.0;
 
+  // Deploy position limits (from config)
+  private final double deployRetractedPosition;
+  private final double deployExtendedPosition;
+
   public IntakeIOSparkMax() {
+    RobotConfig config = Constants.getRobotConfig();
+
+    deployRetractedPosition = config.getIntakeDeployRetractedPosition();
+    deployExtendedPosition = config.getIntakeDeployExtendedPosition();
+
     // Create motors
-    deployMotor = new SparkMax(IntakeConstants.DEPLOY_MOTOR_CAN_ID, MotorType.kBrushless);
-    rollerMotor = new SparkMax(IntakeConstants.ROLLER_MOTOR_CAN_ID, MotorType.kBrushless);
+    deployMotor = new SparkMax(config.getIntakeDeployMotorCanId(), MotorType.kBrushless);
+    rollerMotor = new SparkMax(config.getIntakeRollerMotorCanId(), MotorType.kBrushless);
 
     // Get encoders and controllers
     deployEncoder = deployMotor.getEncoder();
@@ -48,24 +59,24 @@ public class IntakeIOSparkMax implements IntakeIO {
     // Configure deploy motor
     var deployConfig = new SparkMaxConfig();
     deployConfig
-        .inverted(IntakeConstants.DEPLOY_MOTOR_INVERTED)
+        .inverted(config.getIntakeDeployMotorInverted())
         .idleMode(IdleMode.kBrake)
-        .smartCurrentLimit(IntakeConstants.DEPLOY_CURRENT_LIMIT)
+        .smartCurrentLimit(config.getIntakeDeployCurrentLimit())
         .voltageCompensation(12.0);
     deployConfig
         .encoder
-        .positionConversionFactor(1.0 / IntakeConstants.DEPLOY_GEAR_RATIO) // Output rotations
-        .velocityConversionFactor(1.0 / IntakeConstants.DEPLOY_GEAR_RATIO); // Output RPM
+        .positionConversionFactor(1.0 / config.getIntakeDeployGearRatio()) // Output rotations
+        .velocityConversionFactor(1.0 / config.getIntakeDeployGearRatio()); // Output RPM
     deployConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(IntakeConstants.DEPLOY_KP, IntakeConstants.DEPLOY_KI, IntakeConstants.DEPLOY_KD);
+        .pid(config.getIntakeDeployKp(), config.getIntakeDeployKi(), config.getIntakeDeployKd());
     deployConfig
         .softLimit
         .forwardSoftLimitEnabled(true)
-        .forwardSoftLimit((float) IntakeConstants.DEPLOY_EXTENDED_POSITION)
+        .forwardSoftLimit((float) deployExtendedPosition)
         .reverseSoftLimitEnabled(true)
-        .reverseSoftLimit((float) IntakeConstants.DEPLOY_RETRACTED_POSITION);
+        .reverseSoftLimit((float) deployRetractedPosition);
     deployConfig
         .signals
         .primaryEncoderPositionAlwaysOn(true)
@@ -89,20 +100,20 @@ public class IntakeIOSparkMax implements IntakeIO {
     // Configure roller motor
     var rollerConfig = new SparkMaxConfig();
     rollerConfig
-        .inverted(IntakeConstants.ROLLER_MOTOR_INVERTED)
+        .inverted(config.getIntakeRollerMotorInverted())
         .idleMode(IdleMode.kCoast) // Coast for rollers
-        .smartCurrentLimit(IntakeConstants.ROLLER_CURRENT_LIMIT)
+        .smartCurrentLimit(config.getIntakeRollerCurrentLimit())
         .voltageCompensation(12.0);
     rollerConfig
         .encoder
-        .positionConversionFactor(1.0 / IntakeConstants.ROLLER_GEAR_RATIO)
-        .velocityConversionFactor(1.0 / IntakeConstants.ROLLER_GEAR_RATIO);
+        .positionConversionFactor(1.0 / config.getIntakeRollerGearRatio())
+        .velocityConversionFactor(1.0 / config.getIntakeRollerGearRatio());
     rollerConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(IntakeConstants.ROLLER_KP, IntakeConstants.ROLLER_KI, IntakeConstants.ROLLER_KD)
+        .pid(config.getIntakeRollerKp(), config.getIntakeRollerKi(), config.getIntakeRollerKd())
         .feedForward
-        .kV(IntakeConstants.ROLLER_KFF);
+        .kV(config.getIntakeRollerKff());
     rollerConfig
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
@@ -150,9 +161,7 @@ public class IntakeIOSparkMax implements IntakeIO {
   public void setDeployPosition(double positionRotations) {
     // Clamp to valid range
     deployTargetPosition =
-        Math.max(
-            IntakeConstants.DEPLOY_RETRACTED_POSITION,
-            Math.min(IntakeConstants.DEPLOY_EXTENDED_POSITION, positionRotations));
+        Math.max(deployRetractedPosition, Math.min(deployExtendedPosition, positionRotations));
     deployController.setSetpoint(deployTargetPosition, ControlType.kPosition);
   }
 

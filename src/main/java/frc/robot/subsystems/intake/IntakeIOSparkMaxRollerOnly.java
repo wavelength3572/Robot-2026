@@ -14,6 +14,8 @@ import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.wpilibj.PowerDistribution;
+import frc.robot.Constants;
+import frc.robot.RobotConfig;
 import java.util.function.DoubleSupplier;
 
 /**
@@ -32,27 +34,34 @@ public class IntakeIOSparkMaxRollerOnly implements IntakeIO {
 
   private double rollerTargetSpeed = 0.0;
 
+  // Deploy extended position (from config, for reporting as always deployed)
+  private final double deployExtendedPosition;
+
   public IntakeIOSparkMaxRollerOnly() {
-    rollerMotor = new SparkMax(IntakeConstants.ROLLER_MOTOR_CAN_ID, MotorType.kBrushless);
+    RobotConfig config = Constants.getRobotConfig();
+
+    deployExtendedPosition = config.getIntakeDeployExtendedPosition();
+
+    rollerMotor = new SparkMax(config.getIntakeRollerMotorCanId(), MotorType.kBrushless);
     rollerEncoder = rollerMotor.getEncoder();
     rollerController = rollerMotor.getClosedLoopController();
 
     var rollerConfig = new SparkMaxConfig();
     rollerConfig
-        .inverted(IntakeConstants.ROLLER_MOTOR_INVERTED)
+        .inverted(config.getIntakeRollerMotorInverted())
         .idleMode(IdleMode.kCoast)
-        .smartCurrentLimit(IntakeConstants.ROLLER_CURRENT_LIMIT)
+        .smartCurrentLimit(config.getIntakeRollerCurrentLimit())
         .voltageCompensation(12.0);
     rollerConfig
         .encoder
-        .positionConversionFactor(1.0 / IntakeConstants.ROLLER_GEAR_RATIO)
-        .velocityConversionFactor(1.0 / IntakeConstants.ROLLER_GEAR_RATIO);
+        .positionConversionFactor(1.0 / config.getIntakeRollerGearRatio())
+        .velocityConversionFactor(1.0 / config.getIntakeRollerGearRatio());
     rollerConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(IntakeConstants.ROLLER_KP, IntakeConstants.ROLLER_KI, IntakeConstants.ROLLER_KD)
+        .pid(config.getIntakeRollerKp(), config.getIntakeRollerKi(), config.getIntakeRollerKd())
         .feedForward
-        .kV(IntakeConstants.ROLLER_KFF);
+        .kV(config.getIntakeRollerKff());
     rollerConfig
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
@@ -76,8 +85,8 @@ public class IntakeIOSparkMaxRollerOnly implements IntakeIO {
   public void updateInputs(IntakeIOInputs inputs) {
     // No deploy motor — report as always fully extended
     inputs.deployConnected = true;
-    inputs.deployPositionRotations = IntakeConstants.DEPLOY_EXTENDED_POSITION;
-    inputs.deployTargetPosition = IntakeConstants.DEPLOY_EXTENDED_POSITION;
+    inputs.deployPositionRotations = deployExtendedPosition;
+    inputs.deployTargetPosition = deployExtendedPosition;
 
     // Roller motor inputs
     sparkStickyFault = false;
