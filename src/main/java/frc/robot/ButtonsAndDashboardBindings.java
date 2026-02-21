@@ -3,9 +3,9 @@ package frc.robot;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OperatorInterface;
@@ -447,49 +447,19 @@ public class ButtonsAndDashboardBindings {
     oi.getResetGyroButton()
         .onTrue(Commands.runOnce(drive::zeroGyroscope, drive).ignoringDisable(true));
 
-    // Vision toggle on Button H
-    if (vision != null) {
-      oi.getButtonH()
-          .onTrue(
-              Commands.runOnce(
-                      () -> {
-                        vision.toggleVision();
-                        SmartDashboard.putBoolean("Tuning/Vision/Enable", vision.isVisionOn());
-                      })
-                  .ignoringDisable(true));
+    // Spindexer feeding suppress - driver can hold to prevent feeding while wiggling robot.
+    // Uses a flag so shooting commands keep running and resume feeding instantly on release.
+    if (spindexer != null) {
+      Trigger suppressTrigger = oi.getRightJoyLeftButton().or(oi.getRightJoyRightButton());
+      suppressTrigger.onTrue(Commands.runOnce(spindexer::suppressFeeding));
+      suppressTrigger.onFalse(Commands.runOnce(spindexer::unsuppressFeeding));
     }
 
-    // Turret/shooting controls (only if coordinator exists)
-    if (shootingCoordinator != null) {
-      // Button V: Calculate shot to hub (enables trajectory visualization)
-      oi.getButtonV()
-          .onTrue(
-              Commands.runOnce(
-                      () -> {
-                        boolean isBlue =
-                            DriverStation.getAlliance()
-                                .orElse(DriverStation.Alliance.Blue)
-                                .equals(DriverStation.Alliance.Blue);
-                        shootingCoordinator.calculateShotToHub(isBlue);
-                      },
-                      shootingCoordinator)
-                  .ignoringDisable(true));
-
-      // Shoot button - smart launch for all robot types
-      if (launcher != null) {
-        oi.getShootButton()
-            .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
-      } else {
-        // No launcher - just launch fuel visually
-        oi.getShootButton().whileTrue(shootingCoordinator.repeatedlyLaunchFuelCommand());
-      }
-    }
-
-    // Launcher button - same as shoot button (unified launch command)
-    if (launcher != null && shootingCoordinator != null) {
-      oi.getLauncherButton()
-          .whileTrue(ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
-    }
+    // Snap to 90 degrees (face left side of field) - toggle on/off
+    oi.getRightJoyUpButton()
+        .toggleOnTrue(
+            DriveCommands.joystickDriveAtAngle(
+                drive, oi::getTranslateX, oi::getTranslateY, () -> Rotation2d.fromDegrees(90.0)));
   }
 
   /****************************** */
