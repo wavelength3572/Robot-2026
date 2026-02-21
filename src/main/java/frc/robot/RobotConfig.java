@@ -480,6 +480,11 @@ public interface RobotConfig {
     return 0;
   }
 
+  /** Intake deploy stowed position in rotations (initial startup position, past retracted). */
+  default double getIntakeDeployStowedPosition() {
+    return 0.0;
+  }
+
   /** Intake deploy retracted position in rotations. */
   default double getIntakeDeployRetractedPosition() {
     return 0.0;

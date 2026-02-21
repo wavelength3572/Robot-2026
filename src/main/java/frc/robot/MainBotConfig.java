@@ -182,8 +182,9 @@ public class MainBotConfig implements RobotConfig {
   private static final boolean intakeRollerMotorInverted = true;
   private static final int intakeDeployCurrentLimit = 30;
   private static final int intakeRollerCurrentLimit = 110;
-  private static final double intakeDeployRetractedPosition = -0.19;
-  private static final double intakeDeployExtendedPosition = -0.037;
+  private static final double intakeDeployStowedPosition = 0.0;
+  private static final double intakeDeployRetractedPosition = 0.073;
+  private static final double intakeDeployExtendedPosition = 0.185;
   private static final double intakeDeployKp = 2.5;
   private static final double intakeDeployKi = 0.0;
   private static final double intakeDeployKd = 0.1;
@@ -812,6 +813,11 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public int getIntakeRollerCurrentLimit() {
     return intakeRollerCurrentLimit;
+  }
+
+  @Override
+  public double getIntakeDeployStowedPosition() {
+    return intakeDeployStowedPosition;
   }
 
   @Override

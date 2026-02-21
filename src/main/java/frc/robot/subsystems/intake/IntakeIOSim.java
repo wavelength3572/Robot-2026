@@ -14,6 +14,7 @@ public class IntakeIOSim implements IntakeIO {
   private static final double ROLLER_SIM_MOI = 0.001; // kg*m^2
 
   // Deploy position limits (from config)
+  private final double deployStowedPosition;
   private final double deployRetractedPosition;
   private final double deployExtendedPosition;
 
@@ -41,6 +42,7 @@ public class IntakeIOSim implements IntakeIO {
   public IntakeIOSim() {
     RobotConfig config = Constants.getRobotConfig();
 
+    deployStowedPosition = config.getIntakeDeployStowedPosition();
     deployRetractedPosition = config.getIntakeDeployRetractedPosition();
     deployExtendedPosition = config.getIntakeDeployExtendedPosition();
 
@@ -76,8 +78,12 @@ public class IntakeIOSim implements IntakeIO {
 
     // Simulate soft limits for deploy
     double currentPosition = deploySim.getAngularPositionRotations();
-    if ((currentPosition >= deployExtendedPosition && deployAppliedVolts > 0)
-        || (currentPosition <= deployRetractedPosition && deployAppliedVolts < 0)) {
+    double maxPos =
+        Math.max(deployStowedPosition, Math.max(deployExtendedPosition, deployRetractedPosition));
+    double minPos =
+        Math.min(deployStowedPosition, Math.min(deployExtendedPosition, deployRetractedPosition));
+    if ((currentPosition >= maxPos && deployAppliedVolts > 0)
+        || (currentPosition <= minPos && deployAppliedVolts < 0)) {
       deployAppliedVolts = 0.0;
     }
 
@@ -97,10 +103,7 @@ public class IntakeIOSim implements IntakeIO {
 
     // Clamp deploy position to soft limits
     double simDeployPosition =
-        MathUtil.clamp(
-            deploySim.getAngularPositionRotations(),
-            deployRetractedPosition,
-            deployExtendedPosition);
+        MathUtil.clamp(deploySim.getAngularPositionRotations(), minPos, maxPos);
 
     // Update deploy inputs
     inputs.deployConnected = true;
@@ -120,9 +123,12 @@ public class IntakeIOSim implements IntakeIO {
 
   @Override
   public void setDeployPosition(double positionRotations) {
-    // Clamp to valid range
-    deployTargetPosition =
-        Math.max(deployRetractedPosition, Math.min(deployExtendedPosition, positionRotations));
+    // Clamp to valid range (includes stowed, retracted, and extended positions)
+    double minPos =
+        Math.min(deployStowedPosition, Math.min(deployRetractedPosition, deployExtendedPosition));
+    double maxPos =
+        Math.max(deployStowedPosition, Math.max(deployRetractedPosition, deployExtendedPosition));
+    deployTargetPosition = Math.max(minPos, Math.min(maxPos, positionRotations));
     deployController.setSetpoint(deployTargetPosition);
   }
 

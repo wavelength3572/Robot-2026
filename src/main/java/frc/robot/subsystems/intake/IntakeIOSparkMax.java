@@ -37,12 +37,14 @@ public class IntakeIOSparkMax implements IntakeIO {
   private double rollerTargetSpeed = 0.0;
 
   // Deploy position limits (from config)
+  private final double deployStowedPosition;
   private final double deployRetractedPosition;
   private final double deployExtendedPosition;
 
   public IntakeIOSparkMax() {
     RobotConfig config = Constants.getRobotConfig();
 
+    deployStowedPosition = config.getIntakeDeployStowedPosition();
     deployRetractedPosition = config.getIntakeDeployRetractedPosition();
     deployExtendedPosition = config.getIntakeDeployExtendedPosition();
 
@@ -71,12 +73,16 @@ public class IntakeIOSparkMax implements IntakeIO {
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(config.getIntakeDeployKp(), config.getIntakeDeployKi(), config.getIntakeDeployKd());
+    double maxPos =
+        Math.max(deployStowedPosition, Math.max(deployExtendedPosition, deployRetractedPosition));
+    double minPos =
+        Math.min(deployStowedPosition, Math.min(deployExtendedPosition, deployRetractedPosition));
     deployConfig
         .softLimit
         .forwardSoftLimitEnabled(true)
-        .forwardSoftLimit((float) Math.max(deployExtendedPosition, deployRetractedPosition))
+        .forwardSoftLimit((float) maxPos)
         .reverseSoftLimitEnabled(true)
-        .reverseSoftLimit((float) Math.min(deployExtendedPosition, deployRetractedPosition));
+        .reverseSoftLimit((float) minPos);
     deployConfig
         .signals
         .primaryEncoderPositionAlwaysOn(true)
@@ -159,9 +165,11 @@ public class IntakeIOSparkMax implements IntakeIO {
 
   @Override
   public void setDeployPosition(double positionRotations) {
-    // Clamp to valid range
-    double minPos = Math.min(deployRetractedPosition, deployExtendedPosition);
-    double maxPos = Math.max(deployRetractedPosition, deployExtendedPosition);
+    // Clamp to valid range (includes stowed, retracted, and extended positions)
+    double minPos =
+        Math.min(deployStowedPosition, Math.min(deployRetractedPosition, deployExtendedPosition));
+    double maxPos =
+        Math.max(deployStowedPosition, Math.max(deployRetractedPosition, deployExtendedPosition));
     deployTargetPosition = Math.max(minPos, Math.min(maxPos, positionRotations));
     deployController.setSetpoint(deployTargetPosition, ControlType.kPosition);
   }

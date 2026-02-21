@@ -32,6 +32,7 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber rollerKFF;
 
   // Tunable deploy positions (adjustable live for testing)
+  private static final LoggedTunableNumber deployStowedPos;
   private static final LoggedTunableNumber deployExtendedPos;
   private static final LoggedTunableNumber deployRetractedPos;
   private static final LoggedTunableNumber deployTolerance;
@@ -41,6 +42,9 @@ public class Intake extends SubsystemBase {
     deployKP = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kP", config.getIntakeDeployKp());
     deployKI = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kI", config.getIntakeDeployKi());
     deployKD = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kD", config.getIntakeDeployKd());
+    deployStowedPos =
+        new LoggedTunableNumber(
+            "Tuning/Intake/IntakeDeploy/StowedPosition", config.getIntakeDeployStowedPosition());
     deployExtendedPos =
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/ExtendedPosition",
@@ -61,6 +65,7 @@ public class Intake extends SubsystemBase {
   }
 
   // Deploy positions (from config, used for soft limit init)
+  private final double deployStowedPosition;
   private final double deployRetractedPosition;
   private final double deployExtendedPosition;
 
@@ -97,6 +102,7 @@ public class Intake extends SubsystemBase {
     this.io = io;
 
     RobotConfig config = Constants.getRobotConfig();
+    deployStowedPosition = config.getIntakeDeployStowedPosition();
     deployRetractedPosition = config.getIntakeDeployRetractedPosition();
     deployExtendedPosition = config.getIntakeDeployExtendedPosition();
 
@@ -166,6 +172,12 @@ public class Intake extends SubsystemBase {
     io.setDeployPosition(deployRetractedPos.get());
   }
 
+  /** Stow the intake (fully retracted past normal retract position). */
+  public void stow() {
+    deployCommanded = false;
+    io.setDeployPosition(deployStowedPos.get());
+  }
+
   /**
    * Set the deploy position directly.
    *
@@ -186,6 +198,13 @@ public class Intake extends SubsystemBase {
   @AutoLogOutput(key = "Intake/IsRetracted")
   public boolean isRetracted() {
     return Math.abs(inputs.deployPositionRotations - deployRetractedPos.get())
+        <= deployTolerance.get();
+  }
+
+  /** Check if the intake is fully stowed. */
+  @AutoLogOutput(key = "Intake/IsStowed")
+  public boolean isStowed() {
+    return Math.abs(inputs.deployPositionRotations - deployStowedPos.get())
         <= deployTolerance.get();
   }
 
