@@ -74,9 +74,9 @@ public class IntakeIOSparkMax implements IntakeIO {
     deployConfig
         .softLimit
         .forwardSoftLimitEnabled(true)
-        .forwardSoftLimit((float) deployExtendedPosition)
+        .forwardSoftLimit((float) Math.max(deployExtendedPosition, deployRetractedPosition))
         .reverseSoftLimitEnabled(true)
-        .reverseSoftLimit((float) deployRetractedPosition);
+        .reverseSoftLimit((float) Math.min(deployExtendedPosition, deployRetractedPosition));
     deployConfig
         .signals
         .primaryEncoderPositionAlwaysOn(true)
@@ -160,8 +160,9 @@ public class IntakeIOSparkMax implements IntakeIO {
   @Override
   public void setDeployPosition(double positionRotations) {
     // Clamp to valid range
-    deployTargetPosition =
-        Math.max(deployRetractedPosition, Math.min(deployExtendedPosition, positionRotations));
+    double minPos = Math.min(deployRetractedPosition, deployExtendedPosition);
+    double maxPos = Math.max(deployRetractedPosition, deployExtendedPosition);
+    deployTargetPosition = Math.max(minPos, Math.min(maxPos, positionRotations));
     deployController.setSetpoint(deployTargetPosition, ControlType.kPosition);
   }
 
