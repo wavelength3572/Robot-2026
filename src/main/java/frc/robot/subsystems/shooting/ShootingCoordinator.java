@@ -17,6 +17,7 @@ import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.TurretAimingHelper;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
 
@@ -42,6 +43,9 @@ public class ShootingCoordinator extends SubsystemBase {
   private ShotVisualizer visualizer = null;
   private Supplier<Pose2d> robotPoseSupplier = null;
   private Supplier<ChassisSpeeds> fieldSpeedsSupplier = null;
+
+  // Optional feeding suppression check — when true, launchFuel() is a no-op
+  private BooleanSupplier feedingSuppressedSupplier = () -> false;
 
   // Current shot data
   private ShotCalculator.ShotResult currentShot = null;
@@ -452,8 +456,14 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // ========== Launch / Fuel Management ==========
 
+  /** Set a supplier that, when true, prevents launchFuel() from firing. */
+  public void setFeedingSuppressedSupplier(BooleanSupplier supplier) {
+    this.feedingSuppressedSupplier = supplier;
+  }
+
   /** Launch a fuel ball using the current shot parameters. */
   public void launchFuel() {
+    if (feedingSuppressedSupplier.getAsBoolean()) return;
     if (visualizer != null && currentShot != null && robotPoseSupplier != null) {
       Pose2d robotPose = robotPoseSupplier.get();
       double robotHeadingRad = robotPose.getRotation().getRadians();

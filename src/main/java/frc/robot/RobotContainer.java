@@ -405,6 +405,9 @@ public class RobotContainer {
     if (turret != null) {
       shootingCoordinator = new ShootingCoordinator(turret, hood, launcher, motivator);
       shootingCoordinator.initialize(drive::getPose, () -> drive.getChassisSpeeds());
+      if (spindexer != null) {
+        shootingCoordinator.setFeedingSuppressedSupplier(spindexer::isFeedingSuppressed);
+      }
     } else {
       shootingCoordinator = null;
     }

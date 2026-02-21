@@ -18,6 +18,10 @@ public class Spindexer extends SubsystemBase {
   private final SpindexerIO io;
   private final MotorInputsAutoLogged spindexerInputs = new MotorInputsAutoLogged();
 
+  // When true, setSpindexerVelocity() sends 0 instead of the requested RPM.
+  // Used by the driver to temporarily suppress feeding without interrupting shooting commands.
+  private boolean feedingSuppressed = false;
+
   // Tunable PID gains
   private static final LoggedTunableNumber kP;
   private static final LoggedTunableNumber kI;
@@ -49,6 +53,7 @@ public class Spindexer extends SubsystemBase {
   public void periodic() {
     io.updateInputs(spindexerInputs);
     Logger.processInputs("Spindexer", spindexerInputs);
+    Logger.recordOutput("Spindexer/FeedingSuppressed", feedingSuppressed);
 
     // Push tunable changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
@@ -67,7 +72,7 @@ public class Spindexer extends SubsystemBase {
    * @param velocityRPM Target velocity in RPM
    */
   public void setSpindexerVelocity(double velocityRPM) {
-    io.setSpindexerVelocity(velocityRPM);
+    io.setSpindexerVelocity(feedingSuppressed ? 0.0 : velocityRPM);
   }
 
   /** Stop only Spindexer motor 1. */
@@ -111,6 +116,25 @@ public class Spindexer extends SubsystemBase {
    */
   public boolean isSpindexerAtSetpoint() {
     return spindexerInputs.atSetpoint;
+  }
+
+  // ========== Feeding Suppression ==========
+
+  /** Suppress feeding — setSpindexerVelocity will send 0 while suppressed. */
+  public void suppressFeeding() {
+    feedingSuppressed = true;
+  }
+
+  /** Resume normal feeding. */
+  public void unsuppressFeeding() {
+    feedingSuppressed = false;
+  }
+
+  /**
+   * @return true if feeding is currently suppressed
+   */
+  public boolean isFeedingSuppressed() {
+    return feedingSuppressed;
   }
 
   // ========== Commands ==========
