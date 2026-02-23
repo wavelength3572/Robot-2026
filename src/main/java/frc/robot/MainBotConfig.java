@@ -192,8 +192,8 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeRollerKi = 0.0;
   private static final double intakeRollerKd = 0.000001;
   private static final double intakeRollerKff = 0.000225;
-  private static final double intakeDeployMaxVelocity = 30.0; // RPM output shaft
-  private static final double intakeDeployMaxAcceleration = 100.0; // RPM/s output shaft
+  private static final double intakeDeployMaxVelocity = 7.0; // RPM output shaft (~2s deploy)
+  private static final double intakeDeployMaxAcceleration = 10.0; // RPM/s output shaft
 
   // Performance
   private static final double maxSpeedMetersPerSec =
