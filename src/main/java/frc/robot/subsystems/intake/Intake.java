@@ -83,6 +83,15 @@ public class Intake extends SubsystemBase {
   private boolean deployCommanded = false;
   private boolean lastBrakeMode = true; // Track brake mode to avoid constant reconfiguration
 
+  // Stall detection (same pattern as 2025 arm ArmIOMMSpark)
+  // If deploy current exceeds threshold for N consecutive cycles, declare stall error.
+  // When stalled: stop motor, pull target to current position, block new movement commands.
+  private static final double DEPLOY_STALL_CURRENT_THRESHOLD = 25.0; // amps
+  private static final int DEPLOY_STALL_CYCLE_COUNT = 25; // ~500ms at 20ms cycle
+  private int DEPLOY_STUCK_ERROR_COUNT = 0;
+  private boolean DEPLOY_STUCK_ERROR = false;
+  private boolean inDeployRecoveryMode = false;
+
   // Operational constants (not robot-specific)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
   public static final double ROLLER_EJECT_SPEED = -0.6;
@@ -144,6 +153,28 @@ public class Intake extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs("Intake", inputs);
 
+    // Stall detection: high current = stuck (same pattern as 2025 ArmIOMMSpark)
+    if (inputs.deployCurrentAmps > DEPLOY_STALL_CURRENT_THRESHOLD) {
+      DEPLOY_STUCK_ERROR_COUNT++;
+      if (DEPLOY_STUCK_ERROR == false && DEPLOY_STUCK_ERROR_COUNT >= DEPLOY_STALL_CYCLE_COUNT) {
+        DEPLOY_STUCK_ERROR = true;
+        // Kill motor immediately
+        io.stop();
+        // Target will get set to current position below via MAXMotion
+        io.setDeployPosition(inputs.deployPositionRotations);
+      }
+    } else {
+      DEPLOY_STUCK_ERROR_COUNT = 0;
+    }
+
+    // When in error and NOT in recovery mode, lock target to current position
+    if (DEPLOY_STUCK_ERROR == true && inDeployRecoveryMode == false) {
+      io.setDeployPosition(inputs.deployPositionRotations);
+    }
+
+    Logger.recordOutput("Intake/DeployStuckError", DEPLOY_STUCK_ERROR);
+    Logger.recordOutput("Intake/InDeployRecoveryMode", inDeployRecoveryMode);
+
     // Push tunable changes to IO
     if (LoggedTunableNumber.hasChanged(deployKP, deployKI, deployKD)) {
       io.configureDeployPID(deployKP.get(), deployKI.get(), deployKD.get());
@@ -182,30 +213,34 @@ public class Intake extends SubsystemBase {
 
   // ========== DEPLOY CONTROL ==========
 
-  /** Deploy the intake (extend). */
+  /** Deploy the intake (extend). Blocked while in stall error. */
   public void deploy() {
+    if (DEPLOY_STUCK_ERROR == true) return;
     deployCommanded = true;
     io.setDeployPosition(deployExtendedPos.get());
   }
 
-  /** Retract the intake. */
+  /** Retract the intake. Blocked while in stall error. */
   public void retract() {
+    if (DEPLOY_STUCK_ERROR == true) return;
     deployCommanded = false;
     io.setDeployPosition(deployRetractedPos.get());
   }
 
-  /** Stow the intake (fully retracted past normal retract position). */
+  /** Stow the intake (fully retracted past normal retract position). Blocked while in stall error. */
   public void stow() {
+    if (DEPLOY_STUCK_ERROR == true) return;
     deployCommanded = false;
     io.setDeployPosition(deployStowedPos.get());
   }
 
   /**
-   * Set the deploy position directly.
+   * Set the deploy position directly. Blocked while in stall error.
    *
    * @param positionRotations Target position in rotations
    */
   public void setDeployPosition(double positionRotations) {
+    if (DEPLOY_STUCK_ERROR == true) return;
     io.setDeployPosition(positionRotations);
   }
 
@@ -239,6 +274,44 @@ public class Intake extends SubsystemBase {
   /** Get the current deploy position. */
   public double getDeployPosition() {
     return inputs.deployPositionRotations;
+  }
+
+  // ========== STALL PROTECTION ==========
+
+  /** Returns true if the deploy mechanism has detected a stall. */
+  @AutoLogOutput(key = "Intake/IsDeployStalled")
+  public boolean isDeployInError() {
+    return DEPLOY_STUCK_ERROR;
+  }
+
+  /**
+   * Recover from stall error by entering recovery mode and commanding stow. Recovery mode allows
+   * movement to stow even while the error flag is still set. Same pattern as 2025 arm recoverArm().
+   */
+  public void recoverDeploy() {
+    inDeployRecoveryMode = true;
+    deployCommanded = false;
+    io.setDeployPosition(deployStowedPos.get());
+  }
+
+  /** Command that recovers from stall error by stowing. */
+  public Command recoverDeployCommand() {
+    return runOnce(this::recoverDeploy).withName("Intake: Recover Deploy");
+  }
+
+  /**
+   * Clear the deploy error completely. Call this after the intake has recovered to a safe position.
+   * Same pattern as 2025 arm clearArmError().
+   */
+  public void clearDeployError() {
+    DEPLOY_STUCK_ERROR = false;
+    DEPLOY_STUCK_ERROR_COUNT = 0;
+    inDeployRecoveryMode = false;
+  }
+
+  /** Command that clears the deploy stall error. */
+  public Command clearDeployErrorCommand() {
+    return runOnce(this::clearDeployError).withName("Intake: Clear Deploy Error");
   }
 
   // ========== ROLLER CONTROL ==========
