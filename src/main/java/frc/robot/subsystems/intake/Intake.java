@@ -2,6 +2,8 @@ package frc.robot.subsystems.intake;
 
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -91,6 +93,8 @@ public class Intake extends SubsystemBase {
   private int DEPLOY_STUCK_ERROR_COUNT = 0;
   private boolean DEPLOY_STUCK_ERROR = false;
   private boolean inDeployRecoveryMode = false;
+  private final Alert deployStallAlert =
+      new Alert("Intake deploy STALLED - clear obstruction then recover!", AlertType.kError);
 
   // Operational constants (not robot-specific)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
@@ -171,6 +175,11 @@ public class Intake extends SubsystemBase {
     if (DEPLOY_STUCK_ERROR == true && inDeployRecoveryMode == false) {
       io.setDeployPosition(inputs.deployPositionRotations);
     }
+
+    // Update dashboard alert and mechanism color based on stall state
+    deployStallAlert.set(DEPLOY_STUCK_ERROR);
+    deployArm.setColor(
+        DEPLOY_STUCK_ERROR ? new Color8Bit(Color.kRed) : new Color8Bit(Color.kOrange));
 
     Logger.recordOutput("Intake/DeployStuckError", DEPLOY_STUCK_ERROR);
     Logger.recordOutput("Intake/InDeployRecoveryMode", inDeployRecoveryMode);
