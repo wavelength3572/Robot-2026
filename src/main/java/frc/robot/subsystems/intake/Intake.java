@@ -37,6 +37,10 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber deployRetractedPos;
   private static final LoggedTunableNumber deployTolerance;
 
+  // Tunable MAXMotion parameters for smooth deploy/retract
+  private static final LoggedTunableNumber deployMaxVelocity;
+  private static final LoggedTunableNumber deployMaxAcceleration;
+
   static {
     RobotConfig config = Constants.getRobotConfig();
     deployKP = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kP", config.getIntakeDeployKp());
@@ -62,6 +66,12 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kD", config.getIntakeRollerKd());
     rollerKFF =
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kFF", config.getIntakeRollerKff());
+    deployMaxVelocity =
+        new LoggedTunableNumber(
+            "Tuning/Intake/IntakeDeploy/MaxVelocity", config.getIntakeDeployMaxVelocity());
+    deployMaxAcceleration =
+        new LoggedTunableNumber(
+            "Tuning/Intake/IntakeDeploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
   }
 
   // Deploy positions (from config, used for soft limit init)
@@ -140,6 +150,10 @@ public class Intake extends SubsystemBase {
     }
     if (LoggedTunableNumber.hasChanged(rollerKP, rollerKI, rollerKD, rollerKFF)) {
       io.configureRollerPID(rollerKP.get(), rollerKI.get(), rollerKD.get(), rollerKFF.get());
+    }
+    if (LoggedTunableNumber.hasChanged(deployMaxVelocity, deployMaxAcceleration)) {
+      io.configureDeployMaxMotion(
+          deployMaxVelocity.get(), deployMaxAcceleration.get(), deployTolerance.get());
     }
 
     // Coast when deploy is commanded for ground compliance, brake otherwise to hold position

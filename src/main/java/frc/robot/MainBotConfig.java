@@ -192,6 +192,8 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeRollerKi = 0.0;
   private static final double intakeRollerKd = 0.000001;
   private static final double intakeRollerKff = 0.000225;
+  private static final double intakeDeployMaxVelocity = 30.0; // RPM output shaft
+  private static final double intakeDeployMaxAcceleration = 100.0; // RPM/s output shaft
 
   // Performance
   private static final double maxSpeedMetersPerSec =
@@ -863,5 +865,15 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getIntakeRollerKff() {
     return intakeRollerKff;
+  }
+
+  @Override
+  public double getIntakeDeployMaxVelocity() {
+    return intakeDeployMaxVelocity;
+  }
+
+  @Override
+  public double getIntakeDeployMaxAcceleration() {
+    return intakeDeployMaxAcceleration;
   }
 }

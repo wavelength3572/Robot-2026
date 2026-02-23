@@ -529,4 +529,14 @@ public interface RobotConfig {
   default double getIntakeRollerKff() {
     return 0.0;
   }
+
+  /** Intake deploy MAXMotion max velocity in RPM (output shaft). */
+  default double getIntakeDeployMaxVelocity() {
+    return 30.0;
+  }
+
+  /** Intake deploy MAXMotion max acceleration in RPM/s (output shaft). */
+  default double getIntakeDeployMaxAcceleration() {
+    return 100.0;
+  }
 }

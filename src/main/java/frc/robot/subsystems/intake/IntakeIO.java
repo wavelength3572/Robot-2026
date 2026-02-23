@@ -46,4 +46,8 @@ public interface IntakeIO {
 
   /** Configure PID + FF gains for the roller motor velocity control. */
   default void configureRollerPID(double kP, double kI, double kD, double kFF) {}
+
+  /** Configure MAXMotion parameters for deploy motor (trapezoidal motion profiling). */
+  default void configureDeployMaxMotion(
+      double maxVelocity, double maxAcceleration, double allowedError) {}
 }

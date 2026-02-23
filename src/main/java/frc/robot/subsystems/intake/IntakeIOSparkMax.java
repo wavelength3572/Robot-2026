@@ -73,6 +73,12 @@ public class IntakeIOSparkMax implements IntakeIO {
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(config.getIntakeDeployKp(), config.getIntakeDeployKi(), config.getIntakeDeployKd());
+    deployConfig
+        .closedLoop
+        .maxMotion
+        .maxVelocity(config.getIntakeDeployMaxVelocity())
+        .maxAcceleration(config.getIntakeDeployMaxAcceleration())
+        .allowedClosedLoopError(0.02);
     double maxPos =
         Math.max(deployStowedPosition, Math.max(deployExtendedPosition, deployRetractedPosition));
     double minPos =
@@ -171,7 +177,7 @@ public class IntakeIOSparkMax implements IntakeIO {
     double maxPos =
         Math.max(deployStowedPosition, Math.max(deployRetractedPosition, deployExtendedPosition));
     deployTargetPosition = Math.max(minPos, Math.min(maxPos, positionRotations));
-    deployController.setSetpoint(deployTargetPosition, ControlType.kPosition);
+    deployController.setSetpoint(deployTargetPosition, ControlType.kMAXMotionPositionControl);
   }
 
   @Override
@@ -215,6 +221,18 @@ public class IntakeIOSparkMax implements IntakeIO {
     var config = new SparkMaxConfig();
     config.closedLoop.pid(kP, kI, kD).feedForward.kV(kFF);
     rollerMotor.configure(
+        config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void configureDeployMaxMotion(
+      double maxVelocity, double maxAcceleration, double allowedError) {
+    var config = new SparkMaxConfig();
+    config.closedLoop.maxMotion
+        .maxVelocity(maxVelocity)
+        .maxAcceleration(maxAcceleration)
+        .allowedClosedLoopError(allowedError);
+    deployMotor.configure(
         config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 }

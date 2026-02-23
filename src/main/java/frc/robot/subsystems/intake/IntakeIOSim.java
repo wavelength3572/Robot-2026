@@ -4,6 +4,7 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
+import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
@@ -26,6 +27,10 @@ public class IntakeIOSim implements IntakeIO {
   private final PIDController deployController;
   private double deployTargetPosition = 0.0;
   private double deployAppliedVolts = 0.0;
+
+  // MAXMotion simulation (trapezoidal profiling)
+  private TrapezoidProfile deployProfile;
+  private TrapezoidProfile.State deployProfileState = new TrapezoidProfile.State(0.0, 0.0);
 
   // Roller control
   private final PIDController rollerVelocityController;
@@ -55,6 +60,13 @@ public class IntakeIOSim implements IntakeIO {
             config.getIntakeRollerKp(), config.getIntakeRollerKi(), config.getIntakeRollerKd());
     rollerKFF = config.getIntakeRollerKff();
 
+    // MAXMotion constraints: convert RPM to rotations/s for TrapezoidProfile
+    double maxVelRotPerSec = config.getIntakeDeployMaxVelocity() / 60.0;
+    double maxAccelRotPerSecSq = config.getIntakeDeployMaxAcceleration() / 60.0;
+    deployProfile =
+        new TrapezoidProfile(
+            new TrapezoidProfile.Constraints(maxVelRotPerSec, maxAccelRotPerSecSq));
+
     // Create deploy motor simulation
     deploySim =
         new DCMotorSim(
@@ -72,9 +84,11 @@ public class IntakeIOSim implements IntakeIO {
 
   @Override
   public void updateInputs(IntakeIOInputs inputs) {
-    // Run deploy closed-loop control
+    // Run deploy through trapezoidal profile then PID
+    TrapezoidProfile.State goal = new TrapezoidProfile.State(deployTargetPosition, 0.0);
+    deployProfileState = deployProfile.calculate(0.02, deployProfileState, goal);
     deployAppliedVolts =
-        deployController.calculate(deploySim.getAngularPositionRotations(), deployTargetPosition);
+        deployController.calculate(deploySim.getAngularPositionRotations(), deployProfileState.position);
 
     // Simulate soft limits for deploy
     double currentPosition = deploySim.getAngularPositionRotations();
@@ -165,5 +179,15 @@ public class IntakeIOSim implements IntakeIO {
   public void configureRollerPID(double kP, double kI, double kD, double kFF) {
     rollerVelocityController.setPID(kP, kI, kD);
     rollerKFF = kFF;
+  }
+
+  @Override
+  public void configureDeployMaxMotion(
+      double maxVelocity, double maxAcceleration, double allowedError) {
+    double maxVelRotPerSec = maxVelocity / 60.0;
+    double maxAccelRotPerSecSq = maxAcceleration / 60.0;
+    deployProfile =
+        new TrapezoidProfile(
+            new TrapezoidProfile.Constraints(maxVelRotPerSec, maxAccelRotPerSecSq));
   }
 }
