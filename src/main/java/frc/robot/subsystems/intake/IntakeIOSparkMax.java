@@ -76,9 +76,9 @@ public class IntakeIOSparkMax implements IntakeIO {
     deployConfig
         .closedLoop
         .maxMotion
-        .maxVelocity(config.getIntakeDeployMaxVelocity())
+        .cruiseVelocity(config.getIntakeDeployMaxVelocity())
         .maxAcceleration(config.getIntakeDeployMaxAcceleration())
-        .allowedClosedLoopError(0.02);
+        .allowedProfileError(0.02);
     double maxPos =
         Math.max(deployStowedPosition, Math.max(deployExtendedPosition, deployRetractedPosition));
     double minPos =
@@ -229,9 +229,9 @@ public class IntakeIOSparkMax implements IntakeIO {
       double maxVelocity, double maxAcceleration, double allowedError) {
     var config = new SparkMaxConfig();
     config.closedLoop.maxMotion
-        .maxVelocity(maxVelocity)
+        .cruiseVelocity(maxVelocity)
         .maxAcceleration(maxAcceleration)
-        .allowedClosedLoopError(allowedError);
+        .allowedProfileError(allowedError);
     deployMotor.configure(
         config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }
