@@ -180,7 +180,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeRollerGearRatio = 2.0;
   private static final boolean intakeDeployMotorInverted = false;
   private static final boolean intakeRollerMotorInverted = true;
-  private static final int intakeDeployCurrentLimit = 30;
+  private static final int intakeDeployCurrentLimit = 50;
   private static final int intakeRollerCurrentLimit = 110;
   private static final double intakeDeployStowedPosition = 0.0;
   private static final double intakeDeployRetractedPosition = 0.05;

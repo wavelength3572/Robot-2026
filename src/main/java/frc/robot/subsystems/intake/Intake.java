@@ -88,7 +88,7 @@ public class Intake extends SubsystemBase {
   // Stall detection (same pattern as 2025 arm ArmIOMMSpark)
   // If deploy current exceeds threshold for N consecutive cycles, declare stall error.
   // When stalled: stop motor, pull target to current position, block new movement commands.
-  private static final double DEPLOY_STALL_CURRENT_THRESHOLD = 25.0; // amps
+  private static final double DEPLOY_STALL_CURRENT_THRESHOLD = 40.0; // amps
   private static final int DEPLOY_STALL_CYCLE_COUNT = 25; // ~500ms at 20ms cycle
   private int DEPLOY_STUCK_ERROR_COUNT = 0;
   private boolean DEPLOY_STUCK_ERROR = false;
