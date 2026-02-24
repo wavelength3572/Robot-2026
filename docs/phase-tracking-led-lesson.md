@@ -1,13 +1,14 @@
 # Teaching Plan: Match Phase Tracking & LED Indicators
-## Tailored for 3 Freshmen with FTC Experience
+## For 3 Freshmen with FTC + 2025 IndicatorLight Experience
 
 ## About This Lesson
-Students will learn how the 2026 REBUILT game's phase-shifting works, find and
-understand a real bug in our match timer code, and build an LED system that tells
-drivers when they can score. This is real competition code — their work will run
-on the robot at events.
+You already know how to control LEDs from working with last year's `IndicatorLight.java`.
+Now you're going to make LEDs that are **game-aware** — they'll automatically tell
+the driver when it's safe to score based on the REBUILT phase-shift timing. Along the
+way, you'll find a real bug in our match timer code and learn how the field talks
+to the robot.
 
-**Total time:** 3 sessions x 45-60 minutes (one per meeting, or combine if time allows)
+**Total time:** 2 sessions x 45-60 minutes
 
 **Team of 3 — Rotating Roles:**
 | Role | What You Do |
@@ -20,20 +21,25 @@ Rotate roles every ~15 minutes so everyone gets each job.
 
 ---
 
-## Before You Start: FTC → FRC Translation Guide
+## What You Already Know (from last session with 2025 LEDs)
 
-You already know a lot from FTC! Here's how the concepts map:
+Take a second and remember what you learned working with `IndicatorLight.java`:
 
-| FTC Concept | FRC Equivalent | Notes |
-|-------------|---------------|-------|
-| `OpMode` with `init()` / `loop()` | `Robot.java` with `robotInit()` / `robotPeriodic()` | Same idea: init runs once, periodic runs every cycle |
-| `gamepad1.a`, `gamepad1.left_stick_y` | `OperatorInterface` + button bindings | FRC separates the controller mapping into its own class |
-| `telemetry.addData("key", value)` | `Logger.recordOutput("key", value)` | FRC logs to a file + live dashboard instead of phone screen |
-| `DcMotor` / `Servo` | Subsystem classes (like `Turret`, `Hood`) | FRC wraps each mechanism in a "subsystem" with its own file |
-| Autonomous / TeleOp OpModes | `autonomousInit()` / `teleopInit()` in Robot.java | FRC switches modes automatically via the Field Management System |
-| No equivalent | `DriverStation.getMatchTime()` | FRC robots get a live countdown timer from the field |
-| No equivalent | `DriverStation.getGameSpecificMessage()` | The field sends game-specific data (this year: who won auto) |
-| REV Blinkin LED driver | `AddressableLED` + `AddressableLEDBuffer` | FRC controls each LED individually via code — way more flexible |
+| Concept | What you saw in 2025 code |
+|---------|--------------------------|
+| `AddressableLED` + `AddressableLEDBuffer` | The hardware interface — create a buffer, set colors, push to strip |
+| Pre-built color buffers | `IndicatorLight` made a separate buffer for red, green, blue, etc. in the constructor |
+| `setActiveBuffer()` | Copies a pre-built buffer to the live buffer |
+| `periodic()` on a subsystem | The method that runs every 20ms (50x/sec) and decides what to display |
+| Effects like `doRainbow()`, `dynamicBlink()` | Timer-based animations using `Timer.getFPGATimestamp()` |
+| `publishLEDsToDashboardFlipped()` | Sending LED colors to AdvantageScope for testing without hardware |
+
+**The new question for 2026:** Last year's LEDs showed things like coral status and
+alignment. This year, the LEDs need to answer one critical question:
+**"Can we score RIGHT NOW, or do we have to wait for our shift?"**
+
+To answer that, the LEDs need to know what phase of the match we're in. That's
+the `MatchPhaseTracker` — and it has a bug.
 
 ---
 
@@ -41,8 +47,8 @@ You already know a lot from FTC! Here's how the concepts map:
 
 **All 3 students:**
 1. Open the Rebuilt Match Timer on your phone: https://rbgk.github.io/frc-rebuilt-timer/
-2. Run it once through a full match. Watch the phases change.
-3. Answer these questions (write down your answers):
+2. Run through a full match. Watch the phases change.
+3. Write down your answers:
    - How long is auto? ____
    - How long is each shift? ____
    - How long is end game? ____
@@ -51,213 +57,171 @@ You already know a lot from FTC! Here's how the concepts map:
 
 ---
 
-## Session 1: Understanding the Game Timer (~45 min)
-**Goal:** Understand how match phases work and find a real bug in our code.
+## Session 1: The Game Timer & Its Bug (~45 min)
+**Goal:** Understand the match phase system, find the bug, understand the fix.
 
-### Activity 1: The REBUILT Game Refresher (10 min — whole group)
+### Activity 1: The REBUILT Timeline (10 min — whiteboard, whole group)
 
-**Mentor leads this discussion at a whiteboard / screen:**
-
-Draw the match timeline on the board:
+**Mentor draws on the board:**
 ```
-|--- AUTO ---|-- DELAY --|-- TRANSITION --|--- SHIFT 1 ---|--- SHIFT 2 ---|--- SHIFT 3 ---|--- SHIFT 4 ---|--- END GAME ---|
-    20 sec      5 sec        5 sec            25 sec           25 sec           25 sec           25 sec           30 sec
-              (disabled)  (both hubs on)   (loser scores)  (winner scores)  (loser scores)  (winner scores)   (both hubs on)
+|--- AUTO ---|-- DELAY --|-- TRANS --|--- SHIFT 1 ---|--- SHIFT 2 ---|--- SHIFT 3 ---|--- SHIFT 4 ---|--- END GAME ---|
+    20 sec      5 sec       5 sec        25 sec           25 sec           25 sec           25 sec           30 sec
+              (disabled)  (both on)   (loser scores)  (winner scores)  (loser scores)  (winner scores)   (both on)
 ```
 
-**Questions to ask:**
-- "If we won auto, during which shifts can we score?" (Shift 2 and 4)
-- "If we LOST auto, when can we score?" (Shift 1 and 3)
-- "Why does this matter for our robot code?" (We need to know when to shoot!)
-- "What happens if our code thinks it's End Game when it's actually Auto?" (Hint: this is the bug we're going to find)
+**Key questions:**
+- "If we won auto, which shifts are ours?" (2 and 4)
+- "If we lost auto, which shifts are ours?" (1 and 3)
+- "What should the LEDs show during shift 1 if we WON auto?" (Inactive — not our turn!)
+- "What happens if the code THINKS it's End Game during Auto?" (This is the bug)
 
-### Activity 2: Read the Code Together (15 min — all 3, Navigator reads aloud)
+### Activity 2: Bug Hunt (20 min — Navigator reads code aloud, group discusses)
 
-**Navigator:** Open `src/main/java/frc/robot/util/MatchPhaseTracker.java` in the editor.
+**Navigator:** Open `src/main/java/frc/robot/util/MatchPhaseTracker.java`.
 
-**Mentor guidance:** Don't read the whole file. Focus on these three spots:
+**The game: find two bugs. Here are your clues.**
 
-**Spot 1 — The phases (lines 38-57).** Read them aloud.
+**Clue 1 — Look at the enum (lines 38-57):**
+Read the phase names aloud. These are like the states the `IndicatorLight` used
+(remember how it had states like `LED_State` that controlled which effect played?).
+Same idea — the match has states, and the code picks which one we're in.
+
+**Clue 2 — Look at `getCurrentPhase()` (starts around line 126):**
 ```
-Ask: "What's an enum?"
-FTC analogy: It's like having a variable that can ONLY be certain values —
-like if you had a GamePhase variable that could only be AUTO, TELEOP, or ENDGAME.
-In FTC you might have used strings or ints for this. Enums are safer because
-the compiler catches typos.
-```
-
-**Spot 2 — getCurrentPhase() (lines 126-137).** Read it aloud.
-```
-Ask: "What does this method do in plain English?"
-Answer: "It checks what time it is in the match and returns which phase we're in."
-Ask: "What does it return if NO phase matches?" (line 136 — END_GAME!)
+Ask: "What does this return if NO phase matches?" → END_GAME (the default)
+Ask: "When would no phase match?" → Keep looking...
 ```
 
-**Spot 3 — getMatchTime() (lines 184-203).** This is where the bug lives.
+**Clue 3 — Look at `getMatchTime()` (starts around line 184):**
 ```
-Ask: "What number does line 186 use for auto duration?"
+Line 186: return Timer.getMatchTime() > 0 ? (15 - Timer.getMatchTime()) : 0;
+
+Ask: "What number does this use for auto duration?"
 Answer: 15
-Ask: "But how long is auto in REBUILT?"
+
+Ask: "But you just saw on the rebuilt timer — how long is REBUILT auto?"
 Answer: 20 seconds!
-Ask: "So what happens at the very start of the match when the timer says 20 seconds left?"
-Let them work it out: 15 - 20 = -5. Negative five!
-Ask: "And what phase has a start time of -5?" None of them!
-Ask: "So what does getCurrentPhase() return?" END_GAME! (the default on line 136)
+
+Ask: "At the start of auto, Timer.getMatchTime() returns 20. What's 15 - 20?"
+Answer: -5
+
+Ask: "Is -5 between 0 and 20? Between 20 and 30? Between ANY phase boundaries?"
+Answer: No! Nothing matches!
+
+Ask: "So what does getCurrentPhase() return?"
+Answer: END_GAME!
 ```
 
-**Celebrate:** They just found a real bug that caused "END_GAME" to appear in our
-match logs during auto. This is the kind of bug that costs points at competition.
+**Bug 1 found!** The first 5 seconds of every match, the robot thinks it's End Game.
 
-### Activity 3: The Practice Mode Bug (10 min — Driver at keyboard)
-
-**Mentor prompts the Driver:**
-
-"Now look at line 198-199. When we're practicing without the field system,
-what does the code do?"
-
+**Clue 4 — Now look at lines 198-199 (the practice mode fallback):**
 ```java
 return Timer.getFPGATimestamp() % 160;
 ```
 
-**Explain simply:** `Timer.getFPGATimestamp()` is like a stopwatch that starts when
-the robot turns on. The `% 160` means "divide by 160 and take the remainder."
+**Exercise:** Each student picks a number (seconds since robot powered on):
+- Student A: 347 seconds → 347 % 160 = 27 → TRANSITION phase
+- Student B: 892 seconds → 892 % 160 = 92 → SHIFT_3 phase
+- Student C: 131 seconds → 131 % 160 = 131 → END_GAME phase
 
-**Exercise:** Have each student pick a random number of seconds (like "the robot has been
-on for 347 seconds" or "892 seconds"). Calculate `number % 160` and look up which
-phase that falls in:
-- 0-20 = AUTO, 20-30 = TRANSITION, 30-55 = SHIFT 1, etc.
+**Bug 2 found!** Practice mode gives random phases depending on when the robot was turned on.
 
-**Ask:** "Is this a good way to track match phases during practice?"
-**Answer:** No! It gives random phases depending on how long the robot has been on.
+### Activity 3: The Fix (15 min — Navigator reads updated code, group discusses)
 
-### Activity 4: Quick Recap (5 min)
+**Navigator:** The bug has already been fixed. Open the CURRENT `MatchPhaseTracker.java`.
 
-Each student says one thing they learned. Write them on the board.
+**Key insight:** Instead of converting countdown → elapsed time (which caused the math
+bug), the fix uses the teleop countdown timer DIRECTLY:
 
-**Key takeaways to reinforce:**
-- The code assumed 15-second auto, but REBUILT has 20-second auto
-- When math gives a negative number, no phase matches, so it defaults to END_GAME
-- Practice mode was cycling through random phases instead of simulating a real match
+```
+remaining > 130  →  Transition
+105 to 130       →  Shift 1
+ 80 to 105       →  Shift 2
+ 55 to  80       →  Shift 3
+ 30 to  55       →  Shift 4
+  0 to  30       →  End Game
+```
+
+**Read `getTeleopPhaseFromRemaining()` together.** It's just a chain of `if`s. Compare
+to the old approach — which is easier to understand?
+
+**Then the cool part — FMS game data:**
+
+```
+Remember in FTC, the field didn't send your robot any data?
+In FRC, the field sends a SECRET MESSAGE after auto: either 'R' or 'B'.
+This tells us which alliance's hub goes dark first — meaning that
+alliance won auto.
+
+So instead of a human frantically toggling a dashboard switch,
+the code reads it automatically from DriverStation.getGameSpecificMessage().
+```
+
+**Read `getWeWonAuto()`** — show how it checks FMS data first, then falls back to
+the dashboard. Ask: "Why keep the dashboard fallback?" (Practice matches don't have FMS!)
+
+**And the practice mode fix:**
+Instead of the random `% 160`, the new code starts a stopwatch when the robot
+is first enabled and simulates real match timing. Just like the rebuilt timer app
+on your phone, but running on the robot.
 
 ---
 
-## Session 2: Understanding the Fix & Designing LEDs (~45 min)
-**Goal:** See how the bug was fixed, learn about FMS game data, design LED behavior.
+## Session 2: Build Game-Aware LEDs (~45-60 min)
+**Goal:** Wire up LEDs that react to match phase, using what you already know from 2025.
 
-### Activity 5: The Better Approach (15 min — Navigator reads, group discusses)
+### Activity 4: From 2025 to 2026 — What's Different? (10 min — group discussion)
 
-**Navigator:** Open the UPDATED `MatchPhaseTracker.java` (the one with the fix already applied).
+**Mentor leads:**
 
-**Key concept to explain first:**
-```
-In FRC, the field sends your robot a countdown timer during teleop.
-It starts at 135 and counts down to 0. The WPILib documentation says
-to use THIS number directly to know what phase you're in:
+"In 2025, `IndicatorLight.java` chose colors based on things like coral status
+and alignment. It had methods like `red()`, `green()`, `doBlink()`, and the
+`periodic()` method picked which effect to run.
 
-  remaining > 130  →  Transition (both hubs on)
-  105 to 130       →  Shift 1
-   80 to 105       →  Shift 2
-   55 to  80       →  Shift 3
-   30 to  55       →  Shift 4
-    0 to  30       →  End Game
-
-This is WAY simpler than trying to convert countdown time to elapsed time!
-```
-
-**Read getTeleopPhaseFromRemaining() together** — it's just a chain of `if` statements.
-Compare to the old approach. Ask: "Which is easier to understand?"
-
-**Then explain FMS game data:**
-```
-The field also sends a secret message after auto: either 'R' or 'B'.
-This tells us which alliance's hub goes dark first — which means
-that alliance won auto! So we don't need a human to toggle a switch
-on the dashboard.
-
-In FTC, you didn't have anything like this. FRC fields are "smarter"
-and send data to the robot.
-```
-
-**Read getWeWonAuto()** — show how it checks `getGameSpecificMessage()` first,
-then falls back to the dashboard toggle.
-
-### Activity 6: Design LED Patterns (15 min — whiteboard/paper, all 3 contribute)
-
-**Give each student a piece of paper and colored markers/pencils.**
-
-**Prompt:** "Design what the LEDs should show for each situation. Draw it out.
-Remember: the driver is stressed, moving fast, and can barely glance at the robot.
-Your signal needs to be OBVIOUS."
-
-Each student designs their own version for these states:
-| State | What's Happening |
-|-------|-----------------|
-| Disabled | Robot is off, sitting in the pits |
-| Auto | Autonomous is running, both hubs active |
-| Our Hub Active | We CAN score right now! |
-| Our Hub Inactive | We CANNOT score, wait for our turn |
-| Shift Change Coming (7 sec warning) | A shift is about to happen! |
-| End Game | Last 30 seconds, both hubs active, GO GO GO |
-
-**After 5 minutes:** Each student presents their design (1 minute each).
-
-**Group discussion:**
-- "Which design is clearest from across the field?"
-- "Should 'active' and 'inactive' use totally different colors, or same color with a blink?"
-- "What does the rebuilt timer app do?" (Flashes and vibrates 7 seconds before shifts)
-
-**Agree on one design** the team will implement. Write it down clearly.
-
-### Activity 7: Read the LED Scaffolding Code (15 min — Navigator reads)
+In 2026, `MatchPhaseLEDs.java` does the same thing, but it picks effects based
+on **match phase and hub status** instead of coral status."
 
 **Navigator:** Open `src/main/java/frc/robot/subsystems/led/MatchPhaseLEDs.java`.
 
-**Walk through these concepts (mentor helps explain):**
+**Compare with what you remember from 2025:**
 
-**1. "What is AddressableLED?"**
-```
-FTC analogy: You may have used a REV Blinkin to set LED colors.
-That gives you ONE color for the whole strip. AddressableLED lets
-you control EACH LED individually — like pixels on a screen.
-You create a "buffer" (like a pixel array), set colors in it,
-then push it to the hardware.
-```
+| 2025 `IndicatorLight` | 2026 `MatchPhaseLEDs` | Same or different? |
+|----------------------|----------------------|-------------------|
+| Pre-built `redBuffer`, `greenBuffer`, etc. | Pre-built `blueBuffer`, `redBuffer`, etc. | Same pattern! |
+| `setActiveBuffer()` copies a buffer | `setBuffer()` copies a buffer | Same pattern! |
+| `periodic()` checks state and picks effect | `periodic()` checks phase and picks effect | Same pattern! |
+| `doRainbow()` for idle | `doRainbow()` for disabled | Same pattern! |
+| `dynamicBlink()` with variable speed | `doShiftWarningBlink()` with variable speed | Same idea! New twist: speed depends on countdown |
+| Coral suppliers for state | `MatchPhaseTracker` for state | Different source, same approach |
 
-**2. "What is a SubsystemBase?"**
-```
-FTC analogy: In FTC, your OpMode has everything in one file.
-In FRC, each mechanism gets its own class called a "subsystem."
-The robot framework calls periodic() on every subsystem every 20ms
-(50 times per second), just like FTC's loop() method.
-```
+**Ask:** "What's the one big thing `doShiftWarningBlink()` does that 2025's
+`dynamicBlink()` didn't?" (Answer: The blink speed changes based on how many
+seconds until the shift — faster as it gets closer, like a countdown timer you can see.)
 
-**3. Walk through periodic():**
-- Gets the current phase from MatchPhaseTracker
-- Gets whether our hub is active
-- Picks the right LED pattern based on phase + hub status
-- Pushes colors to hardware
+### Activity 5: Design Your Phase LED Table (10 min — paper + markers)
 
-**4. Look at doShiftWarningBlink():**
-```
-Ask: "What does 'fraction' represent?"
-Answer: How far we are into the warning window (1.0 = just started, 0.0 = shift is NOW)
-Ask: "What does blinkPeriod control?"
-Answer: How fast the LEDs flash — smaller number = faster flash
-```
+Each student gets paper. Using what you know from 2025 effects, design what the
+LEDs should show. You know the building blocks — now pick which ones to use:
 
----
+| Match State | Your LED Design | Which 2025 effect is it closest to? |
+|-------------|----------------|-------------------------------------|
+| Disabled (pits) | _____________ | `doRainbow()`? `doBlueOmbre()`? |
+| Auto (both hubs on) | _____________ | Solid `green()`? `doParty()`? |
+| Our Hub ACTIVE | _____________ | Solid alliance color? Progress bar? |
+| Our Hub INACTIVE | _____________ | Off? Dim? `doBlink()` slow? |
+| Shift Warning (7 sec) | _____________ | `dynamicBlink()` speeding up? |
+| End Game (GO!) | _____________ | `doExplosionEffect()`? Fast pulse? |
 
-## Session 3: Hands-On Coding (~45-60 min)
-**Goal:** Modify the LED code, wire it into the robot, test it.
+**Present designs (1 min each), agree on one, write it on the board.**
 
-### Activity 8: Wire LEDs into the Robot (20 min — Driver codes, Navigator guides, Tester reviews)
+### Activity 6: Wire It Into the Robot (15 min — Driver codes)
 
-**Step-by-step instructions (Tester reads these aloud one at a time):**
+You know this pattern from 2025 — adding a subsystem to the robot. But now
+you're doing it yourselves instead of just reading it.
 
-**Step 1: Add LED configuration to RobotConfig.java**
+**Step 1: Add LED config to RobotConfig.java**
 
-Open `src/main/java/frc/robot/RobotConfig.java`. Scroll to the bottom (after the
-intake section). Add these three methods:
+Open `src/main/java/frc/robot/RobotConfig.java`. Scroll to the bottom. Add:
 
 ```java
 // ========== LED Configuration ==========
@@ -277,51 +241,33 @@ default int getLedCount() {
 }
 ```
 
-**Ask before moving on:** "Why do these default to false/0?" (Because not every robot
-has LEDs. Robots without them just return false for `hasLEDs()` and never create
-the subsystem.)
+**Step 2: Override in your robot's config file**
 
-**Step 2: Override in your robot's config**
-
-Find your robot's config file (SquareBotConfig.java or MainBotConfig.java).
-Add the overrides with your actual values:
+Find SquareBotConfig.java or MainBotConfig.java. Add:
 
 ```java
 @Override
-public boolean hasLEDs() {
-    return true;
-}
+public boolean hasLEDs() { return true; }
 
 @Override
-public int getLedPwmPort() {
-    return 9;  // <-- ask mentor which PWM port
-}
+public int getLedPwmPort() { return 9; } // ask mentor for actual port
 
 @Override
-public int getLedCount() {
-    return 30; // <-- count your actual LEDs
-}
+public int getLedCount() { return 30; } // count your actual LEDs
 ```
 
-**Step 3: Create the subsystem in RobotContainer.java**
+**Step 3: Create it in RobotContainer.java**
 
-Open `RobotContainer.java`. Near the other subsystem declarations at the top
-(around line 89), add:
+Remember how 2025 had `new IndicatorLight()` somewhere in RobotContainer?
+Same idea. Add the field near the other subsystems:
 
 ```java
 private final MatchPhaseLEDs matchPhaseLEDs;
 ```
 
-Add the import at the top of the file:
-```java
-import frc.robot.subsystems.led.MatchPhaseLEDs;
-```
-
-In the constructor, after the other subsystems are created (around line 420,
-after the FuelSim initialization), add:
+And in the constructor (after other subsystems):
 
 ```java
-// Create LED subsystem if this robot has LEDs
 if (Constants.getRobotConfig().hasLEDs()) {
     matchPhaseLEDs = new MatchPhaseLEDs(
         Constants.getRobotConfig().getLedPwmPort(),
@@ -331,21 +277,21 @@ if (Constants.getRobotConfig().hasLEDs()) {
 }
 ```
 
-**Tester:** Read back what was typed. Does it look right? Any typos?
+Don't forget the import! `import frc.robot.subsystems.led.MatchPhaseLEDs;`
 
-### Activity 9: Customize Your LED Design (15 min — all 3 collaborate)
+**Tester: Read back what was typed and check for typos.**
 
-Now implement the LED design your team agreed on in Session 2.
+### Activity 7: Implement Your Design (10-15 min — all 3 collaborate)
 
-**Choose ONE of these to implement (pick based on your team's design):**
+Open `MatchPhaseLEDs.java` and modify the `periodic()` method to match your
+team's design from the board.
 
-**Option A: Progress Bar**
-During active shifts, fill LEDs from left to right showing how much scoring
-time is left. When time runs out, the bar is empty.
+**Starter ideas based on effects you already know from 2025:**
 
-*Hint:* In the `periodic()` method, during hub-active shifts, calculate:
+**If your design uses a progress bar** (filling/draining LEDs):
 ```java
-double fraction = tracker.getTimeRemainingInPhase() / 25.0; // shifts are 25 seconds
+// In the "hub active" section of periodic():
+double fraction = tracker.getTimeRemainingInPhase() / 25.0; // 25-second shifts
 int litLEDs = (int)(fraction * ledCount);
 for (int i = 0; i < ledCount; i++) {
     if (i < litLEDs) {
@@ -356,102 +302,123 @@ for (int i = 0; i < ledCount; i++) {
 }
 ```
 
-**Option B: Traffic Light**
-Split the strip into 3 zones. All three show the same color:
-- Green = our hub is active, go score!
-- Red = our hub is inactive, don't shoot
-- Yellow = shift change coming in the next 7 seconds
-
-**Option C: Your Custom Design**
-Implement whatever your team designed on paper. Ask a mentor if you get stuck
-on the API for a specific effect.
-
-### Activity 10: Test with AdvantageScope (10 min — Tester leads)
-
-**Mentor helps set up AdvantageScope if students haven't used it before.**
-
-```
-AdvantageScope is like FTC's telemetry, but WAY more powerful.
-It records everything and lets you scroll back through time.
-
-1. Deploy code to the robot (or run in simulation)
-2. Open AdvantageScope and connect
-3. Find these log entries:
-   - Match/MatchPhase — should show AUTO, TRANSITION, SHIFT_1, etc.
-   - Match/TeleopRemaining — countdown from 135
-   - Match/OurHubActive — true/false
-   - LED/Phase — what the LEDs think the phase is
-   - LED/HubActive — what the LEDs think about hub status
-4. Run a simulated match and watch the values change
-5. Verify: Does it EVER say END_GAME during auto? (It shouldn't anymore!)
+**If your design uses a "traffic light" approach:**
+```java
+// Split strip into zones, all same color
+Color stateColor;
+if (!hubActive) {
+    stateColor = Color.kRed;        // Can't score
+} else if (timeUntilShift <= 7.0) {
+    stateColor = Color.kYellow;     // Shift coming soon
+} else {
+    stateColor = Color.kGreen;      // Go score!
+}
+for (int i = 0; i < ledCount; i++) {
+    buffer.setLED(i, stateColor);
+}
 ```
 
-### Wrap-Up Discussion (5 min)
+**If you want something fancier** — you saw `doExplosionEffect()` and
+`doSearchlightSingleEffect()` in the 2025 code. Same techniques work here:
+use `Timer.getFPGATimestamp()` to animate over time, use `Math.sin()` for
+pulsing, use a moving index for chase effects.
 
-**Questions for the team:**
-- "What was the most surprising thing you learned?"
-- "How is FRC code different from FTC code?"
-- "What would you add to the LEDs next?"
+### Activity 8: Test It (5-10 min — Tester leads)
+
+```
+Deploy and open AdvantageScope. Find these entries:
+  - Match/MatchPhase — should show AUTO, TRANSITION, SHIFT_1, etc.
+  - Match/TeleopRemaining — countdown from 135
+  - Match/OurHubActive — true/false
+  - LED/Phase and LED/HubActive — what the LEDs are reacting to
+
+Run a simulated match. Verify:
+  1. Phase never shows END_GAME during auto (bug is fixed!)
+  2. LEDs change at the right times
+  3. Shift warning blink speeds up as the shift approaches
+  4. End game looks different from normal shifts
+```
+
+**Pro tip from 2025:** Remember `publishLEDsToDashboardFlipped()`? You can
+add a similar method to see LED colors in AdvantageScope even without the
+physical strip connected. Great for testing in sim.
+
+### Wrap-Up (5 min)
+
+- Each student: "What's one thing from this lesson that connected to what we
+  learned with the 2025 LEDs?"
+- "What effect from 2025 would you most want to bring into the 2026 code?"
+- Commit your work!
 
 ---
 
-## Bonus Challenges (for students who finish early or want homework)
+## Bonus Challenges
 
-### Challenge A: Score Celebration Flash
-Add a method `triggerScoreEffect()` that makes all LEDs flash white 3 times
-quickly, then returns to normal. You'll need:
-- A boolean `scoreEffectActive`
-- A timestamp `scoreEffectStartTime`
-- Logic in `periodic()` to run the flash for ~0.5 seconds then stop
+### Challenge A: Port Your Favorite 2025 Effect
+Pick one effect from `IndicatorLight.java` that wasn't used above (like
+`doExplosionEffect()`, `doSearchlightSingleEffect()`, `doPokadot()`, or
+`doSegmentParty()`). Adapt it for a match phase. For example:
+- `doExplosionEffect()` when we score
+- `doSearchlightSingleEffect()` during end game to create urgency
 
-### Challenge B: Pit Display Mode
-When the robot is disabled and not in a match, show a slow rainbow animation
-or your team number in LEDs. The scaffolding code already has `doRainbow()` —
-wire it up so it only runs when disabled.
+### Challenge B: Score Celebration Flash
+Add a method `triggerScoreEffect()` that overrides normal phase display
+with a white flash for 0.5 seconds. Remember how 2025 tracked `LED_State`
+to handle interrupting effects? Same concept.
 
-### Challenge C: "Am I Ready to Shoot?" Indicator
-Connect to the `ShootingCoordinator` to show:
-- Red = launcher not spinning
-- Yellow = launcher spinning up
-- Green = ready to fire!
+### Challenge C: "Ready to Shoot" Indicator
+Add an overlay that shows launcher readiness on top of the phase colors:
+- Not spinning → dim the phase color to 30%
+- Spinning up → normal brightness
+- At speed → add white sparkle on top (random LEDs flash white briefly)
 
-### Challenge D: Dashboard Preview
-Publish LED colors to NetworkTables so you can see them in AdvantageScope even
-without physical LEDs on the robot. Look at how `Logger.recordOutput()` works
-for arrays.
+### Challenge D: Match Dashboard Widget
+Publish a string array of hex colors to NetworkTables, one per LED. This lets
+AdvantageScope render your LED strip as a custom widget. Look at how
+`publishLEDsToDashboardFlipped()` worked in 2025 for the approach.
 
 ---
 
-## Tips for Mentors Working with These Students
+## Tips for Mentors
 
 ### Before Session 1
-- [ ] Have all 3 students install the Rebuilt Match Timer on their phones and run through it
+- [ ] Have all 3 students run the Rebuilt Match Timer on their phones (full match)
 - [ ] Make sure the codebase builds on the development laptop
-- [ ] Print out the "FTC → FRC Translation Guide" table above for each student
+- [ ] Have the 2025 IndicatorLight.java open as a reference (they'll want to look back)
 - [ ] Have colored markers and paper ready for the LED design activity
 - [ ] Pre-load AdvantageScope with a log file showing the old bug (END_GAME during auto) if available
 
-### Pacing Tips
-- Freshmen need **more time than you think** to read unfamiliar code
-- When a student says "I get it" — ask them to explain it back. They often don't fully get it.
-- The whiteboard timeline drawing (Activity 1) is critical context. Don't skip it.
-- If they're stuck on Activity 8, have them just get ONE LED to turn on first, then add complexity
-- It's OK if they don't finish all activities. Understanding > completing.
+### Leveraging Their 2025 Experience
+- **Start from what they know.** When they see `doRainbow()`, ask "remember this from 2025?"
+- **Use comparison, not explanation.** Instead of teaching AddressableLED from scratch, ask
+  "How is this constructor different from IndicatorLight's?" Let them spot the similarities.
+- **Let them be the experts.** They know LED effects. Let them propose which 2025 effects
+  to reuse. The new part is the *game logic*, not the LED mechanics.
+- **The pre-built buffer pattern is familiar.** They've seen `redBuffer`, `greenBuffer` etc.
+  Don't re-teach this. Just confirm "same pattern as 2025" and move on.
 
-### FTC-Specific Pitfalls to Watch For
-- They may try to put everything in one file (FTC habit). Explain the subsystem pattern.
-- They may not understand why `periodic()` doesn't need a while loop (FTC's `loop()` is called by the system, same here).
-- They may be confused by `null` checks — FTC usually doesn't have optional subsystems.
-- They may not know what a singleton is (`getInstance()`). Explain: "It's a single shared instance, like if there was only one gamepad and everyone accessed the same one."
+### What's Actually New for Them
+Focus teaching time on these concepts (the LED stuff they already get):
+1. **Enums** — 2025 might have used simpler state tracking. Explain enums as "a variable
+   that can only be one of a fixed set of values."
+2. **Singleton** — `MatchPhaseTracker.getInstance()`. Explain: "There's only one match
+   happening, so there's only one tracker. Everyone shares it."
+3. **DriverStation API** — `getMatchTime()`, `getGameSpecificMessage()`, `isAutonomous()`.
+   This is the big FTC→FRC difference. FTC fields don't send game data to robots.
+4. **RobotConfig pattern** — How `hasLEDs()` with a default of `false` means robots
+   without LEDs just skip it. FTC doesn't have this pattern of optional subsystems.
 
-### Key Concepts to Reinforce
-1. **Real bugs cost real points** — the END_GAME-during-auto bug means the robot might not shoot when it should
-2. **The field talks to your robot** — FMS game data is free information, use it
-3. **Drivers can't read dashboards** — colors they can see from 50 feet away beat tiny text
-4. **Test before competition** — the rebuilt match timer app lets you validate your timing at home
-5. **FRC code is a team sport** — Driver/Navigator/Tester roles mirror real software development
+### Pacing for 2 Sessions
+With their LED background, 2 sessions should be enough:
+- **Session 1** is mostly conceptual (game rules, bug hunting, understanding the fix).
+  They'll be engaged because they're finding real bugs, not reading a textbook.
+- **Session 2** is mostly hands-on (wiring, coding, testing). They'll move fast here
+  because the LED patterns are familiar territory.
+- If Session 2 runs short, start on a bonus challenge.
+- If Session 1 runs long (good discussions!), you can push Activity 3 (the fix) to
+  the start of Session 2.
 
 ### After Each Session
-- Have students commit their work with a message describing what they did
-- Take a photo of their LED design on paper (for the engineering notebook)
+- Have students commit with a message describing what they did
+- Take a photo of their LED design on paper (engineering notebook)
 - Ask: "What would you teach a teammate who wasn't here today?"
