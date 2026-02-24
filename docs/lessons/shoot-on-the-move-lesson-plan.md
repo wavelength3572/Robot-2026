@@ -1,0 +1,821 @@
+# Shoot-on-the-Move: Lesson Plan & Implementation Guide
+
+## Who This Is For
+
+Students who already understand our robot code structure and want to deeply
+understand how our shooting system works, why it makes the choices it does,
+and how to build an alternative approach that could improve accuracy.
+
+**Prerequisites**: Basic Java, understanding of WPILib subsystems/commands,
+comfortable reading our codebase.
+
+**Time estimate**: 4 sessions of ~2 hours each.
+
+---
+
+## Session 1: Understanding What We Have (The Parametric Approach)
+
+### 1.1 The Big Picture — What Problem Are We Solving?
+
+When our robot is stationary, shooting is straightforward: measure the distance
+to the hub, calculate the right RPM and hood angle, fire. But in a real match
+the robot is moving. By the time the ball reaches the hub, the robot (and
+therefore the launch point) has shifted. If we aim at the hub's current
+position, we'll miss.
+
+**The core question**: Where should we aim RIGHT NOW so the ball — launched
+from where we WILL BE — lands in the hub?
+
+Open this file and read it top to bottom before continuing:
+
+```
+src/main/java/frc/robot/subsystems/shooting/ShotCalculator.java
+```
+
+### 1.2 Tracing the Data Flow
+
+Here is how a shot gets calculated every robot cycle (20ms):
+
+```
+ShootingCoordinator.periodic()          [ShootingCoordinator.java:138]
+  │
+  ├─ updateShotCalculation()            [ShootingCoordinator.java:164]
+  │    │
+  │    ├─ TurretAimingHelper.getAimTarget()   → decides SHOOT / PASS / HOLDFIRE
+  │    │
+  │    ├─ if SHOOT → calculateShotToHub()     [ShootingCoordinator.java:230]
+  │    │      │
+  │    │      └─ ShotCalculator.calculateHubShot()     [ShotCalculator.java:309]
+  │    │           │
+  │    │           ├─ TrajectoryOptimizer.calculateOptimalShot()  → RPM + hood angle
+  │    │           ├─ calculateTimeOfFlight()                     → TOF estimate
+  │    │           ├─ predictTargetPos() × 3 iterations           → velocity compensation
+  │    │           └─ calculateOutsideTurretAngle()               → turret pointing
+  │    │
+  │    └─ if PASS → calculatePassToTarget()   [ShootingCoordinator.java:298]
+  │
+  ├─ runAutoShoot()                      → fires if all readiness checks pass
+  │
+  └─ visualizer.update()                 → 3D trajectory display
+```
+
+**Exercise 1.2a**: Open `ShootingCoordinator.java` and trace this flow yourself.
+Write down the line numbers for each step. Confirm they match the diagram above.
+
+### 1.3 The Physics Model — Two-Point Trajectory Solving
+
+Our system is **parametric**: it solves physics equations in real-time rather
+than looking things up in a table. Here's the math.
+
+#### The Projectile Equation
+
+A ball launched at angle `θ` with velocity `v` follows a parabolic path:
+
+```
+y(x) = x·tan(θ) - g·x² / (2·v²·cos²(θ))
+```
+
+We simplify by defining `K = g / (2·v²·cos²(θ))`:
+
+```
+y(x) = x·tan(θ) - K·x²
+```
+
+This is the equation of a parabola. Given any `θ` and `v`, we can trace
+the entire ball trajectory.
+
+#### How TrajectoryOptimizer Uses Two Points
+
+Open `TrajectoryOptimizer.java` and find `calculateTrajectoryThroughTwoPoints`
+at line 235.
+
+Our hub has specific geometry:
+- **Hub lip height**: 1.83m (the rim the ball must clear)
+- **Hub center height**: 1.43m (where we want the ball to land)
+- **Hub entry radius**: 0.530m (distance from lip to center)
+
+The optimizer defines two constraint points:
+
+```
+Point A (Hub Edge):  x₁ = D - R,   y₁ = hubCenter + R·tan(descentAngle) - turretHeight
+Point B (Hub Center): x₂ = D,       y₂ = hubCenter - turretHeight
+
+Where:
+  D = horizontal distance from turret to hub center
+  R = hub entry radius (0.530m)
+  descentAngle = 60° (tunable — the angle the ball enters the hub)
+```
+
+With two points on a parabola, there is exactly ONE `θ` and `v` that
+fits. The math (lines 249-297):
+
+```
+tan(θ) = (y₁·x₂² - y₂·x₁²) / (x₁·x₂·(x₂ - x₁))
+
+K = (x₁·tan(θ) - y₁) / x₁²
+
+v² = g / (2·K·cos²(θ))
+
+RPM = (v / (2π·r·efficiency)) × 60
+```
+
+**Exercise 1.3a**: Pick a distance (say D = 4.0m). Using the constants from
+the code, calculate by hand:
+1. What are Point A and Point B? (x₁, y₁, x₂, y₂)
+2. What is tan(θ)?
+3. What launch angle θ does this give?
+4. What exit velocity v is needed?
+5. What RPM does that require? (WHEEL_RADIUS = 0.0508m, efficiency = 0.4)
+
+Check your answers against what the robot logs in AdvantageScope at that
+distance.
+
+### 1.4 Velocity Compensation — The Iterative Prediction Loop
+
+This is the core of shoot-on-the-move. Open `ShotCalculator.java` line 309,
+the `calculateHubShot` method.
+
+When the robot is moving faster than 0.1 m/s, the code runs a 3-iteration
+refinement loop (lines 343-356):
+
+```java
+for (int i = 0; i < 3; i++) {
+    aimTarget = predictTargetPos(hubTarget, fieldSpeeds, tof);
+    // ... recalculate shot to new aimTarget ...
+    // ... update tof based on new distance ...
+}
+```
+
+**What `predictTargetPos` does** (line 185):
+
+```java
+predictedX = target.getX() - fieldSpeeds.vxMetersPerSecond * timeOfFlight;
+predictedY = target.getY() - fieldSpeeds.vyMetersPerSecond * timeOfFlight;
+```
+
+This is saying: "If the robot moves `v * t` meters during the ball's flight,
+then we need to aim `v * t` meters *behind* where the hub actually is."
+
+Wait — why subtract? Because from the ball's perspective, the ball inherits
+the robot's velocity. If the robot is moving toward the hub at 2 m/s, the ball
+already has 2 m/s of approach velocity baked in. So we compensate by aiming
+as if the hub were closer (offset by the robot's velocity contribution during
+flight time).
+
+#### Why 3 Iterations?
+
+The problem is circular:
+1. To know where to aim, we need the time of flight (TOF)
+2. To know the TOF, we need the distance to the aim point
+3. But the aim point depends on the TOF
+
+So we iterate:
+- **Iteration 0**: Calculate TOF to the real hub position → initial guess
+- **Iteration 1**: Offset hub by `v × TOF₀`, recalculate TOF₁
+- **Iteration 2**: Offset hub by `v × TOF₁`, recalculate TOF₂
+- **Iteration 3**: Offset hub by `v × TOF₂`, recalculate TOF₃
+
+Each iteration refines the answer. By iteration 3, the solution has converged
+for typical FRC speeds (< 5 m/s).
+
+**Exercise 1.4a**: If the robot is at (3, 4) moving at vx=2.0, vy=0.0 m/s
+and the hub is at (5, 4, 1.43):
+1. What is the initial distance? Initial TOF? (assume v_exit = 8 m/s, θ = 55°)
+2. After iteration 1, where is the aim target? What is the new distance?
+3. After iteration 2?
+4. How much did the aim point change between iterations 2 and 3?
+
+### 1.5 What This Approach Gets Right and Where It Falls Short
+
+**Strengths of our parametric approach:**
+- No empirical data collection needed — works immediately from physics
+- Smooth across all distances — no interpolation artifacts
+- All parameters are tunable in real-time via LoggedTunableNumber
+- Clean, readable code
+
+**Weaknesses:**
+1. **No air drag**: Our TOF calculation (line 157) is `distance / (v·cos(θ))`.
+   This assumes the ball travels in a vacuum. Real balls experience drag, so
+   the actual TOF is LONGER than we calculate. This means our velocity lead
+   is systematically too small at long range.
+
+2. **Instantaneous velocity only**: We use the robot's current velocity to
+   predict where to aim. But if the driver is decelerating, the robot will
+   be slower during the ball's flight than it is right now, and we'll
+   over-lead the shot.
+
+3. **Launch efficiency is a fudge factor**: `launchEfficiency = 0.4` absorbs
+   many real-world effects (ball compression, slip, spin) into one number.
+   If the real efficiency varies with RPM (it probably does), our velocity
+   calculations are off by different amounts at different speeds.
+
+**Exercise 1.5a**: Discussion question — which of these three weaknesses do
+you think matters most for our robot at typical shooting distances (3-6m)?
+Why?
+
+---
+
+## Session 2: The Alternative — LUT Recursion (Nonparametric Approach)
+
+### 2.1 What Is a Lookup Table (LUT)?
+
+Instead of solving equations, we measure the real robot's behavior and store
+it in a table. For each distance, we record:
+- The RPM that actually scores
+- The hood angle that actually scores
+- The actual time-of-flight (measured with a stopwatch or high-speed camera)
+
+Then at runtime, we interpolate between table entries to get parameters for
+any distance.
+
+WPILib provides `InterpolatingDoubleTreeMap` for exactly this purpose.
+
+### 2.2 Why Teams Use LUTs
+
+From the Chief Delphi thread (link in references), Oblarg (lead programmer
+of 6328 Mechanical Advantage) recommends LUT recursion as the first approach
+teams should try. His reasoning:
+
+> "Any team that has not yet decided on an algorithm but wants to try this
+> problem, start with this approach first. It is simple."
+
+The key insight: **a LUT-measured TOF inherently includes air drag, spin
+effects, and every other real-world factor** because you measured the actual
+ball, not a theoretical one. Our parametric TOF calculation
+`distance / (v·cos(θ))` ignores all of that.
+
+### 2.3 The LUT Recursion Algorithm
+
+This is the algorithm for shoot-on-the-move using a LUT. It is structurally
+identical to our current iterative loop, but replaces physics calculations
+with table lookups.
+
+```
+Algorithm: LUT_RECURSION_SOTM(robotPose, robotVelocity, hubTarget)
+
+  Input:
+    tofTable[distance] → time of flight (seconds)
+    rpmTable[distance] → launcher RPM
+    hoodTable[distance] → hood angle (degrees)
+
+  1. staticDistance = distance(robotPose, hubTarget)
+  2. tof = tofTable.get(staticDistance)         // initial TOF guess
+
+  3. for i = 1 to N:                           // N = 3 to 5 iterations
+       aimTarget = hubTarget - robotVelocity * tof
+       aimDistance = distance(robotPose, aimTarget)
+       tof = tofTable.get(aimDistance)           // refined TOF
+
+  4. finalDistance = distance(robotPose, aimTarget)
+  5. rpm = rpmTable.get(finalDistance)
+  6. hoodAngle = hoodTable.get(finalDistance)
+  7. turretAngle = angleTo(robotPose, aimTarget)
+
+  Return: (rpm, hoodAngle, turretAngle, aimTarget)
+```
+
+Compare this to our current approach in `ShotCalculator.calculateHubShot()`.
+The structure is almost identical! The difference is:
+- **Ours**: Calls `TrajectoryOptimizer.calculateOptimalShot()` + `calculateTimeOfFlight()`
+- **LUT**: Calls `tofTable.get()` + `rpmTable.get()` + `hoodTable.get()`
+
+### 2.4 Designing the Data Structures
+
+Here is what the LUT tables look like in WPILib Java:
+
+```java
+import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
+
+// Key: distance in meters, Value: parameter
+InterpolatingDoubleTreeMap tofTable = new InterpolatingDoubleTreeMap();
+InterpolatingDoubleTreeMap rpmTable = new InterpolatingDoubleTreeMap();
+InterpolatingDoubleTreeMap hoodAngleTable = new InterpolatingDoubleTreeMap();
+
+// Populate from empirical measurements
+tofTable.put(2.0, 0.45);   // at 2m, ball takes 0.45s to reach hub
+tofTable.put(3.0, 0.62);   // at 3m, ball takes 0.62s
+tofTable.put(4.0, 0.81);
+tofTable.put(5.0, 1.05);
+tofTable.put(6.0, 1.32);
+
+rpmTable.put(2.0, 2100.0);
+rpmTable.put(3.0, 2450.0);
+// ... etc
+
+hoodAngleTable.put(2.0, 35.0);
+hoodAngleTable.put(3.0, 32.0);
+// ... etc
+```
+
+`InterpolatingDoubleTreeMap` does linear interpolation between entries, so
+if you query `tofTable.get(2.5)` it returns `(0.45 + 0.62) / 2 = 0.535`.
+
+**Exercise 2.4a**: Why do we need at least 5-6 distance entries? What happens
+if we only have 2 entries? What happens if we have 20? Discuss tradeoffs.
+
+### 2.5 How to Collect the Data
+
+This is the hardest part of the LUT approach and the reason many teams skip
+it. You need to physically put the robot at known distances and measure:
+
+**Step 1: Set up distance markers**
+- Use tape on the floor at 2m, 3m, 4m, 5m, 6m from hub center
+- Verify with a laser distance meter
+
+**Step 2: For each distance, find the RPM + hood angle that scores**
+- Start with our parametric model's output as an initial guess
+- Fine-tune by hand until 5/5 shots score consistently
+- Record: (distance, finalRPM, finalHoodAngle)
+
+**Step 3: Measure time of flight**
+Option A (stopwatch): Have someone watch high-speed video (240fps phone camera)
+and count frames from launch to hub entry. TOF = frames / 240.
+
+Option B (code-based): Log the timestamp when the ball breaks a beam sensor
+at launch and use AdvantageScope to measure when it enters the hub
+(visible on field camera).
+
+Option C (calculated from measured velocity): If you trust your exit velocity
+measurement, you can calculate TOF from the measured parameters. But this
+partially defeats the purpose — you'd still be assuming no drag.
+
+**Step 4: Record everything in a spreadsheet, then put it in code**
+
+**Exercise 2.5a**: Plan a data collection session. Write out:
+1. How many distances will you measure?
+2. How many shots per distance for statistical confidence?
+3. What equipment do you need?
+4. How long will it take?
+5. What do you do if a measurement seems wrong?
+
+---
+
+## Session 3: The Hybrid Approach — Best of Both Worlds
+
+### 3.1 Why Hybrid?
+
+The pure LUT approach has its own weaknesses:
+- Need to re-measure if ANY hardware changes (new wheels, different ball type)
+- Gaps between measured distances rely on interpolation accuracy
+- Can't easily adapt to conditions (battery voltage, worn wheels)
+
+Our parametric approach is already good for RPM and hood angle. Its main
+weakness is the **time-of-flight calculation** ignoring drag.
+
+The hybrid: **Keep our parametric model for RPM + hood angle. Add a TOF LUT
+for the velocity compensation loop only.**
+
+This gives us:
+- Parametric RPM/hood: smooth, no gaps, works at any distance
+- Empirical TOF: captures drag, spin, and real-world flight behavior
+- Velocity compensation: more accurate lead because TOF is closer to reality
+
+### 3.2 Architecture: The Strategy Pattern
+
+We want the system to be easily toggled between approaches. The cleanest
+way is the **Strategy pattern**: define an interface for shot calculation,
+implement it two (or three) ways, and switch between them.
+
+Here is the design:
+
+```
+                    ┌─────────────────────┐
+                    │ ShotStrategy        │ ← interface
+                    │                     │
+                    │ + calculateShot()   │
+                    │ + getName()         │
+                    └──────────┬──────────┘
+                               │
+              ┌────────────────┼────────────────┐
+              │                │                │
+   ┌──────────▼──────┐ ┌──────▼──────┐ ┌───────▼─────────┐
+   │ Parametric       │ │ LUT         │ │ Hybrid          │
+   │ Strategy         │ │ Strategy    │ │ Strategy        │
+   │                  │ │             │ │                  │
+   │ (current code)   │ │ (pure LUT) │ │ (parametric RPM │
+   │                  │ │             │ │  + LUT TOF)     │
+   └──────────────────┘ └─────────────┘ └─────────────────┘
+```
+
+The `ShootingCoordinator` holds a reference to the active `ShotStrategy`
+and delegates to it. A dashboard button or tunable toggles between them.
+
+### 3.3 Step-by-Step Implementation Plan
+
+Here is exactly what you will build, file by file. **Do not write any code
+until you have read and understood all steps.**
+
+#### Step 1: Create the `ShotStrategy` interface
+
+**File**: `src/main/java/frc/robot/subsystems/shooting/ShotStrategy.java`
+
+This interface defines the contract for any shot calculation approach:
+
+```java
+public interface ShotStrategy {
+
+    /** Human-readable name for dashboard display. */
+    String getName();
+
+    /**
+     * Calculate a hub shot with velocity compensation.
+     *
+     * @param robotPose       Current robot pose on the field
+     * @param fieldSpeeds     Field-relative robot velocity
+     * @param hubTarget       3D position of the hub center
+     * @param turretPos       3D position of the turret on the field
+     * @param config          Turret geometry config
+     * @param currentTurretAngleDeg  Current turret angle for wrap optimization
+     * @param effectiveMinDeg Turret min angle
+     * @param effectiveMaxDeg Turret max angle
+     * @param hoodMinAngleDeg Hood min angle
+     * @param hoodMaxAngleDeg Hood max angle
+     * @return ShotResult with all parameters needed to fire
+     */
+    ShotCalculator.ShotResult calculateHubShot(
+        Pose2d robotPose,
+        ChassisSpeeds fieldSpeeds,
+        Translation3d hubTarget,
+        ShotCalculator.TurretConfig config,
+        double currentTurretAngleDeg,
+        double effectiveMinDeg,
+        double effectiveMaxDeg,
+        double hoodMinAngleDeg,
+        double hoodMaxAngleDeg);
+}
+```
+
+Think about why the interface signature matches `ShotCalculator.calculateHubShot`
+almost exactly. This makes it a drop-in replacement.
+
+#### Step 2: Wrap the existing code as `ParametricShotStrategy`
+
+**File**: `src/main/java/frc/robot/subsystems/shooting/ParametricShotStrategy.java`
+
+This class simply delegates to the existing `ShotCalculator.calculateHubShot()`.
+All of our current code stays untouched.
+
+```java
+public class ParametricShotStrategy implements ShotStrategy {
+
+    @Override
+    public String getName() {
+        return "Parametric";
+    }
+
+    @Override
+    public ShotCalculator.ShotResult calculateHubShot(
+            Pose2d robotPose,
+            ChassisSpeeds fieldSpeeds,
+            Translation3d hubTarget,
+            ShotCalculator.TurretConfig config,
+            double currentTurretAngleDeg,
+            double effectiveMinDeg,
+            double effectiveMaxDeg,
+            double hoodMinAngleDeg,
+            double hoodMaxAngleDeg) {
+
+        // Delegate to existing code — zero behavior change
+        return ShotCalculator.calculateHubShot(
+            robotPose, fieldSpeeds, hubTarget, config,
+            currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg,
+            hoodMinAngleDeg, hoodMaxAngleDeg);
+    }
+}
+```
+
+**Exercise 3.3a**: Why is it important that the parametric strategy is a
+thin wrapper with no new logic? (Answer: it guarantees that toggling back
+to "Parametric" gives you exactly the same behavior as before. No regressions.)
+
+#### Step 3: Build the `LUTShotStrategy`
+
+**File**: `src/main/java/frc/robot/subsystems/shooting/LUTShotStrategy.java`
+
+This is where the real learning happens. You need to:
+
+1. **Define three `InterpolatingDoubleTreeMap`s** — for TOF, RPM, and hood angle
+2. **Populate them with placeholder data** (you'll replace with real measurements later)
+3. **Implement the LUT recursion algorithm from Section 2.3**
+4. **Calculate the turret angle** (reuse `ShotCalculator.calculateOutsideTurretAngle`)
+
+Here's the skeleton — you fill in the algorithm:
+
+```java
+public class LUTShotStrategy implements ShotStrategy {
+
+    private final InterpolatingDoubleTreeMap tofTable = new InterpolatingDoubleTreeMap();
+    private final InterpolatingDoubleTreeMap rpmTable = new InterpolatingDoubleTreeMap();
+    private final InterpolatingDoubleTreeMap hoodAngleTable = new InterpolatingDoubleTreeMap();
+
+    public LUTShotStrategy() {
+        // TODO: Populate with measured data
+        // tofTable.put(distanceMeters, timeOfFlightSeconds);
+        // rpmTable.put(distanceMeters, rpm);
+        // hoodAngleTable.put(distanceMeters, hoodAngleDeg);
+    }
+
+    @Override
+    public String getName() {
+        return "LUT";
+    }
+
+    @Override
+    public ShotCalculator.ShotResult calculateHubShot(...) {
+        // Step 1: Calculate turret field position (reuse ShotCalculator helper)
+
+        // Step 2: Calculate static distance to hub
+
+        // Step 3: Initial TOF guess from table
+
+        // Step 4: Iterative refinement (3-5 iterations)
+        //   - predictTargetPos using current tof
+        //   - recalculate distance to predicted target
+        //   - look up new tof from table
+
+        // Step 5: Look up RPM and hood angle for final distance
+
+        // Step 6: Calculate turret angle (reuse ShotCalculator helper)
+
+        // Step 7: Build and return ShotResult
+    }
+}
+```
+
+**Key decisions you need to make:**
+- How many iterations? (Start with 3, same as our current code)
+- What happens if the aim distance falls outside your table range?
+  (Clamp? Extrapolate? Return unachievable?)
+- Should you use the LUT's RPM or still use TrajectoryOptimizer for RPM?
+
+**Exercise 3.3b**: Implement the `calculateHubShot` method. Before writing
+code, write pseudocode on a whiteboard. Have another student review it. Then
+translate to Java.
+
+#### Step 4: Build the `HybridShotStrategy`
+
+**File**: `src/main/java/frc/robot/subsystems/shooting/HybridShotStrategy.java`
+
+This combines the best of both worlds:
+- **TOF from the LUT** (captures real drag)
+- **RPM + hood angle from TrajectoryOptimizer** (smooth, no gaps)
+
+The implementation is similar to `LUTShotStrategy`, but:
+- The iteration loop uses `tofTable.get(distance)` for TOF
+- After convergence, it calls `TrajectoryOptimizer.calculateOptimalShot()`
+  for the final RPM and hood angle (instead of looking those up in a table)
+
+Think of it as: "Use the LUT to figure out WHERE to aim (lead compensation),
+then use the parametric model to figure out HOW to aim (RPM/hood)."
+
+```java
+public class HybridShotStrategy implements ShotStrategy {
+
+    // Only need a TOF table — RPM and hood come from TrajectoryOptimizer
+    private final InterpolatingDoubleTreeMap tofTable = new InterpolatingDoubleTreeMap();
+
+    public HybridShotStrategy() {
+        // TODO: Populate with measured TOF data only
+    }
+
+    @Override
+    public String getName() {
+        return "Hybrid";
+    }
+
+    @Override
+    public ShotCalculator.ShotResult calculateHubShot(...) {
+        // Step 1: Turret field position
+
+        // Step 2: Static distance
+
+        // Step 3: TOF from LUT (not from physics)
+
+        // Step 4: Iterate to find aim point (using LUT TOF at each step)
+
+        // Step 5: TrajectoryOptimizer.calculateOptimalShot() for final RPM/hood
+
+        // Step 6: Turret angle
+
+        // Step 7: Return ShotResult
+    }
+}
+```
+
+**Exercise 3.3c**: What advantage does the hybrid have over pure LUT when
+you're at a distance between your measured points (e.g., 3.7m when you
+measured at 3m and 4m)?
+
+#### Step 5: Integrate into `ShootingCoordinator`
+
+Modify `ShootingCoordinator.java` to hold a `ShotStrategy` and use it:
+
+1. Add a field: `private ShotStrategy activeStrategy;`
+2. Add a `LoggedTunableNumber` to select strategy (0=Parametric, 1=LUT, 2=Hybrid)
+3. In `updateShotCalculation`, replace the direct call to
+   `ShotCalculator.calculateHubShot()` with `activeStrategy.calculateHubShot()`
+4. Log which strategy is active: `Logger.recordOutput("Shots/Strategy", activeStrategy.getName())`
+5. Check the tunable each cycle and swap strategies if it changed
+
+**Important**: The pass shot calculation does NOT need to use the strategy
+pattern — it's a different kind of shot with different physics. Keep it
+as-is for now.
+
+**Exercise 3.3d**: What are the risks of swapping strategies mid-match?
+Should you allow it? What safeguards would you add?
+
+---
+
+## Session 4: Testing, Tuning, and Comparison
+
+### 4.1 Simulation Testing (Before You Touch the Real Robot)
+
+Our simulation environment lets you test all three strategies without
+hardware. Here's how:
+
+1. **Deploy to sim** (`./gradlew simulateJava`)
+2. **Open AdvantageScope** and connect
+3. **Drive the robot in sim** using keyboard/gamepad
+4. **Toggle the strategy tunable** on the dashboard
+5. **Compare**: For the same robot path, do the three strategies produce
+   different aim points? Different RPMs? Different hood angles?
+
+**What to log and compare:**
+
+| Metric | Key in AdvantageScope |
+|--------|-----------------------|
+| Active strategy | `Shots/Strategy` |
+| Aim point offset | `Turret/Shot/VelocityCompensation/AimOffsetM` |
+| Exit velocity | `Turret/Shot/ExitVelocityMps` |
+| Hood angle | `Turret/Shot/HoodAngleDeg` |
+| Launch angle | `Turret/Shot/LaunchAngleDeg` |
+| Target RPM | `SmartLaunch/Target/RPM` |
+| Distance to target | `Turret/Shot/DistanceToTargetM` |
+
+**Exercise 4.1a**: Create a sim test:
+1. Position robot at (3, 4), facing the hub
+2. Drive at constant 2 m/s toward the hub
+3. Record the aim offset for all three strategies at distances 6m, 5m, 4m, 3m
+4. Make a table comparing them. Which strategy leads more? Why?
+
+### 4.2 Real Robot Data Collection
+
+Once you've verified the code works in sim, it's time to collect real data
+to populate the LUT tables.
+
+**Data Collection Protocol:**
+
+```
+Equipment needed:
+  - Measuring tape (8m+) or laser distance meter
+  - Phone with 240fps slow-motion camera
+  - Laptop with AdvantageScope open
+  - Spreadsheet (Google Sheets works)
+
+Procedure for each distance (2m, 3m, 4m, 5m, 6m, 7m):
+
+  1. Position robot at measured distance from hub center
+  2. Switch to Parametric strategy
+  3. Let system calculate RPM and hood angle
+  4. Fire 5 shots — record how many score
+  5. If < 4/5 score, manually adjust RPM ±50 and hood ±1° until consistent
+  6. Record FINAL values: (distance, RPM, hoodAngle)
+  7. Record time-of-flight:
+     - Start phone slow-mo recording
+     - Fire 3 shots
+     - Count frames from ball leaving shooter to ball entering hub
+     - TOF = average(frames) / 240
+  8. Move to next distance
+```
+
+**Spreadsheet template:**
+
+| Distance (m) | RPM  | Hood Angle (deg) | TOF (s) | Shots Scored (out of 5) | Notes |
+|---------------|------|-------------------|---------|--------------------------|-------|
+| 2.0           |      |                   |         |                          |       |
+| 3.0           |      |                   |         |                          |       |
+| 4.0           |      |                   |         |                          |       |
+| 5.0           |      |                   |         |                          |       |
+| 6.0           |      |                   |         |                          |       |
+| 7.0           |      |                   |         |                          |       |
+
+### 4.3 Populating the LUT From Real Data
+
+Once you have your spreadsheet, update the constructors in
+`LUTShotStrategy` and `HybridShotStrategy`:
+
+```java
+// Example with real data (replace with YOUR measurements)
+tofTable.put(2.0, 0.42);
+tofTable.put(3.0, 0.58);
+tofTable.put(4.0, 0.78);
+tofTable.put(5.0, 1.01);
+tofTable.put(6.0, 1.28);
+tofTable.put(7.0, 1.59);
+```
+
+**Tip**: Compare your measured TOF to what the parametric model calculates.
+The parametric value will be SHORTER because it ignores drag. The difference
+tells you how much drag matters at each distance. If the difference is small
+(< 0.05s), drag isn't a big factor and the hybrid approach won't help much.
+
+### 4.4 Head-to-Head Comparison Test
+
+Now the fun part: testing which approach actually scores better while moving.
+
+**Test protocol:**
+
+```
+For each strategy (Parametric, LUT, Hybrid):
+
+  Trial 1: Stationary shots at 4m (baseline — all should be equal)
+    - Fire 10 shots, record scores
+
+  Trial 2: Slow strafe at 1 m/s, perpendicular to hub, at 4m distance
+    - Fire 10 shots, record scores
+
+  Trial 3: Fast strafe at 2 m/s, perpendicular to hub, at 4m distance
+    - Fire 10 shots, record scores
+
+  Trial 4: Driving toward hub from 6m to 3m at ~1.5 m/s
+    - Fire as many shots as possible, record total/scored
+
+  Trial 5: Match-realistic path (pre-plan a short auto trajectory)
+    - Run 3 times per strategy, record scores
+```
+
+Record everything. Build a comparison chart.
+
+### 4.5 Advanced: Adding a Velocity Filter
+
+If you notice over-leading (shots going past the hub when the driver
+decelerates), consider adding a velocity filter to smooth the robot
+speed input.
+
+This would go in `ShootingCoordinator` before the strategy is called:
+
+```java
+// Exponential moving average for field speeds
+private double filteredVx = 0;
+private double filteredVy = 0;
+private static final double ALPHA = 0.15; // lower = smoother, more lag
+
+private ChassisSpeeds getFilteredSpeeds(ChassisSpeeds raw) {
+    filteredVx = ALPHA * raw.vxMetersPerSecond + (1 - ALPHA) * filteredVx;
+    filteredVy = ALPHA * raw.vyMetersPerSecond + (1 - ALPHA) * filteredVy;
+    return new ChassisSpeeds(filteredVx, filteredVy, raw.omegaRadiansPerSecond);
+}
+```
+
+**Exercise 4.5a**: What is the tradeoff of the `ALPHA` parameter?
+- ALPHA = 1.0: No filtering (current behavior)
+- ALPHA = 0.5: Moderate smoothing
+- ALPHA = 0.1: Heavy smoothing (lots of lag)
+
+Try different values and see how they affect shot accuracy during
+acceleration and deceleration.
+
+---
+
+## Summary: Comparison of Approaches
+
+| Aspect | Parametric (Current) | LUT (Pure Lookup) | Hybrid (LUT TOF + Parametric RPM) |
+|--------|---------------------|--------------------|------------------------------------|
+| **Setup time** | None — just physics | Hours of measurement | 30 min (TOF only) |
+| **Air drag** | Ignored | Captured in data | Captured in TOF data |
+| **Distance gaps** | None — continuous | Interpolation only | Best of both |
+| **Hardware changes** | Update constants | Re-measure everything | Re-measure TOF only |
+| **Complexity** | Medium | Low | Medium |
+| **Our recommendation** | Keep as default | Build for comparison | Try as upgrade path |
+
+---
+
+## References
+
+- [Chief Delphi: Poll — How Are You Shooting on the Move?](https://www.chiefdelphi.com/t/poll-how-are-you-shooting-on-the-move/514641)
+- [Chief Delphi: Recursive TOF Fire Control Simulator (Interactive)](https://www.chiefdelphi.com/t/recursive-time-of-flight-fire-control-simulator-for-frc-docs-preview/513819)
+- [Chief Delphi: Shoot on the Move from the Code Perspective](https://www.chiefdelphi.com/t/shoot-on-the-move-from-the-code-perspective/511815)
+- [Chief Delphi: Time of Flight Determination](https://www.chiefdelphi.com/t/time-of-flight-determination/512542/25)
+- [Chief Delphi: Real-Time vs Lookup Table for Parabolic Shooter Angle](https://www.chiefdelphi.com/t/real-time-vs-lookup-table-for-parabolic-shooter-angle/512732)
+- [WPILib Docs: InterpolatingDoubleTreeMap](https://github.wpilib.org/allwpilib/docs/release/java/edu/wpi/first/math/interpolation/InterpolatingDoubleTreeMap.html)
+- [6328 Mechanical Advantage 2026 Build Thread](https://www.chiefdelphi.com/t/frc-6328-mechanical-advantage-2026-build-thread/509595/421)
+
+---
+
+## File Map: Where Everything Lives
+
+```
+Existing files (READ THESE FIRST):
+  ShotCalculator.java         → Physics, TOF, velocity compensation, turret angles
+  TrajectoryOptimizer.java    → Two-point trajectory solve, RPM/hood calculation
+  ShootingCoordinator.java    → Orchestration, auto-shoot, dispatching
+
+Files you will create:
+  ShotStrategy.java           → Interface (Step 1)
+  ParametricShotStrategy.java → Wraps existing code (Step 2)
+  LUTShotStrategy.java        → Pure lookup table approach (Step 3)
+  HybridShotStrategy.java     → LUT TOF + parametric RPM/hood (Step 4)
+
+Files you will modify:
+  ShootingCoordinator.java    → Add strategy selection + delegation (Step 5)
+```
