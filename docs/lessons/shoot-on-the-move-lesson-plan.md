@@ -6,10 +6,40 @@ Students who already understand our robot code structure and want to deeply
 understand how our shooting system works, why it makes the choices it does,
 and how to build an alternative approach that could improve accuracy.
 
-**Prerequisites**: Basic Java, understanding of WPILib subsystems/commands,
-comfortable reading our codebase.
+**Prerequisites**:
+- **Java**: Comfortable with interfaces, inheritance, and reading unfamiliar
+  classes. You don't need to be an expert — if you've taken AP CS A or
+  equivalent, you're ready.
+- **Math**: Trigonometry (sin, cos, tan, atan2) and basic kinematics
+  (d = vt, d = v₀t + ½at²). If you've taken or are in AP Physics 1 or
+  AP Calculus, you have everything you need. If not, the relevant equations
+  are explained as they come up — you can learn them here.
+- **WPILib**: Understanding of subsystems, commands, `Pose2d`, and
+  `ChassisSpeeds`. You should know what field-relative coordinates mean.
+- **Our codebase**: You've read through at least one subsystem end-to-end
+  and can navigate the project in your IDE.
 
-**Time estimate**: 4 sessions of ~2 hours each.
+**Time estimate**: 5 sessions of ~2 hours each. Sessions 1-2 are reading
+and understanding. Sessions 3-4 are building and testing. Session 5 is an
+advanced improvement that can be done independently.
+
+### How to Use This Guide
+
+**If you have limited time** (e.g., build season crunch): Do Sessions 1, 2,
+and 5. You'll deeply understand how the system works and can implement the
+velocity prediction improvement without building the full strategy system.
+
+**If you have a full week**: Do all 5 sessions in order. Each builds on the
+last.
+
+**General tips**:
+- Do the exercises. Seriously. Reading code is not the same as understanding
+  it. The hand calculations in Session 1 will save you hours of debugging
+  later.
+- Work with a partner if possible. The design discussions (3.3a, 3.3d, 5.4a)
+  are much better as conversations.
+- Keep AdvantageScope open while reading. Seeing the real logged values
+  alongside the code makes everything click faster.
 
 ---
 
@@ -119,16 +149,79 @@ v² = g / (2·K·cos²(θ))
 RPM = (v / (2π·r·efficiency)) × 60
 ```
 
-**Exercise 1.3a**: Pick a distance (say D = 4.0m). Using the constants from
-the code, calculate by hand:
+#### Worked Example: D = 5.0m
+
+Let's walk through the math once at D = 5.0m so you see how the pieces fit.
+You'll do it yourself at a different distance in the exercise below.
+
+```
+Given:
+  D = 5.0m (distance from turret to hub center)
+  R = 0.530m (hub entry radius)
+  hubCenterHeight = 1.43m
+  turretHeight ≈ 0.60m (from robot geometry)
+  descentAngle = 60°
+
+Step 1: Find Point A (hub edge) and Point B (hub center)
+
+  x₁ = D - R = 5.0 - 0.530 = 4.47m
+  y₁ = (hubCenterHeight + R·tan(60°)) - turretHeight
+     = (1.43 + 0.530 × 1.732) - 0.60
+     = (1.43 + 0.918) - 0.60
+     = 1.748m
+
+  x₂ = D = 5.0m
+  y₂ = hubCenterHeight - turretHeight = 1.43 - 0.60 = 0.83m
+
+Step 2: Solve for tan(θ)
+
+  tan(θ) = (y₁·x₂² - y₂·x₁²) / (x₁·x₂·(x₂ - x₁))
+         = (1.748 × 25.0 - 0.83 × 19.98) / (4.47 × 5.0 × 0.53)
+         = (43.70 - 16.58) / (11.85)
+         = 27.12 / 11.85
+         = 2.288
+
+  θ = atan(2.288) = 66.4°
+
+Step 3: Solve for K, then v
+
+  K = (x₁·tan(θ) - y₁) / x₁²
+    = (4.47 × 2.288 - 1.748) / 19.98
+    = (10.23 - 1.748) / 19.98
+    = 0.4244
+
+  v² = g / (2·K·cos²(θ))
+     = 9.81 / (2 × 0.4244 × cos²(66.4°))
+     = 9.81 / (2 × 0.4244 × 0.1597)
+     = 9.81 / 0.1356
+     = 72.3
+
+  v = 8.51 m/s
+
+Step 4: Convert to RPM
+
+  RPM = (v / (2π × WHEEL_RADIUS × efficiency)) × 60
+      = (8.51 / (2π × 0.0508 × 0.4)) × 60
+      = (8.51 / 0.1277) × 60
+      = 66.64 × 60
+      = 3998 RPM
+```
+
+Don't worry if your numbers don't match exactly — the turret height and
+descent angle are tunables that may have changed. The point is understanding
+the PROCESS: two points define a parabola, and from that parabola you
+extract the launch angle and velocity.
+
+**Exercise 1.3a**: Now do it yourself at D = 4.0m. Using the same constants:
 1. What are Point A and Point B? (x₁, y₁, x₂, y₂)
 2. What is tan(θ)?
 3. What launch angle θ does this give?
 4. What exit velocity v is needed?
-5. What RPM does that require? (WHEEL_RADIUS = 0.0508m, efficiency = 0.4)
+5. What RPM does that require?
 
 Check your answers against what the robot logs in AdvantageScope at that
-distance.
+distance. They should be close but may not match exactly (the code uses
+slightly different constants and includes additional corrections).
 
 ### 1.4 Velocity Compensation — The Iterative Prediction Loop
 
@@ -180,10 +273,22 @@ for typical FRC speeds (< 5 m/s).
 
 **Exercise 1.4a**: If the robot is at (3, 4) moving at vx=2.0, vy=0.0 m/s
 and the hub is at (5, 4, 1.43):
-1. What is the initial distance? Initial TOF? (assume v_exit = 8 m/s, θ = 55°)
-2. After iteration 1, where is the aim target? What is the new distance?
-3. After iteration 2?
+
+The TOF formula from our code (line 157) is:
+```
+TOF = horizontalDistance / (v_exit × cos(θ))
+```
+This is just "distance = speed × time" rearranged, using the horizontal
+component of the exit velocity.
+
+Using v_exit = 8 m/s and θ = 55°:
+1. What is the initial horizontal distance? What is the initial TOF?
+   (Hint: distance from (3,4) to (5,4) = 2.0m. TOF = 2.0 / (8 × cos(55°)) = ?)
+2. Using that TOF, where does `predictTargetPos` put the aim target?
+   What is the new distance to THAT point?
+3. Repeat: use the new distance to get a new TOF, then a new aim target.
 4. How much did the aim point change between iterations 2 and 3?
+   (If it changed less than 1cm, the iteration has converged.)
 
 ### 1.5 What This Approach Gets Right and Where It Falls Short
 
@@ -212,6 +317,20 @@ and the hub is at (5, 4, 1.43):
 **Exercise 1.5a**: Discussion question — which of these three weaknesses do
 you think matters most for our robot at typical shooting distances (3-6m)?
 Why?
+
+### Session 1 Key Takeaways
+
+If you can explain these to a teammate, you're ready for Session 2:
+
+1. The shooting system uses a **two-point trajectory solver** to find the
+   exact launch angle and velocity that sends the ball through the hub lip
+   and into the center.
+2. Velocity compensation works by **iteratively offsetting the aim point**
+   to account for robot motion during ball flight.
+3. The iteration converges because each refinement makes a smaller change
+   — typically < 1cm after 3 iterations.
+4. The main weaknesses are: no air drag in TOF, instantaneous velocity
+   assumption, and a single fudge-factor efficiency constant.
 
 ---
 
@@ -348,6 +467,18 @@ partially defeats the purpose — you'd still be assuming no drag.
 4. How long will it take?
 5. What do you do if a measurement seems wrong?
 
+### Session 2 Key Takeaways
+
+1. A LUT replaces physics equations with **measured data** — you record what
+   actually works and interpolate between measurements.
+2. The LUT recursion algorithm has the **exact same structure** as our
+   parametric iteration loop. The only difference is where TOF/RPM/hood
+   values come from.
+3. LUT's main advantage: measured TOF **inherently captures air drag** and
+   other real-world effects that physics models ignore.
+4. LUT's main cost: you need **physical robot time** to collect data, and
+   you have to redo it when hardware changes.
+
 ---
 
 ## Session 3: The Hybrid Approach — Best of Both Worlds
@@ -373,8 +504,16 @@ This gives us:
 ### 3.2 Architecture: The Strategy Pattern
 
 We want the system to be easily toggled between approaches. The cleanest
-way is the **Strategy pattern**: define an interface for shot calculation,
-implement it two (or three) ways, and switch between them.
+way is something called the **Strategy pattern** — a classic software design
+technique where you define an interface for an algorithm, write multiple
+implementations of it, and swap between them at runtime.
+
+If you've taken AP CS, think of it like this: you already know that a
+`List<String>` can be backed by `ArrayList` or `LinkedList`. The code that
+uses the list doesn't care which one — it just calls `list.add()`. The
+Strategy pattern is the same idea applied to our shot calculation: the
+`ShootingCoordinator` doesn't care HOW the shot is calculated, it just
+calls `strategy.calculateHubShot()`.
 
 Here is the design:
 
@@ -401,6 +540,9 @@ The `ShootingCoordinator` holds a reference to the active `ShotStrategy`
 and delegates to it. A dashboard button or tunable toggles between them.
 
 ### 3.3 Step-by-Step Implementation Plan
+
+This is the most code-intensive session. It's normal if it takes longer than
+2 hours — the important thing is understanding each piece before moving on.
 
 Here is exactly what you will build, file by file. **Do not write any code
 until you have read and understood all steps.**
@@ -485,8 +627,8 @@ public class ParametricShotStrategy implements ShotStrategy {
 ```
 
 **Exercise 3.3a**: Why is it important that the parametric strategy is a
-thin wrapper with no new logic? (Answer: it guarantees that toggling back
-to "Parametric" gives you exactly the same behavior as before. No regressions.)
+thin wrapper with no new logic? Think about what happens when something
+goes wrong with your new strategy mid-match and you need to fall back.
 
 #### Step 3: Build the `LUTShotStrategy`
 
@@ -521,7 +663,17 @@ public class LUTShotStrategy implements ShotStrategy {
     }
 
     @Override
-    public ShotCalculator.ShotResult calculateHubShot(...) {
+    public ShotCalculator.ShotResult calculateHubShot(
+            Pose2d robotPose,
+            ChassisSpeeds fieldSpeeds,
+            Translation3d hubTarget,
+            ShotCalculator.TurretConfig config,
+            double currentTurretAngleDeg,
+            double effectiveMinDeg,
+            double effectiveMaxDeg,
+            double hoodMinAngleDeg,
+            double hoodMaxAngleDeg) {
+
         // Step 1: Calculate turret field position (reuse ShotCalculator helper)
 
         // Step 2: Calculate static distance to hub
@@ -584,7 +736,17 @@ public class HybridShotStrategy implements ShotStrategy {
     }
 
     @Override
-    public ShotCalculator.ShotResult calculateHubShot(...) {
+    public ShotCalculator.ShotResult calculateHubShot(
+            Pose2d robotPose,
+            ChassisSpeeds fieldSpeeds,
+            Translation3d hubTarget,
+            ShotCalculator.TurretConfig config,
+            double currentTurretAngleDeg,
+            double effectiveMinDeg,
+            double effectiveMaxDeg,
+            double hoodMinAngleDeg,
+            double hoodMaxAngleDeg) {
+
         // Step 1: Turret field position
 
         // Step 2: Static distance
@@ -623,6 +785,18 @@ as-is for now.
 
 **Exercise 3.3d**: What are the risks of swapping strategies mid-match?
 Should you allow it? What safeguards would you add?
+
+### Session 3 Key Takeaways
+
+1. The **Strategy pattern** lets you swap between different shot calculation
+   approaches without changing the code that calls them.
+2. The parametric wrapper should be a **thin delegate** with zero new logic —
+   this guarantees you can always fall back to known-good behavior.
+3. The hybrid approach (LUT TOF + parametric RPM/hood) is often the best
+   tradeoff: you get drag-corrected aim points without needing to measure
+   RPM and hood angle by hand.
+4. Good interface design means the `ShootingCoordinator` doesn't care which
+   strategy is active — it just calls `calculateHubShot()`.
 
 ---
 
@@ -775,11 +949,26 @@ private ChassisSpeeds getFilteredSpeeds(ChassisSpeeds raw) {
 Try different values and see how they affect shot accuracy during
 acceleration and deceleration.
 
+### Session 4 Key Takeaways
+
+1. **Always test in sim first.** It's free, fast, and catches most bugs
+   before you waste robot time.
+2. Data collection is tedious but essential. A good spreadsheet is the
+   difference between "our LUT works" and "our LUT kinda works sometimes."
+3. The head-to-head comparison test is the **only thing that actually
+   matters** — theory is great, but scored-shots-per-attempt is the metric.
+4. A velocity filter (EMA) is a simple first attempt at smoothing the
+   over-leading problem. Session 5 offers a more principled solution.
+
 ---
 
 ## Session 5: Smarter Velocity Prediction
 
 ### 5.1 The Problem With Instantaneous Velocity
+
+This session is the most physics-heavy. The math is all kinematics you've
+seen in physics class — no calculus required. If any equation looks
+unfamiliar, try plugging in numbers first. The intuition follows.
 
 By now you've built the strategy system, collected data, and run comparison
 tests. If you ran Trial 4 (driving toward the hub) carefully, you probably
@@ -925,6 +1114,9 @@ decelerating at -6.0 m/s², with a TOF of 0.7s:
 2. What does the acceleration-compensated version predict?
 3. At what TOF does the acceleration term matter more than 10cm?
 
+*Hint for self-checking*: For part 1, displacement = v×t = 2.0 × 0.7 = 1.40m.
+For part 2, add the ½at² term. For part 3, solve |½ × (-6) × t²| > 0.10.
+
 #### Approach B: Command-Based Prediction
 
 Instead of measuring what the robot IS doing, look at what the driver is
@@ -982,7 +1174,12 @@ the shooting system. The `transitionTime` constant is a guess.
 3. Auto mode — commanded speeds come from trajectory follower. Is this better
    or worse than teleop?
 
-#### Approach C: Blended Prediction (Team 4744's Insight)
+#### Approach C: Blended Prediction (Stretch Goal — Team 4744's Insight)
+
+*This approach uses linear regression, which you may not have seen yet.
+It's here for completeness and for students who want a challenge. If the
+math below feels unfamiliar, skip to Section 5.4 — Approaches A and B
+are fully sufficient.*
 
 Team 4744 (Ninjas) from the Chief Delphi thread noted that the hardest part
 isn't predicting pose — it's predicting **future velocity**. Their approach:
@@ -1136,6 +1333,11 @@ scenarios and decide which ones benefit from Approach A:
 | Far, braking | 2.0 m/s | -6 m/s² | 1.0s | ? | |
 | Far, accelerating | 0.5 m/s | +4 m/s² | 1.0s | ? | |
 
+*Hint*: Two of these rows have zero acceleration, so ½at² = 0. For the
+others, just plug in. You should find that "Far, braking" has a correction
+of 3.0m — enormous. "Close, braking" is 0.48m — still significant. The
+pattern: it matters when |a| is large AND TOF is long.
+
 ### 5.7 What About Pass Shots?
 
 Everything in this session applies to pass shots too — and arguably matters
@@ -1166,6 +1368,24 @@ decelerating at -5 m/s². Calculate:
 2. The corrected lead with acceleration compensation
 3. Compare the error to the width of a robot (~0.7m). Could this be the
    difference between a catchable and uncatchable pass?
+
+*Hint for self-checking*: The constant-velocity lead is 2.5 × 1.3 = 3.25m.
+The acceleration correction ½at² = 0.5 × (-5) × 1.69 = -4.225m. Think
+about what that means — the robot will actually STOP before the ball
+arrives (v₀/|a| = 0.5s < 1.3s TOF), so you'd also want to clamp the
+prediction. This is a real edge case worth discussing.
+
+### Session 5 Key Takeaways
+
+1. The biggest accuracy problem in shoot-on-the-move is the **constant
+   velocity assumption** — the robot is almost never at constant velocity
+   when the driver is maneuvering.
+2. The correction term `½at²` grows with the **square** of TOF, so it
+   matters most for long-range shots and passes.
+3. Acceleration can be estimated from recent velocity history. The tradeoff
+   is noise (short window) vs. lag (long window).
+4. This fix lives in `predictTargetPos` — shared infrastructure — so it
+   benefits ALL strategies and both hub shots and pass shots.
 
 ---
 
