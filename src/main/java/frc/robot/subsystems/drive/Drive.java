@@ -299,10 +299,27 @@ public class Drive extends SubsystemBase {
     return states;
   }
 
-  /** Returns the measured chassis speeds of the robot (field-relative). */
+  /** Returns the measured chassis speeds of the robot (robot-relative). */
   @AutoLogOutput(key = "Drive/ChassisSpeeds/Measured")
   public ChassisSpeeds getChassisSpeeds() {
     return kinematics.toChassisSpeeds(getModuleStates());
+  }
+
+  /**
+   * Returns the measured chassis speeds of the robot in field-relative coordinates. Rotates the
+   * robot-relative speeds from {@link #getChassisSpeeds()} by the current heading so that vx/vy
+   * align with the field X/Y axes.
+   */
+  @AutoLogOutput(key = "Drive/ChassisSpeeds/FieldRelative")
+  public ChassisSpeeds getFieldRelativeSpeeds() {
+    ChassisSpeeds robotRelative = getChassisSpeeds();
+    double heading = getRotation().getRadians();
+    double cos = Math.cos(heading);
+    double sin = Math.sin(heading);
+    return new ChassisSpeeds(
+        robotRelative.vxMetersPerSecond * cos - robotRelative.vyMetersPerSecond * sin,
+        robotRelative.vxMetersPerSecond * sin + robotRelative.vyMetersPerSecond * cos,
+        robotRelative.omegaRadiansPerSecond);
   }
 
   /** Returns the position of each module in radians. */

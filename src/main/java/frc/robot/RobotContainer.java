@@ -404,7 +404,7 @@ public class RobotContainer {
     // coordinator
     if (turret != null) {
       shootingCoordinator = new ShootingCoordinator(turret, hood, launcher, motivator);
-      shootingCoordinator.initialize(drive::getPose, () -> drive.getChassisSpeeds());
+      shootingCoordinator.initialize(drive::getPose, drive::getFieldRelativeSpeeds);
       if (spindexer != null) {
         shootingCoordinator.setFeedingSuppressedSupplier(spindexer::isFeedingSuppressed);
       }
@@ -963,7 +963,7 @@ public class RobotContainer {
 
     // Register the robot with the simulation
     fuelSim.registerRobot(
-        robotWidth, robotLength, bumperHeight, drive::getPose, () -> drive.getChassisSpeeds());
+        robotWidth, robotLength, bumperHeight, drive::getPose, drive::getFieldRelativeSpeeds);
 
     // Register intake with fuel simulation for pickup collision detection
     // Intake zone: 10 inches (0.254m) from front frame, 30 inches (0.762m) wide
