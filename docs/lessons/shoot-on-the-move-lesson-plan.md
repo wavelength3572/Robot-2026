@@ -1136,6 +1136,37 @@ scenarios and decide which ones benefit from Approach A:
 | Far, braking | 2.0 m/s | -6 m/s² | 1.0s | ? | |
 | Far, accelerating | 0.5 m/s | +4 m/s² | 1.0s | ? | |
 
+### 5.7 What About Pass Shots?
+
+Everything in this session applies to pass shots too — and arguably matters
+**more** for them.
+
+Look at `ShotCalculator.calculatePassShot()` — it calls the same
+`predictTargetPos()` function to lead the target. But pass shots are
+different in two ways that make the acceleration problem worse:
+
+1. **Longer TOF.** Pass shots are typically lower-velocity, longer-arc lobs.
+   A hub shot at 5m might have a TOF of ~0.8s; a pass over the same distance
+   might be 1.2s+. Since the acceleration correction is `½at²`, doubling the
+   TOF **quadruples** the error.
+
+2. **Larger distances.** You're often passing 6-8+ meters across the field.
+   The combination of long distance (high TOF) and high robot speed (driving
+   into position) means the correction term can easily be 0.5m or more.
+
+The good news: because `predictTargetPos` is shared infrastructure, the
+acceleration-compensated version you build in this session fixes both shot
+types with zero extra work. You don't need a strategy pattern for passes —
+the parametric pass calculation is fine. You just need the aim point to be
+correct, and that's exactly what better velocity prediction gives you.
+
+**Exercise 5.7a**: A pass shot has TOF = 1.3s. The robot is at 2.5 m/s and
+decelerating at -5 m/s². Calculate:
+1. The over-lead with the current (constant velocity) prediction
+2. The corrected lead with acceleration compensation
+3. Compare the error to the width of a robot (~0.7m). Could this be the
+   difference between a catchable and uncatchable pass?
+
 ---
 
 ## Summary: Comparison of Approaches
