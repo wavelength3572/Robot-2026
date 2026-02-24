@@ -777,6 +777,367 @@ acceleration and deceleration.
 
 ---
 
+## Session 5: Smarter Velocity Prediction
+
+### 5.1 The Problem With Instantaneous Velocity
+
+By now you've built the strategy system, collected data, and run comparison
+tests. If you ran Trial 4 (driving toward the hub) carefully, you probably
+noticed something: **shots fired while the driver is decelerating tend to
+miss long** (past the hub), and shots fired while accelerating miss short.
+
+Why? Look at `ShotCalculator.predictTargetPos()` (line 185):
+
+```java
+double predictedX = target.getX() - fieldSpeeds.vxMetersPerSecond * timeOfFlight;
+double predictedY = target.getY() - fieldSpeeds.vyMetersPerSecond * timeOfFlight;
+```
+
+This assumes the robot moves at **constant velocity** during the entire ball
+flight. But that's almost never true:
+
+```
+Scenario: Robot moving at 2.0 m/s, driver releases joystick, ball TOF = 0.7s
+
+What we calculate:     lead = 2.0 m/s × 0.7s = 1.40m
+What actually happens: robot decelerates from 2.0 → 0.0 m/s over ~0.3s
+                       actual displacement ≈ 0.30m
+                       we over-led by 1.10m!
+```
+
+This is the single biggest accuracy problem in shoot-on-the-move, and it
+applies equally to ALL three strategies (Parametric, LUT, Hybrid) because
+they all use the same `predictTargetPos` function.
+
+### 5.2 Understanding the Physics of Robot Deceleration
+
+When the driver releases the stick, the swerve drive doesn't stop instantly.
+The robot decelerates based on:
+- Wheel friction with the carpet
+- Motor braking (back-EMF)
+- The drive controller's deceleration limits
+
+For a typical FRC swerve, the deceleration profile looks roughly like:
+
+```
+Speed
+  │
+  │ ████
+  │     ████
+  │         ████
+  │             ████
+  │                 ████
+  │                     ████
+  └──────────────────────────── Time
+  t=0                    t≈0.3s
+  (stick released)       (stopped)
+```
+
+The displacement during deceleration is the area under this curve. For
+constant deceleration `a`, the kinematic equation is:
+
+```
+displacement = v₀·t + ½·a·t²
+
+Where:
+  v₀ = initial velocity (what we measure now)
+  a  = acceleration (negative when decelerating)
+  t  = time of flight
+```
+
+Compare to what we currently calculate:
+
+```
+current:  displacement = v₀·t          (assumes constant velocity)
+better:   displacement = v₀·t + ½·a·t² (accounts for acceleration)
+```
+
+The correction term `½·a·t²` is what we're missing.
+
+### 5.3 Three Approaches to Smarter Prediction
+
+#### Approach A: Acceleration-Compensated Prediction
+
+Estimate the robot's current acceleration from recent velocity history, then
+use kinematics to predict a better displacement.
+
+**How to estimate acceleration:**
+
+The robot's odometry gives us velocity every 20ms. We can estimate
+acceleration by looking at the change in velocity over a short window:
+
+```java
+// Store recent velocities (ring buffer of last N cycles)
+private static final int ACCEL_WINDOW = 5; // 5 cycles = 100ms
+private double[] recentVx = new double[ACCEL_WINDOW];
+private double[] recentVy = new double[ACCEL_WINDOW];
+private int velocityIndex = 0;
+
+public void recordVelocity(ChassisSpeeds fieldSpeeds) {
+    recentVx[velocityIndex] = fieldSpeeds.vxMetersPerSecond;
+    recentVy[velocityIndex] = fieldSpeeds.vyMetersPerSecond;
+    velocityIndex = (velocityIndex + 1) % ACCEL_WINDOW;
+}
+
+public double[] estimateAcceleration() {
+    // Oldest sample is at velocityIndex (just got overwritten = oldest)
+    // Newest sample is at velocityIndex - 1
+    int oldest = velocityIndex;
+    int newest = (velocityIndex - 1 + ACCEL_WINDOW) % ACCEL_WINDOW;
+
+    double dt = ACCEL_WINDOW * 0.020; // 100ms window
+    double ax = (recentVx[newest] - recentVx[oldest]) / dt;
+    double ay = (recentVy[newest] - recentVy[oldest]) / dt;
+
+    return new double[] {ax, ay};
+}
+```
+
+**Then modify the prediction:**
+
+```java
+public static Translation3d predictTargetPosWithAccel(
+        Translation3d target,
+        ChassisSpeeds fieldSpeeds,
+        double ax, double ay,
+        double timeOfFlight) {
+
+    // Kinematic prediction: x = v*t + 0.5*a*t²
+    double displacementX = fieldSpeeds.vxMetersPerSecond * timeOfFlight
+                         + 0.5 * ax * timeOfFlight * timeOfFlight;
+    double displacementY = fieldSpeeds.vyMetersPerSecond * timeOfFlight
+                         + 0.5 * ay * timeOfFlight * timeOfFlight;
+
+    return new Translation3d(
+        target.getX() - displacementX,
+        target.getY() - displacementY,
+        target.getZ());
+}
+```
+
+**Pros**: Physically motivated, adapts to real deceleration rate.
+**Cons**: Acceleration estimate is noisy (velocity changes are small per
+cycle). Sensitive to the window size — too small = noisy, too large = laggy.
+
+**Exercise 5.3a**: Work through the math. If the robot is at 2.0 m/s and
+decelerating at -6.0 m/s², with a TOF of 0.7s:
+1. What does our current code predict for displacement?
+2. What does the acceleration-compensated version predict?
+3. At what TOF does the acceleration term matter more than 10cm?
+
+#### Approach B: Command-Based Prediction
+
+Instead of measuring what the robot IS doing, look at what the driver is
+COMMANDING it to do. If the joystick is at zero, the robot is about to stop.
+
+The idea: the drive subsystem already knows the commanded `ChassisSpeeds`
+from the joystick. We can use that as a better predictor of future velocity.
+
+```java
+// In ShootingCoordinator, receive both measured and commanded speeds
+private Supplier<ChassisSpeeds> commandedSpeedsSupplier; // from drive joystick
+
+public Translation3d predictTargetWithCommanded(
+        Translation3d target,
+        ChassisSpeeds measuredSpeeds,
+        ChassisSpeeds commandedSpeeds,
+        double timeOfFlight) {
+
+    // Estimate: robot will transition from measured to commanded
+    // over approximately 0.2-0.3 seconds (drive response time)
+    double transitionTime = 0.25; // tune this
+
+    double effectiveVx, effectiveVy;
+    if (timeOfFlight <= transitionTime) {
+        // Short flight — mostly current velocity
+        double blend = timeOfFlight / transitionTime;
+        effectiveVx = measuredSpeeds.vxMetersPerSecond * (1 - blend * 0.5)
+                    + commandedSpeeds.vxMetersPerSecond * (blend * 0.5);
+        effectiveVy = measuredSpeeds.vyMetersPerSecond * (1 - blend * 0.5)
+                    + commandedSpeeds.vyMetersPerSecond * (blend * 0.5);
+    } else {
+        // Longer flight — weight toward commanded velocity
+        double fractionAtCurrent = transitionTime / timeOfFlight;
+        effectiveVx = measuredSpeeds.vxMetersPerSecond * fractionAtCurrent
+                    + commandedSpeeds.vxMetersPerSecond * (1 - fractionAtCurrent);
+        effectiveVy = measuredSpeeds.vyMetersPerSecond * fractionAtCurrent
+                    + commandedSpeeds.vyMetersPerSecond * (1 - fractionAtCurrent);
+    }
+
+    return new Translation3d(
+        target.getX() - effectiveVx * timeOfFlight,
+        target.getY() - effectiveVy * timeOfFlight,
+        target.getZ());
+}
+```
+
+**Pros**: Doesn't need noisy acceleration estimates. Directly captures driver
+intent — if they let go of the stick, we immediately know to reduce the lead.
+**Cons**: Requires plumbing the commanded speeds from the drive subsystem to
+the shooting system. The `transitionTime` constant is a guess.
+
+**Exercise 5.3b**: Think about edge cases:
+1. Driver is holding stick forward (commanded = measured). What happens?
+2. Driver slams stick in opposite direction. What happens?
+3. Auto mode — commanded speeds come from trajectory follower. Is this better
+   or worse than teleop?
+
+#### Approach C: Blended Prediction (Team 4744's Insight)
+
+Team 4744 (Ninjas) from the Chief Delphi thread noted that the hardest part
+isn't predicting pose — it's predicting **future velocity**. Their approach:
+fit a regression line through recent velocity samples and extrapolate.
+
+```
+Recent velocity samples (vx over last 200ms):
+
+    vx
+     │     *
+     │   *   *
+     │  *      *
+     │ *         *  ← regression line
+     │*             *  ← extrapolated
+     └──────────────────── time
+     -200ms    now    +TOF
+```
+
+This is essentially what Approach A does, but framed differently: instead
+of computing a single acceleration value, you fit a line to velocity history
+and extrapolate it forward.
+
+```java
+// Linear regression on recent velocity samples
+// Returns: predicted average velocity over the next `duration` seconds
+
+public double predictAverageVelocity(double[] recentSamples, double dt, double duration) {
+    int n = recentSamples.length;
+    // Fit line: v(t) = v0 + a*t
+    // Using simple linear regression
+    double sumT = 0, sumV = 0, sumTV = 0, sumTT = 0;
+    for (int i = 0; i < n; i++) {
+        double t = i * dt;
+        sumT += t;
+        sumV += recentSamples[i];
+        sumTV += t * recentSamples[i];
+        sumTT += t * t;
+    }
+    double a = (n * sumTV - sumT * sumV) / (n * sumTT - sumT * sumT); // slope (acceleration)
+    double v0 = (sumV - a * sumT) / n; // intercept at t=0
+
+    // Current velocity (end of sample window)
+    double vNow = v0 + a * (n - 1) * dt;
+
+    // Average velocity over next `duration` seconds:
+    // integral of (vNow + a*t) from 0 to duration, divided by duration
+    return vNow + 0.5 * a * duration;
+}
+```
+
+**Pros**: Smooths noisy acceleration naturally (regression is a built-in filter).
+**Cons**: Most complex to implement. Assumes acceleration is linear (constant
+jerk), which isn't always true.
+
+### 5.4 Implementation Guide
+
+Pick ONE approach to start with. We recommend **Approach A** (acceleration-
+compensated) because:
+- It's the simplest to implement
+- The math is easy to verify
+- It integrates cleanly into the existing `predictTargetPos` pattern
+
+**Where it goes in the code:**
+
+The velocity prediction is **independent of the shot strategy**. All three
+strategies (Parametric, LUT, Hybrid) call `predictTargetPos` in their
+iteration loop. So you modify the prediction once and all strategies benefit.
+
+**Step 1**: Add acceleration estimation to `ShootingCoordinator`
+- Store a ring buffer of recent field speeds
+- Update it every `periodic()` cycle
+- Compute acceleration from the buffer
+
+**Step 2**: Create a new `predictTargetPos` overload in `ShotCalculator`
+- Takes acceleration as additional parameters
+- Uses `displacement = v*t + 0.5*a*t²` instead of `displacement = v*t`
+
+**Step 3**: Add a tunable to toggle between simple and acceleration-compensated
+- `Shots/VelocityPrediction/UseAcceleration` (boolean, default false)
+- This lets you A/B test in the same match
+
+**Step 4**: Wire it through the strategy interface
+- The `ShotStrategy.calculateHubShot()` signature needs the acceleration
+  data, OR the coordinator pre-computes a "predicted speeds" object
+
+Think carefully about Step 4 — should acceleration be part of the strategy
+interface, or should it be applied before the strategy sees the speeds?
+
+**Exercise 5.4a**: Design discussion — if you pre-filter the speeds before
+passing them to the strategy, the strategy doesn't know the difference
+between filtered and unfiltered speeds. Is that good (simpler interface) or
+bad (strategy can't make informed decisions)? Argue both sides.
+
+### 5.5 Testing Velocity Prediction
+
+The best test for this is **shoot-while-decelerating**:
+
+```
+Test: Drive at 2 m/s toward the hub. At 5m distance, release the stick
+and fire immediately.
+
+                    ┌── fire here
+                    ▼
+  ●═══════════════►◯ · · · · · ▣
+  start (8m)      5m           hub
+
+With instantaneous velocity:  lead = 2.0 × TOF (too much — robot is stopping)
+With acceleration comp:       lead = (2.0 × TOF) + (0.5 × (-6) × TOF²) (smaller, correct)
+```
+
+Run this test 10 times with each prediction mode and compare accuracy.
+
+**What to log:**
+
+| Metric | Key |
+|--------|-----|
+| Measured velocity | `Turret/Shot/VelocityCompensation/RobotSpeedMps` |
+| Estimated acceleration | `Shots/VelocityPrediction/AccelMagnitude` |
+| Predicted displacement | `Shots/VelocityPrediction/PredictedDisplacementM` |
+| Simple displacement | `Shots/VelocityPrediction/SimpleDisplacementM` |
+| Aim offset delta | `Shots/VelocityPrediction/AccelCorrectionM` |
+
+The `AccelCorrectionM` value tells you exactly how much the acceleration
+term changed the aim point. If it's consistently < 2cm, acceleration
+compensation isn't helping and you can skip it.
+
+### 5.6 When Velocity Prediction Matters (and When It Doesn't)
+
+An important insight: velocity prediction matters MOST when:
+- The robot is **changing speed** (accelerating or decelerating)
+- The TOF is **long** (the `½at²` term grows with t²)
+- The speed is **high** (bigger initial lead = bigger error if wrong)
+
+It matters LEAST when:
+- The robot is at **constant velocity** (a ≈ 0, no correction needed)
+- The TOF is **short** (close to hub, correction is tiny)
+- The robot is **slow** (small lead, small error either way)
+
+This means the acceleration correction is most valuable for **long-range
+shots taken during driver transitions** — exactly the hardest shots in a
+match. For short-range stationary shots, all approaches give the same answer.
+
+**Exercise 5.6a**: Calculate the acceleration correction `½at²` for these
+scenarios and decide which ones benefit from Approach A:
+
+| Scenario | Speed | Accel | TOF | ½at² | Worth it? |
+|----------|-------|-------|-----|------|-----------|
+| Close, steady | 1.0 m/s | 0 m/s² | 0.4s | ? | |
+| Far, steady | 1.5 m/s | 0 m/s² | 1.0s | ? | |
+| Close, braking | 2.0 m/s | -6 m/s² | 0.4s | ? | |
+| Far, braking | 2.0 m/s | -6 m/s² | 1.0s | ? | |
+| Far, accelerating | 0.5 m/s | +4 m/s² | 1.0s | ? | |
+
+---
+
 ## Summary: Comparison of Approaches
 
 | Aspect | Parametric (Current) | LUT (Pure Lookup) | Hybrid (LUT TOF + Parametric RPM) |
@@ -786,6 +1147,7 @@ acceleration and deceleration.
 | **Distance gaps** | None — continuous | Interpolation only | Best of both |
 | **Hardware changes** | Update constants | Re-measure everything | Re-measure TOF only |
 | **Complexity** | Medium | Low | Medium |
+| **Velocity prediction** | Add in Session 5 | Add in Session 5 | Add in Session 5 |
 | **Our recommendation** | Keep as default | Build for comparison | Try as upgrade path |
 
 ---
