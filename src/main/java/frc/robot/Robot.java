@@ -13,6 +13,7 @@ import edu.wpi.first.wpilibj.simulation.DriverStationSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.util.FuelSim;
+import frc.robot.util.MatchPhaseTracker;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -121,6 +122,9 @@ public class Robot extends LoggedRobot {
   /** This autonomous runs the autonomous command selected by your {@link RobotContainer} class. */
   @Override
   public void autonomousInit() {
+    // Reset match phase tracker for new match (clears FMS game data cache)
+    MatchPhaseTracker.getInstance().resetForNewMatch();
+
     // Reset scores and shot counters at the start of each autonomous period
     FuelSim.Hub.BLUE_HUB.resetScore();
     FuelSim.Hub.RED_HUB.resetScore();
