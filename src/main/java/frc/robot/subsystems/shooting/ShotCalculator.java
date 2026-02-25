@@ -24,6 +24,11 @@ public final class ShotCalculator {
   private static final LoggedTunableNumber launchEfficiency =
       new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.4);
 
+  // Velocity compensation scale: 1.0 = full physics compensation, >1.0 = overcompensate, <1.0 =
+  // undercompensate
+  private static final LoggedTunableNumber velocityCompensationScale =
+      new LoggedTunableNumber("Shots/SmartLaunch/VelocityCompensationScale", -1.0);
+
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
   private static final double MAX_EXIT_VELOCITY = 15.0; // m/s
@@ -184,8 +189,9 @@ public final class ShotCalculator {
    */
   public static Translation3d predictTargetPos(
       Translation3d target, ChassisSpeeds fieldSpeeds, double timeOfFlight) {
-    double predictedX = target.getX() - fieldSpeeds.vxMetersPerSecond * timeOfFlight;
-    double predictedY = target.getY() - fieldSpeeds.vyMetersPerSecond * timeOfFlight;
+    double scale = velocityCompensationScale.get();
+    double predictedX = target.getX() - fieldSpeeds.vxMetersPerSecond * timeOfFlight * scale;
+    double predictedY = target.getY() - fieldSpeeds.vyMetersPerSecond * timeOfFlight * scale;
     return new Translation3d(predictedX, predictedY, target.getZ());
   }
 

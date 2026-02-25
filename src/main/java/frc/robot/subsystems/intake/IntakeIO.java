@@ -38,8 +38,14 @@ public interface IntakeIO {
   /** Stop both motors. */
   public default void stop() {}
 
+  /** Stop only the deploy motor and hold current position. */
+  public default void stopDeploy() {}
+
   /** Set the deploy motor idle mode (brake or coast). */
   default void setDeployBrakeMode(boolean brake) {}
+
+  /** Configure the deploy motor output range (caps voltage during tuning). */
+  default void configureDeployOutputRange(double min, double max) {}
 
   /** Configure PID gains for the deploy motor. */
   default void configureDeployPID(double kP, double kI, double kD) {}

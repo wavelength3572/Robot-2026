@@ -532,11 +532,11 @@ public interface RobotConfig {
 
   /** Intake deploy MAXMotion max velocity in RPM (output shaft). */
   default double getIntakeDeployMaxVelocity() {
-    return 7.0;
+    return 5.0;
   }
 
   /** Intake deploy MAXMotion max acceleration in RPM/s (output shaft). */
   default double getIntakeDeployMaxAcceleration() {
-    return 10.0;
+    return 5.0;
   }
 }

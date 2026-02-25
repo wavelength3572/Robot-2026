@@ -253,9 +253,14 @@ public class ButtonsAndDashboardBindings {
     // Intake: Deploy/Toggle and Rollers/Run
     if (intake != null) {
       SmartDashboard.putData(
-          "Tuning/Intake/IntakeDeploy/Toggle",
-          Commands.startEnd(intake::deploy, intake::retract, intake)
-              .withName("Intake: Deploy/Retract Toggle"));
+          "Tuning/Intake/IntakeDeploy/Deploy",
+          Commands.runOnce(intake::deploy, intake).withName("Intake: Deploy"));
+      SmartDashboard.putData(
+          "Tuning/Intake/IntakeDeploy/Retract",
+          Commands.runOnce(intake::retract, intake).withName("Intake: Retract"));
+      SmartDashboard.putData("Tuning/Intake/IntakeDeploy/STOP", intake.stopDeployCommand());
+      SmartDashboard.putData(
+          "Tuning/Intake/IntakeDeploy/ClearError", intake.clearDeployErrorCommand());
       SmartDashboard.putData(
           "Tuning/Intake/IntakeRollers/RunAtTuningVelocity",
           Commands.run(() -> intake.setRollerVelocity(tuningIntakeRollerVelocity.get()))
@@ -318,6 +323,7 @@ public class ButtonsAndDashboardBindings {
     SmartDashboard.putData(
         "BenchTest/Intake/Retract",
         Commands.runOnce(intake::retract, intake).withName("Retract Intake"));
+    SmartDashboard.putData("BenchTest/Intake/STOP Deploy", intake.stopDeployCommand());
 
     // Open-loop power control (hold to run, release to stop)
     // Run button reads the Power slider live — adjust slider while running to
