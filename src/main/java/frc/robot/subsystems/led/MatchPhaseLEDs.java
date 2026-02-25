@@ -129,6 +129,9 @@ public class MatchPhaseLEDs extends SubsystemBase {
     // Log the current LED state
     Logger.recordOutput("LED/Phase", phase.toString());
     Logger.recordOutput("LED/HubActive", hubActive);
+
+    // Publish LED colors so dashboards can display them in sim
+    publishLEDColors();
   }
 
   /**
@@ -190,6 +193,21 @@ public class MatchPhaseLEDs extends SubsystemBase {
     for (int i = 0; i < ledCount; i++) {
       buffer.setLED(i, source.getLED(i));
     }
+  }
+
+  /**
+   * Publish LED buffer colors to NetworkTables for dashboard visualization. Publishes a hex color
+   * string array (e.g., "#FF0000") that can be dragged into Elastic or viewed in AdvantageScope.
+   */
+  private void publishLEDColors() {
+    String[] colors = new String[ledCount];
+    for (int i = 0; i < ledCount; i++) {
+      Color c = buffer.getLED(i);
+      colors[i] =
+          String.format(
+              "#%02X%02X%02X", (int) (c.red * 255), (int) (c.green * 255), (int) (c.blue * 255));
+    }
+    Logger.recordOutput("LED/Colors", colors);
   }
 
   /** Create a solid-color buffer. */

@@ -49,11 +49,11 @@ the `MatchPhaseTracker` — and it has a bug.
 1. Open the Rebuilt Match Timer on your phone: https://rbgk.github.io/frc-rebuilt-timer/
 2. Run through a full match. Watch the phases change.
 3. Write down your answers:
-   - How long is auto? ____
-   - How long is each shift? ____
-   - How long is end game? ____
-   - What happens between auto and the first shift? ____
-   - How many seconds warning do you get before a shift change? ____
+   - How long is auto? 20
+   - How long is each shift? 25
+   - How long is end game? 30
+   - What happens between auto and the first shift? delay
+   - How many seconds warning do you get before a shift change? 7
 
 ---
 

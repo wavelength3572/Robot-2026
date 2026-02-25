@@ -372,8 +372,7 @@ public class MatchPhaseTracker {
     } else {
       // Loser: active during SHIFT_1 (starts at remaining=130) and SHIFT_3 (starts at
       // remaining=80)
-      activeBoundaries =
-          new double[] {TRANSITION_BOUNDARY, SHIFT_2_BOUNDARY, SHIFT_4_BOUNDARY};
+      activeBoundaries = new double[] {TRANSITION_BOUNDARY, SHIFT_2_BOUNDARY, SHIFT_4_BOUNDARY};
     }
 
     for (double boundary : activeBoundaries) {
