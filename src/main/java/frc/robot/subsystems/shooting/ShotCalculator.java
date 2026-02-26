@@ -26,7 +26,7 @@ public final class ShotCalculator {
 
   // Efficiency factor: how much of wheel surface velocity transfers to ball (0.0-1.0)
   private static final LoggedTunableNumber launchEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.4);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.5);
 
   // LUT/hybrid blend: 0.0 = pure physics, 1.0 = pure LUT
   private static final LoggedTunableNumber lutBlendFactor =

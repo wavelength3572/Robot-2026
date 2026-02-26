@@ -88,7 +88,8 @@ public class IntakeIOSim implements IntakeIO {
     TrapezoidProfile.State goal = new TrapezoidProfile.State(deployTargetPosition, 0.0);
     deployProfileState = deployProfile.calculate(0.02, deployProfileState, goal);
     deployAppliedVolts =
-        deployController.calculate(deploySim.getAngularPositionRotations(), deployProfileState.position);
+        deployController.calculate(
+            deploySim.getAngularPositionRotations(), deployProfileState.position);
 
     // Simulate soft limits for deploy
     double currentPosition = deploySim.getAngularPositionRotations();

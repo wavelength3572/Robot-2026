@@ -228,7 +228,9 @@ public class IntakeIOSparkMax implements IntakeIO {
   public void configureDeployMaxMotion(
       double maxVelocity, double maxAcceleration, double allowedError) {
     var config = new SparkMaxConfig();
-    config.closedLoop.maxMotion
+    config
+        .closedLoop
+        .maxMotion
         .cruiseVelocity(maxVelocity)
         .maxAcceleration(maxAcceleration)
         .allowedProfileError(allowedError);
