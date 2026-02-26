@@ -38,8 +38,7 @@ public final class VisionConstants {
   public static String backRightCam = "BackRight";
   public static String frontLeftCam = "CAMERA_A";
   public static String backLeftCam = "BackLeft";
-  // Robot to camera transforms
-  // TODO: Calibrate these transforms for your 2026 robot - these are placeholders
+  // Robot to camera transforms (generic/SquareBot - used only for sim)
   // All cameras are mounted near swerve pods at the four corners of the robot
   public static Transform3d robotToFrontLeftCam =
       new Transform3d(
