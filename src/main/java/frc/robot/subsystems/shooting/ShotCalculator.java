@@ -346,34 +346,46 @@ public final class ShotCalculator {
     Translation3d turretPos = new Translation3d(turretX, turretY, config.heightMeters());
 
     // Velocity compensation: adjust aim point to counteract robot movement during flight.
+    // Only apply when the initial shot is achievable — if the optimizer fails (returns
+    // exitVelocityMps=0), the ToF calculation produces Double.MAX_VALUE and predictTargetPos
+    // generates infinity coordinates, causing the turret to snap to a garbage angle.
     Translation3d aimTarget = hubTarget;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     if (robotSpeed > 0.1) {
       TrajectoryOptimizer.OptimalShot initialShot =
           TrajectoryOptimizer.calculateOptimalShot(
               turretPos, hubTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
-      double distanceToTarget =
-          Math.sqrt(
-              Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
-      double tof =
-          calculateTimeOfFlight(
-              initialShot.exitVelocityMps,
-              Math.toRadians(initialShot.launchAngleDeg),
-              distanceToTarget);
 
-      for (int i = 0; i < 3; i++) {
-        aimTarget = predictTargetPos(hubTarget, fieldSpeeds, tof);
-        double aimDistance =
+      if (initialShot.achievable) {
+        double distanceToTarget =
             Math.sqrt(
-                Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));
-        TrajectoryOptimizer.OptimalShot refinedShot =
-            TrajectoryOptimizer.calculateOptimalShot(
-                turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
-        tof =
+                Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
+        double tof =
             calculateTimeOfFlight(
-                refinedShot.exitVelocityMps,
-                Math.toRadians(refinedShot.launchAngleDeg),
-                aimDistance);
+                initialShot.exitVelocityMps,
+                Math.toRadians(initialShot.launchAngleDeg),
+                distanceToTarget);
+
+        for (int i = 0; i < 3; i++) {
+          aimTarget = predictTargetPos(hubTarget, fieldSpeeds, tof);
+          double aimDistance =
+              Math.sqrt(
+                  Math.pow(aimTarget.getX() - turretX, 2)
+                      + Math.pow(aimTarget.getY() - turretY, 2));
+          TrajectoryOptimizer.OptimalShot refinedShot =
+              TrajectoryOptimizer.calculateOptimalShot(
+                  turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+          if (!refinedShot.achievable) {
+            // Refinement diverged — fall back to raw hub target
+            aimTarget = hubTarget;
+            break;
+          }
+          tof =
+              calculateTimeOfFlight(
+                  refinedShot.exitVelocityMps,
+                  Math.toRadians(refinedShot.launchAngleDeg),
+                  aimDistance);
+        }
       }
     }
 
