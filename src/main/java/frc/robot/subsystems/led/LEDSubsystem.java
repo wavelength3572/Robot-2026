@@ -1,25 +1,30 @@
 package frc.robot.subsystems.led;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.FieldConstants;
+import frc.robot.subsystems.drive.Drive;
+import frc.robot.subsystems.hood.Hood;
 import frc.robot.util.MatchPhaseTracker;
 import frc.robot.util.MatchPhaseTracker.MatchPhase;
 import org.littletonrobotics.junction.Logger;
 
 /**
- * LED subsystem that drives an addressable LED strip with match-phase patterns, hood danger
- * warnings, and general robot status indication.
+ * LED subsystem that drives an addressable LED strip with match-phase patterns, hood trench danger
+ * warnings, and general robot status indication. Self-contained: reads drive pose and hood angle
+ * internally so no external command is needed.
  *
- * <p>Priority (highest → lowest):
+ * <p>Priority (highest to lowest):
  *
  * <ol>
- *   <li>Hood angle danger (red flash)
- *   <li>Match phase patterns (hub active/inactive/endgame)
- *   <li>Disabled / idle patterns
+ *   <li>Hood trench danger (fast red flash)
+ *   <li>Match phase patterns (hub active/inactive/shift warnings/endgame)
+ *   <li>Disabled rainbow
  * </ol>
  */
 public class LEDSubsystem extends SubsystemBase {
@@ -28,27 +33,52 @@ public class LEDSubsystem extends SubsystemBase {
   private final AddressableLEDBuffer buffer;
   private final int length;
 
-  // Hood danger state (set externally via setHoodDanger)
-  private boolean hoodDanger = false;
+  // Optional subsystem references for self-contained trench checking
+  private final Drive drive;
+  private final Hood hood;
 
-  // Pattern state
-  private double patternStartTime = 0.0;
+  // Trench geometry (precomputed)
+  private final double trenchHalfWidth;
+  private final double allyHubX;
+  private final double oppHubX;
 
-  // Alliance color cache
-  private Color allianceColor = new Color(0, 0, 255); // default blue
+  // Blink state for accelerating shift warnings
+  private boolean blinkOn = true;
+  private double lastBlinkTime = 0;
+
+  // Rainbow state for disabled
+  private int rainbowFirstPixelHue = 0;
+
+  // Shift change warning window (seconds before shift boundary to start blinking)
+  private static final double SHIFT_WARNING_SECONDS = 7.0;
+  private static final double MIN_BLINK_PERIOD = 0.05;
+  private static final double MAX_BLINK_PERIOD = 0.5;
+
+  // Hood danger margin above stow angle (degrees)
+  private static final double HOOD_DANGER_MARGIN_DEG = 3.0;
 
   /**
    * Create the LED subsystem.
    *
    * @param pwmPort PWM port the LED strip is connected to
    * @param length Number of LEDs in the strip
+   * @param drive Drive subsystem for pose reading (nullable — disables trench check)
+   * @param hood Hood subsystem for angle reading (nullable — disables trench check)
    */
-  public LEDSubsystem(int pwmPort, int length) {
+  public LEDSubsystem(int pwmPort, int length, Drive drive, Hood hood) {
     this.length = length;
+    this.drive = drive;
+    this.hood = hood;
+
     led = new AddressableLED(pwmPort);
     buffer = new AddressableLEDBuffer(length);
     led.setLength(length);
     led.start();
+
+    // Precompute trench geometry
+    trenchHalfWidth = FieldConstants.LeftTrench.width / 2.0;
+    allyHubX = FieldConstants.LinesVertical.hubCenter;
+    oppHubX = FieldConstants.LinesVertical.oppHubCenter;
   }
 
   @Override
@@ -56,19 +86,19 @@ public class LEDSubsystem extends SubsystemBase {
     DriverStation.Alliance alliance =
         DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue);
     boolean isBlue = alliance == DriverStation.Alliance.Blue;
-    allianceColor = isBlue ? new Color(0, 0, 255) : new Color(255, 0, 0);
 
     double time = Timer.getFPGATimestamp();
 
-    // Priority 1: Hood danger — fast red flash
+    // Priority 1: Hood trench danger — fast red flash
+    boolean hoodDanger = checkHoodTrenchDanger();
     if (hoodDanger) {
       applyFlash(new Color(255, 0, 0), new Color(0, 0, 0), 0.1, time);
       Logger.recordOutput("LED/Pattern", "HOOD_DANGER");
     }
-    // Priority 2: Robot disabled — slow breathe in alliance color
+    // Priority 2: Robot disabled — rainbow
     else if (DriverStation.isDisabled()) {
-      applyBreathe(allianceColor, time, 2.0);
-      Logger.recordOutput("LED/Pattern", "DISABLED_BREATHE");
+      applyRainbow();
+      Logger.recordOutput("LED/Pattern", "DISABLED_RAINBOW");
     }
     // Priority 3: Match phase patterns
     else {
@@ -76,23 +106,43 @@ public class LEDSubsystem extends SubsystemBase {
     }
 
     led.setData(buffer);
+    Logger.recordOutput("LED/HoodDanger", hoodDanger);
+    publishLEDColors();
   }
 
-  // ========== Hood Trench Danger API ==========
+  // ========== Trench Danger Check ==========
 
   /**
-   * Set whether the hood is raised while the robot is near a trench. When true, LEDs flash red to
-   * warn the driver that the hood could collide with the trench ceiling.
-   *
-   * @param danger true if hood is raised AND robot is in a trench zone
+   * Check if the hood is raised while the robot is inside a trench zone. Both X and Y position must
+   * be within a trench rectangle for the check to trigger.
    */
-  public void setHoodDanger(boolean danger) {
-    this.hoodDanger = danger;
-  }
+  private boolean checkHoodTrenchDanger() {
+    if (drive == null || hood == null) {
+      return false;
+    }
+    if (!hood.isRaisedAboveSafe(HOOD_DANGER_MARGIN_DEG)) {
+      return false;
+    }
 
-  /** @return true if the hood trench danger warning is active */
-  public boolean isHoodDanger() {
-    return hoodDanger;
+    Pose2d pose = drive.getPose();
+    double robotX = pose.getX();
+    double robotY = pose.getY();
+
+    // Y ranges for left/right trenches
+    boolean inLeftTrenchY =
+        robotY >= FieldConstants.LinesHorizontal.leftTrenchOpenEnd
+            && robotY <= FieldConstants.LinesHorizontal.leftTrenchOpenStart;
+    boolean inRightTrenchY =
+        robotY >= FieldConstants.LinesHorizontal.rightTrenchOpenEnd
+            && robotY <= FieldConstants.LinesHorizontal.rightTrenchOpenStart;
+
+    // X ranges: alliance-side or opposing-side hub area
+    boolean inAllyTrenchX =
+        robotX >= allyHubX - trenchHalfWidth && robotX <= allyHubX + trenchHalfWidth;
+    boolean inOppTrenchX =
+        robotX >= oppHubX - trenchHalfWidth && robotX <= oppHubX + trenchHalfWidth;
+
+    return (inAllyTrenchX || inOppTrenchX) && (inLeftTrenchY || inRightTrenchY);
   }
 
   // ========== Match Phase Patterns ==========
@@ -101,6 +151,7 @@ public class LEDSubsystem extends SubsystemBase {
     MatchPhaseTracker tracker = MatchPhaseTracker.getInstance();
     MatchPhase phase = tracker.getCurrentPhase();
     boolean hubActive = tracker.isOurHubActive(isBlue);
+    Color allianceColor = isBlue ? new Color(0, 0, 255) : new Color(255, 0, 0);
 
     switch (phase) {
       case AUTO:
@@ -110,8 +161,8 @@ public class LEDSubsystem extends SubsystemBase {
         break;
 
       case TRANSITION:
-        // Fast rainbow during transition — get ready
-        applyRainbow(time, 1.0);
+        // Rainbow during transition — get ready for teleop
+        applyRainbow();
         Logger.recordOutput("LED/Pattern", "TRANSITION_RAINBOW");
         break;
 
@@ -119,30 +170,39 @@ public class LEDSubsystem extends SubsystemBase {
       case SHIFT_2:
       case SHIFT_3:
       case SHIFT_4:
-        if (hubActive) {
-          // Hub active: solid green pulse (GO!)
-          applyPulse(new Color(0, 255, 0), time, 0.5);
-          Logger.recordOutput("LED/Pattern", "SHIFT_ACTIVE");
-        } else {
-          // Hub inactive: dim orange slow pulse (HOLD)
-          applyPulse(new Color(255, 100, 0), time, 2.0);
-          Logger.recordOutput("LED/Pattern", "SHIFT_INACTIVE");
-        }
-
-        // Flash warning 3 seconds before phase ends
         double timeRemaining = phase.getEndTime() - getMatchTimeEstimate();
-        if (timeRemaining > 0 && timeRemaining <= 3.0) {
-          applyFlash(new Color(255, 255, 0), allianceColor, 0.15, time);
-          Logger.recordOutput("LED/Pattern", "SHIFT_WARNING");
+        if (hubActive) {
+          // Hub active: check for accelerating warning near shift boundary
+          if (timeRemaining > 0 && timeRemaining <= SHIFT_WARNING_SECONDS) {
+            applyAcceleratingBlink(allianceColor, timeRemaining, time);
+            Logger.recordOutput("LED/Pattern", "SHIFT_ACTIVE_WARNING");
+          } else {
+            // Solid alliance color — GO!
+            applySolid(allianceColor);
+            Logger.recordOutput("LED/Pattern", "SHIFT_ACTIVE");
+          }
+        } else {
+          // Hub inactive: check for approaching-active warning
+          double timeUntilActive = tracker.getTimeUntilActive(isBlue);
+          if (timeUntilActive > 0 && timeUntilActive <= SHIFT_WARNING_SECONDS) {
+            applyAcceleratingBlink(allianceColor, timeUntilActive, time);
+            Logger.recordOutput("LED/Pattern", "SHIFT_INCOMING_WARNING");
+          } else {
+            // Dim alliance color — HOLD
+            applyDim(allianceColor, 0.1);
+            Logger.recordOutput("LED/Pattern", "SHIFT_INACTIVE");
+          }
         }
         break;
 
       case END_GAME:
-        // Endgame: fast alliance color flash — intensity ramps up
-        applyFlash(allianceColor, new Color(255, 255, 255), 0.2, time);
-        Logger.recordOutput("LED/Pattern", "ENDGAME_FLASH");
+        // Endgame: pulsing green (both hubs active, scoring rush)
+        applyEndGamePulse(time);
+        Logger.recordOutput("LED/Pattern", "ENDGAME_PULSE");
         break;
     }
+    Logger.recordOutput("LED/Phase", phase.toString());
+    Logger.recordOutput("LED/HubActive", hubActive);
   }
 
   // ========== Pattern Helpers ==========
@@ -158,33 +218,61 @@ public class LEDSubsystem extends SubsystemBase {
     applySolid(on ? color1 : color2);
   }
 
-  private void applyBreathe(Color color, double time, double periodSeconds) {
-    // Sine wave brightness from 0.1 to 1.0
-    double brightness = 0.55 + 0.45 * Math.sin(2 * Math.PI * time / periodSeconds);
-    Color dimmed =
-        new Color(
-            (int) (color.red * 255 * brightness),
-            (int) (color.green * 255 * brightness),
-            (int) (color.blue * 255 * brightness));
-    applySolid(dimmed);
+  /** Blink alliance color with accelerating speed as a shift change approaches. */
+  private void applyAcceleratingBlink(Color color, double secondsUntilChange, double time) {
+    double fraction = Math.max(0, Math.min(1, secondsUntilChange / SHIFT_WARNING_SECONDS));
+    double blinkPeriod = MIN_BLINK_PERIOD + fraction * (MAX_BLINK_PERIOD - MIN_BLINK_PERIOD);
+
+    if (time - lastBlinkTime >= blinkPeriod) {
+      blinkOn = !blinkOn;
+      lastBlinkTime = time;
+    }
+
+    if (blinkOn) {
+      applySolid(color);
+    } else {
+      applySolid(new Color(0, 0, 0));
+    }
   }
 
-  private void applyPulse(Color color, double time, double periodSeconds) {
-    double brightness = 0.3 + 0.7 * Math.abs(Math.sin(Math.PI * time / periodSeconds));
-    Color pulsed =
-        new Color(
-            (int) (color.red * 255 * brightness),
-            (int) (color.green * 255 * brightness),
-            (int) (color.blue * 255 * brightness));
-    applySolid(pulsed);
-  }
-
-  private void applyRainbow(double time, double speedMultiplier) {
-    int offset = (int) (time * 180.0 * speedMultiplier) % 180;
+  /** Green pulse for endgame (both hubs active). */
+  private void applyEndGamePulse(double time) {
+    double brightness = 0.5 + 0.5 * Math.sin(time * 4 * Math.PI);
+    int value = (int) (brightness * 255);
     for (int i = 0; i < length; i++) {
-      int hue = (offset + (i * 180 / length)) % 180;
+      buffer.setRGB(i, 0, value, 0);
+    }
+  }
+
+  /** Rainbow effect for disabled state. */
+  private void applyRainbow() {
+    for (int i = 0; i < length; i++) {
+      int hue = (rainbowFirstPixelHue + (i * 180 / length)) % 180;
       buffer.setHSV(i, hue, 255, 128);
     }
+    rainbowFirstPixelHue = (rainbowFirstPixelHue + 1) % 180;
+  }
+
+  /** Dim version of a color. */
+  private void applyDim(Color color, double brightness) {
+    int r = (int) (color.red * 255 * brightness);
+    int g = (int) (color.green * 255 * brightness);
+    int b = (int) (color.blue * 255 * brightness);
+    for (int i = 0; i < length; i++) {
+      buffer.setRGB(i, r, g, b);
+    }
+  }
+
+  /** Publish LED buffer colors to NetworkTables for dashboard visualization. */
+  private void publishLEDColors() {
+    String[] colors = new String[length];
+    for (int i = 0; i < length; i++) {
+      Color c = buffer.getLED(i);
+      colors[i] =
+          String.format(
+              "#%02X%02X%02X", (int) (c.red * 255), (int) (c.green * 255), (int) (c.blue * 255));
+    }
+    Logger.recordOutput("LED/Colors", colors);
   }
 
   /** Rough estimate of match elapsed time (same logic as MatchPhaseTracker). */
