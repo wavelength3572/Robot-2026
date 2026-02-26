@@ -416,22 +416,39 @@ public class RobotContainer {
 
     // Create LED subsystem (PWM port 0, 60 LEDs — adjust for your strip)
     leds = new LEDSubsystem(0, 60);
-    // Wire hood trench danger: flash red when hood is raised while robot is near a trench.
-    // Trench Y zones are defined by LinesHorizontal (left trench near top of field,
-    // right trench near bottom). If robot Y is inside either trench opening and the hood
-    // is above its safe stow angle, warn the driver.
+    // Wire hood trench danger: flash red when hood is raised while robot is inside a trench.
+    // Each trench is a rectangle defined by an X range (trench width, centered on hub) and
+    // a Y range (from LinesHorizontal). There are 4 trenches total: left and right on both
+    // the alliance and opposing sides.
     if (hood != null && drive != null) {
+      double trenchHalfWidth = FieldConstants.LeftTrench.width / 2.0;
+      double allyHubX = FieldConstants.LinesVertical.hubCenter;
+      double oppHubX = FieldConstants.LinesVertical.oppHubCenter;
+
       leds.setDefaultCommand(
           leds.run(
                   () -> {
+                    double robotX = drive.getPose().getX();
                     double robotY = drive.getPose().getY();
-                    boolean inLeftTrench =
+
+                    // Y ranges for left/right trenches
+                    boolean inLeftTrenchY =
                         robotY >= FieldConstants.LinesHorizontal.leftTrenchOpenEnd
                             && robotY <= FieldConstants.LinesHorizontal.leftTrenchOpenStart;
-                    boolean inRightTrench =
+                    boolean inRightTrenchY =
                         robotY >= FieldConstants.LinesHorizontal.rightTrenchOpenEnd
                             && robotY <= FieldConstants.LinesHorizontal.rightTrenchOpenStart;
-                    boolean nearTrench = inLeftTrench || inRightTrench;
+
+                    // X ranges: alliance-side or opposing-side hub area
+                    boolean inAllyTrenchX =
+                        robotX >= allyHubX - trenchHalfWidth
+                            && robotX <= allyHubX + trenchHalfWidth;
+                    boolean inOppTrenchX =
+                        robotX >= oppHubX - trenchHalfWidth
+                            && robotX <= oppHubX + trenchHalfWidth;
+                    boolean inTrenchX = inAllyTrenchX || inOppTrenchX;
+
+                    boolean nearTrench = inTrenchX && (inLeftTrenchY || inRightTrenchY);
                     boolean hoodRaised = hood.isRaisedAboveSafe(3.0);
                     leds.setHoodDanger(nearTrench && hoodRaised);
                   })
