@@ -236,7 +236,9 @@ public class Intake extends SubsystemBase {
     io.setDeployPosition(deployRetractedPos.get());
   }
 
-  /** Stow the intake (fully retracted past normal retract position). Blocked while in stall error. */
+  /**
+   * Stow the intake (fully retracted past normal retract position). Blocked while in stall error.
+   */
   public void stow() {
     if (DEPLOY_STUCK_ERROR == true) return;
     deployCommanded = false;
