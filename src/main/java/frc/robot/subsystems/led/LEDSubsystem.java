@@ -78,18 +78,19 @@ public class LEDSubsystem extends SubsystemBase {
     led.setData(buffer);
   }
 
-  // ========== Hood Danger API ==========
+  // ========== Hood Trench Danger API ==========
 
   /**
-   * Set whether the hood is in a danger zone (near mechanical limits).
+   * Set whether the hood is raised while the robot is near a trench. When true, LEDs flash red to
+   * warn the driver that the hood could collide with the trench ceiling.
    *
-   * @param danger true to trigger red flash warning
+   * @param danger true if hood is raised AND robot is in a trench zone
    */
   public void setHoodDanger(boolean danger) {
     this.hoodDanger = danger;
   }
 
-  /** @return true if the hood danger warning is active */
+  /** @return true if the hood trench danger warning is active */
   public boolean isHoodDanger() {
     return hoodDanger;
   }

@@ -416,12 +416,27 @@ public class RobotContainer {
 
     // Create LED subsystem (PWM port 0, 60 LEDs — adjust for your strip)
     leds = new LEDSubsystem(0, 60);
-    // Wire hood danger indicator: flash red when hood is near mechanical limits
-    if (hood != null) {
+    // Wire hood trench danger: flash red when hood is raised while robot is near a trench.
+    // Trench Y zones are defined by LinesHorizontal (left trench near top of field,
+    // right trench near bottom). If robot Y is inside either trench opening and the hood
+    // is above its safe stow angle, warn the driver.
+    if (hood != null && drive != null) {
       leds.setDefaultCommand(
-          leds.run(() -> leds.setHoodDanger(hood.isNearLimit()))
+          leds.run(
+                  () -> {
+                    double robotY = drive.getPose().getY();
+                    boolean inLeftTrench =
+                        robotY >= FieldConstants.LinesHorizontal.leftTrenchOpenEnd
+                            && robotY <= FieldConstants.LinesHorizontal.leftTrenchOpenStart;
+                    boolean inRightTrench =
+                        robotY >= FieldConstants.LinesHorizontal.rightTrenchOpenEnd
+                            && robotY <= FieldConstants.LinesHorizontal.rightTrenchOpenStart;
+                    boolean nearTrench = inLeftTrench || inRightTrench;
+                    boolean hoodRaised = hood.isRaisedAboveSafe(3.0);
+                    leds.setHoodDanger(nearTrench && hoodRaised);
+                  })
               .ignoringDisable(true)
-              .withName("LED: Hood Monitor"));
+              .withName("LED: Trench Danger Monitor"));
     }
 
     // Initialize FuelSim for simulation mode (after coordinator so intake can be
