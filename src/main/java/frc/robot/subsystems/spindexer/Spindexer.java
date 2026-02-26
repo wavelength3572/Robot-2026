@@ -75,6 +75,15 @@ public class Spindexer extends SubsystemBase {
     io.setSpindexerVelocity(feedingSuppressed ? 0.0 : velocityRPM);
   }
 
+  /**
+   * Run Spindexer motor in reverse at a specific velocity.
+   *
+   * @param velocityRPM Target velocity magnitude in RPM (will be negated)
+   */
+  public void reverseSpindexer(double velocityRPM) {
+    io.setSpindexerVelocity(-Math.abs(velocityRPM));
+  }
+
   /** Stop only Spindexer motor 1. */
   public void stopSpindexer() {
     io.stopSpindexer();
@@ -158,6 +167,18 @@ public class Spindexer extends SubsystemBase {
     return run(() -> setSpindexerVelocity(rpm.get()))
         .finallyDo(this::stopSpindexer)
         .withName("Spindexer: Run Lead");
+  }
+
+  /**
+   * Command to run the spindexer in reverse at a tunable RPM.
+   *
+   * @param rpm Tunable RPM source (magnitude; will be negated internally)
+   * @return Command that runs until interrupted
+   */
+  public Command reverseSpindexerCommand(LoggedTunableNumber rpm) {
+    return run(() -> reverseSpindexer(rpm.get()))
+        .finallyDo(this::stopSpindexer)
+        .withName("Spindexer: Reverse");
   }
 
   /** Runs the drive in a straight line with the specified drive output. */

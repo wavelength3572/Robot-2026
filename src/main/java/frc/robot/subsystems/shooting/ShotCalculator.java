@@ -13,6 +13,10 @@ import org.littletonrobotics.junction.Logger;
  * Utility class for all shot-related calculations. Converts robot pose + target into shot
  * parameters (exit velocity, launch angle, hood angle, turret angle). Also provides launcher
  * RPM↔velocity conversions and projectile physics utilities.
+ *
+ * <p>Supports a hybrid LUT/physics approach: when a lookup table is loaded and the blend factor is
+ * > 0, shot RPM and hood angle are blended between the empirical LUT and the physics-based
+ * TrajectoryOptimizer. Blend factor 0.0 = pure physics, 1.0 = pure LUT.
  */
 public final class ShotCalculator {
 
@@ -23,6 +27,13 @@ public final class ShotCalculator {
   // Efficiency factor: how much of wheel surface velocity transfers to ball (0.0-1.0)
   private static final LoggedTunableNumber launchEfficiency =
       new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.4);
+
+  // LUT/hybrid blend: 0.0 = pure physics, 1.0 = pure LUT
+  private static final LoggedTunableNumber lutBlendFactor =
+      new LoggedTunableNumber("Shots/SmartLaunch/LUT/BlendFactor", 0.0);
+
+  // Shared LUT instance (populated at startup, entries tuned empirically)
+  private static ShotLookupTable hubLookupTable = ShotLookupTable.buildDefaultHubTable();
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -53,6 +64,16 @@ public final class ShotCalculator {
   }
 
   private ShotCalculator() {} // Static utility class
+
+  /** Replace the hub lookup table (e.g., with robot-specific empirical data). */
+  public static void setHubLookupTable(ShotLookupTable table) {
+    hubLookupTable = table;
+  }
+
+  /** Get the current LUT blend factor (0.0 = pure physics, 1.0 = pure LUT). */
+  public static double getLutBlendFactor() {
+    return lutBlendFactor.get();
+  }
 
   // ========== Launcher RPM Methods ==========
 
@@ -360,6 +381,35 @@ public final class ShotCalculator {
         TrajectoryOptimizer.calculateOptimalShot(
             turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
 
+    // Hybrid LUT/physics blend: when blend > 0 and we have LUT data, mix in empirical values
+    double finalExitVelocity = optimalShot.exitVelocityMps;
+    double finalHoodAngleDeg = optimalShot.hoodAngleDeg;
+    double finalLaunchAngleDeg = optimalShot.launchAngleDeg;
+    double blend = lutBlendFactor.get();
+
+    double aimDistance =
+        Math.sqrt(
+            Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));
+
+    if (blend > 0.0 && hubLookupTable != null && hubLookupTable.hasEntries()) {
+      ShotLookupTable.ShotEntry lutEntry = hubLookupTable.lookup(aimDistance);
+      if (lutEntry != null) {
+        double lutRPM = lutEntry.rpm();
+        double lutHoodAngle = lutEntry.hoodAngleDeg();
+        double lutExitVelocity = calculateExitVelocityFromRPM(lutRPM);
+
+        // Blend: result = physics * (1 - blend) + LUT * blend
+        finalExitVelocity = finalExitVelocity * (1.0 - blend) + lutExitVelocity * blend;
+        finalHoodAngleDeg = finalHoodAngleDeg * (1.0 - blend) + lutHoodAngle * blend;
+        finalLaunchAngleDeg = 90.0 - finalHoodAngleDeg; // derived from blended hood angle
+
+        Logger.recordOutput("Shots/LUT/Distance", aimDistance);
+        Logger.recordOutput("Shots/LUT/RPM", lutRPM);
+        Logger.recordOutput("Shots/LUT/HoodAngleDeg", lutHoodAngle);
+        Logger.recordOutput("Shots/LUT/BlendFactor", blend);
+      }
+    }
+
     double turretAngleDeg =
         calculateOutsideTurretAngle(
             robotPose.getX(),
@@ -373,9 +423,9 @@ public final class ShotCalculator {
             config);
 
     return new ShotResult(
-        optimalShot.exitVelocityMps,
-        Math.toRadians(optimalShot.launchAngleDeg),
-        optimalShot.hoodAngleDeg,
+        finalExitVelocity,
+        Math.toRadians(finalLaunchAngleDeg),
+        finalHoodAngleDeg,
         turretAngleDeg,
         aimTarget,
         optimalShot.achievable);

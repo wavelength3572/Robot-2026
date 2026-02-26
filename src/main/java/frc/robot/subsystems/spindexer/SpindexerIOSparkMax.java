@@ -156,12 +156,14 @@ public class SpindexerIOSparkMax implements SpindexerIO {
   @Override
   public void setSpindexerVelocity(double wheelVelocityRPM) {
     spindexerVelocityMode = true;
-    wheelTargetRPM = Math.abs(wheelVelocityRPM);
-    // ks & kv were calculated in motor RPM thus the conversion in the parameter
-    double arbFFVolts = feedforward.calculate(wheelToMotorRPM(wheelTargetRPM));
+    wheelTargetRPM = wheelVelocityRPM;
+    // ks & kv were calculated in motor RPM thus the conversion in the parameter.
+    // Use Math.abs for feedforward magnitude, then apply sign to match direction.
+    double motorRPM = wheelToMotorRPM(wheelTargetRPM);
+    double arbFFVolts = Math.copySign(feedforward.calculate(Math.abs(motorRPM)), motorRPM);
     // PID control is also in motor rotations
     spindexerController.setSetpoint(
-        wheelToMotorRPM(wheelTargetRPM), ControlType.kVelocity, ClosedLoopSlot.kSlot0, arbFFVolts);
+        motorRPM, ControlType.kVelocity, ClosedLoopSlot.kSlot0, arbFFVolts);
   }
 
   @Override

@@ -149,6 +149,17 @@ public class Hood extends SubsystemBase {
         config.getHoodMinAngleDegrees(), Math.min(config.getHoodMaxAngleDegrees(), angleDeg));
   }
 
+  /**
+   * Check if the hood is near its mechanical limits (within 2 degrees of min or max).
+   *
+   * @return true if the hood angle is dangerously close to a limit
+   */
+  public boolean isNearLimit() {
+    double margin = 2.0; // degrees
+    return inputs.currentAngleDeg <= config.getHoodMinAngleDegrees() + margin
+        || inputs.currentAngleDeg >= config.getHoodMaxAngleDegrees() - margin;
+  }
+
   // ========== Commands ==========
 
   /**

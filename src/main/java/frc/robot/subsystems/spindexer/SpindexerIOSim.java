@@ -68,7 +68,7 @@ public class SpindexerIOSim implements SpindexerIO {
   @Override
   public void setSpindexerVelocity(double velocityRPM) {
     spindexerVelocityMode = true;
-    spindexerTargetRPM = Math.abs(velocityRPM);
+    spindexerTargetRPM = velocityRPM;
     spindexerDutyCycle = 0.0;
   }
 

@@ -34,6 +34,7 @@ import frc.robot.subsystems.hood.HoodIO;
 import frc.robot.subsystems.hood.HoodIOSim;
 import frc.robot.subsystems.hood.HoodIOSparkMax;
 import frc.robot.subsystems.intake.Intake;
+import frc.robot.subsystems.led.LEDSubsystem;
 import frc.robot.subsystems.intake.IntakeIO;
 import frc.robot.subsystems.intake.IntakeIOSim;
 import frc.robot.subsystems.intake.IntakeIOSparkMax;
@@ -88,6 +89,7 @@ public class RobotContainer {
   private final Spindexer spindexer;
   private final ShootingCoordinator
       shootingCoordinator; // Orchestrates turret+hood+motivator+launcher
+  private final LEDSubsystem leds;
   private OperatorInterface oi = new OperatorInterface() {};
 
   // Dashboard inputs — single auto chooser, rebuilt when Competition Mode toggle
@@ -410,6 +412,16 @@ public class RobotContainer {
       }
     } else {
       shootingCoordinator = null;
+    }
+
+    // Create LED subsystem (PWM port 0, 60 LEDs — adjust for your strip)
+    leds = new LEDSubsystem(0, 60);
+    // Wire hood danger indicator: flash red when hood is near mechanical limits
+    if (hood != null) {
+      leds.setDefaultCommand(
+          leds.run(() -> leds.setHoodDanger(hood.isNearLimit()))
+              .ignoringDisable(true)
+              .withName("LED: Hood Monitor"));
     }
 
     // Initialize FuelSim for simulation mode (after coordinator so intake can be
