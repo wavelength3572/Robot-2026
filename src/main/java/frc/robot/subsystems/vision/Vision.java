@@ -273,15 +273,17 @@ public class Vision extends SubsystemBase {
 
       // Log camera data
       Logger.recordOutput(
-          "Vision/Camera" + cameraIndex + "/TagPoses", tagPoses.toArray(new Pose3d[0]));
+          "Vision/Camera" + cameraIndex + "/TagPoses",
+          tagPoses.toArray(new Pose3d[tagPoses.size()]));
       Logger.recordOutput(
-          "Vision/Camera" + cameraIndex + "/RobotPoses", robotPoses.toArray(new Pose3d[0]));
+          "Vision/Camera" + cameraIndex + "/RobotPoses",
+          robotPoses.toArray(new Pose3d[robotPoses.size()]));
       Logger.recordOutput(
           "Vision/Camera" + cameraIndex + "/RobotPosesAccepted",
-          robotPosesAccepted.toArray(new Pose3d[0]));
+          robotPosesAccepted.toArray(new Pose3d[robotPosesAccepted.size()]));
       Logger.recordOutput(
           "Vision/Camera" + cameraIndex + "/RobotPosesRejected",
-          robotPosesRejected.toArray(new Pose3d[0]));
+          robotPosesRejected.toArray(new Pose3d[robotPosesRejected.size()]));
 
       allTagPoses.addAll(tagPoses);
       allRobotPoses.addAll(robotPoses);
@@ -290,26 +292,37 @@ public class Vision extends SubsystemBase {
     }
 
     // Log summary data
-    Logger.recordOutput("Vision/Summary/TagPoses", allTagPoses.toArray(new Pose3d[0]));
-    Logger.recordOutput("Vision/Summary/RobotPoses", allRobotPoses.toArray(new Pose3d[0]));
     Logger.recordOutput(
-        "Vision/Summary/RobotPosesAccepted", allRobotPosesAccepted.toArray(new Pose3d[0]));
+        "Vision/Summary/TagPoses", allTagPoses.toArray(new Pose3d[allTagPoses.size()]));
     Logger.recordOutput(
-        "Vision/Summary/RobotPosesRejected", allRobotPosesRejected.toArray(new Pose3d[0]));
+        "Vision/Summary/RobotPoses", allRobotPoses.toArray(new Pose3d[allRobotPoses.size()]));
+    Logger.recordOutput(
+        "Vision/Summary/RobotPosesAccepted",
+        allRobotPosesAccepted.toArray(new Pose3d[allRobotPosesAccepted.size()]));
+    Logger.recordOutput(
+        "Vision/Summary/RobotPosesRejected",
+        allRobotPosesRejected.toArray(new Pose3d[allRobotPosesRejected.size()]));
 
     // Log contributing tags per camera
     for (int i = 0; i < io.length; i++) {
       Logger.recordOutput(
           "Vision/Summary/Camera" + i + "/ContributingTags",
-          perCameraContributingTags.get(i).toArray(new Pose3d[0]));
+          perCameraContributingTags
+              .get(i)
+              .toArray(new Pose3d[perCameraContributingTags.get(i).size()]));
     }
 
     // New logging: Tags used for accepted/rejected poses
-    Logger.recordOutput("Vision/Summary/TagPosesAccepted", tagPosesAccepted.toArray(new Pose3d[0]));
-    Logger.recordOutput("Vision/Summary/TagPosesRejected", tagPosesRejected.toArray(new Pose3d[0]));
+    Logger.recordOutput(
+        "Vision/Summary/TagPosesAccepted",
+        tagPosesAccepted.toArray(new Pose3d[tagPosesAccepted.size()]));
+    Logger.recordOutput(
+        "Vision/Summary/TagPosesRejected",
+        tagPosesRejected.toArray(new Pose3d[tagPosesRejected.size()]));
 
     // Get robot pose for camera visualization (transforms cameras to world coordinates)
-    Pose3d robotPose3d = new Pose3d(RobotStatus.getRobotPose());
+    Pose2d currentRobotPose = RobotStatus.getRobotPose();
+    Pose3d robotPose3d = new Pose3d(currentRobotPose);
 
     // Select camera transforms based on robot type
     Transform3d frontLeftCamTransform;

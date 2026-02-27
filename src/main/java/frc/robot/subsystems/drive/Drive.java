@@ -69,6 +69,14 @@ public class Drive extends SubsystemBase {
         new SwerveModulePosition(),
         new SwerveModulePosition()
       };
+
+  // Pre-allocated arrays to reduce GC pressure in periodic()
+  private final SwerveModulePosition[] odometryPositions = new SwerveModulePosition[4];
+  private final SwerveModulePosition[] odometryDeltas = new SwerveModulePosition[4];
+  private final SwerveModuleState[] measuredStates = new SwerveModuleState[4];
+  private final SwerveModulePosition[] measuredPositions = new SwerveModulePosition[4];
+  private static final ChassisSpeeds ZERO_SPEEDS = new ChassisSpeeds();
+  private static final SwerveModuleState[] EMPTY_MODULE_STATES = new SwerveModuleState[] {};
   private SwerveDrivePoseEstimator poseEstimator =
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
 
@@ -140,12 +148,8 @@ public class Drive extends SubsystemBase {
       for (var module : modules) {
         module.stop();
       }
-    }
-
-    // Log empty setpoint states when disabled
-    if (DriverStation.isDisabled()) {
-      Logger.recordOutput("Drive/SwerveStates/Setpoints", new SwerveModuleState[] {});
-      Logger.recordOutput("Drive/SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
+      Logger.recordOutput("Drive/SwerveStates/Setpoints", EMPTY_MODULE_STATES);
+      Logger.recordOutput("Drive/SwerveStates/SetpointsOptimized", EMPTY_MODULE_STATES);
     }
 
     // Update odometry
@@ -153,17 +157,15 @@ public class Drive extends SubsystemBase {
         modules[0].getOdometryTimestamps(); // All signals are sampled together
     int sampleCount = sampleTimestamps.length;
     for (int i = 0; i < sampleCount; i++) {
-      // Read wheel positions and deltas from each module
-      SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
-      SwerveModulePosition[] moduleDeltas = new SwerveModulePosition[4];
+      // Read wheel positions and deltas from each module (reuse pre-allocated arrays)
       for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
-        modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[i];
-        moduleDeltas[moduleIndex] =
+        odometryPositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[i];
+        odometryDeltas[moduleIndex] =
             new SwerveModulePosition(
-                modulePositions[moduleIndex].distanceMeters
+                odometryPositions[moduleIndex].distanceMeters
                     - lastModulePositions[moduleIndex].distanceMeters,
-                modulePositions[moduleIndex].angle);
-        lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
+                odometryPositions[moduleIndex].angle);
+        lastModulePositions[moduleIndex] = odometryPositions[moduleIndex];
       }
 
       // Update gyro angle
@@ -172,12 +174,12 @@ public class Drive extends SubsystemBase {
         rawGyroRotation = gyroInputs.odometryYawPositions[i];
       } else {
         // Use the angle delta from the kinematics and module deltas
-        Twist2d twist = kinematics.toTwist2d(moduleDeltas);
+        Twist2d twist = kinematics.toTwist2d(odometryDeltas);
         rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
       }
 
       // Apply update
-      poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
+      poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, odometryPositions);
     }
 
     // Update turret to aim based on zone: shoot in alliance zone, pass otherwise.
@@ -252,7 +254,7 @@ public class Drive extends SubsystemBase {
 
   /** Stops the drive. */
   public void stop() {
-    runVelocity(new ChassisSpeeds());
+    runVelocity(ZERO_SPEEDS);
   }
 
   /**
@@ -283,20 +285,18 @@ public class Drive extends SubsystemBase {
   /** Returns the module states (turn angles and drive velocities) for all of the modules. */
   @AutoLogOutput(key = "Drive/SwerveStates/Measured")
   private SwerveModuleState[] getModuleStates() {
-    SwerveModuleState[] states = new SwerveModuleState[4];
     for (int i = 0; i < 4; i++) {
-      states[i] = modules[i].getState();
+      measuredStates[i] = modules[i].getState();
     }
-    return states;
+    return measuredStates;
   }
 
   /** Returns the module positions (turn angles and drive positions) for all of the modules. */
   private SwerveModulePosition[] getModulePositions() {
-    SwerveModulePosition[] states = new SwerveModulePosition[4];
     for (int i = 0; i < 4; i++) {
-      states[i] = modules[i].getPosition();
+      measuredPositions[i] = modules[i].getPosition();
     }
-    return states;
+    return measuredPositions;
   }
 
   /** Returns the measured chassis speeds of the robot (robot-relative). */

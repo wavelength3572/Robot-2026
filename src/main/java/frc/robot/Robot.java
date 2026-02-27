@@ -89,6 +89,10 @@ public class Robot extends LoggedRobot {
     // timing (see the template project documentation for details)
     // Threads.setCurrentThreadPriority(true, 99);
 
+    // Refresh cached values before subsystem periodic methods run
+    frc.robot.util.RobotStatus.refreshAlliance();
+    frc.robot.util.LoggedTunableNumber.refreshAll();
+
     // Runs the Scheduler. This is responsible for polling buttons, adding
     // newly-scheduled commands, running already-scheduled commands, removing
     // finished or interrupted commands, and running subsystem periodic() methods.

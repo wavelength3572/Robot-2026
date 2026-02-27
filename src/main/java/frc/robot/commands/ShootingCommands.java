@@ -284,11 +284,7 @@ public class ShootingCommands {
                           boolean launcherReady = launcher.atSetpoint();
                           boolean motivatorReady =
                               motivator == null || motivator.isMotivatorAtSetpoint();
-                          boolean allReady = launcherReady && motivatorReady;
-                          SmartDashboard.putBoolean("Match/Status/ReadyLauncher", launcherReady);
-                          SmartDashboard.putBoolean("Match/Status/ReadyMotivators", motivatorReady);
-                          SmartDashboard.putBoolean("Match/Status/ReadyAll", allReady);
-                          return allReady;
+                          return launcherReady && motivatorReady;
                         }),
                     Commands.waitSeconds(0.1),
                     Commands.waitUntil(
@@ -314,12 +310,7 @@ public class ShootingCommands {
             // Phase 3: Start prefeed and fire repeatedly
             Commands.parallel(
                 // Keep launcher at speed continuously
-                Commands.run(
-                    () -> {
-                      launcher.setVelocity(launchVelocityRPM.get());
-                      SmartDashboard.putNumber("Match/Status/CurrentRPM", launcher.getVelocity());
-                    },
-                    launcher),
+                Commands.run(() -> launcher.setVelocity(launchVelocityRPM.get()), launcher),
 
                 // Keep motivator feeders running AND now add prefeed
                 motivator != null
@@ -583,16 +574,7 @@ public class ShootingCommands {
                           boolean turretReady = turret.atTarget();
                           boolean hoodReady = hood == null || hood.atTarget();
 
-                          boolean allReady =
-                              launcherReady && motivatorReady && turretReady && hoodReady;
-
-                          SmartDashboard.putBoolean("Match/Status/ReadyLauncher", launcherReady);
-                          SmartDashboard.putBoolean("Match/Status/ReadyMotivators", motivatorReady);
-                          SmartDashboard.putBoolean("Match/Status/ReadyTurret", turretReady);
-                          SmartDashboard.putBoolean("Match/Status/ReadyHood", hoodReady);
-                          SmartDashboard.putBoolean("Match/Status/ReadyAll", allReady);
-
-                          return allReady;
+                          return launcherReady && motivatorReady && turretReady && hoodReady;
                         }),
                     Commands.waitSeconds(0.1),
                     Commands.waitUntil(
@@ -634,7 +616,6 @@ public class ShootingCommands {
                       if (coordinator != null) {
                         coordinator.setManualShotParameters(rpm, hoodAngle, turretAngle);
                       }
-                      SmartDashboard.putNumber("Match/Status/CurrentRPM", launcher.getVelocity());
                     },
                     launcher),
 
@@ -766,24 +747,6 @@ public class ShootingCommands {
                                   && hoodReady
                                   && hasShot;
 
-                          SmartDashboard.putBoolean("Match/Status/ReadyLauncher", launcherReady);
-                          SmartDashboard.putBoolean("Match/Status/ReadyMotivators", motivatorReady);
-                          SmartDashboard.putBoolean("Match/Status/ReadyTurret", turretReady);
-                          SmartDashboard.putBoolean("Match/Status/ReadyHood", hoodReady);
-                          SmartDashboard.putBoolean("Match/Status/ReadyAchievable", hasShot);
-                          SmartDashboard.putBoolean("Match/Status/ReadyAll", allReady);
-                          if (shot != null) {
-                            SmartDashboard.putNumber(
-                                "Match/Status/SmartLaunchRPM",
-                                ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps()));
-                            SmartDashboard.putNumber(
-                                "Match/Status/SmartLaunchHoodDeg", shot.hoodAngleDeg());
-                            SmartDashboard.putNumber(
-                                "Match/Status/SmartLaunchTurretDeg", shot.turretAngleDeg());
-                            SmartDashboard.putNumber(
-                                "Match/Status/SmartLaunchExitVel", shot.exitVelocityMps());
-                          }
-
                           return allReady;
                         }),
                     Commands.waitSeconds(0.1),
@@ -859,7 +822,6 @@ public class ShootingCommands {
                         launcher.setVelocity(rpm);
                         coordinator.setManualShotParameters(
                             rpm, shot.hoodAngleDeg(), shot.turretAngleDeg());
-                        SmartDashboard.putNumber("Match/Status/CurrentRPM", launcher.getVelocity());
                       }
                     },
                     launcher),

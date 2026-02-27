@@ -20,7 +20,8 @@ public class LoggedTunableNumber {
   private final String key;
   private final double defaultValue;
   private final DoubleEntry entry;
-  private double lastValue;
+  private double currentValue;
+  private double lastHasChangedValue;
 
   private static final Map<String, LoggedTunableNumber> instances = new HashMap<>();
 
@@ -33,7 +34,8 @@ public class LoggedTunableNumber {
   public LoggedTunableNumber(String key, double defaultValue) {
     this.key = key;
     this.defaultValue = defaultValue;
-    this.lastValue = defaultValue;
+    this.currentValue = defaultValue;
+    this.lastHasChangedValue = defaultValue;
 
     // Only create NT entry in tuning mode
     if (isTuningMode()) {
@@ -50,16 +52,26 @@ public class LoggedTunableNumber {
   }
 
   /**
-   * Gets the current value. In tuning mode, reads from NetworkTables. Otherwise returns the default
-   * value.
+   * Gets the current cached value. Values are refreshed from NetworkTables once per loop via {@link
+   * #refreshAll()}.
    *
    * @return The current value
    */
   public double get() {
-    if (isTuningMode() && entry != null) {
-      lastValue = entry.get(defaultValue);
+    return currentValue;
+  }
+
+  /**
+   * Refresh all tunable number values from NetworkTables. Call once per robot loop cycle (e.g., in
+   * Robot.robotPeriodic) to batch NT reads instead of reading per-call.
+   */
+  public static void refreshAll() {
+    if (!isTuningMode()) return;
+    for (LoggedTunableNumber tunable : instances.values()) {
+      if (tunable.entry != null) {
+        tunable.currentValue = tunable.entry.get(tunable.defaultValue);
+      }
     }
-    return lastValue;
   }
 
   /**
@@ -71,9 +83,8 @@ public class LoggedTunableNumber {
     if (!isTuningMode() || entry == null) {
       return false;
     }
-    double currentValue = entry.get(defaultValue);
-    if (currentValue != lastValue) {
-      lastValue = currentValue;
+    if (currentValue != lastHasChangedValue) {
+      lastHasChangedValue = currentValue;
       return true;
     }
     return false;
@@ -89,9 +100,8 @@ public class LoggedTunableNumber {
     boolean changed = false;
     for (LoggedTunableNumber tunable : tunables) {
       if (tunable.entry != null) {
-        double currentNTValue = tunable.entry.get(tunable.defaultValue);
-        if (currentNTValue != tunable.lastValue) {
-          tunable.lastValue = currentNTValue;
+        if (tunable.currentValue != tunable.lastHasChangedValue) {
+          tunable.lastHasChangedValue = tunable.currentValue;
           changed = true;
         }
       }

@@ -180,20 +180,20 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeRollerGearRatio = 2.0;
   private static final boolean intakeDeployMotorInverted = false;
   private static final boolean intakeRollerMotorInverted = true;
-  private static final int intakeDeployCurrentLimit = 50;
+  private static final int intakeDeployCurrentLimit = 80;
   private static final int intakeRollerCurrentLimit = 110;
   private static final double intakeDeployStowedPosition = 0.0;
-  private static final double intakeDeployRetractedPosition = 0.05;
-  private static final double intakeDeployExtendedPosition = 0.15;
-  private static final double intakeDeployKp = 0.0;
+  private static final double intakeDeployRetractedPosition = 0.0035;
+  private static final double intakeDeployExtendedPosition = 0.13;
+  private static final double intakeDeployKp = 15.0;
   private static final double intakeDeployKi = 0.0;
   private static final double intakeDeployKd = 0.0;
   private static final double intakeRollerKp = 0.0007;
   private static final double intakeRollerKi = 0.0;
   private static final double intakeRollerKd = 0.000001;
   private static final double intakeRollerKff = 0.000225;
-  private static final double intakeDeployMaxVelocity = 7.0; // RPM output shaft (~2s deploy)
-  private static final double intakeDeployMaxAcceleration = 10.0; // RPM/s output shaft
+  private static final double intakeDeployMaxVelocity = 20.0; // RPM output shaft
+  private static final double intakeDeployMaxAcceleration = 20.0; // RPM/s output shaft
 
   // Performance
   private static final double maxSpeedMetersPerSec =

@@ -2,8 +2,6 @@ package frc.robot.subsystems.intake;
 
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -62,7 +60,7 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/RetractedPosition",
             config.getIntakeDeployRetractedPosition());
-    deployTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/Tolerance", 0.02);
+    deployTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/Tolerance", 0.0001);
     rollerKP =
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kP", config.getIntakeRollerKp());
     rollerKI =
@@ -77,7 +75,7 @@ public class Intake extends SubsystemBase {
     deployMaxAcceleration =
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
-    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/OutputLimit", 0.5);
+    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/OutputLimit", 1.0);
   }
 
   // Deploy positions (from config, used for soft limit init)
@@ -87,18 +85,6 @@ public class Intake extends SubsystemBase {
 
   // Tracks whether we've commanded deploy (true) or retract (false)
   private boolean deployCommanded = false;
-  private boolean lastBrakeMode = true; // Track brake mode to avoid constant reconfiguration
-
-  // Tunable stall detection thresholds (adjustable from dashboard during testing)
-  private static final LoggedTunableNumber deployStallCurrentThreshold =
-      new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/StallCurrentAmps", 30.0);
-  private static final LoggedTunableNumber deployStallCycleCount =
-      new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/StallCycles", 15);
-  private int DEPLOY_STUCK_ERROR_COUNT = 0;
-  private boolean DEPLOY_STUCK_ERROR = false;
-  private boolean inDeployRecoveryMode = false;
-  private final Alert deployStallAlert =
-      new Alert("Intake deploy STALLED - clear obstruction then recover!", AlertType.kError);
 
   // Operational constants (not robot-specific)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
@@ -165,34 +151,6 @@ public class Intake extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs("Intake", inputs);
 
-    // Stall detection: high current = stuck (same pattern as 2025 ArmIOMMSpark)
-    if (inputs.deployCurrentAmps > deployStallCurrentThreshold.get()) {
-      DEPLOY_STUCK_ERROR_COUNT++;
-      if (DEPLOY_STUCK_ERROR == false
-          && DEPLOY_STUCK_ERROR_COUNT >= (int) deployStallCycleCount.get()) {
-        DEPLOY_STUCK_ERROR = true;
-        // Kill motor immediately
-        io.stop();
-        // Target will get set to current position below via MAXMotion
-        io.setDeployPosition(inputs.deployPositionRotations);
-      }
-    } else {
-      DEPLOY_STUCK_ERROR_COUNT = 0;
-    }
-
-    // When in error and NOT in recovery mode, lock target to current position
-    if (DEPLOY_STUCK_ERROR == true && inDeployRecoveryMode == false) {
-      io.setDeployPosition(inputs.deployPositionRotations);
-    }
-
-    // Update dashboard alert and mechanism color based on stall state
-    deployStallAlert.set(DEPLOY_STUCK_ERROR);
-    deployArm.setColor(
-        DEPLOY_STUCK_ERROR ? new Color8Bit(Color.kRed) : new Color8Bit(Color.kOrange));
-
-    Logger.recordOutput("Intake/DeployStuckError", DEPLOY_STUCK_ERROR);
-    Logger.recordOutput("Intake/InDeployRecoveryMode", inDeployRecoveryMode);
-
     // Push tunable changes to IO
     if (LoggedTunableNumber.hasChanged(deployKP, deployKI, deployKD)) {
       io.configureDeployPID(deployKP.get(), deployKI.get(), deployKD.get());
@@ -209,13 +167,7 @@ public class Intake extends SubsystemBase {
       io.configureDeployOutputRange(-limit, limit);
     }
 
-    // Coast when deploy is commanded for ground compliance, brake otherwise to hold position
-    // Only reconfigure when state changes — calling configure() every cycle disrupts SparkMax PID
-    boolean wantBrake = !deployCommanded;
-    if (wantBrake != lastBrakeMode) {
-      io.setDeployBrakeMode(wantBrake);
-      lastBrakeMode = wantBrake;
-    }
+    // Always brake mode — PID holds position, brake mode backs it up
 
     // Update deploy arm angle
     // Retracted (0 rotations) = 90° (pointing up)
@@ -235,19 +187,15 @@ public class Intake extends SubsystemBase {
 
   // ========== DEPLOY CONTROL ==========
 
-  /**
-   * Deploy the intake (extend). Stops motor first for clean retarget. Blocked while in stall error.
-   */
+  /** Deploy the intake (extend). Stops motor first for clean retarget. */
   public void deploy() {
-    if (DEPLOY_STUCK_ERROR == true) return;
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     deployCommanded = true;
     io.setDeployPosition(deployExtendedPos.get());
   }
 
-  /** Retract the intake. Stops motor first for clean retarget. Blocked while in stall error. */
+  /** Retract the intake. Stops motor first for clean retarget. */
   public void retract() {
-    if (DEPLOY_STUCK_ERROR == true) return;
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     deployCommanded = false;
     io.setDeployPosition(deployRetractedPos.get());
@@ -255,21 +203,16 @@ public class Intake extends SubsystemBase {
 
   /**
    * Stow the intake (fully retracted past normal retract position). Stops motor first for clean
-   * retarget. Blocked while in stall error.
+   * retarget.
    */
   public void stow() {
-    if (DEPLOY_STUCK_ERROR == true) return;
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     deployCommanded = false;
     io.setDeployPosition(deployStowedPos.get());
   }
 
-  /** Emergency stop the deploy motor. Holds current position. Always works, even during stall. */
+  /** Emergency stop the deploy motor. Holds current position. */
   public void stopDeploy() {
-    // Clear stall error so periodic() doesn't override us
-    DEPLOY_STUCK_ERROR = false;
-    DEPLOY_STUCK_ERROR_COUNT = 0;
-    inDeployRecoveryMode = false;
     io.stopDeploy();
     deployCommanded = false;
   }
@@ -280,12 +223,11 @@ public class Intake extends SubsystemBase {
   }
 
   /**
-   * Set the deploy position directly. Blocked while in stall error.
+   * Set the deploy position directly.
    *
    * @param positionRotations Target position in rotations
    */
   public void setDeployPosition(double positionRotations) {
-    if (DEPLOY_STUCK_ERROR == true) return;
     io.setDeployPosition(positionRotations);
   }
 
@@ -319,44 +261,6 @@ public class Intake extends SubsystemBase {
   /** Get the current deploy position. */
   public double getDeployPosition() {
     return inputs.deployPositionRotations;
-  }
-
-  // ========== STALL PROTECTION ==========
-
-  /** Returns true if the deploy mechanism has detected a stall. */
-  @AutoLogOutput(key = "Intake/IsDeployStalled")
-  public boolean isDeployInError() {
-    return DEPLOY_STUCK_ERROR;
-  }
-
-  /**
-   * Recover from stall error by entering recovery mode and commanding stow. Recovery mode allows
-   * movement to stow even while the error flag is still set. Same pattern as 2025 arm recoverArm().
-   */
-  public void recoverDeploy() {
-    inDeployRecoveryMode = true;
-    deployCommanded = false;
-    io.setDeployPosition(deployStowedPos.get());
-  }
-
-  /** Command that recovers from stall error by stowing. */
-  public Command recoverDeployCommand() {
-    return runOnce(this::recoverDeploy).withName("Intake: Recover Deploy");
-  }
-
-  /**
-   * Clear the deploy error completely. Call this after the intake has recovered to a safe position.
-   * Same pattern as 2025 arm clearArmError().
-   */
-  public void clearDeployError() {
-    DEPLOY_STUCK_ERROR = false;
-    DEPLOY_STUCK_ERROR_COUNT = 0;
-    inDeployRecoveryMode = false;
-  }
-
-  /** Command that clears the deploy stall error. */
-  public Command clearDeployErrorCommand() {
-    return runOnce(this::clearDeployError).withName("Intake: Clear Deploy Error");
   }
 
   // ========== ROLLER CONTROL ==========

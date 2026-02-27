@@ -12,6 +12,7 @@ import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.util.MatchPhaseTracker;
 import frc.robot.util.MatchPhaseTracker.MatchPhase;
+import frc.robot.util.RobotStatus;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -83,9 +84,8 @@ public class LEDSubsystem extends SubsystemBase {
 
   @Override
   public void periodic() {
-    DriverStation.Alliance alliance =
-        DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue);
-    boolean isBlue = alliance == DriverStation.Alliance.Blue;
+    DriverStation.Alliance alliance = RobotStatus.getAlliance();
+    boolean isBlue = RobotStatus.isBlueAlliance();
 
     double time = Timer.getFPGATimestamp();
 

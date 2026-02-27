@@ -260,8 +260,6 @@ public class ButtonsAndDashboardBindings {
           Commands.runOnce(intake::retract, intake).withName("Intake: Retract"));
       SmartDashboard.putData("Tuning/Intake/IntakeDeploy/STOP", intake.stopDeployCommand());
       SmartDashboard.putData(
-          "Tuning/Intake/IntakeDeploy/ClearError", intake.clearDeployErrorCommand());
-      SmartDashboard.putData(
           "Tuning/Intake/IntakeRollers/RunAtTuningVelocity",
           Commands.run(() -> intake.setRollerVelocity(tuningIntakeRollerVelocity.get()))
               .finallyDo(intake::stopRollers)

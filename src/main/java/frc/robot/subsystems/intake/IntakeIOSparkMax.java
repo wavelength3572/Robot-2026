@@ -78,7 +78,7 @@ public class IntakeIOSparkMax implements IntakeIO {
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(config.getIntakeDeployKp(), config.getIntakeDeployKi(), config.getIntakeDeployKd());
-    deployConfig.closedLoop.outputRange(-0.5, 0.5); // Safe default limit for tuning
+    deployConfig.closedLoop.outputRange(-1.0, 1.0);
     deployConfig
         .closedLoop
         .maxMotion

@@ -1,6 +1,7 @@
 package frc.robot.util;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.wpilibj.DriverStation;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.vision.Vision;
 
@@ -13,6 +14,10 @@ import frc.robot.subsystems.vision.Vision;
 public class RobotStatus {
   private static Drive driveSystem;
   private static Vision visionSystem;
+
+  // Cached alliance to avoid Optional allocation every cycle
+  private static DriverStation.Alliance cachedAlliance = DriverStation.Alliance.Blue;
+  private static boolean allianceResolved = false;
 
   /** Initialize RobotStatus with subsystem references. Called once from RobotContainer. */
   public static void initialize(Drive drive, Vision vision) {
@@ -36,6 +41,34 @@ public class RobotStatus {
   /** Returns the Vision subsystem instance. */
   public static Vision getVision() {
     return visionSystem;
+  }
+
+  /**
+   * Returns the cached alliance color. Call {@link #refreshAlliance()} periodically (e.g., in
+   * Robot.robotPeriodic) to keep this up to date without allocating an Optional every cycle.
+   */
+  public static DriverStation.Alliance getAlliance() {
+    return cachedAlliance;
+  }
+
+  /** Returns true if the robot is on the blue alliance. */
+  public static boolean isBlueAlliance() {
+    return cachedAlliance == DriverStation.Alliance.Blue;
+  }
+
+  /**
+   * Refresh the cached alliance from DriverStation. Call once per loop cycle (e.g., in
+   * Robot.robotPeriodic) rather than from every subsystem.
+   */
+  public static void refreshAlliance() {
+    // Only re-query until resolved, then lock in
+    if (!allianceResolved) {
+      var optional = DriverStation.getAlliance();
+      if (optional.isPresent()) {
+        cachedAlliance = optional.get();
+        allianceResolved = true;
+      }
+    }
   }
 
   /** Returns whether vision is currently enabled. */

@@ -37,8 +37,8 @@ public class ShotVisualizer {
   private static final double GRAVITY = 9.81; // m/s^2
 
   // Trajectory for visualization (where the ball would actually go)
-  private Translation3d[] actualTrajectory = new Translation3d[TRAJECTORY_POINTS];
-  private Translation3d[] whatIfTrajectory = new Translation3d[TRAJECTORY_POINTS];
+  private final Translation3d[] actualTrajectory = new Translation3d[TRAJECTORY_POINTS];
+  private final Translation3d[] whatIfTrajectory = new Translation3d[TRAJECTORY_POINTS];
   private static final Translation3d[] EMPTY_TRAJECTORY = new Translation3d[0];
 
   // Threshold for determining launcher status
@@ -252,13 +252,16 @@ public class ShotVisualizer {
     double startX = turretPos.getX();
     double startY = turretPos.getY();
     double startZ = turretPos.getZ();
+    double vx = velocity.getX();
+    double vy = velocity.getY();
+    double vz = velocity.getZ();
 
     for (int i = 0; i < TRAJECTORY_POINTS; i++) {
       double t = i * TRAJECTORY_TIME_STEP;
 
-      double x = startX + velocity.getX() * t;
-      double y = startY + velocity.getY() * t;
-      double z = startZ + velocity.getZ() * t - 0.5 * GRAVITY * t * t;
+      double x = startX + vx * t;
+      double y = startY + vy * t;
+      double z = startZ + vz * t - 0.5 * GRAVITY * t * t;
 
       if (z < 0) z = 0;
 
@@ -342,7 +345,7 @@ public class ShotVisualizer {
 
     Logger.recordOutput("Turret/Shot/CurrentRPM", ShotCalculator.getCurrentLauncherRPM());
     Logger.recordOutput(
-        "Turret/Shot/CompensatedTarget", new Pose3d(shotResult.aimTarget(), new Rotation3d()));
+        "Turret/Shot/CompensatedTarget", new Pose3d(shotResult.aimTarget(), Rotation3d.kZero));
   }
 
   /**
