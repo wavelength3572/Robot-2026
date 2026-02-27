@@ -43,6 +43,9 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber deployMaxVelocity;
   private static final LoggedTunableNumber deployMaxAcceleration;
 
+  // Tunable output range limit (caps deploy PID voltage for safe tuning)
+  private static final LoggedTunableNumber deployOutputLimit;
+
   static {
     RobotConfig config = Constants.getRobotConfig();
     deployKP = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kP", config.getIntakeDeployKp());
@@ -74,6 +77,7 @@ public class Intake extends SubsystemBase {
     deployMaxAcceleration =
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
+    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/OutputLimit", 0.5);
   }
 
   // Deploy positions (from config, used for soft limit init)
@@ -85,11 +89,11 @@ public class Intake extends SubsystemBase {
   private boolean deployCommanded = false;
   private boolean lastBrakeMode = true; // Track brake mode to avoid constant reconfiguration
 
-  // Stall detection (same pattern as 2025 arm ArmIOMMSpark)
-  // If deploy current exceeds threshold for N consecutive cycles, declare stall error.
-  // When stalled: stop motor, pull target to current position, block new movement commands.
-  private static final double DEPLOY_STALL_CURRENT_THRESHOLD = 40.0; // amps
-  private static final int DEPLOY_STALL_CYCLE_COUNT = 25; // ~500ms at 20ms cycle
+  // Tunable stall detection thresholds (adjustable from dashboard during testing)
+  private static final LoggedTunableNumber deployStallCurrentThreshold =
+      new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/StallCurrentAmps", 30.0);
+  private static final LoggedTunableNumber deployStallCycleCount =
+      new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/StallCycles", 15);
   private int DEPLOY_STUCK_ERROR_COUNT = 0;
   private boolean DEPLOY_STUCK_ERROR = false;
   private boolean inDeployRecoveryMode = false;
@@ -132,6 +136,10 @@ public class Intake extends SubsystemBase {
     deployRetractedPosition = config.getIntakeDeployRetractedPosition();
     deployExtendedPosition = config.getIntakeDeployExtendedPosition();
 
+    // Apply initial output range limit for safe tuning
+    double limit = Math.abs(deployOutputLimit.get());
+    io.configureDeployOutputRange(-limit, limit);
+
     // Create deploy arm (pivots based on deploy position)
     deployArm =
         root.append(
@@ -158,9 +166,10 @@ public class Intake extends SubsystemBase {
     Logger.processInputs("Intake", inputs);
 
     // Stall detection: high current = stuck (same pattern as 2025 ArmIOMMSpark)
-    if (inputs.deployCurrentAmps > DEPLOY_STALL_CURRENT_THRESHOLD) {
+    if (inputs.deployCurrentAmps > deployStallCurrentThreshold.get()) {
       DEPLOY_STUCK_ERROR_COUNT++;
-      if (DEPLOY_STUCK_ERROR == false && DEPLOY_STUCK_ERROR_COUNT >= DEPLOY_STALL_CYCLE_COUNT) {
+      if (DEPLOY_STUCK_ERROR == false
+          && DEPLOY_STUCK_ERROR_COUNT >= (int) deployStallCycleCount.get()) {
         DEPLOY_STUCK_ERROR = true;
         // Kill motor immediately
         io.stop();
@@ -195,6 +204,10 @@ public class Intake extends SubsystemBase {
       io.configureDeployMaxMotion(
           deployMaxVelocity.get(), deployMaxAcceleration.get(), deployTolerance.get());
     }
+    if (LoggedTunableNumber.hasChanged(deployOutputLimit)) {
+      double limit = Math.abs(deployOutputLimit.get());
+      io.configureDeployOutputRange(-limit, limit);
+    }
 
     // Coast when deploy is commanded for ground compliance, brake otherwise to hold position
     // Only reconfigure when state changes — calling configure() every cycle disrupts SparkMax PID
@@ -222,27 +235,48 @@ public class Intake extends SubsystemBase {
 
   // ========== DEPLOY CONTROL ==========
 
-  /** Deploy the intake (extend). Blocked while in stall error. */
+  /**
+   * Deploy the intake (extend). Stops motor first for clean retarget. Blocked while in stall error.
+   */
   public void deploy() {
     if (DEPLOY_STUCK_ERROR == true) return;
+    io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     deployCommanded = true;
     io.setDeployPosition(deployExtendedPos.get());
   }
 
-  /** Retract the intake. Blocked while in stall error. */
+  /** Retract the intake. Stops motor first for clean retarget. Blocked while in stall error. */
   public void retract() {
     if (DEPLOY_STUCK_ERROR == true) return;
+    io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     deployCommanded = false;
     io.setDeployPosition(deployRetractedPos.get());
   }
 
   /**
-   * Stow the intake (fully retracted past normal retract position). Blocked while in stall error.
+   * Stow the intake (fully retracted past normal retract position). Stops motor first for clean
+   * retarget. Blocked while in stall error.
    */
   public void stow() {
     if (DEPLOY_STUCK_ERROR == true) return;
+    io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     deployCommanded = false;
     io.setDeployPosition(deployStowedPos.get());
+  }
+
+  /** Emergency stop the deploy motor. Holds current position. Always works, even during stall. */
+  public void stopDeploy() {
+    // Clear stall error so periodic() doesn't override us
+    DEPLOY_STUCK_ERROR = false;
+    DEPLOY_STUCK_ERROR_COUNT = 0;
+    inDeployRecoveryMode = false;
+    io.stopDeploy();
+    deployCommanded = false;
+  }
+
+  /** Command that immediately stops the deploy motor (bind to a button for safety). */
+  public Command stopDeployCommand() {
+    return runOnce(this::stopDeploy).withName("Intake: Stop Deploy");
   }
 
   /**

@@ -73,6 +73,7 @@ public class IntakeIOSparkMax implements IntakeIO {
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(config.getIntakeDeployKp(), config.getIntakeDeployKi(), config.getIntakeDeployKd());
+    deployConfig.closedLoop.outputRange(-0.5, 0.5); // Safe default limit for tuning
     deployConfig
         .closedLoop
         .maxMotion
@@ -196,8 +197,20 @@ public class IntakeIOSparkMax implements IntakeIO {
   public void stop() {
     deployMotor.stopMotor();
     rollerMotor.stopMotor();
+    // Command MAXMotion to hold at current position so the controller doesn't
+    // resume the old target after a configure() call (e.g. brake mode switch)
     deployTargetPosition = deployEncoder.getPosition();
+    deployController.setSetpoint(deployTargetPosition, ControlType.kMAXMotionPositionControl);
     rollerTargetSpeed = 0.0;
+  }
+
+  @Override
+  public void stopDeploy() {
+    deployMotor.stopMotor();
+    // Command MAXMotion to hold at current position so the controller doesn't
+    // resume the old target after a configure() call (e.g. brake mode switch)
+    deployTargetPosition = deployEncoder.getPosition();
+    deployController.setSetpoint(deployTargetPosition, ControlType.kMAXMotionPositionControl);
   }
 
   @Override
@@ -234,6 +247,14 @@ public class IntakeIOSparkMax implements IntakeIO {
         .cruiseVelocity(maxVelocity)
         .maxAcceleration(maxAcceleration)
         .allowedProfileError(allowedError);
+    deployMotor.configure(
+        config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void configureDeployOutputRange(double min, double max) {
+    var config = new SparkMaxConfig();
+    config.closedLoop.outputRange(min, max);
     deployMotor.configure(
         config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }

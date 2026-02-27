@@ -165,10 +165,18 @@ public class IntakeIOSim implements IntakeIO {
   public void stop() {
     deployTargetPosition = deploySim.getAngularPositionRotations();
     deployAppliedVolts = 0.0;
+    deployProfileState = new TrapezoidProfile.State(deploySim.getAngularPositionRotations(), 0.0);
     rollerAppliedVolts = 0.0;
     rollerTargetSpeed = 0.0;
     rollerVelocityMode = false;
     rollerTargetRPM = 0.0;
+  }
+
+  @Override
+  public void stopDeploy() {
+    deployTargetPosition = deploySim.getAngularPositionRotations();
+    deployAppliedVolts = 0.0;
+    deployProfileState = new TrapezoidProfile.State(deploySim.getAngularPositionRotations(), 0.0);
   }
 
   @Override
