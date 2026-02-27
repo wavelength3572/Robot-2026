@@ -66,12 +66,16 @@ public class ShotLookupTable {
     return new ShotEntry(rpm, hoodAngle);
   }
 
-  /** @return true if the table has at least one entry */
+  /**
+   * @return true if the table has at least one entry
+   */
   public boolean hasEntries() {
     return !table.isEmpty();
   }
 
-  /** @return the number of entries in the table */
+  /**
+   * @return the number of entries in the table
+   */
   public int size() {
     return table.size();
   }

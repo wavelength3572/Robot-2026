@@ -19,6 +19,7 @@ import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.wpilibj.PowerDistribution;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import frc.robot.util.SparkConnection;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
 
@@ -54,10 +55,15 @@ public class LauncherIOSparkFlex implements LauncherIO {
   private final Debouncer followerConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
+  // Skip CAN reads when motors are disconnected to prevent loop overruns
+  private final SparkConnection leaderConnection = new SparkConnection();
+  private final SparkConnection followerConnection = new SparkConnection();
+
   // Target tracking
   private double currentTargetWheelRPM = 0.0;
 
   private double leaderVelocityRPM = 0.0;
+  private int periodicCounter = 0;
 
   // Constants
   private static final double MAX_VELOCITY_RPM = 5000.0; // Max wheel RPM (safety limit)
@@ -114,7 +120,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(5); // Faster update for follower motor
+        .appliedOutputPeriodMs(20)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
 
     tryUntilOk(
         leaderMotor,
@@ -138,7 +146,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20);
+        .appliedOutputPeriodMs(100)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
 
     tryUntilOk(
         followerMotor,
@@ -172,38 +182,61 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
   @Override
   public void updateInputs(LauncherIOInputs inputs) {
-    // Update leader motor inputs
-    sparkStickyFault = false;
-    ifOk(leaderMotor, leaderEncoder::getVelocity, (value) -> leaderVelocityRPM = value);
-    inputs.leaderVelocityRPM = leaderVelocityRPM;
-    ifOk(
-        leaderMotor,
-        new DoubleSupplier[] {leaderMotor::getAppliedOutput, leaderMotor::getBusVoltage},
-        (values) -> inputs.leaderAppliedVolts = values[0] * values[1]);
-    ifOk(leaderMotor, leaderMotor::getOutputCurrent, (value) -> inputs.leaderCurrentAmps = value);
-    inputs.leaderPdhCurrentAmps = pdh.getCurrent(0);
-    ifOk(
-        leaderMotor, leaderMotor::getMotorTemperature, (value) -> inputs.leaderTempCelsius = value);
-    inputs.leaderConnected = leaderConnectedDebounce.calculate(!sparkStickyFault);
+    // Update leader motor inputs (skip reads if disconnected to prevent timeout delays)
+    if (!leaderConnection.isSkipping()) {
+      sparkStickyFault = false;
+      ifOk(leaderMotor, leaderEncoder::getVelocity, (value) -> leaderVelocityRPM = value);
+      inputs.leaderVelocityRPM = leaderVelocityRPM;
+      ifOk(
+          leaderMotor,
+          new DoubleSupplier[] {leaderMotor::getAppliedOutput, leaderMotor::getBusVoltage},
+          (values) -> inputs.leaderAppliedVolts = values[0] * values[1]);
+      ifOk(leaderMotor, leaderMotor::getOutputCurrent, (value) -> inputs.leaderCurrentAmps = value);
+      inputs.leaderPdhCurrentAmps = pdh.getCurrent(0);
+      inputs.leaderConnected = leaderConnectedDebounce.calculate(!sparkStickyFault);
+      leaderConnection.update(inputs.leaderConnected);
+    } else {
+      inputs.leaderConnected = false;
+    }
 
-    // Update follower motor inputs (for monitoring)
-    sparkStickyFault = false;
-    ifOk(
-        followerMotor, followerEncoder::getVelocity, (value) -> inputs.followerVelocityRPM = value);
-    ifOk(
-        followerMotor,
-        new DoubleSupplier[] {followerMotor::getAppliedOutput, followerMotor::getBusVoltage},
-        (values) -> inputs.followerAppliedVolts = values[0] * values[1]);
-    ifOk(
-        followerMotor,
-        followerMotor::getOutputCurrent,
-        (value) -> inputs.followerCurrentAmps = value);
-    inputs.followerPdhCurrentAmps = pdh.getCurrent(1);
-    ifOk(
-        followerMotor,
-        followerMotor::getMotorTemperature,
-        (value) -> inputs.followerTempCelsius = value);
-    inputs.followerConnected = followerConnectedDebounce.calculate(!sparkStickyFault);
+    // Update follower motor inputs (skip reads if disconnected to prevent timeout delays)
+    if (!followerConnection.isSkipping()) {
+      sparkStickyFault = false;
+      ifOk(
+          followerMotor,
+          followerEncoder::getVelocity,
+          (value) -> inputs.followerVelocityRPM = value);
+      ifOk(
+          followerMotor,
+          new DoubleSupplier[] {followerMotor::getAppliedOutput, followerMotor::getBusVoltage},
+          (values) -> inputs.followerAppliedVolts = values[0] * values[1]);
+      ifOk(
+          followerMotor,
+          followerMotor::getOutputCurrent,
+          (value) -> inputs.followerCurrentAmps = value);
+      inputs.followerPdhCurrentAmps = pdh.getCurrent(1);
+      inputs.followerConnected = followerConnectedDebounce.calculate(!sparkStickyFault);
+      followerConnection.update(inputs.followerConnected);
+    } else {
+      inputs.followerConnected = false;
+    }
+
+    // Throttle temperature reads to every ~1 second (50 cycles at 20ms)
+    if (++periodicCounter >= 50) {
+      periodicCounter = 0;
+      if (leaderConnection.isConnected()) {
+        ifOk(
+            leaderMotor,
+            leaderMotor::getMotorTemperature,
+            (value) -> inputs.leaderTempCelsius = value);
+      }
+      if (followerConnection.isConnected()) {
+        ifOk(
+            followerMotor,
+            followerMotor::getMotorTemperature,
+            (value) -> inputs.followerTempCelsius = value);
+      }
+    }
 
     // PDH voltage
     inputs.pdhVoltage = pdh.getVoltage();

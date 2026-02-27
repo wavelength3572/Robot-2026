@@ -17,6 +17,7 @@ import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.filter.Debouncer;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import frc.robot.util.SparkConnection;
 import java.util.function.DoubleSupplier;
 
 /**
@@ -38,10 +39,14 @@ public class SpindexerIOSparkMax implements SpindexerIO {
   private final RelativeEncoder spindexerEncoder;
   private final SparkClosedLoopController spindexerController;
   private double spindexerMotorRPM = 0.0;
+  private int periodicCounter = 0;
 
   // Connection debouncers
   private final Debouncer spindexerConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+
+  // Skip CAN reads when motor is disconnected to prevent loop overruns
+  private final SparkConnection spindexerConnection = new SparkConnection();
 
   // Velocity tolerance for at-setpoint check (set by subsystem via
   // setVelocityTolerances)
@@ -92,9 +97,9 @@ public class SpindexerIOSparkMax implements SpindexerIO {
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
+        .appliedOutputPeriodMs(100)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
 
     tryUntilOk(
         spindexer,
@@ -123,18 +128,28 @@ public class SpindexerIOSparkMax implements SpindexerIO {
 
   @Override
   public void updateInputs(MotorInputs motor1Inputs) {
-    // Update spindexer 1 inputs
-    sparkStickyFault = false;
-    ifOk(spindexer, spindexerEncoder::getVelocity, (value) -> spindexerMotorRPM = value);
-    motor1Inputs.wheelRPM = motorToWheelRPM(spindexerMotorRPM);
-    ifOk(
-        spindexer,
-        new DoubleSupplier[] {spindexer::getAppliedOutput, spindexer::getBusVoltage},
-        (values) -> motor1Inputs.appliedVolts = values[0] * values[1]);
-    ifOk(spindexer, spindexer::getOutputCurrent, (value) -> motor1Inputs.currentAmps = value);
-    ifOk(spindexer, spindexer::getMotorTemperature, (value) -> motor1Inputs.tempCelsius = value);
-    // motor1Inputs.PdhCurrentAmps = pdh.getCurrent(2);
-    motor1Inputs.connected = spindexerConnectedDebounce.calculate(!sparkStickyFault);
+    // Update spindexer inputs (skip reads if disconnected to prevent timeout delays)
+    if (!spindexerConnection.isSkipping()) {
+      sparkStickyFault = false;
+      ifOk(spindexer, spindexerEncoder::getVelocity, (value) -> spindexerMotorRPM = value);
+      motor1Inputs.wheelRPM = motorToWheelRPM(spindexerMotorRPM);
+      ifOk(
+          spindexer,
+          new DoubleSupplier[] {spindexer::getAppliedOutput, spindexer::getBusVoltage},
+          (values) -> motor1Inputs.appliedVolts = values[0] * values[1]);
+      ifOk(spindexer, spindexer::getOutputCurrent, (value) -> motor1Inputs.currentAmps = value);
+
+      // Throttle temperature reads to every ~1 second (50 cycles at 20ms)
+      if (++periodicCounter >= 50) {
+        periodicCounter = 0;
+        ifOk(
+            spindexer, spindexer::getMotorTemperature, (value) -> motor1Inputs.tempCelsius = value);
+      }
+      motor1Inputs.connected = spindexerConnectedDebounce.calculate(!sparkStickyFault);
+      spindexerConnection.update(motor1Inputs.connected);
+    } else {
+      motor1Inputs.connected = false;
+    }
 
     // Velocity control status
     motor1Inputs.targetRPM = wheelTargetRPM;

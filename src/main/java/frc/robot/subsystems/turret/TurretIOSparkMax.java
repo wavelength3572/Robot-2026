@@ -16,6 +16,7 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.filter.Debouncer;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import frc.robot.util.SparkConnection;
 import java.util.function.DoubleSupplier;
 
 /**
@@ -51,6 +52,9 @@ public class TurretIOSparkMax implements TurretIO {
   // Connection debouncer
   private final Debouncer motorConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+
+  // Skip CAN reads when motor is disconnected to prevent loop overruns
+  private final SparkConnection motorConnection = new SparkConnection();
 
   // Target tracking
   private double targetInsideDeg;
@@ -121,9 +125,9 @@ public class TurretIOSparkMax implements TurretIO {
         .primaryEncoderVelocityPeriodMs(20)
         .absoluteEncoderPositionAlwaysOn(true)
         .absoluteEncoderPositionPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
+        .appliedOutputPeriodMs(100)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
 
     tryUntilOk(
         motorSpark,
@@ -187,33 +191,34 @@ public class TurretIOSparkMax implements TurretIO {
 
   @Override
   public void updateInputs(TurretIOInputs inputs) {
-    // Read raw motor encoder (motor rotations) and convert to turret degrees in
-    // software
-    sparkStickyFault = false;
-    ifOk(motorSpark, motorEncoder::getPosition, (value) -> inputs.motorPosition = value);
-    currentInsideAngleDegrees = motorRotationsToDegrees(inputs.motorPosition);
-    inputs.currentInsideAngleDeg = currentInsideAngleDegrees;
-    currentOutsideAngleDegrees = currentInsideAngleDegrees + config.getTurretZeroOffset();
-    inputs.currentOutsideAngleDeg = currentOutsideAngleDegrees;
-
-    // Update target angle
+    // Update target angle (always, even if motor is disconnected)
     inputs.targetInsideAngleDeg = targetInsideDeg;
     inputs.targetOutsideAngleDeg = targetOutsideDeg;
 
-    ifOk(motorSpark, absoluteEncoder::getPosition, (value) -> inputs.absEncoder = value);
+    // Read motor data (skip reads if disconnected to prevent timeout delays)
+    if (!motorConnection.isSkipping()) {
+      sparkStickyFault = false;
+      ifOk(motorSpark, motorEncoder::getPosition, (value) -> inputs.motorPosition = value);
+      currentInsideAngleDegrees = motorRotationsToDegrees(inputs.motorPosition);
+      inputs.currentInsideAngleDeg = currentInsideAngleDegrees;
+      currentOutsideAngleDegrees = currentInsideAngleDegrees + config.getTurretZeroOffset();
+      inputs.currentOutsideAngleDeg = currentOutsideAngleDegrees;
 
-    ifOk(motorSpark, motorEncoder::getVelocity, (value) -> inputs.velocityMotor = value);
-    inputs.velocityDegreesPerSec = inputs.velocityMotor * 360.0 / totalGearRatio / 60.0;
-    ifOk(
-        motorSpark,
-        new DoubleSupplier[] {motorSpark::getAppliedOutput, motorSpark::getBusVoltage},
-        (values) -> inputs.appliedVolts = values[0] * values[1]);
-    ifOk(motorSpark, motorSpark::getOutputCurrent, (value) -> inputs.currentAmps = value);
-    boolean motorOk = motorConnectedDebounce.calculate(!sparkStickyFault);
+      ifOk(motorSpark, absoluteEncoder::getPosition, (value) -> inputs.absEncoder = value);
 
-    // Log connection status
-    if (!motorOk) {
-      System.err.println("[TurretIOSparkMax] Spark Max disconnected!");
+      ifOk(motorSpark, motorEncoder::getVelocity, (value) -> inputs.velocityMotor = value);
+      inputs.velocityDegreesPerSec = inputs.velocityMotor * 360.0 / totalGearRatio / 60.0;
+      ifOk(
+          motorSpark,
+          new DoubleSupplier[] {motorSpark::getAppliedOutput, motorSpark::getBusVoltage},
+          (values) -> inputs.appliedVolts = values[0] * values[1]);
+      ifOk(motorSpark, motorSpark::getOutputCurrent, (value) -> inputs.currentAmps = value);
+      boolean motorOk = motorConnectedDebounce.calculate(!sparkStickyFault);
+      motorConnection.update(motorOk);
+
+      if (!motorOk) {
+        System.err.println("[TurretIOSparkMax] Spark Max disconnected!");
+      }
     }
   }
 

@@ -29,6 +29,7 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.units.measure.Angle;
+import frc.robot.util.SparkConnection;
 import java.util.Queue;
 import java.util.function.DoubleSupplier;
 
@@ -65,6 +66,10 @@ public class ModuleIOSpark implements ModuleIO {
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
   private final Debouncer turnEncoderConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+
+  // Skip CAN reads when motors are disconnected to prevent loop overruns
+  private final SparkConnection driveConnection = new SparkConnection();
+  private final SparkConnection turnConnection = new SparkConnection();
 
   public ModuleIOSpark(int module) {
     zeroRotation =
@@ -139,9 +144,9 @@ public class ModuleIOSpark implements ModuleIO {
         .primaryEncoderPositionPeriodMs((int) (1000.0 / odometryFrequency))
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
+        .appliedOutputPeriodMs(100)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
     tryUntilOk(
         driveSpark,
         5,
@@ -176,9 +181,9 @@ public class ModuleIOSpark implements ModuleIO {
         .primaryEncoderPositionPeriodMs((int) (1000.0 / odometryFrequency))
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
+        .appliedOutputPeriodMs(100)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
     tryUntilOk(
         turnSpark,
         5,
@@ -217,42 +222,53 @@ public class ModuleIOSpark implements ModuleIO {
 
   @Override
   public void updateInputs(ModuleIOInputs inputs) {
-    // Refresh CANcoder signal (if available)
+    // Read CANcoder from auto-updated cache (no blocking CAN refresh needed).
+    // The CANcoder updates at 50Hz automatically; refreshAll() would force a
+    // blocking round-trip that adds ~5-10ms per module on a congested bus.
     boolean cancoderOk = false;
     if (turnAbsolutePosition != null) {
-      var turnEncoderStatus = BaseStatusSignal.refreshAll(turnAbsolutePosition);
-      cancoderOk = turnEncoderStatus.isOK();
+      cancoderOk = turnAbsolutePosition.getStatus().isOK();
     }
 
-    // Update drive inputs
-    sparkStickyFault = false;
-    ifOk(driveSpark, driveEncoder::getPosition, (value) -> inputs.drivePositionRad = value);
-    ifOk(driveSpark, driveEncoder::getVelocity, (value) -> inputs.driveVelocityRadPerSec = value);
-    ifOk(
-        driveSpark,
-        new DoubleSupplier[] {driveSpark::getAppliedOutput, driveSpark::getBusVoltage},
-        (values) -> inputs.driveAppliedVolts = values[0] * values[1]);
-    ifOk(driveSpark, driveSpark::getOutputCurrent, (value) -> inputs.driveCurrentAmps = value);
-    inputs.driveConnected = driveConnectedDebounce.calculate(!sparkStickyFault);
+    // Update drive inputs (skip reads if motor is disconnected to prevent timeout delays)
+    if (!driveConnection.isSkipping()) {
+      sparkStickyFault = false;
+      ifOk(driveSpark, driveEncoder::getPosition, (value) -> inputs.drivePositionRad = value);
+      ifOk(driveSpark, driveEncoder::getVelocity, (value) -> inputs.driveVelocityRadPerSec = value);
+      ifOk(
+          driveSpark,
+          new DoubleSupplier[] {driveSpark::getAppliedOutput, driveSpark::getBusVoltage},
+          (values) -> inputs.driveAppliedVolts = values[0] * values[1]);
+      ifOk(driveSpark, driveSpark::getOutputCurrent, (value) -> inputs.driveCurrentAmps = value);
+      inputs.driveConnected = driveConnectedDebounce.calculate(!sparkStickyFault);
+      driveConnection.update(inputs.driveConnected);
+    } else {
+      inputs.driveConnected = false;
+    }
 
-    // Update turn inputs
-    sparkStickyFault = false;
-    ifOk(
-        turnSpark,
-        turnEncoder::getPosition,
-        (value) -> inputs.turnPosition = Rotation2d.fromRadians(value));
-    inputs.CANCoderPosition =
-        turnAbsolutePosition != null
-            ? Rotation2d.fromRotations(turnAbsolutePosition.getValueAsDouble())
-            : Rotation2d.kZero;
-    inputs.turnConnected = turnConnectedDebounce.calculate(!sparkStickyFault);
-    inputs.turnEncoderConnected = turnEncoderConnectedDebounce.calculate(cancoderOk);
-    ifOk(turnSpark, turnEncoder::getVelocity, (value) -> inputs.turnVelocityRadPerSec = value);
-    ifOk(
-        turnSpark,
-        new DoubleSupplier[] {turnSpark::getAppliedOutput, turnSpark::getBusVoltage},
-        (values) -> inputs.turnAppliedVolts = values[0] * values[1]);
-    ifOk(turnSpark, turnSpark::getOutputCurrent, (value) -> inputs.turnCurrentAmps = value);
+    // Update turn inputs (skip reads if motor is disconnected to prevent timeout delays)
+    if (!turnConnection.isSkipping()) {
+      sparkStickyFault = false;
+      ifOk(
+          turnSpark,
+          turnEncoder::getPosition,
+          (value) -> inputs.turnPosition = Rotation2d.fromRadians(value));
+      inputs.CANCoderPosition =
+          turnAbsolutePosition != null
+              ? Rotation2d.fromRotations(turnAbsolutePosition.getValueAsDouble())
+              : Rotation2d.kZero;
+      inputs.turnConnected = turnConnectedDebounce.calculate(!sparkStickyFault);
+      inputs.turnEncoderConnected = turnEncoderConnectedDebounce.calculate(cancoderOk);
+      ifOk(turnSpark, turnEncoder::getVelocity, (value) -> inputs.turnVelocityRadPerSec = value);
+      ifOk(
+          turnSpark,
+          new DoubleSupplier[] {turnSpark::getAppliedOutput, turnSpark::getBusVoltage},
+          (values) -> inputs.turnAppliedVolts = values[0] * values[1]);
+      ifOk(turnSpark, turnSpark::getOutputCurrent, (value) -> inputs.turnCurrentAmps = value);
+      turnConnection.update(inputs.turnConnected);
+    } else {
+      inputs.turnConnected = false;
+    }
 
     // Update odometry inputs
     inputs.odometryTimestamps =

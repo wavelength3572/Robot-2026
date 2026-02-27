@@ -34,7 +34,6 @@ import frc.robot.subsystems.hood.HoodIO;
 import frc.robot.subsystems.hood.HoodIOSim;
 import frc.robot.subsystems.hood.HoodIOSparkMax;
 import frc.robot.subsystems.intake.Intake;
-import frc.robot.subsystems.led.LEDSubsystem;
 import frc.robot.subsystems.intake.IntakeIO;
 import frc.robot.subsystems.intake.IntakeIOSim;
 import frc.robot.subsystems.intake.IntakeIOSparkMax;
@@ -43,6 +42,7 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.launcher.LauncherIO;
 import frc.robot.subsystems.launcher.LauncherIOSim;
 import frc.robot.subsystems.launcher.LauncherIOSparkFlex;
+import frc.robot.subsystems.led.LEDSubsystem;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.motivator.MotivatorIO;
 import frc.robot.subsystems.motivator.MotivatorIOSim;
@@ -414,9 +414,9 @@ public class RobotContainer {
       shootingCoordinator = null;
     }
 
-    // Create LED subsystem — it self-manages trench danger, match phase patterns, and
-    // dashboard color publishing internally via periodic().
-    leds = new LEDSubsystem(0, 60, drive, hood);
+    // LED subsystem disabled — not connected
+    // leds = new LEDSubsystem(0, 60, drive, hood);
+    leds = null;
 
     // Initialize FuelSim for simulation mode (after coordinator so intake can be
     // registered)

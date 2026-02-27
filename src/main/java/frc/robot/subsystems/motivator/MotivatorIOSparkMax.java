@@ -17,6 +17,7 @@ import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.filter.Debouncer;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import frc.robot.util.SparkConnection;
 import java.util.function.DoubleSupplier;
 
 /**
@@ -39,10 +40,14 @@ public class MotivatorIOSparkMax implements MotivatorIO {
   private final RelativeEncoder motivatorEncoder;
   private final SparkClosedLoopController motivatorController;
   private double motivatorMotorRPM = 0.0;
+  private int periodicCounter = 0;
 
   // Connection debouncers
   private final Debouncer motivatorConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+
+  // Skip CAN reads when motor is disconnected to prevent loop overruns
+  private final SparkConnection motivatorConnection = new SparkConnection();
 
   // Velocity tolerance for at-setpoint check (set by subsystem via
   // setVelocityTolerances)
@@ -93,9 +98,9 @@ public class MotivatorIOSparkMax implements MotivatorIO {
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
+        .appliedOutputPeriodMs(100)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
 
     tryUntilOk(
         motivator,
@@ -124,18 +129,28 @@ public class MotivatorIOSparkMax implements MotivatorIO {
 
   @Override
   public void updateInputs(MotorInputs motor1Inputs) {
-    // Update motivator 1 inputs
-    sparkStickyFault = false;
-    ifOk(motivator, motivatorEncoder::getVelocity, (value) -> motivatorMotorRPM = value);
-    motor1Inputs.wheelRPM = motorToWheelRPM(motivatorMotorRPM);
-    ifOk(
-        motivator,
-        new DoubleSupplier[] {motivator::getAppliedOutput, motivator::getBusVoltage},
-        (values) -> motor1Inputs.appliedVolts = values[0] * values[1]);
-    ifOk(motivator, motivator::getOutputCurrent, (value) -> motor1Inputs.currentAmps = value);
-    ifOk(motivator, motivator::getMotorTemperature, (value) -> motor1Inputs.tempCelsius = value);
-    // motor1Inputs.PdhCurrentAmps = pdh.getCurrent(2);
-    motor1Inputs.connected = motivatorConnectedDebounce.calculate(!sparkStickyFault);
+    // Update motivator inputs (skip reads if disconnected to prevent timeout delays)
+    if (!motivatorConnection.isSkipping()) {
+      sparkStickyFault = false;
+      ifOk(motivator, motivatorEncoder::getVelocity, (value) -> motivatorMotorRPM = value);
+      motor1Inputs.wheelRPM = motorToWheelRPM(motivatorMotorRPM);
+      ifOk(
+          motivator,
+          new DoubleSupplier[] {motivator::getAppliedOutput, motivator::getBusVoltage},
+          (values) -> motor1Inputs.appliedVolts = values[0] * values[1]);
+      ifOk(motivator, motivator::getOutputCurrent, (value) -> motor1Inputs.currentAmps = value);
+
+      // Throttle temperature reads to every ~1 second (50 cycles at 20ms)
+      if (++periodicCounter >= 50) {
+        periodicCounter = 0;
+        ifOk(
+            motivator, motivator::getMotorTemperature, (value) -> motor1Inputs.tempCelsius = value);
+      }
+      motor1Inputs.connected = motivatorConnectedDebounce.calculate(!sparkStickyFault);
+      motivatorConnection.update(motor1Inputs.connected);
+    } else {
+      motor1Inputs.connected = false;
+    }
 
     // Velocity control status
     motor1Inputs.targetRPM = wheelTargetRPM;

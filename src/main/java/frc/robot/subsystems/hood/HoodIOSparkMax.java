@@ -13,6 +13,7 @@ import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import frc.robot.util.SparkConnection;
 
 public class HoodIOSparkMax implements HoodIO {
   private final RobotConfig config;
@@ -27,6 +28,10 @@ public class HoodIOSparkMax implements HoodIO {
 
   private double targetAngle;
   private double toleranceDeg = 1.0;
+  private int periodicCounter = 0;
+
+  // Skip CAN reads when motor is disconnected to prevent loop overruns
+  private final SparkConnection hoodConnection = new SparkConnection();
 
   public HoodIOSparkMax() {
     config = Constants.getRobotConfig();
@@ -63,6 +68,15 @@ public class HoodIOSparkMax implements HoodIO {
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(config.getHoodKp(), 0.0, config.getHoodKd());
 
+    // Signal update rates - slow down diagnostic frames to reduce CAN bus load
+    motorConfig
+        .signals
+        .primaryEncoderPositionAlwaysOn(true)
+        .primaryEncoderPositionPeriodMs(20)
+        .appliedOutputPeriodMs(100)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
+
     tryUntilOk(
         motorSpark,
         5,
@@ -74,18 +88,26 @@ public class HoodIOSparkMax implements HoodIO {
   /** Updates the set of loggable inputs. */
   @Override
   public void updateInputs(HoodIOInputs inputs) {
-
-    // Connection status
-    inputs.connected = true;
-
-    // Position data
-    inputs.currentMotorRotations = motorEncoder.getPosition();
-    inputs.currentAngleDeg = motorRotationsToDegrees(motorEncoder.getPosition());
     inputs.targetAngleDeg = targetAngle;
     inputs.targetMotorRotations = degreesToMotorRotations(targetAngle);
-    inputs.appliedVolts = motorSpark.getAppliedOutput() * motorSpark.getBusVoltage();
-    inputs.currentAmps = motorSpark.getOutputCurrent();
-    inputs.tempCelsius = motorSpark.getMotorTemperature();
+
+    // Skip CAN reads if motor is disconnected to prevent timeout delays
+    if (!hoodConnection.isSkipping()) {
+      inputs.currentMotorRotations = motorEncoder.getPosition();
+      inputs.currentAngleDeg = motorRotationsToDegrees(inputs.currentMotorRotations);
+      inputs.appliedVolts = motorSpark.getAppliedOutput() * motorSpark.getBusVoltage();
+      inputs.currentAmps = motorSpark.getOutputCurrent();
+      inputs.connected = motorSpark.getLastError() == com.revrobotics.REVLibError.kOk;
+      hoodConnection.update(inputs.connected);
+
+      // Throttle temperature reads to every ~1 second (50 cycles at 20ms)
+      if (++periodicCounter >= 50) {
+        periodicCounter = 0;
+        inputs.tempCelsius = motorSpark.getMotorTemperature();
+      }
+    } else {
+      inputs.connected = false;
+    }
 
     // Control state
     inputs.atTarget = Math.abs(inputs.currentAngleDeg - targetAngle) < toleranceDeg;

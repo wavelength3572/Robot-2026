@@ -15,6 +15,7 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.filter.Debouncer;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import frc.robot.util.SparkConnection;
 import java.util.function.DoubleSupplier;
 
 public class IntakeIOSparkMax implements IntakeIO {
@@ -31,6 +32,10 @@ public class IntakeIOSparkMax implements IntakeIO {
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
   private final Debouncer rollerConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+
+  // Skip CAN reads when motors are disconnected to prevent loop overruns
+  private final SparkConnection deployConnection = new SparkConnection();
+  private final SparkConnection rollerConnection = new SparkConnection();
 
   // Target tracking
   private double deployTargetPosition = 0.0;
@@ -96,9 +101,9 @@ public class IntakeIOSparkMax implements IntakeIO {
         .primaryEncoderPositionPeriodMs(20)
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
+        .appliedOutputPeriodMs(100)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
 
     tryUntilOk(
         deployMotor,
@@ -131,9 +136,9 @@ public class IntakeIOSparkMax implements IntakeIO {
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
+        .appliedOutputPeriodMs(100)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
 
     tryUntilOk(
         rollerMotor,
@@ -145,28 +150,40 @@ public class IntakeIOSparkMax implements IntakeIO {
 
   @Override
   public void updateInputs(IntakeIOInputs inputs) {
-    // Update deploy motor inputs
-    sparkStickyFault = false;
-    ifOk(
-        deployMotor, deployEncoder::getPosition, (value) -> inputs.deployPositionRotations = value);
-    ifOk(deployMotor, deployEncoder::getVelocity, (value) -> inputs.deployVelocityRPM = value);
-    ifOk(
-        deployMotor,
-        new DoubleSupplier[] {deployMotor::getAppliedOutput, deployMotor::getBusVoltage},
-        (values) -> inputs.deployAppliedVolts = values[0] * values[1]);
-    ifOk(deployMotor, deployMotor::getOutputCurrent, (value) -> inputs.deployCurrentAmps = value);
-    inputs.deployConnected = deployConnectedDebounce.calculate(!sparkStickyFault);
+    // Update deploy motor inputs (skip reads if disconnected to prevent timeout delays)
+    if (!deployConnection.isSkipping()) {
+      sparkStickyFault = false;
+      ifOk(
+          deployMotor,
+          deployEncoder::getPosition,
+          (value) -> inputs.deployPositionRotations = value);
+      ifOk(deployMotor, deployEncoder::getVelocity, (value) -> inputs.deployVelocityRPM = value);
+      ifOk(
+          deployMotor,
+          new DoubleSupplier[] {deployMotor::getAppliedOutput, deployMotor::getBusVoltage},
+          (values) -> inputs.deployAppliedVolts = values[0] * values[1]);
+      ifOk(deployMotor, deployMotor::getOutputCurrent, (value) -> inputs.deployCurrentAmps = value);
+      inputs.deployConnected = deployConnectedDebounce.calculate(!sparkStickyFault);
+      deployConnection.update(inputs.deployConnected);
+    } else {
+      inputs.deployConnected = false;
+    }
     inputs.deployTargetPosition = deployTargetPosition;
 
-    // Update roller motor inputs
-    sparkStickyFault = false;
-    ifOk(rollerMotor, rollerEncoder::getVelocity, (value) -> inputs.rollerVelocityRPM = value);
-    ifOk(
-        rollerMotor,
-        new DoubleSupplier[] {rollerMotor::getAppliedOutput, rollerMotor::getBusVoltage},
-        (values) -> inputs.rollerAppliedVolts = values[0] * values[1]);
-    ifOk(rollerMotor, rollerMotor::getOutputCurrent, (value) -> inputs.rollerCurrentAmps = value);
-    inputs.rollerConnected = rollerConnectedDebounce.calculate(!sparkStickyFault);
+    // Update roller motor inputs (skip reads if disconnected to prevent timeout delays)
+    if (!rollerConnection.isSkipping()) {
+      sparkStickyFault = false;
+      ifOk(rollerMotor, rollerEncoder::getVelocity, (value) -> inputs.rollerVelocityRPM = value);
+      ifOk(
+          rollerMotor,
+          new DoubleSupplier[] {rollerMotor::getAppliedOutput, rollerMotor::getBusVoltage},
+          (values) -> inputs.rollerAppliedVolts = values[0] * values[1]);
+      ifOk(rollerMotor, rollerMotor::getOutputCurrent, (value) -> inputs.rollerCurrentAmps = value);
+      inputs.rollerConnected = rollerConnectedDebounce.calculate(!sparkStickyFault);
+      rollerConnection.update(inputs.rollerConnected);
+    } else {
+      inputs.rollerConnected = false;
+    }
     inputs.rollerTargetSpeed = rollerTargetSpeed;
   }
 
