@@ -180,14 +180,20 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeRollerGearRatio = 2.0;
   private static final boolean intakeDeployMotorInverted = false;
   private static final boolean intakeRollerMotorInverted = true;
-  private static final int intakeDeployCurrentLimit = 80;
+  // 80A through 20:1 gearbox is enormous torque - lower limit for safer tuning.
+  // Can increase once PID is tuned and mechanism moves smoothly.
+  private static final int intakeDeployCurrentLimit = 40;
   private static final int intakeRollerCurrentLimit = 110;
   private static final double intakeDeployStowedPosition = 0.0;
   private static final double intakeDeployRetractedPosition = 0.0035;
   private static final double intakeDeployExtendedPosition = 0.13;
-  private static final double intakeDeployKp = 100.0;
+  // kP=100 caused massive oscillation because it saturates output for any error > 0.01 rotations
+  // (total travel is only 0.13 rotations). REV recommends starting at kP=0.01 for rotations.
+  // kP=5 gives 65% duty cycle at full travel error - strong but not saturated.
+  // kD provides damping to prevent oscillation near setpoint.
+  private static final double intakeDeployKp = 5.0;
   private static final double intakeDeployKi = 0.0;
-  private static final double intakeDeployKd = 0.0;
+  private static final double intakeDeployKd = 1.0;
   private static final double intakeRollerKp = 0.0007;
   private static final double intakeRollerKi = 0.0;
   private static final double intakeRollerKd = 0.000001;

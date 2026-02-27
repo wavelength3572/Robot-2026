@@ -41,8 +41,11 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber deployMaxVelocity;
   private static final LoggedTunableNumber deployMaxAcceleration;
 
-  // Tunable output range limit (caps deploy PID voltage for safe tuning)
+  // Tunable output range limits (caps deploy PID duty cycle for safe tuning)
+  // Separate limits for deploy (forward) and retract (reverse) allow asymmetric control
+  // to account for gravity effects on the arm
   private static final LoggedTunableNumber deployOutputLimit;
+  private static final LoggedTunableNumber retractOutputLimit;
 
   static {
     RobotConfig config = Constants.getRobotConfig();
@@ -75,7 +78,9 @@ public class Intake extends SubsystemBase {
     deployMaxAcceleration =
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
-    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/OutputLimit", 1.0);
+    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/DeployOutputLimit", 0.5);
+    retractOutputLimit =
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", 0.5);
   }
 
   // Deploy positions (from config, used for soft limit init)
@@ -122,9 +127,9 @@ public class Intake extends SubsystemBase {
     deployRetractedPosition = config.getIntakeDeployRetractedPosition();
     deployExtendedPosition = config.getIntakeDeployExtendedPosition();
 
-    // Apply initial output range limit for safe tuning
-    double limit = Math.abs(deployOutputLimit.get());
-    io.configureDeployOutputRange(-limit, limit);
+    // Apply initial output range limits for safe tuning (asymmetric for deploy vs retract)
+    io.configureDeployOutputRange(
+        -Math.abs(retractOutputLimit.get()), Math.abs(deployOutputLimit.get()));
 
     // Create deploy arm (pivots based on deploy position)
     deployArm =
@@ -162,9 +167,9 @@ public class Intake extends SubsystemBase {
       io.configureDeployMaxMotion(
           deployMaxVelocity.get(), deployMaxAcceleration.get(), deployTolerance.get());
     }
-    if (LoggedTunableNumber.hasChanged(deployOutputLimit)) {
-      double limit = Math.abs(deployOutputLimit.get());
-      io.configureDeployOutputRange(-limit, limit);
+    if (LoggedTunableNumber.hasChanged(deployOutputLimit, retractOutputLimit)) {
+      io.configureDeployOutputRange(
+          -Math.abs(retractOutputLimit.get()), Math.abs(deployOutputLimit.get()));
     }
 
     // Always brake mode — PID holds position, brake mode backs it up
