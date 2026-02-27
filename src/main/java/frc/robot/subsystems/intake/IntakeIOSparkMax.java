@@ -67,7 +67,7 @@ public class IntakeIOSparkMax implements IntakeIO {
     var deployConfig = new SparkMaxConfig();
     deployConfig
         .inverted(config.getIntakeDeployMotorInverted())
-        .idleMode(IdleMode.kBrake)
+        .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(config.getIntakeDeployCurrentLimit())
         .voltageCompensation(12.0);
     deployConfig
@@ -78,7 +78,7 @@ public class IntakeIOSparkMax implements IntakeIO {
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(config.getIntakeDeployKp(), config.getIntakeDeployKi(), config.getIntakeDeployKd());
-    deployConfig.closedLoop.outputRange(-1.0, 1.0);
+    deployConfig.closedLoop.outputRange(-0.5, 0.5);
     deployConfig
         .closedLoop
         .maxMotion
@@ -199,6 +199,11 @@ public class IntakeIOSparkMax implements IntakeIO {
   }
 
   @Override
+  public void setDeployDutyCycle(double dutyCycle) {
+    deployMotor.set(dutyCycle);
+  }
+
+  @Override
   public void setRollerDutyCycle(double dutyCycle) {
     rollerTargetSpeed = dutyCycle;
     rollerMotor.set(dutyCycle);
@@ -228,6 +233,11 @@ public class IntakeIOSparkMax implements IntakeIO {
     // resume the old target after a configure() call (e.g. brake mode switch)
     deployTargetPosition = deployEncoder.getPosition();
     deployController.setSetpoint(deployTargetPosition, ControlType.kMAXMotionPositionControl);
+  }
+
+  @Override
+  public void disableDeploy() {
+    deployMotor.stopMotor();
   }
 
   @Override

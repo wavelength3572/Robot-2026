@@ -56,8 +56,10 @@ public class ButtonsAndDashboardBindings {
       new LoggedTunableNumber("Tuning/Hood/TuningAngle", 15.0);
   private static final LoggedTunableNumber tuningTurretAngle =
       new LoggedTunableNumber("Tuning/Turret/TuningAngle", 0.0);
-  private static final LoggedTunableNumber tuningIntakeRollerVelocity =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/TuningVelocity", 3000.0);
+  private static final LoggedTunableNumber tuningIntakeDeployedVelocity =
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/DeployedVelocity", 1000.0);
+  private static final LoggedTunableNumber tuningIntakeAgitationVelocity =
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/AgitationVelocity", 200.0);
 
   // Preset field positions for simulation (label, x_meters, y_meters, rotation_degrees)
   private static final String[][] PRESET_POSITIONS = {
@@ -258,10 +260,10 @@ public class ButtonsAndDashboardBindings {
       SmartDashboard.putData(
           "Tuning/Intake/IntakeDeploy/Retract",
           Commands.runOnce(intake::retract, intake).withName("Intake: Retract"));
-      SmartDashboard.putData("Tuning/Intake/IntakeDeploy/STOP", intake.stopDeployCommand());
+      SmartDashboard.putData("Tuning/Intake/STOP", intake.stopAllCommand());
       SmartDashboard.putData(
           "Tuning/Intake/IntakeRollers/RunAtTuningVelocity",
-          Commands.run(() -> intake.setRollerVelocity(tuningIntakeRollerVelocity.get()))
+          Commands.run(() -> intake.setRollerVelocity(tuningIntakeDeployedVelocity.get()))
               .finallyDo(intake::stopRollers)
               .withName("Intake: Run at Tuning Velocity"));
     }
@@ -321,7 +323,7 @@ public class ButtonsAndDashboardBindings {
     SmartDashboard.putData(
         "BenchTest/Intake/Retract",
         Commands.runOnce(intake::retract, intake).withName("Retract Intake"));
-    SmartDashboard.putData("BenchTest/Intake/STOP Deploy", intake.stopDeployCommand());
+    SmartDashboard.putData("BenchTest/Intake/STOP", intake.stopAllCommand());
 
     // Open-loop power control (hold to run, release to stop)
     // Run button reads the Power slider live — adjust slider while running to
@@ -474,25 +476,25 @@ public class ButtonsAndDashboardBindings {
   private static void configureOperatorButtonBindings() {
     // Intake controls
     if (intake != null) {
-      // Button 4: Toggle intake
-      // Deploy: extend and run rollers (rollers stay on)
-      // Retract: retract and run rollers for 1 second to feed, then stop
+      // Button 4: Deploy and run rollers (press once, stays running)
       oi.getButtonBox1Button4()
           .onTrue(
-              Commands.either(
-                  // Retract: run rollers for 1s while retracting, then stop
-                  Commands.sequence(
-                      Commands.runOnce(intake::retract, intake),
-                      Commands.run(intake::runIntake, intake).withTimeout(1.0),
-                      Commands.runOnce(intake::stopRollers, intake)),
-                  // Deploy: extend and run rollers
-                  Commands.runOnce(
-                      () -> {
-                        intake.deploy();
-                        intake.runIntake();
-                      },
-                      intake),
-                  intake::isDeployed));
+              Commands.runOnce(
+                  () -> {
+                    intake.deploy();
+                    intake.setRollerVelocity(tuningIntakeDeployedVelocity.get());
+                  },
+                  intake));
+
+      // Button 3: Retract and run rollers at agitation speed (press once, stays running)
+      oi.getButtonBox1Button3()
+          .onTrue(
+              Commands.runOnce(
+                  () -> {
+                    intake.retract();
+                    intake.setRollerVelocity(tuningIntakeAgitationVelocity.get());
+                  },
+                  intake));
     }
 
     // Smart launch: D-pad Up + Button 2 — odometry-based aiming (hub or pass)

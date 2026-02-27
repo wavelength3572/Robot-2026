@@ -38,8 +38,14 @@ public interface IntakeIO {
   /** Stop both motors. */
   public default void stop() {}
 
-  /** Stop only the deploy motor and hold current position. */
+  /** Set the deploy motor duty cycle directly (-1 to 1). */
+  public default void setDeployDutyCycle(double dutyCycle) {}
+
+  /** Stop only the deploy motor and hold current position via MAXMotion. */
   public default void stopDeploy() {}
+
+  /** Stop the deploy motor completely with no PID or position hold. */
+  public default void disableDeploy() {}
 
   /** Set the deploy motor idle mode (brake or coast). */
   default void setDeployBrakeMode(boolean brake) {}

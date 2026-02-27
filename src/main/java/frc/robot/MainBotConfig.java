@@ -186,7 +186,7 @@ public class MainBotConfig implements RobotConfig {
   private static final int intakeRollerCurrentLimit = 110;
   private static final double intakeDeployStowedPosition = 0.0;
   private static final double intakeDeployRetractedPosition = 0.0035;
-  private static final double intakeDeployExtendedPosition = 0.13;
+  private static final double intakeDeployExtendedPosition = 0.07;
   // kP=100 caused massive oscillation because it saturates output for any error > 0.01 rotations
   // (total travel is only 0.13 rotations). REV recommends starting at kP=0.01 for rotations.
   // kP=5 gives 65% duty cycle at full travel error - strong but not saturated.
@@ -194,12 +194,12 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeDeployKp = 5.0;
   private static final double intakeDeployKi = 0.0;
   private static final double intakeDeployKd = 1.0;
-  private static final double intakeRollerKp = 0.0007;
+  private static final double intakeRollerKp = 0.00005;
   private static final double intakeRollerKi = 0.0;
   private static final double intakeRollerKd = 0.000001;
-  private static final double intakeRollerKff = 0.000225;
-  private static final double intakeDeployMaxVelocity = 40.0; // RPM output shaft
-  private static final double intakeDeployMaxAcceleration = 150.0; // RPM/s output shaft
+  private static final double intakeRollerKff = 0.000387;
+  private static final double intakeDeployMaxVelocity = 80.0; // RPM output shaft
+  private static final double intakeDeployMaxAcceleration = 80.0; // RPM/s output shaft
 
   // Performance
   private static final double maxSpeedMetersPerSec =

@@ -2,6 +2,7 @@ package frc.robot.subsystems.intake;
 
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -47,6 +48,9 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber deployOutputLimit;
   private static final LoggedTunableNumber retractOutputLimit;
 
+  // Small duty cycle applied after retract to keep the intake tucked against gravity
+  private static final LoggedTunableNumber retractHoldDutyCycle;
+
   static {
     RobotConfig config = Constants.getRobotConfig();
     deployKP = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kP", config.getIntakeDeployKp());
@@ -63,7 +67,7 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/RetractedPosition",
             config.getIntakeDeployRetractedPosition());
-    deployTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/Tolerance", 0.0001);
+    deployTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/Tolerance", 0.02);
     rollerKP =
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kP", config.getIntakeRollerKp());
     rollerKI =
@@ -78,9 +82,12 @@ public class Intake extends SubsystemBase {
     deployMaxAcceleration =
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
-    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/DeployOutputLimit", 0.5);
+    deployOutputLimit =
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/DeployOutputLimit", 0.5);
     retractOutputLimit =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", 0.5);
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", 1.0);
+    retractHoldDutyCycle =
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractHoldDutyCycle", -0.05);
   }
 
   // Deploy positions (from config, used for soft limit init)
@@ -91,12 +98,23 @@ public class Intake extends SubsystemBase {
   // Tracks whether we've commanded deploy (true) or retract (false)
   private boolean deployCommanded = false;
 
+  // Deploy settle state machine
+  private enum DeployState {
+    IDLE, // No motion in progress
+    MOVING, // PID driving to target
+    BRAKING, // At target, brake mode on for settling (deploy only)
+    HOLDING // Retract: brake + small hold voltage; Deploy: coast, fully settled
+  }
+
+  private DeployState deployState = DeployState.IDLE;
+  private final Timer brakeTimer = new Timer();
+
   // Operational constants (not robot-specific)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
   public static final double ROLLER_EJECT_SPEED = -0.6;
   public static final double ROLLER_HOLD_SPEED = 0.1;
-  public static final double ROLLER_INTAKE_RPM_RETRACTED = 2000.0;
-  public static final double ROLLER_INTAKE_RPM_DEPLOYED = 2000.0;
+  public static final double ROLLER_INTAKE_RPM_RETRACTED = 1000.0;
+  public static final double ROLLER_INTAKE_RPM_DEPLOYED = 1000.0;
   public static final double ROLLER_EJECT_RPM = -1000.0;
   public static final double ROLLER_HOLD_RPM = 200.0;
   public static final double ROLLER_SHOOTING_RPM = 1000.0;
@@ -126,10 +144,6 @@ public class Intake extends SubsystemBase {
     deployStowedPosition = config.getIntakeDeployStowedPosition();
     deployRetractedPosition = config.getIntakeDeployRetractedPosition();
     deployExtendedPosition = config.getIntakeDeployExtendedPosition();
-
-    // Apply initial output range limits for safe tuning (asymmetric for deploy vs retract)
-    io.configureDeployOutputRange(
-        -Math.abs(retractOutputLimit.get()), Math.abs(deployOutputLimit.get()));
 
     // Create deploy arm (pivots based on deploy position)
     deployArm =
@@ -172,7 +186,43 @@ public class Intake extends SubsystemBase {
           -Math.abs(retractOutputLimit.get()), Math.abs(deployOutputLimit.get()));
     }
 
-    // Always brake mode — PID holds position, brake mode backs it up
+    // Deploy settle state machine
+    switch (deployState) {
+      case MOVING:
+        if (deployAtTarget()) {
+          // Arrived at target — kill PID, switch to brake mode to settle
+          io.disableDeploy();
+          io.setDeployBrakeMode(true);
+          if (deployCommanded) {
+            // Deploy: brake for 1 second then coast
+            brakeTimer.restart();
+            deployState = DeployState.BRAKING;
+          } else {
+            // Retract: brake + small hold voltage to stay tucked
+            io.setDeployDutyCycle(retractHoldDutyCycle.get());
+            deployState = DeployState.HOLDING;
+          }
+        }
+        break;
+      case BRAKING:
+        // Deploy only: after 1 second of braking, switch to coast and go idle
+        if (brakeTimer.hasElapsed(1.0)) {
+          brakeTimer.stop();
+          io.disableDeploy();
+          io.setDeployBrakeMode(false);
+          deployState = DeployState.IDLE;
+        }
+        break;
+      case HOLDING:
+        // Retract hold: continuously apply small duty cycle (tunable via NetworkTables)
+        break;
+      case IDLE:
+      default:
+        break;
+    }
+
+    // Log deploy state machine
+    Logger.recordOutput("Intake/DeployState", deployState.name());
 
     // Update deploy arm angle
     // Retracted (0 rotations) = 90° (pointing up)
@@ -195,14 +245,18 @@ public class Intake extends SubsystemBase {
   /** Deploy the intake (extend). Stops motor first for clean retarget. */
   public void deploy() {
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
+    io.setDeployBrakeMode(false); // Coast mode while PID is driving
     deployCommanded = true;
+    deployState = DeployState.MOVING;
     io.setDeployPosition(deployExtendedPos.get());
   }
 
   /** Retract the intake. Stops motor first for clean retarget. */
   public void retract() {
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
+    io.setDeployBrakeMode(false); // Coast mode while PID is driving
     deployCommanded = false;
+    deployState = DeployState.MOVING;
     io.setDeployPosition(deployRetractedPos.get());
   }
 
@@ -212,19 +266,34 @@ public class Intake extends SubsystemBase {
    */
   public void stow() {
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
+    io.setDeployBrakeMode(false); // Coast mode while PID is driving
     deployCommanded = false;
+    deployState = DeployState.MOVING;
     io.setDeployPosition(deployStowedPos.get());
   }
 
-  /** Emergency stop the deploy motor. Holds current position. */
+  /** Emergency stop the deploy motor. Switches to brake mode to hold position. */
   public void stopDeploy() {
     io.stopDeploy();
+    io.setDeployBrakeMode(true);
     deployCommanded = false;
+    deployState = DeployState.IDLE;
+    brakeTimer.stop();
   }
 
   /** Command that immediately stops the deploy motor (bind to a button for safety). */
   public Command stopDeployCommand() {
     return runOnce(this::stopDeploy).withName("Intake: Stop Deploy");
+  }
+
+  /** Command that stops everything — deploy motor + rollers. */
+  public Command stopAllCommand() {
+    return runOnce(
+            () -> {
+              stopDeploy();
+              stopRollers();
+            })
+        .withName("Intake: Stop All");
   }
 
   /**
