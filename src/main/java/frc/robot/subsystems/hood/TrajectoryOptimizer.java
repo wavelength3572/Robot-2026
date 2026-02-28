@@ -47,7 +47,7 @@ public class TrajectoryOptimizer {
           "Shots/SmartLaunch/Trajectory/MinClearanceInches", 2.0); // Safety margin
   private static final LoggedTunableNumber maxClearanceInches =
       new LoggedTunableNumber(
-          "Shots/SmartLaunch/Trajectory/MaxClearanceInches", 15.0); // Sanity check
+          "Shots/SmartLaunch/Trajectory/MaxClearanceInches", 24.0); // Sanity check
 
   // RPM limits
   private static final LoggedTunableNumber minRPM =

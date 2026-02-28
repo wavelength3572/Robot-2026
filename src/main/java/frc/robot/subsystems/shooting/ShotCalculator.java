@@ -25,9 +25,9 @@ public final class ShotCalculator {
   // ball compression, spin) reduce effective efficiency. The efficiency interpolates linearly
   // from baseEfficiency at 0m to farEfficiency at farDistanceM.
   private static final LoggedTunableNumber baseEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/BaseEfficiency", 0.42);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/BaseEfficiency", 0.48);
   private static final LoggedTunableNumber farEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FarEfficiency", 0.35);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FarEfficiency", 0.48);
   private static final LoggedTunableNumber farDistanceM =
       new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FarDistanceM", 7.0);
 
