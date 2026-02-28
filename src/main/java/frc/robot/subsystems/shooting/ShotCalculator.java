@@ -132,8 +132,8 @@ public final class ShotCalculator {
   }
 
   /**
-   * Get what RPM would be needed to achieve a target exit velocity at a given distance.
-   * Uses distance-dependent efficiency for more accurate far shots.
+   * Get what RPM would be needed to achieve a target exit velocity at a given distance. Uses
+   * distance-dependent efficiency for more accurate far shots.
    *
    * @param targetExitVelocity Desired exit velocity in m/s
    * @param distanceM Horizontal distance to target in meters

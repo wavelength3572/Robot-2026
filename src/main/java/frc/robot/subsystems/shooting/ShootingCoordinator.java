@@ -278,8 +278,7 @@ public class ShootingCoordinator extends SubsystemBase {
     Logger.recordOutput("Turret/Shot/ExitVelocityMps", result.exitVelocityMps());
     Logger.recordOutput("Turret/Shot/HoodAngleDeg", result.hoodAngleDeg());
     Logger.recordOutput("Turret/Shot/LaunchAngleDeg", result.getLaunchAngleDegrees());
-    Logger.recordOutput(
-        "Turret/Shot/IdealRPM", result.launcherRPM());
+    Logger.recordOutput("Turret/Shot/IdealRPM", result.launcherRPM());
     Logger.recordOutput("Turret/Shot/Achievable", result.achievable());
     Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
     Logger.recordOutput("Turret/Shot/RelativeAngleDeg", result.turretAngleDeg());
