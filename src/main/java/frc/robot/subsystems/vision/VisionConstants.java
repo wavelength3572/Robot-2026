@@ -25,7 +25,7 @@ import edu.wpi.first.math.numbers.N3;
 
 public final class VisionConstants {
 
-  public static double MAX_TAG_DISTANCE = 1.0; // Accept tags within 1 meter (was 6.0m)
+  public static double MAX_TAG_DISTANCE = 2.5; // Accept tags within 2.5 meters
 
   // AprilTag layout for 2026 Rebuilt field
   public static AprilTagFieldLayout aprilTagLayout =

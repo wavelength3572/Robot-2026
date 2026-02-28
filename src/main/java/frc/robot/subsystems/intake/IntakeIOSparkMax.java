@@ -166,7 +166,11 @@ public class IntakeIOSparkMax implements IntakeIO {
       inputs.deployConnected = deployConnectedDebounce.calculate(!sparkStickyFault);
       deployConnection.update(inputs.deployConnected);
     } else {
+      // Deploy motor disconnected — report as fully deployed so isDeployed() returns true.
+      // This prevents shooting commands from interfering with roller speed.
+      // TODO: Revert when deploy motor is reconnected.
       inputs.deployConnected = false;
+      inputs.deployPositionRotations = deployExtendedPosition;
     }
     inputs.deployTargetPosition = deployTargetPosition;
 

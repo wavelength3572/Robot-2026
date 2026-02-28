@@ -556,7 +556,12 @@ public class ButtonsAndDashboardBindings {
             })
         .finallyDo(
             () -> {
-              if (!intake.isDeployed()) {
+              // Restore intake rollers to normal speed instead of stopping them.
+              // This prevents releasing a shooting button from killing the rollers
+              // when the intake is deployed and actively collecting.
+              if (intake.isDeployed()) {
+                intake.runIntake();
+              } else {
                 intake.stopRollers();
               }
             });
