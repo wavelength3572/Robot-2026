@@ -24,8 +24,8 @@ public class MainBotConfig implements RobotConfig {
   private static final double bumperLength = 0.787; // meters, front to back with bumpers
   private static final double bumperWidth = 0.978; // meters, side to side with bumpers
 
-  private static final double trackWidth = Units.inchesToMeters(31.0);
-  private static final double wheelBase = Units.inchesToMeters(23.5);
+  private static final double trackWidth = Units.inchesToMeters(25.75);
+  private static final double wheelBase = Units.inchesToMeters(18.25);
   private static final double driveBaseRadius = Math.hypot(trackWidth / 2.0, wheelBase / 2.0);
   private static final Translation2d[] moduleTranslations =
       new Translation2d[] {
@@ -59,7 +59,7 @@ public class MainBotConfig implements RobotConfig {
 
   // Drive motor configuration
   private static final int driveMotorCurrentLimit = 50;
-  private static final double wheelRadiusMeters = Units.inchesToMeters(2.0);
+  private static final double wheelRadiusMeters = Units.inchesToMeters(1.983);
   private static final double driveMotorReduction =
       (50.0 / 14.0) * (17.0 / 27.0) * (45.0 / 15.0); // SDS MK4i L2
   private static final DCMotor driveGearbox = DCMotor.getNeoVortex(1);
@@ -72,8 +72,8 @@ public class MainBotConfig implements RobotConfig {
   // Drive PID configuration
   private static final double driveKp = 0.0;
   private static final double driveKd = 0.0;
-  private static final double driveKs = 0.0;
-  private static final double driveKv = 0.1;
+  private static final double driveKs = 0.15679;
+  private static final double driveKv = 0.13069;
   private static final double driveSimP = 0.05;
   private static final double driveSimD = 0.0;
   private static final double driveSimKs = 0.04307;

@@ -100,7 +100,7 @@ public class IntakeIOSparkMax implements IntakeIO {
         .primaryEncoderPositionAlwaysOn(true)
         .primaryEncoderPositionPeriodMs(20)
         .primaryEncoderVelocityAlwaysOn(true)
-        .primaryEncoderVelocityPeriodMs(20)
+        .primaryEncoderVelocityPeriodMs(50)
         .appliedOutputPeriodMs(100)
         .busVoltagePeriodMs(100)
         .outputCurrentPeriodMs(100);
@@ -135,7 +135,7 @@ public class IntakeIOSparkMax implements IntakeIO {
     rollerConfig
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
-        .primaryEncoderVelocityPeriodMs(20)
+        .primaryEncoderVelocityPeriodMs(50)
         .appliedOutputPeriodMs(100)
         .busVoltagePeriodMs(100)
         .outputCurrentPeriodMs(100);

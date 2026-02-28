@@ -4,24 +4,24 @@
     {
       "anchor": {
         "x": 2.5,
-        "y": 1.5
+        "y": 7.096
       },
       "prevControl": null,
       "nextControl": {
         "x": 2.5,
-        "y": 2.0999999999999996
+        "y": 7.696
       },
       "isLocked": false,
       "linkedName": "sweepEnd"
     },
     {
       "anchor": {
-        "x": 2.5291022727272723,
-        "y": 6.784
+        "x": 2.5,
+        "y": 1.0
       },
       "prevControl": {
-        "x": 2.5291022727272723,
-        "y": 6.184
+        "x": 2.5,
+        "y": 0.40000000000000036
       },
       "nextControl": null,
       "isLocked": false,
@@ -42,13 +42,13 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": -90.0
+    "rotation": 90.0
   },
   "reversed": false,
   "folder": "Test Paths",
   "idealStartingState": {
     "velocity": 0,
-    "rotation": -70.0
+    "rotation": 90.0
   },
   "useDefaultConstraints": false
 }
