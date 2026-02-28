@@ -16,32 +16,64 @@
     },
     {
       "anchor": {
-        "x": 0.6927370304114486,
-        "y": 6.0
+        "x": 0.6846039724339379,
+        "y": 6.179172743271213
       },
       "prevControl": {
-        "x": 0.6927370304114486,
-        "y": 6.499999999999998
+        "x": 0.1849550921017435,
+        "y": 6.160437845812728
       },
       "nextControl": {
-        "x": 0.6927370304114486,
-        "y": 5.5
+        "x": 1.001230649266066,
+        "y": 6.191045017095036
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 1.9180929487179483,
-        "y": 5.539399038461538
+        "x": 2.3969734832483987,
+        "y": 6.179172743271213
       },
       "prevControl": {
-        "x": 1.5180929487179484,
-        "y": 5.539399038461538
+        "x": 2.1469734832483987,
+        "y": 6.179172743271213
+      },
+      "nextControl": {
+        "x": 2.6469734832483987,
+        "y": 6.179172743271213
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 0.6846039724339379,
+        "y": 5.811520124336319
+      },
+      "prevControl": {
+        "x": 1.9587266485667125,
+        "y": 5.858709853081972
+      },
+      "nextControl": {
+        "x": 0.41889146213514217,
+        "y": 5.801678920251179
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 1.895072074906229,
+        "y": 5.549335681822217
+      },
+      "prevControl": {
+        "x": 2.1450031325462477,
+        "y": 5.543464870384123
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "DepotEndPoint"
     }
   ],
   "rotationTargets": [],
@@ -49,7 +81,7 @@
     {
       "name": "Constraints Zone",
       "minWaypointRelativePos": 0.7085561497326199,
-      "maxWaypointRelativePos": 1.274576271186442,
+      "maxWaypointRelativePos": 1.55,
       "constraints": {
         "maxVelocity": 0.399,
         "maxAcceleration": 1.5,
