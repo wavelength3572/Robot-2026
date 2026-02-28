@@ -25,7 +25,7 @@ import edu.wpi.first.math.numbers.N3;
 
 public final class VisionConstants {
 
-  public static double MAX_TAG_DISTANCE = 6.0; // Accept tags within 6 meters (was 1.5m)
+  public static double MAX_TAG_DISTANCE = 1.0; // Accept tags within 1 meter (was 6.0m)
 
   // AprilTag layout for 2026 Rebuilt field
   public static AprilTagFieldLayout aprilTagLayout =
@@ -80,8 +80,8 @@ public final class VisionConstants {
 
   // Standard deviation baselines, for 1 meter distance and 1 tag
   // (Adjusted automatically based on distance and # of tags)
-  public static double linearStdDevBaseline = 0.02; // Meters
-  public static double angularStdDevBaseline = 0.06; // Radians
+  public static double linearStdDevBaseline = 0.15; // Meters (was 0.02, increased to reduce jumps)
+  public static double angularStdDevBaseline = 0.3; // Radians (was 0.06, increased to reduce jumps)
 
   // Standard deviation multipliers for each camera
   // (Adjust to trust some cameras more than others)

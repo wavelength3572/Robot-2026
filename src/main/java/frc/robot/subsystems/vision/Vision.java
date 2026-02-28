@@ -247,9 +247,9 @@ public class Vision extends SubsystemBase {
         stdDevFactor *= ambiguityScale;
 
         // Speed scaling: at high speeds, camera images are blurred and less reliable.
-        // Adds up to 50% uncertainty at 3+ m/s. No effect when stationary.
+        // Adds up to 2x uncertainty at 3+ m/s. No effect when stationary.
         double robotSpeed = robotSpeedSupplier.get();
-        double speedScale = 1.0 + Math.min(robotSpeed / 3.0, 1.0) * 0.5;
+        double speedScale = 1.0 + Math.min(robotSpeed / 3.0, 1.0) * 2.0;
         stdDevFactor *= speedScale;
 
         double linearStdDev = linearStdDevBaseline * stdDevFactor;

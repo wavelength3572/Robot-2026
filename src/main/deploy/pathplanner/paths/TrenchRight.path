@@ -36,40 +36,40 @@
         "y": 3.25092715231788
       },
       "prevControl": {
-        "x": 8.249786520225934,
-        "y": 3.502975191855175
+        "x": 8.307951452426849,
+        "y": 3.25092715231788
       },
       "nextControl": {
-        "x": 7.151970198675497,
-        "y": 2.967789735099337
+        "x": 7.086630794701987,
+        "y": 3.25092715231788
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 6.941432119205298,
-        "y": 0.884188741721855
+        "x": 6.81930034343882,
+        "y": 0.4
       },
       "prevControl": {
-        "x": 7.388688191055692,
-        "y": 1.0829692180998083
+        "x": 7.5163643049952,
+        "y": 0.38959606027527804
       },
       "nextControl": {
-        "x": 6.484056291390728,
-        "y": 0.6809105960264904
+        "x": 6.318841695319726,
+        "y": 0.40746953206147896
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 3.123,
-        "y": 0.818849337748345
+        "x": 3.0114584041905412,
+        "y": 0.4
       },
       "prevControl": {
-        "x": 3.275165562913908,
-        "y": 0.1872350993377484
+        "x": 4.400861609759221,
+        "y": 0.3999999999999998
       },
       "nextControl": null,
       "isLocked": false,
@@ -98,7 +98,21 @@
       "rotationDegrees": 90.0
     }
   ],
-  "constraintZones": [],
+  "constraintZones": [
+    {
+      "name": "Constraints Zone",
+      "minWaypointRelativePos": 2.7194346289752644,
+      "maxWaypointRelativePos": 3.8162544169611303,
+      "constraints": {
+        "maxVelocity": 0.75,
+        "maxAcceleration": 1.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
   "pointTowardsZones": [],
   "eventMarkers": [],
   "globalConstraints": {
@@ -111,7 +125,7 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 180.0
+    "rotation": 90.0
   },
   "reversed": false,
   "folder": "Auto Paths",
