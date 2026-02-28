@@ -27,7 +27,7 @@ public final class ShotCalculator {
   private static final LoggedTunableNumber baseEfficiency =
       new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/BaseEfficiency", 0.50);
   private static final LoggedTunableNumber farEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FarEfficiency", 0.46);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FarEfficiency", 0.48);
   private static final LoggedTunableNumber farDistanceM =
       new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FarDistanceM", 7.0);
 
