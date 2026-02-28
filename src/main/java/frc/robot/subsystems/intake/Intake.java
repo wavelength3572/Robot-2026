@@ -113,8 +113,8 @@ public class Intake extends SubsystemBase {
   public static final double ROLLER_INTAKE_SPEED = 0.8;
   public static final double ROLLER_EJECT_SPEED = -0.6;
   public static final double ROLLER_HOLD_SPEED = 0.1;
-  public static final double ROLLER_INTAKE_RPM_RETRACTED = 1000.0;
-  public static final double ROLLER_INTAKE_RPM_DEPLOYED = 1000.0;
+  public static final double ROLLER_INTAKE_RPM_RETRACTED = 500.0;
+  public static final double ROLLER_INTAKE_RPM_DEPLOYED = 1500.0;
   public static final double ROLLER_EJECT_RPM = -1000.0;
   public static final double ROLLER_HOLD_RPM = 200.0;
   public static final double ROLLER_SHOOTING_RPM = 1000.0;

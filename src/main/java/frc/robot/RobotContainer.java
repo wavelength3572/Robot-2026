@@ -541,7 +541,7 @@ public class RobotContainer {
             // 2. WAIT FOR INTAKE DEPLOY: block until intake reaches deployed position
             //    before any shooting occurs — shooting with the intake stowed will rip it off.
             intake != null
-                ? Commands.waitUntil(() -> intake.isDeployed()).withTimeout(2.0)
+                ? Commands.waitUntil(() -> intake.isDeployed()).withTimeout(0.25)
                 : Commands.none(),
             // 3. INITIAL SHOT: fire preloaded balls with proper hood angle.
             //    smartLaunch handles turret+hood+launcher+motivator+spindexer+readiness.
@@ -810,10 +810,6 @@ public class RobotContainer {
    * auto selection changes or when the alliance changes.
    */
   public void updateSimulationPoseFromAuto() {
-    if (Constants.currentMode != Constants.Mode.SIM) {
-      return;
-    }
-
     // Get the currently selected auto name and alliance
     String selectedAutoName = autoChooser.getSendableChooser().getSelected();
     edu.wpi.first.wpilibj.DriverStation.Alliance currentAlliance =
