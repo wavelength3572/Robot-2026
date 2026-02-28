@@ -25,9 +25,9 @@ public final class ShotCalculator {
   // ball compression, spin) reduce effective efficiency. The efficiency interpolates linearly
   // from baseEfficiency at 0m to farEfficiency at farDistanceM.
   private static final LoggedTunableNumber baseEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/BaseEfficiency", 0.50);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/BaseEfficiency", 0.42);
   private static final LoggedTunableNumber farEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FarEfficiency", 0.42);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FarEfficiency", 0.35);
   private static final LoggedTunableNumber farDistanceM =
       new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FarDistanceM", 7.0);
 
@@ -47,6 +47,7 @@ public final class ShotCalculator {
   /** Result of a shot calculation. */
   public record ShotResult(
       double exitVelocityMps,
+      double launcherRPM, // pre-computed RPM (uses distance-aware efficiency)
       double launchAngleRad,
       double hoodAngleDeg,
       double turretAngleDeg, // robot-relative
@@ -422,6 +423,7 @@ public final class ShotCalculator {
 
     return new ShotResult(
         optimalShot.exitVelocityMps,
+        optimalShot.rpm,
         Math.toRadians(optimalShot.launchAngleDeg),
         optimalShot.hoodAngleDeg,
         turretAngleDeg,
@@ -500,6 +502,7 @@ public final class ShotCalculator {
 
     return new ShotResult(
         exitVelocity,
+        calculateRPMForVelocity(exitVelocity),
         launchAngleRad,
         90.0 - launchAngleDeg, // convert launch angle to hood angle
         turretAngleDeg,
@@ -546,6 +549,13 @@ public final class ShotCalculator {
 
     Translation3d target = new Translation3d(targetX, targetY, targetZ);
 
-    return new ShotResult(exitVelocity, launchAngleRad, hoodAngleDeg, turretAngleDeg, target, true);
+    return new ShotResult(
+        exitVelocity,
+        calculateRPMForVelocity(exitVelocity),
+        launchAngleRad,
+        hoodAngleDeg,
+        turretAngleDeg,
+        target,
+        true);
   }
 }

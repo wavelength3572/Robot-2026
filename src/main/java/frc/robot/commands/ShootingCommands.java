@@ -137,7 +137,7 @@ public class ShootingCommands {
   private static final LoggedTunableNumber smartShotMotivatorRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/MotivatorRPM", 1100.0);
   private static final LoggedTunableNumber smartShotSpindexerRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerRPM", 750.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerRPM", 250.0);
 
   // ===== BenchTest/Shooting/* Override Values (for controlled manual testing)
   // =====
@@ -696,7 +696,7 @@ public class ShootingCommands {
                 () -> {
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
-                    double rpm = ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps());
+                    double rpm = shot.launcherRPM();
                     launcher.setVelocity(rpm);
                     turret.setOutsideTurretAngle(shot.turretAngleDeg());
                     if (hood != null) {
@@ -791,8 +791,7 @@ public class ShootingCommands {
                                   + hasShot
                                   + (shot != null
                                       ? " rpm="
-                                          + ShotCalculator.calculateRPMForVelocity(
-                                              shot.exitVelocityMps())
+                                          + shot.launcherRPM()
                                           + " hood="
                                           + shot.hoodAngleDeg()
                                           + " turret="
@@ -818,7 +817,7 @@ public class ShootingCommands {
                     () -> {
                       ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                       if (shot != null) {
-                        double rpm = ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps());
+                        double rpm = shot.launcherRPM();
                         launcher.setVelocity(rpm);
                         coordinator.setManualShotParameters(
                             rpm, shot.hoodAngleDeg(), shot.turretAngleDeg());

@@ -279,7 +279,7 @@ public class ShootingCoordinator extends SubsystemBase {
     Logger.recordOutput("Turret/Shot/HoodAngleDeg", result.hoodAngleDeg());
     Logger.recordOutput("Turret/Shot/LaunchAngleDeg", result.getLaunchAngleDegrees());
     Logger.recordOutput(
-        "Turret/Shot/IdealRPM", ShotCalculator.calculateRPMForVelocity(result.exitVelocityMps()));
+        "Turret/Shot/IdealRPM", result.launcherRPM());
     Logger.recordOutput("Turret/Shot/Achievable", result.achievable());
     Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
     Logger.recordOutput("Turret/Shot/RelativeAngleDeg", result.turretAngleDeg());
@@ -378,7 +378,7 @@ public class ShootingCoordinator extends SubsystemBase {
         launcherReady && motivatorReady && turretReady && hoodReady && achievable);
 
     if (currentShot != null) {
-      double targetRPM = ShotCalculator.calculateRPMForVelocity(currentShot.exitVelocityMps());
+      double targetRPM = currentShot.launcherRPM();
 
       // --- Commanded targets ---
       Logger.recordOutput("SmartLaunch/Target/RPM", targetRPM);

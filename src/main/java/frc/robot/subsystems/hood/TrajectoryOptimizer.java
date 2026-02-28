@@ -47,7 +47,7 @@ public class TrajectoryOptimizer {
           "Shots/SmartLaunch/Trajectory/MinClearanceInches", 2.0); // Safety margin
   private static final LoggedTunableNumber maxClearanceInches =
       new LoggedTunableNumber(
-          "Shots/SmartLaunch/Trajectory/MaxClearanceInches", 24.0); // Sanity check
+          "Shots/SmartLaunch/Trajectory/MaxClearanceInches", 15.0); // Sanity check
 
   // RPM limits
   private static final LoggedTunableNumber minRPM =
@@ -55,7 +55,7 @@ public class TrajectoryOptimizer {
   private static final LoggedTunableNumber maxRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxRPM", 4000.0);
   private static final LoggedTunableNumber maxPeakHeightFt =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxPeakHeightFt", 15.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxPeakHeightFt", 10.0);
 
   /** Result of trajectory optimization. */
   public static class OptimalShot {

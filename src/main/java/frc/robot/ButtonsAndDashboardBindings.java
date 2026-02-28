@@ -430,7 +430,7 @@ public class ButtonsAndDashboardBindings {
                 () -> {
                   ShotCalculator.ShotResult shot = shootingCoordinator.getCurrentShot();
                   if (shot == null) return;
-                  double rpm = ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps());
+                  double rpm = shot.launcherRPM();
                   SmartDashboard.putNumber(
                       "TrajectoryCalculators/Distance/OptimalRPM", Math.round(rpm * 10.0) / 10.0);
                   SmartDashboard.putNumber(
