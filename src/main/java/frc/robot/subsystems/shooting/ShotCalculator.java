@@ -22,7 +22,7 @@ public final class ShotCalculator {
 
   // Efficiency factor: how much of wheel surface velocity transfers to ball (0.0-1.0)
   private static final LoggedTunableNumber launchEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.5);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.45);
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
