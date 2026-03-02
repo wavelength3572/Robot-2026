@@ -43,6 +43,9 @@ public class Vision extends SubsystemBase {
 
   private boolean isVisionOn = true;
 
+  // Throttle VisionSystemSim to every other cycle (25Hz) — sim-only optimization
+  private boolean visionSimFrame = false;
+
   // Robot speed supplier for adaptive std dev scaling.
   // Higher speeds increase measurement uncertainty from motion blur.
   private Supplier<Double> robotSpeedSupplier = () -> 0.0;
@@ -148,10 +151,13 @@ public class Vision extends SubsystemBase {
   }
 
   private void updateMainPipeline() {
-    // In simulation, update the vision sim ONCE before processing any cameras
-    // (VisionSystemSim.update() simulates ALL cameras at once)
+    // In simulation, update the vision sim at 25Hz (every other cycle).
+    // VisionSystemSim.update() simulates ALL 4 cameras and is 10-20ms.
     if (frc.robot.Constants.currentMode == frc.robot.Constants.Mode.SIM) {
-      VisionIOPhotonVisionSim.updateSim();
+      visionSimFrame = !visionSimFrame;
+      if (visionSimFrame) {
+        VisionIOPhotonVisionSim.updateSim();
+      }
     }
 
     for (int i = 0; i < io.length; i++) {

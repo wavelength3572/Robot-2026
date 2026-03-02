@@ -51,6 +51,15 @@ public class ShootingCoordinator extends SubsystemBase {
   // Current shot data
   private ShotCalculator.ShotResult currentShot = null;
 
+  // Visualizer throttle — run at 25Hz instead of 50Hz (pure display, not control)
+  private boolean visualizerFrame = false;
+
+  // Shot calculation cache — skip recalc when robot hasn't moved significantly
+  private Pose2d lastCalcPose = null;
+  private ShotCalculator.ShotResult cachedShotResult = null;
+  private static final double POSE_TRANSLATION_THRESHOLD = 0.02; // meters
+  private static final double POSE_ROTATION_THRESHOLD_RAD = Math.toRadians(1.0); // 1 degree
+
   // Pass target offset tunables — separate for left and right trench
   private final LoggedTunableNumber passLeftAdjustX =
       new LoggedTunableNumber("Shots/Pass/Left/AdjustX", 0.0);
@@ -140,9 +149,12 @@ public class ShootingCoordinator extends SubsystemBase {
     DriverStation.Alliance alliance = RobotStatus.getAlliance();
     boolean isBlueAlliance = RobotStatus.isBlueAlliance();
 
+    // Throttle visualizer to every other cycle (25Hz) — pure display, not control
+    visualizerFrame = !visualizerFrame;
+
     // Never command actuators while disabled — only run visualization
     if (DriverStation.isDisabled()) {
-      if (visualizer != null && robotPoseSupplier != null) {
+      if (visualizerFrame && visualizer != null && robotPoseSupplier != null) {
         visualizer.update(createVisualizerSnapshot(isBlueAlliance));
       }
       return;
@@ -153,7 +165,7 @@ public class ShootingCoordinator extends SubsystemBase {
     logShotState();
 
     // Visualization runs AFTER all control logic (passive observer)
-    if (visualizer != null && robotPoseSupplier != null) {
+    if (visualizerFrame && visualizer != null && robotPoseSupplier != null) {
       visualizer.update(createVisualizerSnapshot(isBlueAlliance));
     }
   }
@@ -234,14 +246,31 @@ public class ShootingCoordinator extends SubsystemBase {
     }
   }
 
-  /** Calculate and apply hub shot. */
+  /** Calculate and apply hub shot, with caching when robot hasn't moved significantly. */
   private void calculateShotToHub(
       Pose2d robotPose, ChassisSpeeds fieldSpeeds, boolean isBlueAlliance) {
+    // Skip recalculation if robot pose hasn't changed enough
+    if (lastCalcPose != null && cachedShotResult != null) {
+      double translationDelta =
+          robotPose.getTranslation().getDistance(lastCalcPose.getTranslation());
+      double rotationDelta =
+          Math.abs(robotPose.getRotation().getRadians() - lastCalcPose.getRotation().getRadians());
+      if (translationDelta < POSE_TRANSLATION_THRESHOLD
+          && rotationDelta < POSE_ROTATION_THRESHOLD_RAD) {
+        currentShot = cachedShotResult;
+        return;
+      }
+    }
+
     Translation3d hubTarget =
         isBlueAlliance
             ? FieldConstants.Hub.innerCenterPoint
             : FieldConstants.Hub.oppInnerCenterPoint;
     calculateShotToTarget(robotPose, fieldSpeeds, hubTarget);
+
+    // Cache the result
+    lastCalcPose = robotPose;
+    cachedShotResult = currentShot;
   }
 
   /** Calculate shot to a specific target and log results. */

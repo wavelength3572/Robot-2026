@@ -24,7 +24,7 @@ import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
  */
 public class FuelSim {
   private static final double PERIOD = 0.02; // sec
-  private static int subticks = 5;
+  private static int subticks = 2;
   private static final Translation3d GRAVITY = new Translation3d(0, 0, -9.81); // m/s^2
   private static final double FIELD_COR = 0.3; // coefficient of restitution with the field
   private static final double FUEL_COR = 0.5; // coefficient of restitution with another fuel
