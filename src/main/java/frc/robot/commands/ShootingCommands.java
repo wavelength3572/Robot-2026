@@ -630,17 +630,30 @@ public class ShootingCommands {
                         () -> hood.setHoodAngle(hoodAngleDegSupplier.getAsDouble()), hood)
                     : Commands.none(),
 
-                // Keep motivator running (reads tunable each cycle)
+                // Keep motivator running (gated on turret alignment)
                 motivator != null
                     ? Commands.run(
-                        () -> motivator.setMotivatorVelocity(motivatorRPMSupplier.getAsDouble()),
+                        () -> {
+                          if (turret.atTarget()) {
+                            motivator.setMotivatorVelocity(motivatorRPMSupplier.getAsDouble());
+                          } else {
+                            motivator.stopMotivator();
+                          }
+                        },
                         motivator)
                     : Commands.none(),
 
-                // Run spindexer to feed fuel (reads tunable each cycle)
+                // Run spindexer to feed fuel (gated on turret alignment)
                 spindexer != null
                     ? Commands.run(
-                        () -> spindexer.setSpindexerVelocity(spindexerRPMSupplier.getAsDouble()),
+                        () -> {
+                          if (turret.atTarget()) {
+                            spindexer.setSpindexerVelocity(spindexerRPMSupplier.getAsDouble());
+                          } else {
+                            spindexer.stopSpindexer();
+                          }
+                          Logger.recordOutput("FixedShot/FeedingSuppressed", !turret.atTarget());
+                        },
                         spindexer)
                     : Commands.none(),
 
@@ -847,17 +860,30 @@ public class ShootingCommands {
                         hood)
                     : Commands.none(),
 
-                // Keep motivator running (reads smart shot tunable each cycle)
+                // Keep motivator running (gated on turret alignment)
                 motivator != null
                     ? Commands.run(
-                        () -> motivator.setMotivatorVelocity(smartShotMotivatorRPM.get()),
+                        () -> {
+                          if (turret.atTarget()) {
+                            motivator.setMotivatorVelocity(smartShotMotivatorRPM.get());
+                          } else {
+                            motivator.stopMotivator();
+                          }
+                        },
                         motivator)
                     : Commands.none(),
 
-                // Run spindexer to feed fuel (reads smart shot tunable each cycle)
+                // Run spindexer to feed fuel (gated on turret alignment)
                 spindexer != null
                     ? Commands.run(
-                        () -> spindexer.setSpindexerVelocity(smartShotSpindexerRPM.get()),
+                        () -> {
+                          if (turret.atTarget()) {
+                            spindexer.setSpindexerVelocity(smartShotSpindexerRPM.get());
+                          } else {
+                            spindexer.stopSpindexer();
+                          }
+                          Logger.recordOutput("SmartLaunch/FeedingSuppressed", !turret.atTarget());
+                        },
                         spindexer)
                     : Commands.none(),
 
