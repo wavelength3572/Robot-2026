@@ -575,6 +575,27 @@ public class MainBotConfig implements RobotConfig {
     return turretKd;
   }
 
+  // ========== Drive Configuration ==========
+
+  @Override
+  public boolean hasDrive() {
+    return true;
+  }
+
+  // ========== Vision Configuration ==========
+
+  @Override
+  public boolean hasVision() {
+    return true;
+  }
+
+  // ========== Turret Configuration ==========
+
+  @Override
+  public boolean hasTurret() {
+    return true;
+  }
+
   // ========== Launcher Configuration ==========
 
   @Override

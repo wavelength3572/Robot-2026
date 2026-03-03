@@ -37,7 +37,6 @@ import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.intake.IntakeIO;
 import frc.robot.subsystems.intake.IntakeIOSim;
 import frc.robot.subsystems.intake.IntakeIOSparkMax;
-import frc.robot.subsystems.intake.IntakeIOSparkMaxRollerOnly;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.launcher.LauncherIO;
 import frc.robot.subsystems.launcher.LauncherIOSim;
@@ -71,29 +70,20 @@ import java.util.HashSet;
 import java.util.Set;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
-/**
- * This class is where the bulk of the robot should be declared. Since Command-based is a
- * "declarative" paradigm, very little robot logic should actually be handled in the {@link Robot}
- * periodic methods (other than the scheduler calls). Instead, the structure of the robot (including
- * subsystems, commands, and button mappings) should be declared here.
- */
 public class RobotContainer {
-  // Subsystems
-  private Drive drive = null;
+  
+  private final Drive drive;
   private final Turret turret;
-  private Vision vision = null;
+  private final Vision vision;
   private final Intake intake;
   private final Launcher launcher;
   private final Hood hood;
   private final Motivator motivator;
   private final Spindexer spindexer;
-  private final ShootingCoordinator
-      shootingCoordinator; // Orchestrates turret+hood+motivator+launcher
+  private final ShootingCoordinator shootingCoordinator;
   private final LEDSubsystem leds;
   private OperatorInterface oi = new OperatorInterface() {};
 
-  // Dashboard inputs — single auto chooser, rebuilt when Competition Mode toggle
-  // changes
   private LoggedDashboardChooser<Command> autoChooser;
   private boolean lastCompetitionMode = true;
 
@@ -103,84 +93,116 @@ public class RobotContainer {
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
 
-    // Instantiate Turret subsystem
+    RobotConfig config = Constants.getRobotConfig();
+
+    // Instantiate all subsystems
     switch (Constants.currentMode) {
       case REAL:
-        turret = new Turret(new TurretIOSparkMax());
+        turret = config.hasTurret() ? new Turret(new TurretIOSparkMax()) : null;
+        intake = config.hasIntake() ? new Intake(new IntakeIOSparkMax()) : null;
+        launcher = config.hasLauncher() ? new Launcher(new LauncherIOSparkFlex()) : null;
+        hood = config.hasHood() ? new Hood(new HoodIOSparkMax()) : null;
+        motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkMax()) : null;
+        spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSparkMax()) : null;
+
+        drive =
+            config.hasDrive()
+                ? new Drive(
+                    new GyroIOPigeon2(),
+                    new ModuleIOSpark(0),
+                    new ModuleIOSpark(1),
+                    new ModuleIOSpark(2),
+                    new ModuleIOSpark(3),
+                    turret)
+                : new Drive(
+                    new GyroIO() {},
+                    new ModuleIOSim(),
+                    new ModuleIOSim(),
+                    new ModuleIOSim(),
+                    new ModuleIOSim(),
+                    turret);
+
+        vision =
+            config.hasVision()
+                ? new Vision(
+                    drive::addVisionMeasurement,
+                    new VisionIO() {},
+                    new VisionIO() {},
+                    new VisionIOPhotonVision(
+                        VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam))
+                : null;
         break;
+
       case SIM:
-        turret = new Turret(new TurretIOSim());
+        turret = config.hasTurret() ? new Turret(new TurretIOSim()) : null;
+        intake = config.hasIntake() ? new Intake(new IntakeIOSim()) : null;
+        launcher = config.hasLauncher() ? new Launcher(new LauncherIOSim()) : null;
+        hood = config.hasHood() ? new Hood(new HoodIOSim()) : null;
+        motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSim()) : null;
+        spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSim()) : null;
+
+        drive =
+            new Drive(
+                new GyroIO() {},
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                turret);
+
+        vision =
+            config.hasVision()
+                ? new Vision(
+                    drive::addVisionMeasurement,
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.frontLeftCam,
+                        VisionConstants.mainBotToFrontLeftCam,
+                        RobotStatus::getRobotPose),
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.frontRightCam,
+                        VisionConstants.mainBotToFrontRightCam,
+                        RobotStatus::getRobotPose),
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.backLeftCam,
+                        VisionConstants.mainBotToBackLeftCam,
+                        RobotStatus::getRobotPose),
+                    new VisionIOPhotonVisionSim(
+                        VisionConstants.backRightCam,
+                        VisionConstants.mainBotToBackRightCam,
+                        RobotStatus::getRobotPose))
+                : null;
         break;
+
       default:
-        // Replay mode - disable turret IO
-        turret = new Turret(new TurretIO() {});
+        // Replay mode — no-op IO for all subsystems
+        turret = config.hasTurret() ? new Turret(new TurretIO() {}) : null;
+        intake = config.hasIntake() ? new Intake(new IntakeIO() {}) : null;
+        launcher = config.hasLauncher() ? new Launcher(new LauncherIO() {}) : null;
+        hood = config.hasHood() ? new Hood(new HoodIO() {}) : null;
+        motivator = config.hasMotivator() ? new Motivator(new MotivatorIO() {}) : null;
+        spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIO() {}) : null;
+
+        drive =
+            new Drive(
+                new GyroIO() {},
+                new ModuleIO() {},
+                new ModuleIO() {},
+                new ModuleIO() {},
+                new ModuleIO() {},
+                turret);
+
+        vision =
+            config.hasVision()
+                ? new Vision(
+                    (pose, time, stdDevs) -> {},
+                    new VisionIO() {},
+                    new VisionIO() {},
+                    new VisionIO() {},
+                    new VisionIO() {})
+                : null;
         break;
-    }
-
-    // Instantiate intake for robots with intake hardware
-    if (Constants.getRobotConfig().hasIntake()) {
-      switch (Constants.currentMode) {
-        case REAL:
-          if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
-            // SquareBot: roller-only intake (no deploy mechanism)
-            intake = new Intake(new IntakeIOSparkMaxRollerOnly());
-          } else {
-            // MainBot: full intake with deploy + rollers
-            intake = new Intake(new IntakeIOSparkMax());
-          }
-          break;
-
-        case SIM:
-          intake = new Intake(new IntakeIOSim());
-          break;
-
-        default:
-          // Replay mode - disable intake IO
-          intake = new Intake(new IntakeIO() {});
-          break;
-      }
-    } else {
-      intake = null;
-    }
-
-    // Instantiate launcher subsystem
-    if (Constants.getRobotConfig().hasLauncher()) {
-      switch (Constants.currentMode) {
-        case REAL:
-          launcher = new Launcher(new LauncherIOSparkFlex());
-          break;
-
-        case SIM:
-          launcher = new Launcher(new LauncherIOSim());
-          break;
-
-        default:
-          // Replay mode - disable launcher IO
-          launcher = new Launcher(new LauncherIO() {});
-          break;
-      }
-    } else {
-      launcher = null;
-    }
-
-    // Instantiate hood subsystem
-    if (Constants.getRobotConfig().hasHood()) {
-      switch (Constants.currentMode) {
-        case REAL:
-          hood = new Hood(new HoodIOSparkMax());
-          break;
-
-        case SIM:
-          hood = new Hood(new HoodIOSim());
-          break;
-
-        default:
-          // Replay mode - disable hood IO
-          hood = new Hood(new HoodIO() {});
-          break;
-      }
-    } else {
-      hood = null;
     }
 
     // Hood default command: hold at minimum angle (safe for trench clearance).
@@ -190,194 +212,6 @@ public class RobotContainer {
       hood.setDefaultCommand(
           Commands.run(() -> hood.setHoodAngle(hood.getMinAngle()), hood).withName("HoodStow"));
     }
-
-    // Instantiate motivator subsystem (robots with motivator hardware)
-    if (Constants.getRobotConfig().hasMotivator()) {
-      switch (Constants.currentMode) {
-        case REAL:
-          motivator = new Motivator(new MotivatorIOSparkMax());
-          break;
-
-        case SIM:
-          motivator = new Motivator(new MotivatorIOSim());
-          break;
-
-        default:
-          // Replay mode - disable motivator IO
-          motivator = new Motivator(new MotivatorIO() {});
-          break;
-      }
-    } else {
-      motivator = null;
-    }
-
-    // Instantiate spindexer subsystem (robots with spindexer hardware)
-    if (Constants.getRobotConfig().hasSpindexer()) {
-      switch (Constants.currentMode) {
-        case REAL:
-          spindexer = new Spindexer(new SpindexerIOSparkMax());
-          break;
-
-        case SIM:
-          spindexer = new Spindexer(new SpindexerIOSim());
-          break;
-
-        default:
-          // Replay mode - disable motivator IO
-          spindexer = new Spindexer(new SpindexerIO() {});
-          break;
-      }
-    } else {
-      spindexer = null;
-    }
-
-    // Instantiate drive and vision subsystems
-    switch (Constants.currentMode) {
-      case REAL:
-        if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
-          // SquareBot: Full swerve drive
-          drive =
-              new Drive(
-                  new GyroIOPigeon2(),
-                  new ModuleIOSpark(0),
-                  new ModuleIOSpark(1),
-                  new ModuleIOSpark(2),
-                  new ModuleIOSpark(3),
-                  turret);
-          // Only FrontLeft (CAMERA_A) and FrontRight (CAMERA_B) are installed on
-          // Squarebot
-          // BackLeft and BackRight Pis are not present, using no-op VisionIO to avoid
-          // loop overruns
-          vision =
-              new Vision(
-                  drive::addVisionMeasurement,
-                  new VisionIOPhotonVision(
-                      VisionConstants.frontLeftCam, VisionConstants.robotToFrontLeftCam),
-                  new VisionIOPhotonVision(
-                      VisionConstants.frontRightCam, VisionConstants.robotToFrontRightCam),
-                  new VisionIO() {},
-                  new VisionIO() {});
-        } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
-          // MainBot: Full swerve drive
-          drive =
-              new Drive(
-                  new GyroIOPigeon2(),
-                  new ModuleIOSpark(0),
-                  new ModuleIOSpark(1),
-                  new ModuleIOSpark(2),
-                  new ModuleIOSpark(3),
-                  turret);
-          // MainBot uses corner-mounted cameras aimed diagonally outward + front center
-          // for intake
-          vision =
-              new Vision(
-                  drive::addVisionMeasurement,
-                  new VisionIO() {},
-                  new VisionIO() {},
-                  new VisionIOPhotonVision(
-                      VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
-                  new VisionIOPhotonVision(
-                      VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam));
-        }
-        break;
-
-      case SIM:
-        drive =
-            new Drive(
-                new GyroIO() {},
-                new ModuleIOSim(),
-                new ModuleIOSim(),
-                new ModuleIOSim(),
-                new ModuleIOSim(),
-                turret);
-        // Vision for SquareBot and MainBot in simulation
-        // Camera order: A (FrontLeft), B (FrontRight), C (BackLeft), D (BackRight)
-        // This order determines PhotonVision sim ports: A=1182, B=1183, C=1184, D=1185
-        // Each camera has both current and recommended transforms for toggle comparison
-        if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
-          vision =
-              new Vision(
-                  drive::addVisionMeasurement,
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.frontLeftCam,
-                      VisionConstants.robotToFrontLeftCam,
-                      RobotStatus::getRobotPose),
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.frontRightCam,
-                      VisionConstants.robotToFrontRightCam,
-                      RobotStatus::getRobotPose),
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.backLeftCam,
-                      VisionConstants.robotToBackLeftCam,
-                      RobotStatus::getRobotPose),
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.backRightCam,
-                      VisionConstants.robotToBackRightCam,
-                      RobotStatus::getRobotPose));
-        } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
-          // MainBot uses corner-mounted cameras aimed diagonally outward + front center
-          // for
-          // intake
-          vision =
-              new Vision(
-                  drive::addVisionMeasurement,
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.frontLeftCam,
-                      VisionConstants.mainBotToFrontLeftCam,
-                      RobotStatus::getRobotPose),
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.frontRightCam,
-                      VisionConstants.mainBotToFrontRightCam,
-                      RobotStatus::getRobotPose),
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.backLeftCam,
-                      VisionConstants.mainBotToBackLeftCam,
-                      RobotStatus::getRobotPose),
-                  new VisionIOPhotonVisionSim(
-                      VisionConstants.backRightCam,
-                      VisionConstants.mainBotToBackRightCam,
-                      RobotStatus::getRobotPose));
-        } else {
-          vision = null;
-        }
-
-        break;
-
-      default:
-        // Replayed robot, disable IO implementations
-        drive =
-            new Drive(
-                new GyroIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {},
-                new ModuleIO() {},
-                turret);
-        // Vision for SquareBot and MainBot (replay mode)
-        if (Constants.currentRobot == Constants.RobotType.SQUAREBOT) {
-          vision =
-              new Vision(
-                  (pose, time, stdDevs) -> {},
-                  new VisionIO() {},
-                  new VisionIO() {},
-                  new VisionIO() {},
-                  new VisionIO() {});
-        } else if (Constants.currentRobot == Constants.RobotType.MAINBOT) {
-          // MainBot has 4 cameras
-          vision =
-              new Vision(
-                  (pose, time, stdDevs) -> {},
-                  new VisionIO() {},
-                  new VisionIO() {},
-                  new VisionIO() {},
-                  new VisionIO() {});
-        } else {
-          vision = null;
-        }
-        break;
-    }
-
-    // Instantiate drive and vision subsystems
 
     // Initialize RobotStatus with subsystem references (vision may be null for
     // RectangleBot)

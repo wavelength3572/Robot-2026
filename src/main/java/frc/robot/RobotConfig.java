@@ -143,6 +143,20 @@ public interface RobotConfig {
 
   double getOdometryFrequency();
 
+  // ========== Drive Configuration ==========
+
+  /** Whether this robot has real drive hardware (gyro + swerve modules). */
+  default boolean hasDrive() {
+    return false;
+  }
+
+  // ========== Vision Configuration ==========
+
+  /** Whether this robot has vision cameras. */
+  default boolean hasVision() {
+    return false;
+  }
+
   // ========== Turret Configuration ==========
   // Default implementations return 0/false for robots without turrets (e.g.,
   // RectangleBot)
