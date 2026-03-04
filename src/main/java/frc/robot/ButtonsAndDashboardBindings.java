@@ -59,7 +59,7 @@ public class ButtonsAndDashboardBindings {
   private static final LoggedTunableNumber tuningIntakeDeployedVelocity =
       new LoggedTunableNumber("Tuning/Intake/IntakeRollers/DeployedVelocity", 1000.0);
   private static final LoggedTunableNumber tuningIntakeAgitationVelocity =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/AgitationVelocity", 0.0);is 
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/AgitationVelocity", 0.0);
 
   // Preset field positions for simulation (label, x_meters, y_meters, rotation_degrees)
   private static final String[][] PRESET_POSITIONS = {
