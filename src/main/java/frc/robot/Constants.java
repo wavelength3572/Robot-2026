@@ -7,6 +7,7 @@
 
 package frc.robot;
 
+import edu.wpi.first.wpilibj.Preferences;
 import edu.wpi.first.wpilibj.RobotBase;
 
 /**
@@ -18,6 +19,61 @@ public final class Constants {
   public static final Mode simMode = Mode.SIM;
   public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
 
+  /**
+   * Robot type for simulation mode. Change this to test different configurations. On real hardware,
+   * this is ignored and auto-detection is used.
+   */
+  public static final RobotType simRobotType = RobotType.MAINBOT;
+
+  // swerve modules
+  public static final RobotType currentRobot = detectRobotType();
+
+  private static RobotConfig robotConfig = null;
+
+  /**
+   * Detects the robot type based on RobotPreferences. In simulation mode, uses the configured
+   * simRobotType instead.
+   */
+  private static RobotType detectRobotType() {
+    // In simulation, use the configured type
+    if (!RobotBase.isReal()) {
+      System.out.println(
+          "[RobotConfig] Simulation mode - using configured robot type: " + simRobotType);
+      return simRobotType;
+    }
+
+    System.out.println("[RobotConfig] Starting robot type detection...");
+
+    try {
+      // Read RobotPreferences from RoboRIO for the RobotName
+      if (Preferences.getString("RobotName", "nullBot").equals("SquareBot")) {
+        System.out.println("[RobotConfig] Detected SquareBot");
+        return RobotType.SQUAREBOT;
+      } else {
+        System.out.println("[RobotConfig] Assuming MainBot");
+        return RobotType.MAINBOT;
+      }
+    } catch (Exception e) {
+      System.out.println(
+          "[RobotConfig] Error during detection, defaulting to MainBot: " + e.getMessage());
+      return RobotType.MAINBOT;
+    }
+  }
+
+  public static RobotConfig getRobotConfig() {
+    if (robotConfig == null) {
+      switch (currentRobot) {
+        case SQUAREBOT:
+          robotConfig = new SquareBotConfig();
+          break;
+        case MAINBOT:
+          robotConfig = new MainBotConfig();
+          break;
+      }
+    }
+    return robotConfig;
+  }
+
   public static enum Mode {
     /** Running on a real robot. */
     REAL,
@@ -27,5 +83,42 @@ public final class Constants {
 
     /** Replaying from a log file. */
     REPLAY
+  }
+
+  public static enum RobotType {
+    /** SquareBot2026 - 21.25" chassis with NEO drive motors */
+    SQUAREBOT,
+
+    /** MainBot2026 - 23.5" x 31" chassis with NEO Vortex drive motors */
+    MAINBOT
+  }
+
+  /**
+   * Universal turret constants that apply to all robots. Per-robot values (offsets, height, CAN
+   * IDs, gear ratios, PID gains) live in the RobotConfig implementations.
+   */
+  public static final class TurretConstants {
+    // Tolerances
+    public static final double ANGLE_TOLERANCE_DEGREES = 2.0;
+
+    // Motion constraints (used for trajectory generation if needed)
+    public static final double MAX_VELOCITY_DEG_PER_SEC = 360.0;
+    public static final double MAX_ACCELERATION_DEG_PER_SEC_SQUARED = 720.0;
+  }
+
+  /** Team-specific strategy constants (pass targets, trench positions). */
+  public static final class StrategyConstants {
+    /** Pass target X positions (1/3 into alliance zone from wall). */
+    public static final double BLUE_PASS_TARGET_X = 2.0;
+
+    public static final double RED_PASS_TARGET_X = FieldConstants.fieldLength - BLUE_PASS_TARGET_X;
+
+    /** Pass target Y positions (offset from field center toward each trench). */
+    public static final double PASS_TARGET_Y_OFFSET = 1.75;
+
+    public static final double RIGHT_PASS_TARGET_Y =
+        FieldConstants.fieldWidth / 2 - PASS_TARGET_Y_OFFSET;
+    public static final double LEFT_PASS_TARGET_Y =
+        FieldConstants.fieldWidth / 2 + PASS_TARGET_Y_OFFSET;
   }
 }

@@ -8,8 +8,11 @@
 package frc.robot;
 
 import com.revrobotics.util.StatusLogger;
+import edu.wpi.first.hal.AllianceStationID;
+import edu.wpi.first.wpilibj.simulation.DriverStationSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.util.FuelSim;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -29,6 +32,7 @@ public class Robot extends LoggedRobot {
   private RobotContainer robotContainer;
 
   public Robot() {
+    super(0.02); // 20ms (50Hz) for both sim and real
     // Record metadata
     Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
     Logger.recordMetadata("BuildDate", BuildConstants.BUILD_DATE);
@@ -42,6 +46,7 @@ public class Robot extends LoggedRobot {
           case 1 -> "Uncommitted changes";
           default -> "Unknown";
         });
+    Logger.recordMetadata("RobotType", Constants.currentRobot.toString());
 
     // Set up data receivers & replay source
     switch (Constants.currentMode) {
@@ -84,12 +89,22 @@ public class Robot extends LoggedRobot {
     // timing (see the template project documentation for details)
     // Threads.setCurrentThreadPriority(true, 99);
 
+    // Refresh cached values before subsystem periodic methods run
+    frc.robot.util.RobotStatus.refreshAlliance();
+    frc.robot.util.LoggedTunableNumber.refreshAll();
+
     // Runs the Scheduler. This is responsible for polling buttons, adding
     // newly-scheduled commands, running already-scheduled commands, removing
     // finished or interrupted commands, and running subsystem periodic() methods.
     // This must be called from the robot's periodic block in order for anything in
     // the Command-based framework to work.
     CommandScheduler.getInstance().run();
+
+    // Update fuel simulation (only runs in SIM mode)
+    robotContainer.updateFuelSim();
+
+    // Update match phase tracker (for shooting coordination)
+    robotContainer.updateMatchPhaseTracker();
 
     // Return to non-RT thread priority (do not modify the first argument)
     // Threads.setCurrentThreadPriority(false, 10);
@@ -103,11 +118,20 @@ public class Robot extends LoggedRobot {
   @Override
   public void disabledPeriodic() {
     robotContainer.updateOI(); // This only matters when the joysticks change
+    robotContainer.updateAutoChooserForMode(); // Rebuild chooser when Competition Mode changes
+    robotContainer.updateSimulationPoseFromAuto(); // Update sim pose when auto selection changes
   }
 
   /** This autonomous runs the autonomous command selected by your {@link RobotContainer} class. */
   @Override
   public void autonomousInit() {
+    // Reset scores and shot counters at the start of each autonomous period
+    FuelSim.Hub.BLUE_HUB.resetScore();
+    FuelSim.Hub.RED_HUB.resetScore();
+    if (robotContainer.getShootingCoordinator() != null) {
+      robotContainer.getShootingCoordinator().resetShotCounts();
+    }
+
     autonomousCommand = robotContainer.getAutonomousCommand();
 
     // schedule the autonomous command (example)
@@ -130,6 +154,16 @@ public class Robot extends LoggedRobot {
     if (autonomousCommand != null) {
       autonomousCommand.cancel();
     }
+
+    // Disable auto-shoot when entering teleop (safety: prevent autonomous firing)
+    if (robotContainer.getShootingCoordinator() != null) {
+      robotContainer.getShootingCoordinator().disableAutoShoot();
+    }
+
+    // Force OI rebind on teleop init to ensure controls are bound
+    // This fixes the issue where going directly to teleop without
+    // being disabled first would leave controls unbound
+    robotContainer.normalModeOI();
   }
 
   /** This function is called periodically during operator control. */
@@ -149,7 +183,11 @@ public class Robot extends LoggedRobot {
 
   /** This function is called once when the robot is first started up. */
   @Override
-  public void simulationInit() {}
+  public void simulationInit() {
+    DriverStationSim.setDsAttached(true);
+    DriverStationSim.setAllianceStationId(AllianceStationID.Blue1);
+    DriverStationSim.notifyNewData();
+  }
 
   /** This function is called periodically whilst in simulation. */
   @Override

@@ -27,12 +27,12 @@ public class InterLinkDXOI implements OperatorInterface {
 
   @Override
   public double getTranslateX() {
-    return -interLinkJoystick.getRawAxis(1);
+    return interLinkJoystick.getRawAxis(1);
   }
 
   @Override
   public double getTranslateY() {
-    return interLinkJoystick.getRawAxis(0);
+    return -interLinkJoystick.getRawAxis(0);
   }
 
   @Override
@@ -189,5 +189,20 @@ public class InterLinkDXOI implements OperatorInterface {
   @Override
   public Trigger getButtonDPosition2() {
     return interLinkJoystickJoystickButtons[7]; // Button D top left of front face - down position
+  }
+
+  @Override
+  public Trigger getLauncherButton() {
+    return interLinkJoystickJoystickButtons[24]; // Button 24 - slider below right axis push right
+  }
+
+  @Override
+  public double getPassAdjustX() {
+    return interLinkJoystick.getRawAxis(2); // Right stick X axis
+  }
+
+  @Override
+  public double getPassAdjustY() {
+    return interLinkJoystick.getRawAxis(5); // Top right dial/slider
   }
 }

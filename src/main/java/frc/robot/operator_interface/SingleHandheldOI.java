@@ -17,18 +17,18 @@ public class SingleHandheldOI implements OperatorInterface {
 
   @Override
   public double getTranslateX() {
-    return -controller.getLeftY();
+    return controller.getLeftY();
   }
 
   @Override
   public double getTranslateY() {
-    return -controller.getLeftX();
+    return controller.getLeftX();
   }
 
   @Override
   public double getRotate() {
-    if (controller.getAxisCount() == 4) {
-      // Probably the logitech controller and not the XBox controller
+    if (controller.getAxisCount() >= 4) {
+      // Probably the logitech or Playstation controller and not the XBox controller
       return -controller.getRawAxis(2);
     } else {
       // Probably XBox controller

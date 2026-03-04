@@ -340,4 +340,18 @@ public interface OperatorInterface {
   public default Trigger getButtonI() {
     return new Trigger(() -> false);
   }
+
+  public default Trigger getLauncherButton() {
+    return new Trigger(() -> false);
+  }
+
+  /** Right stick X axis for pass target lateral adjustment. Returns -1.0 to 1.0. */
+  public default double getPassAdjustX() {
+    return 0.0;
+  }
+
+  /** Knob/axis for pass target longitudinal adjustment. Returns -1.0 to 1.0. */
+  public default double getPassAdjustY() {
+    return 0.0;
+  }
 }

@@ -74,6 +74,7 @@ public class OISelector {
       } else if (DriverStation.getJoystickName(port).toLowerCase().contains("xbox")
           || DriverStation.getJoystickName(port).toLowerCase().contains("game for windows")
           || DriverStation.getJoystickName(port).toLowerCase().contains("ultimate wireless")
+          || DriverStation.getJoystickName(port).toLowerCase().contains("wireless controller")
           || DriverStation.getJoystickName(port).toLowerCase().contains("logitech dual action")) {
         if (xBoxPort == null) {
           xBoxPort = port;
@@ -93,9 +94,9 @@ public class OISelector {
       }
     }
 
-    if (interlinkDXPort != null && buttonBox1Port != null && buttonBox2Port != null) {
+    if (interlinkDXPort != null && buttonBox1Port != null) {
       noOperatorInterfaceWarning.set(false);
-      nonCompetitionOperatorInterfaceWarning.set(false);
+      nonCompetitionOperatorInterfaceWarning.set(buttonBox2Port == null);
       return new InterLinkDXButtonBoxOI(interlinkDXPort, buttonBox1Port, buttonBox2Port);
     } else if (interlinkDXPort != null) {
       noOperatorInterfaceWarning.set(false);

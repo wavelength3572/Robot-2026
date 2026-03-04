@@ -10,8 +10,10 @@ package frc.robot.subsystems.drive;
 import static frc.robot.subsystems.drive.DriveConstants.*;
 import static frc.robot.util.SparkUtil.*;
 
-import com.revrobotics.AbsoluteEncoder;
-import com.revrobotics.PersistMode;
+import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.StatusSignal;
+import com.ctre.phoenix6.configs.CANcoderConfiguration;
+import com.ctre.phoenix6.hardware.CANcoder;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.ResetMode;
 import com.revrobotics.spark.ClosedLoopSlot;
@@ -20,21 +22,20 @@ import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkClosedLoopController.ArbFFUnits;
-import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.config.SparkFlexConfig;
 import com.revrobotics.spark.config.SparkMaxConfig;
-import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.units.measure.Angle;
+import frc.robot.util.SparkConnection;
 import java.util.Queue;
 import java.util.function.DoubleSupplier;
 
 /**
- * Module IO implementation for Spark Flex drive motor controller, Spark Max turn motor controller,
- * and duty cycle absolute encoder.
+ * Module IO implementation for SparkMax drive and turn motor controllers with CANcoder absolute
+ * encoder for initial position. Based on Robot-2025 configuration.
  */
 public class ModuleIOSpark implements ModuleIO {
   private final Rotation2d zeroRotation;
@@ -43,7 +44,11 @@ public class ModuleIOSpark implements ModuleIO {
   private final SparkBase driveSpark;
   private final SparkBase turnSpark;
   private final RelativeEncoder driveEncoder;
-  private final AbsoluteEncoder turnEncoder;
+  private final RelativeEncoder turnEncoder;
+  private final CANcoder cancoder; // null if no CANcoder (e.g., RectangleBot)
+
+  // Inputs from CANcoder (null if no CANcoder)
+  private final StatusSignal<Angle> turnAbsolutePosition;
 
   // Closed loop controllers
   private final SparkClosedLoopController driveController;
@@ -59,6 +64,12 @@ public class ModuleIOSpark implements ModuleIO {
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
   private final Debouncer turnConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+  private final Debouncer turnEncoderConnectedDebounce =
+      new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+
+  // Skip CAN reads when motors are disconnected to prevent loop overruns
+  private final SparkConnection driveConnection = new SparkConnection();
+  private final SparkConnection turnConnection = new SparkConnection();
 
   public ModuleIOSpark(int module) {
     zeroRotation =
@@ -69,8 +80,10 @@ public class ModuleIOSpark implements ModuleIO {
           case 3 -> backRightZeroRotation;
           default -> Rotation2d.kZero;
         };
+
+    // Create SparkMax for drive motor
     driveSpark =
-        new SparkFlex(
+        new SparkMax(
             switch (module) {
               case 0 -> frontLeftDriveCanId;
               case 1 -> frontRightDriveCanId;
@@ -79,6 +92,8 @@ public class ModuleIOSpark implements ModuleIO {
               default -> 0;
             },
             MotorType.kBrushless);
+
+    // Create SparkMax for turn motor
     turnSpark =
         new SparkMax(
             switch (module) {
@@ -89,14 +104,27 @@ public class ModuleIOSpark implements ModuleIO {
               default -> 0;
             },
             MotorType.kBrushless);
+
+    // Create CANcoder for absolute position (if available)
+    int cancoderCanId =
+        switch (module) {
+          case 0 -> frontLeftCANCoderCanId;
+          case 1 -> frontRightCANCoderCanId;
+          case 2 -> backLeftCANCoderCanId;
+          case 3 -> backRightCANCoderCanId;
+          default -> 0;
+        };
+    cancoder = cancoderCanId > 0 ? new CANcoder(cancoderCanId) : null;
+
     driveEncoder = driveSpark.getEncoder();
-    turnEncoder = turnSpark.getAbsoluteEncoder();
+    turnEncoder = turnSpark.getEncoder();
     driveController = driveSpark.getClosedLoopController();
     turnController = turnSpark.getClosedLoopController();
 
     // Configure drive motor
-    var driveConfig = new SparkFlexConfig();
+    var driveConfig = new SparkMaxConfig();
     driveConfig
+        .inverted(true)
         .idleMode(IdleMode.kBrake)
         .smartCurrentLimit(driveMotorCurrentLimit)
         .voltageCompensation(12.0);
@@ -116,15 +144,17 @@ public class ModuleIOSpark implements ModuleIO {
         .primaryEncoderPositionPeriodMs((int) (1000.0 / odometryFrequency))
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
+        .appliedOutputPeriodMs(100)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
     tryUntilOk(
         driveSpark,
         5,
         () ->
             driveSpark.configure(
-                driveConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+                driveConfig,
+                ResetMode.kResetSafeParameters,
+                com.revrobotics.PersistMode.kNoPersistParameters));
     tryUntilOk(driveSpark, 5, () -> driveEncoder.setPosition(0.0));
 
     // Configure turn motor
@@ -135,32 +165,52 @@ public class ModuleIOSpark implements ModuleIO {
         .smartCurrentLimit(turnMotorCurrentLimit)
         .voltageCompensation(12.0);
     turnConfig
-        .absoluteEncoder
-        .inverted(turnEncoderInverted)
+        .encoder
         .positionConversionFactor(turnEncoderPositionFactor)
         .velocityConversionFactor(turnEncoderVelocityFactor)
-        .averageDepth(2);
+        .uvwAverageDepth(2);
     turnConfig
         .closedLoop
-        .feedbackSensor(FeedbackSensor.kAbsoluteEncoder)
+        .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .positionWrappingEnabled(true)
         .positionWrappingInputRange(turnPIDMinInput, turnPIDMaxInput)
         .pid(turnKp, 0.0, turnKd);
     turnConfig
         .signals
-        .absoluteEncoderPositionAlwaysOn(true)
-        .absoluteEncoderPositionPeriodMs((int) (1000.0 / odometryFrequency))
-        .absoluteEncoderVelocityAlwaysOn(true)
-        .absoluteEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(20)
-        .outputCurrentPeriodMs(20);
+        .primaryEncoderPositionAlwaysOn(true)
+        .primaryEncoderPositionPeriodMs((int) (1000.0 / odometryFrequency))
+        .primaryEncoderVelocityAlwaysOn(true)
+        .primaryEncoderVelocityPeriodMs(20)
+        .appliedOutputPeriodMs(100)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
     tryUntilOk(
         turnSpark,
         5,
         () ->
             turnSpark.configure(
-                turnConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+                turnConfig,
+                ResetMode.kResetSafeParameters,
+                com.revrobotics.PersistMode.kPersistParameters));
+
+    // Configure CANcoder and seed turn encoder (if CANcoder available)
+    if (cancoder != null) {
+      CANcoderConfiguration cancoderConfig = new CANcoderConfiguration();
+      cancoder.getConfigurator().apply(cancoderConfig);
+      turnAbsolutePosition = cancoder.getAbsolutePosition();
+      BaseStatusSignal.setUpdateFrequencyForAll(50.0, turnAbsolutePosition);
+
+      // Seed the turn encoder with the CANcoder absolute position
+      double initialTurnPosition =
+          Rotation2d.fromRotations(turnAbsolutePosition.getValueAsDouble())
+              .minus(zeroRotation)
+              .getRadians();
+      tryUntilOk(turnSpark, 5, () -> turnEncoder.setPosition(initialTurnPosition));
+    } else {
+      // No CANcoder - initialize turn encoder to 0 (wheels must be aligned on startup)
+      turnAbsolutePosition = null;
+      tryUntilOk(turnSpark, 5, () -> turnEncoder.setPosition(0.0));
+    }
 
     // Create odometry queues
     timestampQueue = SparkOdometryThread.getInstance().makeTimestampQueue();
@@ -172,30 +222,53 @@ public class ModuleIOSpark implements ModuleIO {
 
   @Override
   public void updateInputs(ModuleIOInputs inputs) {
-    // Update drive inputs
-    sparkStickyFault = false;
-    ifOk(driveSpark, driveEncoder::getPosition, (value) -> inputs.drivePositionRad = value);
-    ifOk(driveSpark, driveEncoder::getVelocity, (value) -> inputs.driveVelocityRadPerSec = value);
-    ifOk(
-        driveSpark,
-        new DoubleSupplier[] {driveSpark::getAppliedOutput, driveSpark::getBusVoltage},
-        (values) -> inputs.driveAppliedVolts = values[0] * values[1]);
-    ifOk(driveSpark, driveSpark::getOutputCurrent, (value) -> inputs.driveCurrentAmps = value);
-    inputs.driveConnected = driveConnectedDebounce.calculate(!sparkStickyFault);
+    // Read CANcoder from auto-updated cache (no blocking CAN refresh needed).
+    // The CANcoder updates at 50Hz automatically; refreshAll() would force a
+    // blocking round-trip that adds ~5-10ms per module on a congested bus.
+    boolean cancoderOk = false;
+    if (turnAbsolutePosition != null) {
+      cancoderOk = turnAbsolutePosition.getStatus().isOK();
+    }
 
-    // Update turn inputs
-    sparkStickyFault = false;
-    ifOk(
-        turnSpark,
-        turnEncoder::getPosition,
-        (value) -> inputs.turnPosition = new Rotation2d(value).minus(zeroRotation));
-    ifOk(turnSpark, turnEncoder::getVelocity, (value) -> inputs.turnVelocityRadPerSec = value);
-    ifOk(
-        turnSpark,
-        new DoubleSupplier[] {turnSpark::getAppliedOutput, turnSpark::getBusVoltage},
-        (values) -> inputs.turnAppliedVolts = values[0] * values[1]);
-    ifOk(turnSpark, turnSpark::getOutputCurrent, (value) -> inputs.turnCurrentAmps = value);
-    inputs.turnConnected = turnConnectedDebounce.calculate(!sparkStickyFault);
+    // Update drive inputs (skip reads if motor is disconnected to prevent timeout delays)
+    if (!driveConnection.isSkipping()) {
+      sparkStickyFault = false;
+      ifOk(driveSpark, driveEncoder::getPosition, (value) -> inputs.drivePositionRad = value);
+      ifOk(driveSpark, driveEncoder::getVelocity, (value) -> inputs.driveVelocityRadPerSec = value);
+      ifOk(
+          driveSpark,
+          new DoubleSupplier[] {driveSpark::getAppliedOutput, driveSpark::getBusVoltage},
+          (values) -> inputs.driveAppliedVolts = values[0] * values[1]);
+      ifOk(driveSpark, driveSpark::getOutputCurrent, (value) -> inputs.driveCurrentAmps = value);
+      inputs.driveConnected = driveConnectedDebounce.calculate(!sparkStickyFault);
+      driveConnection.update(inputs.driveConnected);
+    } else {
+      inputs.driveConnected = false;
+    }
+
+    // Update turn inputs (skip reads if motor is disconnected to prevent timeout delays)
+    if (!turnConnection.isSkipping()) {
+      sparkStickyFault = false;
+      ifOk(
+          turnSpark,
+          turnEncoder::getPosition,
+          (value) -> inputs.turnPosition = Rotation2d.fromRadians(value));
+      inputs.CANCoderPosition =
+          turnAbsolutePosition != null
+              ? Rotation2d.fromRotations(turnAbsolutePosition.getValueAsDouble())
+              : Rotation2d.kZero;
+      inputs.turnConnected = turnConnectedDebounce.calculate(!sparkStickyFault);
+      inputs.turnEncoderConnected = turnEncoderConnectedDebounce.calculate(cancoderOk);
+      ifOk(turnSpark, turnEncoder::getVelocity, (value) -> inputs.turnVelocityRadPerSec = value);
+      ifOk(
+          turnSpark,
+          new DoubleSupplier[] {turnSpark::getAppliedOutput, turnSpark::getBusVoltage},
+          (values) -> inputs.turnAppliedVolts = values[0] * values[1]);
+      ifOk(turnSpark, turnSpark::getOutputCurrent, (value) -> inputs.turnCurrentAmps = value);
+      turnConnection.update(inputs.turnConnected);
+    } else {
+      inputs.turnConnected = false;
+    }
 
     // Update odometry inputs
     inputs.odometryTimestamps =
@@ -204,7 +277,7 @@ public class ModuleIOSpark implements ModuleIO {
         drivePositionQueue.stream().mapToDouble((Double value) -> value).toArray();
     inputs.odometryTurnPositions =
         turnPositionQueue.stream()
-            .map((Double value) -> new Rotation2d(value).minus(zeroRotation))
+            .map((Double value) -> new Rotation2d(value))
             .toArray(Rotation2d[]::new);
     timestampQueue.clear();
     drivePositionQueue.clear();
@@ -234,9 +307,6 @@ public class ModuleIOSpark implements ModuleIO {
 
   @Override
   public void setTurnPosition(Rotation2d rotation) {
-    double setpoint =
-        MathUtil.inputModulus(
-            rotation.plus(zeroRotation).getRadians(), turnPIDMinInput, turnPIDMaxInput);
-    turnController.setSetpoint(setpoint, ControlType.kPosition);
+    turnController.setSetpoint(rotation.getRadians(), ControlType.kPosition);
   }
 }

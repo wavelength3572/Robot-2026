@@ -1,0 +1,283 @@
+package frc.robot.subsystems.turret;
+
+import static frc.robot.util.SparkUtil.*;
+
+import com.revrobotics.AbsoluteEncoder;
+import com.revrobotics.PersistMode;
+import com.revrobotics.RelativeEncoder;
+import com.revrobotics.ResetMode;
+import com.revrobotics.spark.ClosedLoopSlot;
+import com.revrobotics.spark.FeedbackSensor;
+import com.revrobotics.spark.SparkBase.ControlType;
+import com.revrobotics.spark.SparkClosedLoopController;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.config.SparkMaxConfig;
+import edu.wpi.first.math.filter.Debouncer;
+import frc.robot.Constants;
+import frc.robot.RobotConfig;
+import frc.robot.util.SparkConnection;
+import java.util.function.DoubleSupplier;
+
+/**
+ * TurretIO implementation using NEO 550 motor with Spark Max and REV Through Bore Encoder for
+ * absolute position. Configuration is loaded from the current RobotConfig.
+ *
+ * <p>NO conversion factors are set on the SparkMax. All encoder readings are raw: Motor encoder:
+ * position in motor rotations, velocity in RPM Absolute encoder: position in raw rotations (0.0 to
+ * 1.0)
+ *
+ * <p>All conversions to turret degrees are done in software for full transparency.
+ *
+ * <p>The absolute encoder sits AFTER the motor gearbox but BEFORE the external gearing to the
+ * turret.
+ */
+public class TurretIOSparkMax implements TurretIO {
+  private final RobotConfig config;
+
+  // Hardware
+  private final SparkMax motorSpark;
+  private final RelativeEncoder motorEncoder;
+  private final AbsoluteEncoder absoluteEncoder;
+  private final SparkClosedLoopController motorController;
+
+  // Configuration values
+  private final double maxOutsideAngleDegrees;
+  private final double minOutsideAngleDegrees;
+  private final double maxInsideAngleDegrees;
+  private final double minInsideAngleDegrees;
+  private final double totalGearRatio;
+  private final double absoluteEncoderOffset;
+
+  // Connection debouncer
+  private final Debouncer motorConnectedDebounce =
+      new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+
+  // Skip CAN reads when motor is disconnected to prevent loop overruns
+  private final SparkConnection motorConnection = new SparkConnection();
+
+  // Target tracking
+  private double targetInsideDeg;
+  private double targetOutsideDeg;
+
+  private double currentInsideAngleDegrees;
+  private double currentOutsideAngleDegrees;
+
+  public TurretIOSparkMax() {
+    config = Constants.getRobotConfig();
+
+    // Store config values
+    maxOutsideAngleDegrees = config.getTurretOutsideMaxAngleDeg();
+    minOutsideAngleDegrees = config.getTurretOutsideMinAngleDeg();
+    maxInsideAngleDegrees = config.getTurretOutsideMaxAngleDeg() - config.getTurretZeroOffset();
+    minInsideAngleDegrees = config.getTurretOutsideMinAngleDeg() - config.getTurretZeroOffset();
+    totalGearRatio = config.getTurretGearRatio();
+    absoluteEncoderOffset = config.getTurretAbsoluteEncoderOffset();
+
+    // Create Spark Max controller
+    motorSpark = new SparkMax(config.getTurretMotorCanId(), MotorType.kBrushless);
+
+    // Get encoders and controller
+    motorEncoder = motorSpark.getEncoder();
+    absoluteEncoder = motorSpark.getAbsoluteEncoder();
+    motorController = motorSpark.getClosedLoopController();
+
+    // Configure Spark Max - minimal settings only, NO encoder conversion factors
+    // Motor inversion handled in software (degreesToMotorRotations /
+    // motorRotationsToDegrees)
+    // Idle mode set to BRAKE for safety when stopping
+    var motorConfig = new SparkMaxConfig();
+    motorConfig
+        .smartCurrentLimit(config.getTurretCurrentLimitAmps())
+        .voltageCompensation(12.0)
+        .idleMode(com.revrobotics.spark.config.SparkBaseConfig.IdleMode.kBrake)
+        .inverted(config.getTurretMotorInverted());
+
+    motorConfig.absoluteEncoder.inverted(true);
+
+    // PID control using motor's relative encoder (units: motor rotations)
+    motorConfig
+        .closedLoop
+        .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
+        .pid(config.getTurretKp(), 0.0, config.getTurretKd())
+        .outputRange(-0.25, 0.25);
+
+    // ========== HARDWARE SOFT LIMITS (Critical Safety Feature) ==========
+    // These limits are enforced by the SparkMax itself, providing protection even
+    // if software bugs out. The motor will refuse to drive past these positions.
+    // Units: motor rotations (must convert from turret degrees)
+    double forwardLimitMotorRot = degreesToMotorRotations(maxInsideAngleDegrees);
+    double reverseLimitMotorRot = degreesToMotorRotations(minInsideAngleDegrees);
+
+    motorConfig
+        .softLimit
+        .forwardSoftLimitEnabled(true)
+        .forwardSoftLimit((float) forwardLimitMotorRot)
+        .reverseSoftLimitEnabled(true)
+        .reverseSoftLimit((float) reverseLimitMotorRot);
+
+    // Signal update rates
+    motorConfig
+        .signals
+        .primaryEncoderPositionAlwaysOn(true)
+        .primaryEncoderPositionPeriodMs(20)
+        .primaryEncoderVelocityAlwaysOn(true)
+        .primaryEncoderVelocityPeriodMs(20)
+        .absoluteEncoderPositionAlwaysOn(true)
+        .absoluteEncoderPositionPeriodMs(20)
+        .appliedOutputPeriodMs(100)
+        .busVoltagePeriodMs(100)
+        .outputCurrentPeriodMs(100);
+
+    tryUntilOk(
+        motorSpark,
+        5,
+        () ->
+            motorSpark.configure(
+                motorConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+
+    // --- Seed motor encoder from absolute encoder ---
+    // Read raw absolute encoder (0.0-1.0 rotations, no firmware conversions
+    // applied)
+    double rawEncoder = absoluteEncoder.getPosition();
+    // The 1.0 before the modulo prevents negative results
+    double encoderDelta = rawEncoder - absoluteEncoderOffset;
+    if (encoderDelta > 0.5) encoderDelta -= 1.0;
+    if (encoderDelta < -0.5) encoderDelta += 1.0;
+    double seedMotorRotations = encoderDelta * config.getTurretMotorGearRatio();
+    tryUntilOk(motorSpark, 5, () -> motorEncoder.setPosition(seedMotorRotations));
+
+    // --- Startup diagnostics ---
+    System.out.println();
+    System.out.println(
+        "+=========================================================================+");
+    System.out.println(
+        "|              TURRET HARDWARE INITIALIZATION                             |");
+    System.out.println(
+        "+=========================================================================+");
+    System.out.println(
+        "|  HARDWARE CONFIG                                                        |");
+    System.out.printf(
+        "|    CAN ID: %d  |  Gear Ratio: %.1f:1  |  External: %.2f:1            %n",
+        config.getTurretMotorCanId(), totalGearRatio, config.getTurretExternalGearRatio());
+    System.out.println(
+        "|  ENCODER READINGS                                                       |");
+    System.out.printf(
+        "|    Absolute encoder RAW: %.6f (0.0-1.0)                            %n", rawEncoder);
+    System.out.printf(
+        "|    Configured zero offset: %.6f                                     %n",
+        absoluteEncoderOffset);
+    System.out.println(
+        "|                                                                         |");
+    System.out.println(
+        "|  +---------------------------------------------------------------------+|");
+    System.out.printf(
+        "|  |  BELIEVED POSITION: %+7.1f deg                                   ||%n",
+        motorRotationsToDegrees(encoderDelta * config.getTurretMotorGearRatio()));
+    System.out.println(
+        "|  +---------------------------------------------------------------------+|");
+    System.out.println(
+        "|  HARDWARE SOFT LIMITS (SparkMax enforced)                               |");
+    System.out.printf(
+        "|    Reverse: %.2f motor rot (%.1f deg)                                %n",
+        reverseLimitMotorRot, minInsideAngleDegrees);
+    System.out.printf(
+        "|    Forward: %.2f motor rot (%.1f deg)                                 %n",
+        forwardLimitMotorRot, maxInsideAngleDegrees);
+    System.out.println(
+        "+=========================================================================+");
+    System.out.println();
+  }
+
+  @Override
+  public void updateInputs(TurretIOInputs inputs) {
+    // Update target angle (always, even if motor is disconnected)
+    inputs.targetInsideAngleDeg = targetInsideDeg;
+    inputs.targetOutsideAngleDeg = targetOutsideDeg;
+
+    // Read motor data (skip reads if disconnected to prevent timeout delays)
+    if (!motorConnection.isSkipping()) {
+      sparkStickyFault = false;
+      ifOk(motorSpark, motorEncoder::getPosition, (value) -> inputs.motorPosition = value);
+      currentInsideAngleDegrees = motorRotationsToDegrees(inputs.motorPosition);
+      inputs.currentInsideAngleDeg = currentInsideAngleDegrees;
+      currentOutsideAngleDegrees = currentInsideAngleDegrees + config.getTurretZeroOffset();
+      inputs.currentOutsideAngleDeg = currentOutsideAngleDegrees;
+
+      ifOk(motorSpark, absoluteEncoder::getPosition, (value) -> inputs.absEncoder = value);
+
+      ifOk(motorSpark, motorEncoder::getVelocity, (value) -> inputs.velocityMotor = value);
+      inputs.velocityDegreesPerSec = inputs.velocityMotor * 360.0 / totalGearRatio / 60.0;
+      ifOk(
+          motorSpark,
+          new DoubleSupplier[] {motorSpark::getAppliedOutput, motorSpark::getBusVoltage},
+          (values) -> inputs.appliedVolts = values[0] * values[1]);
+      ifOk(motorSpark, motorSpark::getOutputCurrent, (value) -> inputs.currentAmps = value);
+      boolean motorOk = motorConnectedDebounce.calculate(!sparkStickyFault);
+      motorConnection.update(motorOk);
+
+      if (!motorOk) {
+        System.err.println("[TurretIOSparkMax] Spark Max disconnected!");
+      }
+    }
+  }
+
+  @Override
+  public void configurePID(double kP, double kD) {
+    var pidConfig = new SparkMaxConfig();
+    pidConfig.closedLoop.pid(kP, 0.0, kD);
+    motorSpark.configure(
+        pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void setOutsideTurretAngle(double outsideTurretTarget) {
+    // Clamp the target angle to valid range
+    targetOutsideDeg =
+        Math.max(minOutsideAngleDegrees, Math.min(maxOutsideAngleDegrees, outsideTurretTarget));
+
+    targetInsideDeg = targetOutsideDeg - config.getTurretZeroOffset();
+
+    // Convert degrees to motor rotations for the PID controller
+    motorController.setSetpoint(
+        degreesToMotorRotations(targetInsideDeg),
+        ControlType.kPosition,
+        ClosedLoopSlot.kSlot0,
+        0.13);
+  }
+
+  public void setInsideTurretAngle_ONLY_FOR_TESTING(double insideTurretTarget) {
+    targetOutsideDeg = insideTurretTarget + config.getTurretZeroOffset();
+    setOutsideTurretAngle(targetOutsideDeg);
+  }
+
+  @Override
+  public double getOutsideTargetAngle() {
+    return targetOutsideDeg;
+  }
+
+  @Override
+  public double getOutsideCurrentAngle() {
+    return currentOutsideAngleDegrees;
+  }
+
+  @Override
+  public void setTurretVolts(double volts) {
+    if (volts > .5) volts = .5;
+    // Convert degrees to motor rotations for the PID controller
+    motorController.setSetpoint(volts, ControlType.kVoltage);
+  }
+
+  // --- Conversion helpers ---
+  // All conversions between raw motor rotations and turret degrees happen here.
+
+  /** Convert turret degrees to motor rotations */
+  private double degreesToMotorRotations(double degrees) {
+    return degrees * totalGearRatio / 360.0;
+  }
+
+  /** Convert motor rotations to turret degrees */
+  private double motorRotationsToDegrees(double rotations) {
+    return rotations * 360.0 / totalGearRatio;
+  }
+}
