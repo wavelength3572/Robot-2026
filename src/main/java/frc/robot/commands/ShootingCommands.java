@@ -87,7 +87,7 @@ public class ShootingCommands {
 
   // Hub shot — close-range shot into the hub
   private static final LoggedTunableNumber hubShotLauncherRPM =
-      new LoggedTunableNumber("Shots/HubShot/LauncherRPM", 2850.0);
+      new LoggedTunableNumber("Shots/HubShot/LauncherRPM", 2200.0);
   private static final LoggedTunableNumber hubShotHoodAngleDeg =
       new LoggedTunableNumber("Shots/HubShot/HoodAngleDeg", 13.0);
   private static final LoggedTunableNumber hubShotTurretAngleDeg =

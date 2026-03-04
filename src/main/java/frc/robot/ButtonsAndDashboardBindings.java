@@ -473,7 +473,7 @@ public class ButtonsAndDashboardBindings {
               Commands.runOnce(
                   () -> {
                     intake.deploy();
-                    intake.setRollerVelocity(tuningIntakeDeployedVelocity.get());
+                    intake.setRollerVelocityWhenDeployed(tuningIntakeDeployedVelocity.get());
                   },
                   intake));
 
@@ -496,8 +496,9 @@ public class ButtonsAndDashboardBindings {
                   launcher, shootingCoordinator, motivator, turret, hood, spindexer));
       oi.getButtonBox1Button2()
           .whileTrue(
-              ShootingCommands.smartLaunchCommand(
-                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+              Commands.run(() -> spindexer.reverseSpindexer(500), spindexer)
+                  .withTimeout(0.5)
+                  .finallyDo(() -> spindexer.stopSpindexer()));
     }
 
     // Auto-tracking toggle: APAC right — turret/hood continuously track target

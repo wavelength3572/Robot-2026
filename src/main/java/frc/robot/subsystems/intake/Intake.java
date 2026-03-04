@@ -54,6 +54,9 @@ public class Intake extends SubsystemBase {
   // Small duty cycle applied after retract to keep the intake tucked against gravity
   private static final LoggedTunableNumber retractHoldDutyCycle;
 
+  // Deploy position at which rollers are allowed to turn on (before full deploy)
+  private static final LoggedTunableNumber rollerActivationPosition;
+
   static {
     RobotConfig config = Constants.getRobotConfig();
     deployKP = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kP", config.getIntakeDeployKp());
@@ -91,6 +94,8 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", 1.0);
     retractHoldDutyCycle =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractHoldDutyCycle", -0.05);
+    rollerActivationPosition =
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerActivationPosition", 0.05);
   }
 
   // Deploy positions (from config, used for soft limit init)
@@ -119,6 +124,10 @@ public class Intake extends SubsystemBase {
   public static final double ROLLER_INTAKE_RPM_RETRACTED = 0.0;
   public static final double ROLLER_INTAKE_RPM_DEPLOYED = 2000.0;
   public static final double ROLLER_EJECT_RPM = -1000.0;
+
+  // Pending roller velocity — set when deploy is commanded, applied once position threshold is met
+  private boolean rollersPending = false;
+  private double pendingRollerRPM = 0.0;
 
   // Velocity control toggle (default: velocity control on)
   private boolean useVelocityControl = true;
@@ -222,6 +231,12 @@ public class Intake extends SubsystemBase {
         break;
     }
 
+    // Activate pending rollers once deploy reaches the activation position
+    if (rollersPending && inputs.deployPositionRotations >= rollerActivationPosition.get()) {
+      io.setRollerVelocity(pendingRollerRPM);
+      rollersPending = false;
+    }
+
     // Log deploy state machine
     Logger.recordOutput("Intake/DeployState", deployState.name());
 
@@ -257,6 +272,7 @@ public class Intake extends SubsystemBase {
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     io.setDeployBrakeMode(false); // Coast mode while PID is driving
     deployCommanded = false;
+    rollersPending = false;
     deployState = DeployState.MOVING;
     io.setDeployPosition(deployRetractedPos.get());
   }
@@ -278,6 +294,7 @@ public class Intake extends SubsystemBase {
     io.stopDeploy();
     io.setDeployBrakeMode(true);
     deployCommanded = false;
+    rollersPending = false;
     deployState = DeployState.IDLE;
     brakeTimer.stop();
   }
@@ -401,6 +418,22 @@ public class Intake extends SubsystemBase {
    */
   public void setRollerVelocity(double rpm) {
     io.setRollerVelocity(rpm);
+  }
+
+  /**
+   * Request roller velocity that will activate once the deploy arm reaches the activation position.
+   * If already past the threshold, rollers start immediately.
+   *
+   * @param rpm Target roller velocity in RPM
+   */
+  public void setRollerVelocityWhenDeployed(double rpm) {
+    if (inputs.deployPositionRotations >= rollerActivationPosition.get()) {
+      io.setRollerVelocity(rpm);
+      rollersPending = false;
+    } else {
+      pendingRollerRPM = rpm;
+      rollersPending = true;
+    }
   }
 
   /**
