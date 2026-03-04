@@ -4,7 +4,6 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.commands.DriveCommands;
@@ -57,7 +56,7 @@ public class ButtonsAndDashboardBindings {
   private static final LoggedTunableNumber tuningTurretAngle =
       new LoggedTunableNumber("Tuning/Turret/TuningAngle", 0.0);
   private static final LoggedTunableNumber tuningIntakeDeployedVelocity =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/DeployedVelocity", 1000.0);
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/DeployedVelocity", 2000.0);
   private static final LoggedTunableNumber tuningIntakeAgitationVelocity =
       new LoggedTunableNumber("Tuning/Intake/IntakeRollers/AgitationVelocity", 0.0);
 
@@ -494,13 +493,11 @@ public class ButtonsAndDashboardBindings {
       oi.getButtonBox1YAxisNegative()
           .whileTrue(
               ShootingCommands.smartLaunchCommand(
-                      launcher, shootingCoordinator, motivator, turret, hood, spindexer)
-                  .alongWith(intakeRollersWhileShooting()));
+                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
       oi.getButtonBox1Button2()
           .whileTrue(
               ShootingCommands.smartLaunchCommand(
-                      launcher, shootingCoordinator, motivator, turret, hood, spindexer)
-                  .alongWith(intakeRollersWhileShooting()));
+                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
     }
 
     // Auto-tracking toggle: APAC right — turret/hood continuously track target
@@ -514,22 +511,19 @@ public class ButtonsAndDashboardBindings {
       oi.getButtonBox1Button8()
           .whileTrue(
               ShootingCommands.hubShotCommand(
-                      launcher, shootingCoordinator, motivator, turret, hood, spindexer)
-                  .alongWith(intakeRollersWhileShooting()));
+                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
 
       // Left trench shot: Button 6
       oi.getButtonBox1Button6()
           .whileTrue(
               ShootingCommands.leftTrenchShotCommand(
-                      launcher, shootingCoordinator, motivator, turret, hood, spindexer)
-                  .alongWith(intakeRollersWhileShooting()));
+                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
 
       // Right trench shot: Button 5
       oi.getButtonBox1Button5()
           .whileTrue(
               ShootingCommands.rightTrenchShotCommand(
-                      launcher, shootingCoordinator, motivator, turret, hood, spindexer)
-                  .alongWith(intakeRollersWhileShooting()));
+                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
     }
 
     // Spindexer feeding suppress - operator can hold to prevent feeding/launching.
@@ -547,24 +541,4 @@ public class ButtonsAndDashboardBindings {
    * intake is retracted. If the intake is deployed, does nothing so the normal roller speed is not
    * interrupted.
    */
-  private static Command intakeRollersWhileShooting() {
-    if (intake == null) return Commands.none();
-    return Commands.run(
-            () -> {
-              if (!intake.isDeployed()) {
-                intake.setRollerVelocity(Intake.ROLLER_SHOOTING_RPM);
-              }
-            })
-        .finallyDo(
-            () -> {
-              // Restore intake rollers to normal speed instead of stopping them.
-              // This prevents releasing a shooting button from killing the rollers
-              // when the intake is deployed and actively collecting.
-              if (intake.isDeployed()) {
-                intake.runIntake();
-              } else {
-                intake.stopRollers();
-              }
-            });
-  }
 }

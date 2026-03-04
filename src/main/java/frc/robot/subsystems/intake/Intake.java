@@ -116,11 +116,9 @@ public class Intake extends SubsystemBase {
   public static final double ROLLER_INTAKE_SPEED = 0.8;
   public static final double ROLLER_EJECT_SPEED = -0.6;
   public static final double ROLLER_HOLD_SPEED = 0.1;
-  public static final double ROLLER_INTAKE_RPM_RETRACTED = 500.0;
+  public static final double ROLLER_INTAKE_RPM_RETRACTED = 0.0;
   public static final double ROLLER_INTAKE_RPM_DEPLOYED = 2000.0;
   public static final double ROLLER_EJECT_RPM = -1000.0;
-  public static final double ROLLER_HOLD_RPM = 200.0;
-  public static final double ROLLER_SHOOTING_RPM = 1000.0;
 
   // Velocity control toggle (default: velocity control on)
   private boolean useVelocityControl = true;
@@ -379,15 +377,6 @@ public class Intake extends SubsystemBase {
       io.setRollerVelocity(ROLLER_EJECT_RPM);
     } else {
       io.setRollerDutyCycle(ROLLER_EJECT_SPEED);
-    }
-  }
-
-  /** Run rollers at hold speed. */
-  public void runHold() {
-    if (useVelocityControl) {
-      io.setRollerVelocity(ROLLER_HOLD_RPM);
-    } else {
-      io.setRollerDutyCycle(ROLLER_HOLD_SPEED);
     }
   }
 

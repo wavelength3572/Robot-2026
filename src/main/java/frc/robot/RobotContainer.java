@@ -58,7 +58,7 @@ import frc.robot.subsystems.turret.TurretIOSparkMax;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
-import frc.robot.subsystems.vision.VisionIOPhotonVision;
+import frc.robot.subsystems.vision.VisionIODoubleVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.FuelSim;
 import frc.robot.util.MatchPhaseTracker;
@@ -128,9 +128,9 @@ public class RobotContainer {
                     drive::addVisionMeasurement,
                     new VisionIO() {},
                     new VisionIO() {},
-                    new VisionIOPhotonVision(
+                    new VisionIODoubleVision(
                         VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
-                    new VisionIOPhotonVision(
+                    new VisionIODoubleVision(
                         VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam))
                 : null;
         break;
