@@ -71,7 +71,7 @@ import java.util.Set;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 public class RobotContainer {
-  
+
   private final Drive drive;
   private final Turret turret;
   private final Vision vision;

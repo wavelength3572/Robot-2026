@@ -199,7 +199,8 @@ public class Vision extends SubsystemBase {
       for (var observation : inputs[cameraIndex].poseObservations) {
         // Rejection conditions
 
-        //considser breaking these out and logging these separate with booleans and log booleans as tests.
+        // considser breaking these out and logging these separate with booleans and log booleans as
+        // tests.
         boolean rejectPose =
             observation.tagCount() == 0
                 || (observation.tagCount() == 1 && observation.ambiguity() > maxAmbiguity)

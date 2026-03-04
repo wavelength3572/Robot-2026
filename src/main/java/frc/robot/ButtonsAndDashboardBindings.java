@@ -59,7 +59,7 @@ public class ButtonsAndDashboardBindings {
   private static final LoggedTunableNumber tuningIntakeDeployedVelocity =
       new LoggedTunableNumber("Tuning/Intake/IntakeRollers/DeployedVelocity", 1000.0);
   private static final LoggedTunableNumber tuningIntakeAgitationVelocity =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/AgitationVelocity", 200.0);
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/AgitationVelocity", 0.0);is 
 
   // Preset field positions for simulation (label, x_meters, y_meters, rotation_degrees)
   private static final String[][] PRESET_POSITIONS = {
@@ -454,14 +454,6 @@ public class ButtonsAndDashboardBindings {
     oi.getResetGyroButton()
         .onTrue(Commands.runOnce(drive::zeroGyroscope, drive).ignoringDisable(true));
 
-    // Spindexer feeding suppress - driver can hold to prevent feeding while wiggling robot.
-    // Uses a flag so shooting commands keep running and resume feeding instantly on release.
-    if (spindexer != null) {
-      Trigger suppressTrigger = oi.getRightJoyLeftButton().or(oi.getRightJoyRightButton());
-      suppressTrigger.onTrue(Commands.runOnce(spindexer::suppressFeeding));
-      suppressTrigger.onFalse(Commands.runOnce(spindexer::unsuppressFeeding));
-    }
-
     // Snap to 90 degrees (face left side of field) - toggle on/off
     oi.getRightJoyUpButton()
         .toggleOnTrue(
@@ -539,6 +531,15 @@ public class ButtonsAndDashboardBindings {
                       launcher, shootingCoordinator, motivator, turret, hood, spindexer)
                   .alongWith(intakeRollersWhileShooting()));
     }
+
+    // Spindexer feeding suppress - operator can hold to prevent feeding/launching.
+    // Uses a flag so shooting commands keep running and resume feeding instantly on release.
+    if (spindexer != null) {
+      Trigger suppressTrigger = oi.getButtonBox1Button1();
+      suppressTrigger.onTrue(Commands.runOnce(spindexer::suppressFeeding));
+      suppressTrigger.onFalse(Commands.runOnce(spindexer::unsuppressFeeding));
+    }
+    ;
   }
 
   /**
