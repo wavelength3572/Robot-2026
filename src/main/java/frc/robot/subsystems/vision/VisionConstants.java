@@ -122,9 +122,8 @@ public final class VisionConstants {
               Rotation2d.fromDegrees(0).getRadians())); // Yaw: facing forward
 
   // Right Front camera (rightward facing) - mounted at front right
-  // TODO: PDF says -83° yaw (7° toward front), but we're considering changing to -97° (7° toward
-  //   rear / inward) to mirror LeftRear's inward offset. AdvantageScope already previews -97°.
-  //   Update this once CAD confirms the new mount angle.
+  // TODO: PDF says -83° yaw (7° toward front), but we changed to -97° (7° toward rear / inward)
+  //   to mirror LeftRear's inward offset. Confirm new mount angle with CAD person.
   public static Transform3d mainBotToRightFrontCam =
       new Transform3d(
           0.23904, // X: 9.411" to front
@@ -133,7 +132,7 @@ public final class VisionConstants {
           new Rotation3d(
               0.0,
               Rotation2d.fromDegrees(-16).getRadians(), // Pitch 16° up from horizontal
-              Rotation2d.fromDegrees(-83).getRadians())); // Yaw: 83° right (7° toward front)
+              Rotation2d.fromDegrees(-97).getRadians())); // Yaw: 97° right (7° toward rear/inward)
 
   // Left Rear camera (leftward facing) - mounted at rear left
   public static Transform3d mainBotToLeftRearCam =
