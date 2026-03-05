@@ -126,12 +126,13 @@ public class RobotContainer {
             config.hasVision()
                 ? new Vision(
                     drive::addVisionMeasurement,
+                    new String[] {"CenterRear", "RightFront", "LeftRear", "RightRear"},
                     new VisionIO() {},
                     new VisionIO() {},
                     new VisionIODoubleVision(
-                        VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
+                        VisionConstants.leftRearCam, VisionConstants.mainBotToLeftRearCam),
                     new VisionIODoubleVision(
-                        VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam))
+                        VisionConstants.rightRearCam, VisionConstants.mainBotToRightRearCam))
                 : null;
         break;
 
@@ -156,21 +157,22 @@ public class RobotContainer {
             config.hasVision()
                 ? new Vision(
                     drive::addVisionMeasurement,
+                    new String[] {"CenterRear", "RightFront", "LeftRear", "RightRear"},
                     new VisionIOPhotonVisionSim(
-                        VisionConstants.frontLeftCam,
-                        VisionConstants.mainBotToFrontLeftCam,
+                        VisionConstants.centerRearCam,
+                        VisionConstants.mainBotToCenterRearCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
-                        VisionConstants.frontRightCam,
-                        VisionConstants.mainBotToFrontRightCam,
+                        VisionConstants.rightFrontCam,
+                        VisionConstants.mainBotToRightFrontCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
-                        VisionConstants.backLeftCam,
-                        VisionConstants.mainBotToBackLeftCam,
+                        VisionConstants.leftRearCam,
+                        VisionConstants.mainBotToLeftRearCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
-                        VisionConstants.backRightCam,
-                        VisionConstants.mainBotToBackRightCam,
+                        VisionConstants.rightRearCam,
+                        VisionConstants.mainBotToRightRearCam,
                         RobotStatus::getRobotPose))
                 : null;
         break;
@@ -197,6 +199,7 @@ public class RobotContainer {
             config.hasVision()
                 ? new Vision(
                     (pose, time, stdDevs) -> {},
+                    new String[] {"CenterRear", "RightFront", "LeftRear", "RightRear"},
                     new VisionIO() {},
                     new VisionIO() {},
                     new VisionIO() {},

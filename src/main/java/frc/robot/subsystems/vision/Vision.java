@@ -40,6 +40,7 @@ public class Vision extends SubsystemBase {
   private final VisionIO[] io;
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
+  private final String[] cameraNames;
 
   private boolean isVisionOn = true;
 
@@ -62,9 +63,10 @@ public class Vision extends SubsystemBase {
   private final List<List<Pose3d>> perCameraRobotPosesRejected;
   private final List<List<Pose3d>> perCameraContributingTags;
 
-  public Vision(VisionConsumer consumer, VisionIO... io) {
+  public Vision(VisionConsumer consumer, String[] cameraNames, VisionIO... io) {
     this.consumer = consumer;
     this.io = io;
+    this.cameraNames = cameraNames;
 
     // Initialize inputs
     this.inputs = new VisionIOInputsAutoLogged[io.length];
@@ -77,7 +79,7 @@ public class Vision extends SubsystemBase {
     for (int i = 0; i < inputs.length; i++) {
       disconnectedAlerts[i] =
           new Alert(
-              "Vision camera " + Integer.toString(i) + " is disconnected.", AlertType.kWarning);
+              "Vision camera " + cameraNames[i] + " is disconnected.", AlertType.kWarning);
     }
 
     // Initialize per-camera lists
@@ -156,7 +158,7 @@ public class Vision extends SubsystemBase {
 
     for (int i = 0; i < io.length; i++) {
       io[i].updateInputs(inputs[i]);
-      Logger.processInputs("Vision/Camera" + i, inputs[i]);
+      Logger.processInputs("Vision/" + cameraNames[i], inputs[i]);
     }
 
     // Clear pre-allocated lists for this cycle
@@ -192,24 +194,53 @@ public class Vision extends SubsystemBase {
       }
 
       Logger.recordOutput(
-          "Vision/Camera" + cameraIndex + "/ObservationCount",
+          "Vision/" + cameraNames[cameraIndex] + "/ObservationCount",
           inputs[cameraIndex].poseObservations.length);
 
       // Loop over pose observations
       for (var observation : inputs[cameraIndex].poseObservations) {
-        // Rejection conditions
+        // Rejection conditions — broken out for per-camera diagnostics
+        boolean noTags = observation.tagCount() == 0;
+        boolean tooAmbiguous =
+            observation.tagCount() == 1 && observation.ambiguity() > maxAmbiguity;
+        boolean zError = Math.abs(observation.pose().getZ()) > maxZError;
+        boolean outsideFieldX =
+            observation.pose().getX() < 0.0
+                || observation.pose().getX() > aprilTagLayout.getFieldLength();
+        boolean outsideFieldY =
+            observation.pose().getY() < 0.0
+                || observation.pose().getY() > aprilTagLayout.getFieldWidth();
+        boolean singleTagTooFar =
+            observation.tagCount() == 1
+                && observation.closestTagDistance() > MAX_SINGLE_TAG_DISTANCE;
+        boolean multiTagTooFar =
+            observation.tagCount() > 1
+                && observation.closestTagDistance() > MAX_MULTI_TAG_DISTANCE;
 
-        // considser breaking these out and logging these separate with booleans and log booleans as
-        // tests.
         boolean rejectPose =
-            observation.tagCount() == 0
-                || (observation.tagCount() == 1 && observation.ambiguity() > maxAmbiguity)
-                || Math.abs(observation.pose().getZ()) > maxZError
-                || observation.pose().getX() < 0.0
-                || observation.pose().getX() > aprilTagLayout.getFieldLength()
-                || observation.pose().getY() < 0.0
-                || observation.pose().getY() > aprilTagLayout.getFieldWidth()
-                || observation.closestTagDistance() > MAX_TAG_DISTANCE;
+            noTags
+                || tooAmbiguous
+                || zError
+                || outsideFieldX
+                || outsideFieldY
+                || singleTagTooFar
+                || multiTagTooFar;
+
+        // Log rejection reasons per camera
+        String rejKey = "Vision/" + cameraNames[cameraIndex] + "/Rejection/";
+        Logger.recordOutput(rejKey + "NoTags", noTags);
+        Logger.recordOutput(rejKey + "TooAmbiguous", tooAmbiguous);
+        Logger.recordOutput(rejKey + "ZError", zError);
+        Logger.recordOutput(rejKey + "OutsideFieldX", outsideFieldX);
+        Logger.recordOutput(rejKey + "OutsideFieldY", outsideFieldY);
+        Logger.recordOutput(rejKey + "SingleTagTooFar", singleTagTooFar);
+        Logger.recordOutput(rejKey + "MultiTagTooFar", multiTagTooFar);
+        Logger.recordOutput(rejKey + "Rejected", rejectPose);
+        // Log raw values for debugging thresholds
+        Logger.recordOutput(rejKey + "Ambiguity", observation.ambiguity());
+        Logger.recordOutput(rejKey + "TagCount", observation.tagCount());
+        Logger.recordOutput(rejKey + "ClosestTagDist", observation.closestTagDistance());
+        Logger.recordOutput(rejKey + "PoseZ", observation.pose().getZ());
 
         // Add pose to log
         robotPoses.add(observation.pose());
@@ -262,10 +293,10 @@ public class Vision extends SubsystemBase {
           angularStdDev *= cameraStdDevFactors[cameraIndex];
         }
 
-        Logger.recordOutput("Vision/StdDev/LinearStdDev" + cameraIndex, linearStdDev);
-        Logger.recordOutput("Vision/StdDev/AngularStdDev" + cameraIndex, angularStdDev);
-        Logger.recordOutput("Vision/StdDev/AmbiguityScale" + cameraIndex, ambiguityScale);
-        Logger.recordOutput("Vision/StdDev/SpeedScale" + cameraIndex, speedScale);
+        Logger.recordOutput("Vision/" + cameraNames[cameraIndex] + "/StdDev/Linear", linearStdDev);
+        Logger.recordOutput("Vision/" + cameraNames[cameraIndex] + "/StdDev/Angular", angularStdDev);
+        Logger.recordOutput("Vision/" + cameraNames[cameraIndex] + "/StdDev/AmbiguityScale", ambiguityScale);
+        Logger.recordOutput("Vision/" + cameraNames[cameraIndex] + "/StdDev/SpeedScale", speedScale);
 
         // Send vision observation
         consumer.accept(
@@ -276,16 +307,16 @@ public class Vision extends SubsystemBase {
 
       // Log camera data
       Logger.recordOutput(
-          "Vision/Camera" + cameraIndex + "/TagPoses",
+          "Vision/" + cameraNames[cameraIndex] + "/TagPoses",
           tagPoses.toArray(new Pose3d[tagPoses.size()]));
       Logger.recordOutput(
-          "Vision/Camera" + cameraIndex + "/RobotPoses",
+          "Vision/" + cameraNames[cameraIndex] + "/RobotPoses",
           robotPoses.toArray(new Pose3d[robotPoses.size()]));
       Logger.recordOutput(
-          "Vision/Camera" + cameraIndex + "/RobotPosesAccepted",
+          "Vision/" + cameraNames[cameraIndex] + "/RobotPosesAccepted",
           robotPosesAccepted.toArray(new Pose3d[robotPosesAccepted.size()]));
       Logger.recordOutput(
-          "Vision/Camera" + cameraIndex + "/RobotPosesRejected",
+          "Vision/" + cameraNames[cameraIndex] + "/RobotPosesRejected",
           robotPosesRejected.toArray(new Pose3d[robotPosesRejected.size()]));
 
       allTagPoses.addAll(tagPoses);
@@ -309,7 +340,7 @@ public class Vision extends SubsystemBase {
     // Log contributing tags per camera
     for (int i = 0; i < io.length; i++) {
       Logger.recordOutput(
-          "Vision/Summary/Camera" + i + "/ContributingTags",
+          "Vision/Summary/" + cameraNames[i] + "/ContributingTags",
           perCameraContributingTags
               .get(i)
               .toArray(new Pose3d[perCameraContributingTags.get(i).size()]));
@@ -328,31 +359,31 @@ public class Vision extends SubsystemBase {
     Pose3d robotPose3d = new Pose3d(currentRobotPose);
 
     // Select camera transforms based on robot type
-    Transform3d frontLeftCamTransform;
-    Transform3d frontRightCamTransform;
-    Transform3d backLeftCamTransform;
-    Transform3d backRightCamTransform;
+    Transform3d centerRearCamTransform;
+    Transform3d rightFrontCamTransform;
+    Transform3d leftRearCamTransform;
+    Transform3d rightRearCamTransform;
     if (frc.robot.Constants.currentRobot == frc.robot.Constants.RobotType.MAINBOT) {
-      frontLeftCamTransform = VisionConstants.mainBotToFrontLeftCam;
-      frontRightCamTransform = VisionConstants.mainBotToFrontRightCam;
-      backLeftCamTransform = VisionConstants.mainBotToBackLeftCam;
-      backRightCamTransform = VisionConstants.mainBotToBackRightCam;
+      centerRearCamTransform = VisionConstants.mainBotToCenterRearCam;
+      rightFrontCamTransform = VisionConstants.mainBotToRightFrontCam;
+      leftRearCamTransform = VisionConstants.mainBotToLeftRearCam;
+      rightRearCamTransform = VisionConstants.mainBotToRightRearCam;
     } else {
-      frontLeftCamTransform = robotToFrontLeftCam;
-      frontRightCamTransform = robotToFrontRightCam;
-      backLeftCamTransform = robotToBackLeftCam;
-      backRightCamTransform = robotToBackRightCam;
+      centerRearCamTransform = robotToCenterRearCam;
+      rightFrontCamTransform = robotToRightFrontCam;
+      leftRearCamTransform = robotToLeftRearCam;
+      rightRearCamTransform = robotToRightRearCam;
     }
 
     // Log all cameras as array for combined visualization
-    Pose3d frontLeftPose = robotPose3d.transformBy(frontLeftCamTransform);
-    Pose3d frontRightPose = robotPose3d.transformBy(frontRightCamTransform);
-    Pose3d backLeftPose = robotPose3d.transformBy(backLeftCamTransform);
-    Pose3d backRightPose = robotPose3d.transformBy(backRightCamTransform);
+    Pose3d centerRearPose = robotPose3d.transformBy(centerRearCamTransform);
+    Pose3d rightFrontPose = robotPose3d.transformBy(rightFrontCamTransform);
+    Pose3d leftRearPose = robotPose3d.transformBy(leftRearCamTransform);
+    Pose3d rightRearPose = robotPose3d.transformBy(rightRearCamTransform);
 
     Logger.recordOutput(
         "Vision/CameraViz/AllCameras",
-        new Pose3d[] {frontLeftPose, frontRightPose, backLeftPose, backRightPose});
+        new Pose3d[] {centerRearPose, rightFrontPose, leftRearPose, rightRearPose});
   }
 
   @FunctionalInterface
