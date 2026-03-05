@@ -78,8 +78,7 @@ public class Vision extends SubsystemBase {
     this.disconnectedAlerts = new Alert[io.length];
     for (int i = 0; i < inputs.length; i++) {
       disconnectedAlerts[i] =
-          new Alert(
-              "Vision camera " + cameraNames[i] + " is disconnected.", AlertType.kWarning);
+          new Alert("Vision camera " + cameraNames[i] + " is disconnected.", AlertType.kWarning);
     }
 
     // Initialize per-camera lists
@@ -214,8 +213,7 @@ public class Vision extends SubsystemBase {
             observation.tagCount() == 1
                 && observation.closestTagDistance() > MAX_SINGLE_TAG_DISTANCE;
         boolean multiTagTooFar =
-            observation.tagCount() > 1
-                && observation.closestTagDistance() > MAX_MULTI_TAG_DISTANCE;
+            observation.tagCount() > 1 && observation.closestTagDistance() > MAX_MULTI_TAG_DISTANCE;
 
         boolean rejectPose =
             noTags
@@ -294,9 +292,12 @@ public class Vision extends SubsystemBase {
         }
 
         Logger.recordOutput("Vision/" + cameraNames[cameraIndex] + "/StdDev/Linear", linearStdDev);
-        Logger.recordOutput("Vision/" + cameraNames[cameraIndex] + "/StdDev/Angular", angularStdDev);
-        Logger.recordOutput("Vision/" + cameraNames[cameraIndex] + "/StdDev/AmbiguityScale", ambiguityScale);
-        Logger.recordOutput("Vision/" + cameraNames[cameraIndex] + "/StdDev/SpeedScale", speedScale);
+        Logger.recordOutput(
+            "Vision/" + cameraNames[cameraIndex] + "/StdDev/Angular", angularStdDev);
+        Logger.recordOutput(
+            "Vision/" + cameraNames[cameraIndex] + "/StdDev/AmbiguityScale", ambiguityScale);
+        Logger.recordOutput(
+            "Vision/" + cameraNames[cameraIndex] + "/StdDev/SpeedScale", speedScale);
 
         // Send vision observation
         consumer.accept(

@@ -26,7 +26,8 @@ import edu.wpi.first.math.numbers.N3;
 public final class VisionConstants {
 
   public static double MAX_SINGLE_TAG_DISTANCE = 3.0; // Single-tag: conservative (ambiguity flips)
-  public static double MAX_MULTI_TAG_DISTANCE = 5.0; // Multi-tag: lenient (geometry constrains pose)
+  public static double MAX_MULTI_TAG_DISTANCE =
+      5.0; // Multi-tag: lenient (geometry constrains pose)
 
   // AprilTag layout for 2026 Rebuilt field
   public static AprilTagFieldLayout aprilTagLayout =
