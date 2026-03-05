@@ -144,6 +144,7 @@ public class ButtonsAndDashboardBindings {
     // Coordinated shooting controls (requires coordinator and launcher)
     if (shootingCoordinator != null && launcher != null) {
       configureShootingControls();
+      configureLUTDevControls();
     }
 
     // Per-subsystem tuning run buttons (always, for all robot types)
@@ -440,6 +441,31 @@ public class ButtonsAndDashboardBindings {
             .withName("Read Optimized Shot"));
   }
 
+  /** Configure LUT development mode controls for data collection. */
+  private static void configureLUTDevControls() {
+    // Record shot buttons — capture actual subsystem values
+    SmartDashboard.putData(
+        "LUTDev/RecordSuccess",
+        ShootingCommands.recordShotCommand(
+            shootingCoordinator, launcher, turret, hood, motivator, spindexer, true));
+    SmartDashboard.putData(
+        "LUTDev/RecordMiss",
+        ShootingCommands.recordShotCommand(
+            shootingCoordinator, launcher, turret, hood, motivator, spindexer, false));
+
+    // Data management
+    SmartDashboard.putData("LUTDev/ReloadLUT", ShootingCommands.reloadLUTCommand(shootingCoordinator));
+    SmartDashboard.putData("LUTDev/ClearData", ShootingCommands.clearLUTDataCommand(shootingCoordinator));
+
+    // LUT dev mode continuous logging (toggle on/off)
+    if (turret != null) {
+      SmartDashboard.putData(
+          "LUTDev/DevMode", ShootingCommands.lutDevModeCommand(shootingCoordinator, turret));
+    }
+
+    System.out.println("[LUTDev] LUT development controls configured on SmartDashboard");
+  }
+
   /****************************** */
   /*** DRIVER BINDINGS ****** */
   /****************************** */
@@ -525,6 +551,18 @@ public class ButtonsAndDashboardBindings {
           .whileTrue(
               ShootingCommands.rightTrenchShotCommand(
                   launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+    }
+
+    // LUT recording: Y-axis positive = Record Success, X-axis negative = Record Miss
+    if (shootingCoordinator != null && launcher != null) {
+      oi.getButtonBox1YAxisPositive()
+          .onTrue(
+              ShootingCommands.recordShotCommand(
+                  shootingCoordinator, launcher, turret, hood, motivator, spindexer, true));
+      oi.getButtonBox1XAxisNegative()
+          .onTrue(
+              ShootingCommands.recordShotCommand(
+                  shootingCoordinator, launcher, turret, hood, motivator, spindexer, false));
     }
 
     // Spindexer feeding suppress - operator can hold to prevent feeding/launching.

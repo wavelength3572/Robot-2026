@@ -21,15 +21,10 @@ public final class ShotCalculator {
   private static final double WHEEL_RADIUS_METERS = 0.0508; // 4" diameter = 2" radius
 
   // Efficiency factor: how much of wheel surface velocity transfers to ball (0.0-1.0)
-  // At close range, efficiency is higher. At far range, real-world losses (air resistance,
-  // ball compression, spin) reduce effective efficiency. The efficiency interpolates linearly
-  // from baseEfficiency at 0m to farEfficiency at farDistanceM.
-  private static final LoggedTunableNumber baseEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/BaseEfficiency", 0.50);
-  private static final LoggedTunableNumber farEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FarEfficiency", 0.50);
-  private static final LoggedTunableNumber farDistanceM =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FarDistanceM", 7.0);
+  // Single value — no distance interpolation. Keep it simple so the LUT and parametric
+  // systems are easy to reason about. Tune this once, then use LUT for fine-tuning per distance.
+  private static final LoggedTunableNumber launchEfficiency =
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.50);
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -47,7 +42,7 @@ public final class ShotCalculator {
   /** Result of a shot calculation. */
   public record ShotResult(
       double exitVelocityMps,
-      double launcherRPM, // pre-computed RPM (uses distance-aware efficiency)
+      double launcherRPM, // pre-computed RPM (uses launch efficiency)
       double launchAngleRad,
       double hoodAngleDeg,
       double turretAngleDeg, // robot-relative
@@ -85,20 +80,13 @@ public final class ShotCalculator {
   }
 
   /**
-   * Get the effective launch efficiency for a given distance. Interpolates linearly from
-   * baseEfficiency (close) to farEfficiency (far), clamped at farDistanceM.
+   * Get the launch efficiency. Single constant value — no distance interpolation.
+   * Tune once, then use LUT for per-distance fine-tuning.
    */
-  public static double getEfficiency(double distanceM) {
-    double t = Math.min(distanceM / farDistanceM.get(), 1.0);
-    double efficiency = baseEfficiency.get() + t * (farEfficiency.get() - baseEfficiency.get());
-    Logger.recordOutput("Match/Trajectory/EffectiveEfficiency", efficiency);
-    return efficiency;
+  public static double getEfficiency() {
+    return launchEfficiency.get();
   }
 
-  /** Get the base (close-range) efficiency. Used when distance is unknown. */
-  public static double getEfficiency() {
-    return baseEfficiency.get();
-  }
 
   /**
    * Calculate ball exit velocity from a given wheel RPM.
@@ -132,16 +120,15 @@ public final class ShotCalculator {
   }
 
   /**
-   * Get what RPM would be needed to achieve a target exit velocity at a given distance. Uses
-   * distance-dependent efficiency for more accurate far shots.
+   * Get what RPM would be needed to achieve a target exit velocity at a given distance.
+   * Distance parameter kept for API compatibility but efficiency is now a single constant.
    *
    * @param targetExitVelocity Desired exit velocity in m/s
-   * @param distanceM Horizontal distance to target in meters
+   * @param distanceM Horizontal distance to target in meters (unused)
    * @return Required wheel RPM
    */
   public static double calculateRPMForVelocity(double targetExitVelocity, double distanceM) {
-    double surfaceVelocity = targetExitVelocity / getEfficiency(distanceM);
-    return (surfaceVelocity * 60.0) / (2.0 * Math.PI * WHEEL_RADIUS_METERS);
+    return calculateRPMForVelocity(targetExitVelocity);
   }
 
   // ========== Physics Utilities ==========

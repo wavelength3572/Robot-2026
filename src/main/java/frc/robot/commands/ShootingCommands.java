@@ -7,8 +7,11 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
+import edu.wpi.first.math.geometry.Pose2d;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.shooting.ShotCalculator;
+import frc.robot.subsystems.shooting.ShotDataPoint;
+import frc.robot.subsystems.shooting.ShotDataRecorder;
 import frc.robot.subsystems.shooting.ShotVisualizer;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
@@ -17,7 +20,6 @@ import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
-//
 
 /**
  * Factory class for shooting commands. Provides a unified launch command that works for both
@@ -996,5 +998,222 @@ public class ShootingCommands {
               ShotVisualizer visualizer = coordinator.getVisualizer();
               return visualizer == null || visualizer.getFuelCount() <= 0;
             });
+  }
+
+  // ===== LUT Dev Mode Commands =====
+
+  /**
+   * Calculate horizontal distance from turret to hub center.
+   *
+   * @param robotPose Current robot pose
+   * @param config Turret geometry config
+   * @return Distance in meters
+   */
+  private static double calculateDistanceToHub(
+      Pose2d robotPose, ShotCalculator.TurretConfig config) {
+    double robotHeadingRad = robotPose.getRotation().getRadians();
+    double[] turretFieldPos =
+        ShotCalculator.getTurretFieldPosition(
+            robotPose.getX(), robotPose.getY(), robotHeadingRad, config);
+    double hubX = frc.robot.FieldConstants.Hub.innerCenterPoint.getX();
+    double hubY = frc.robot.FieldConstants.Hub.innerCenterPoint.getY();
+    return Math.sqrt(
+        Math.pow(hubX - turretFieldPos[0], 2) + Math.pow(hubY - turretFieldPos[1], 2));
+  }
+
+  /**
+   * Record a shot data point for the LUT. Captures both target (commanded) and actual (measured)
+   * values.
+   *
+   * @param coordinator Provides pose, speeds, current shot, and data recorder
+   * @param launcher Actual launcher RPM
+   * @param turret Actual turret angle
+   * @param hood Actual hood angle (can be null)
+   * @param motivator Actual motivator RPM (can be null)
+   * @param spindexer Actual spindexer RPM (can be null)
+   * @param successful Whether the shot scored
+   * @return Command that records one data point
+   */
+  public static Command recordShotCommand(
+      ShootingCoordinator coordinator,
+      Launcher launcher,
+      Turret turret,
+      Hood hood,
+      Motivator motivator,
+      Spindexer spindexer,
+      boolean successful) {
+    return Commands.runOnce(
+            () -> {
+              if (coordinator.getRobotPoseSupplier() == null) {
+                System.out.println("[LUTDev] Cannot record — no pose supplier");
+                return;
+              }
+
+              Pose2d robotPose = coordinator.getRobotPoseSupplier().get();
+              ShotCalculator.TurretConfig config = coordinator.getTurretConfig();
+              double distance = calculateDistanceToHub(robotPose, config);
+
+              // Guard: don't record if launcher isn't spinning (accidental press while idle)
+              double launcherRPM = launcher.getTargetVelocity();
+              if (launcherRPM < 500) {
+                System.out.println(
+                    "[LUTDev] Ignoring record — launcher not spinning (RPM="
+                        + String.format("%.0f", launcherRPM)
+                        + ")");
+                return;
+              }
+
+              // TARGET/COMMANDED values — what the LUT stores.
+              // These are the steady-state setpoints that produce good shots.
+              ShotCalculator.ShotResult currentShot = coordinator.getCurrentShot();
+              double targetRPM = launcherRPM;
+              double targetHoodAngle =
+                  currentShot != null
+                      ? currentShot.hoodAngleDeg()
+                      : (hood != null ? hood.getCurrentAngle() : 0.0);
+              double targetMotivatorRPM = smartShotMotivatorRPM.get();
+              double targetSpindexerRPM = smartShotSpindexerRPM.get();
+
+              // ACTUAL/MEASURED values — diagnostic data for offline analysis.
+              // Useful for: RPM dip analysis, efficiency validation, feed speed tuning.
+              double actualRPM = launcher.getVelocity();
+              double actualHoodAngle = hood != null ? hood.getCurrentAngle() : 0.0;
+              double actualTurretAngle = turret.getOutsideCurrentAngle();
+              double actualMotivatorRPM =
+                  motivator != null ? motivator.getMotivatorWheelVelocity() : 0.0;
+              double actualSpindexerRPM =
+                  spindexer != null ? spindexer.getSpindexerWheelVelocity() : 0.0;
+
+              // Derived values from target RPM
+              double exitVelocity = ShotCalculator.calculateExitVelocityFromRPM(targetRPM);
+              double tof = 0.0;
+              if (currentShot != null && currentShot.exitVelocityMps() > 0) {
+                tof =
+                    ShotCalculator.calculateTimeOfFlight(
+                        currentShot.exitVelocityMps(),
+                        currentShot.launchAngleRad(),
+                        distance);
+              } else {
+                tof = distance / Math.max(exitVelocity * 0.8, 1.0); // rough estimate
+              }
+
+              ShotDataPoint point =
+                  new ShotDataPoint(
+                      Timer.getFPGATimestamp(),
+                      robotPose.getX(),
+                      robotPose.getY(),
+                      distance,
+                      targetRPM,
+                      targetHoodAngle,
+                      actualTurretAngle,
+                      targetMotivatorRPM,
+                      targetSpindexerRPM,
+                      actualRPM,
+                      actualHoodAngle,
+                      actualMotivatorRPM,
+                      actualSpindexerRPM,
+                      exitVelocity,
+                      tof,
+                      successful);
+
+              coordinator.getDataRecorder().recordShot(point);
+
+              // Log feedback
+              Logger.recordOutput("LUTDev/LastRecordedDistance", distance);
+              Logger.recordOutput("LUTDev/LastRecordedTargetRPM", targetRPM);
+              Logger.recordOutput("LUTDev/LastRecordedActualRPM", actualRPM);
+              Logger.recordOutput("LUTDev/LastRecordedHoodDeg", targetHoodAngle);
+              Logger.recordOutput("LUTDev/LastRecordedSuccessful", successful);
+              Logger.recordOutput(
+                  "LUTDev/DataPointCount", coordinator.getDataRecorder().getCount());
+              Logger.recordOutput(
+                  "LUTDev/SuccessCount", coordinator.getDataRecorder().getSuccessCount());
+
+              // Log full shot log as string array — viewable in AdvantageKit
+              Logger.recordOutput(
+                  "LUTDev/ShotLog", coordinator.getDataRecorder().getShotSummaries());
+
+              System.out.println(
+                  "[LUTDev] Recorded "
+                      + (successful ? "SUCCESS" : "MISS")
+                      + " at "
+                      + String.format("%.2f", distance)
+                      + "m — tgtRPM="
+                      + String.format("%.0f", targetRPM)
+                      + " actRPM="
+                      + String.format("%.0f", actualRPM)
+                      + " Hood="
+                      + String.format("%.1f", targetHoodAngle)
+                      + "° ("
+                      + coordinator.getDataRecorder().getCount()
+                      + " total)");
+            })
+        .ignoringDisable(true)
+        .withName("Record Shot " + (successful ? "Success" : "Miss"));
+  }
+
+  /**
+   * Command to reload LUT data from disk into the active lookup table.
+   *
+   * @param coordinator The shooting coordinator
+   * @return Command that reloads LUT data
+   */
+  public static Command reloadLUTCommand(ShootingCoordinator coordinator) {
+    return Commands.runOnce(coordinator::reloadLUTData)
+        .ignoringDisable(true)
+        .withName("Reload LUT Data");
+  }
+
+  /**
+   * Command to clear all recorded LUT data.
+   *
+   * @param coordinator The shooting coordinator
+   * @return Command that clears LUT data
+   */
+  public static Command clearLUTDataCommand(ShootingCoordinator coordinator) {
+    return Commands.runOnce(
+            () -> {
+              coordinator.getDataRecorder().clearData();
+              coordinator.reloadLUTData();
+              System.out.println("[LUTDev] All data cleared");
+            })
+        .ignoringDisable(true)
+        .withName("Clear LUT Data");
+  }
+
+  /**
+   * LUT dev mode logging command. Runs continuously to output useful info to the dashboard while
+   * collecting LUT data.
+   *
+   * @param coordinator The shooting coordinator
+   * @param turret For current distance calculation
+   * @return Command that logs LUT dev info each cycle
+   */
+  public static Command lutDevModeCommand(ShootingCoordinator coordinator, Turret turret) {
+    return Commands.run(
+            () -> {
+              if (coordinator.getRobotPoseSupplier() == null) return;
+
+              Pose2d robotPose = coordinator.getRobotPoseSupplier().get();
+              double distance =
+                  calculateDistanceToHub(robotPose, coordinator.getTurretConfig());
+
+              ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+              Logger.recordOutput("LUTDev/CurrentDistance", distance);
+              Logger.recordOutput(
+                  "LUTDev/SuggestedRPM", shot != null ? shot.launcherRPM() : 0.0);
+              Logger.recordOutput(
+                  "LUTDev/SuggestedHoodDeg", shot != null ? shot.hoodAngleDeg() : 0.0);
+              Logger.recordOutput(
+                  "LUTDev/DataPointCount", coordinator.getDataRecorder().getCount());
+              Logger.recordOutput(
+                  "LUTDev/SuccessCount", coordinator.getDataRecorder().getSuccessCount());
+              Logger.recordOutput(
+                  "LUTDev/LastRecordedDistance",
+                  coordinator.getDataRecorder().getLastRecordedDistance());
+              Logger.recordOutput("LUTDev/LUTEntries", coordinator.getLookupTable().size());
+            })
+        .ignoringDisable(true)
+        .withName("LUT Dev Mode");
   }
 }
