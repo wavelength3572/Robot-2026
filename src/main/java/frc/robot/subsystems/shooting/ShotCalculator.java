@@ -30,6 +30,10 @@ public final class ShotCalculator {
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
   private static final double MAX_EXIT_VELOCITY = 15.0; // m/s
 
+  // Maximum velocity compensation aim offset (meters from original target)
+  // Prevents the aim target from drifting off-field when TOF is large
+  private static final double MAX_AIM_OFFSET_METERS = 1.5;
+
   // ========== Launcher RPM Tracking ==========
   // currentLauncherRPM = what the launcher is actually doing right now
   // targetLauncherRPM = what we're commanding the launcher to do (setpoint)
@@ -80,13 +84,12 @@ public final class ShotCalculator {
   }
 
   /**
-   * Get the launch efficiency. Single constant value — no distance interpolation.
-   * Tune once, then use LUT for per-distance fine-tuning.
+   * Get the launch efficiency. Single constant value — no distance interpolation. Tune once, then
+   * use LUT for per-distance fine-tuning.
    */
   public static double getEfficiency() {
     return launchEfficiency.get();
   }
-
 
   /**
    * Calculate ball exit velocity from a given wheel RPM.
@@ -120,8 +123,8 @@ public final class ShotCalculator {
   }
 
   /**
-   * Get what RPM would be needed to achieve a target exit velocity at a given distance.
-   * Distance parameter kept for API compatibility but efficiency is now a single constant.
+   * Get what RPM would be needed to achieve a target exit velocity at a given distance. Distance
+   * parameter kept for API compatibility but efficiency is now a single constant.
    *
    * @param targetExitVelocity Desired exit velocity in m/s
    * @param distanceM Horizontal distance to target in meters (unused)
@@ -214,6 +217,25 @@ public final class ShotCalculator {
   }
 
   // ========== Field Position Helpers ==========
+
+  /**
+   * Clamp a velocity-compensated aim target so it doesn't drift too far from the original target.
+   * Prevents the aim point from going off-field when TOF is large.
+   */
+  public static Translation3d clampAimOffset(
+      Translation3d aimTarget, Translation3d originalTarget) {
+    double offsetX = aimTarget.getX() - originalTarget.getX();
+    double offsetY = aimTarget.getY() - originalTarget.getY();
+    double offsetDist = Math.hypot(offsetX, offsetY);
+    if (offsetDist > MAX_AIM_OFFSET_METERS) {
+      double scale = MAX_AIM_OFFSET_METERS / offsetDist;
+      return new Translation3d(
+          originalTarget.getX() + offsetX * scale,
+          originalTarget.getY() + offsetY * scale,
+          originalTarget.getZ());
+    }
+    return aimTarget;
+  }
 
   /**
    * Calculate the turret's field position from robot pose, accounting for turret offset.
@@ -370,7 +392,7 @@ public final class ShotCalculator {
                 distanceToTarget);
 
         for (int i = 0; i < 3; i++) {
-          aimTarget = predictTargetPos(hubTarget, fieldSpeeds, tof);
+          aimTarget = clampAimOffset(predictTargetPos(hubTarget, fieldSpeeds, tof), hubTarget);
           double aimDistance =
               Math.sqrt(
                   Math.pow(aimTarget.getX() - turretX, 2)
@@ -462,7 +484,7 @@ public final class ShotCalculator {
     if (robotSpeed > 0.1) {
       double tof = calculateTimeOfFlight(exitVelocity, launchAngleRad, horizontalDist);
       for (int i = 0; i < 3; i++) {
-        aimTarget = predictTargetPos(passTarget, fieldSpeeds, tof);
+        aimTarget = clampAimOffset(predictTargetPos(passTarget, fieldSpeeds, tof), passTarget);
         double aimDist =
             Math.sqrt(
                 Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));

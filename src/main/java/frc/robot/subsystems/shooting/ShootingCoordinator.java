@@ -45,7 +45,7 @@ public class ShootingCoordinator extends SubsystemBase {
   // Shot strategy system (LUT / Parametric / Hybrid) — dropdown on dashboard
   private final SendableChooser<String> strategyChooser = new SendableChooser<>();
   private final ShotLookupTable lookupTable = new ShotLookupTable();
-  private final ShotDataRecorder dataRecorder = new ShotDataRecorder();
+  private final StationaryShotBatchRecorder batchRecorder = new StationaryShotBatchRecorder();
   private final ParametricShotStrategy parametricStrategy = new ParametricShotStrategy();
   private final LUTShotStrategy lutStrategy;
   private final HybridShotStrategy hybridStrategy;
@@ -664,22 +664,24 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Reload LUT data from the recorder (disk). Call after recording new shots or at startup.
-   * Loads only successful shots into the lookup table.
+   * Reload LUT data from the recorder (disk). Call after recording new shots or at startup. Loads
+   * only successful batch entries into the lookup table.
    */
   public void reloadLUTData() {
-    lookupTable.loadFromDataPoints(dataRecorder.getSuccessfulShots());
+    lookupTable.loadFromLUTEntries(batchRecorder.getLUTEntries());
     System.out.println(
         "[ShootingCoordinator] LUT reloaded: "
             + lookupTable.size()
             + " entries from "
-            + dataRecorder.getCount()
-            + " total recordings");
+            + batchRecorder.getBatchCount()
+            + " total batches ("
+            + batchRecorder.getSuccessCount()
+            + " successful)");
   }
 
-  /** Get the shot data recorder for recording new data points. */
-  public ShotDataRecorder getDataRecorder() {
-    return dataRecorder;
+  /** Get the batch recorder for recording new data collection sessions. */
+  public StationaryShotBatchRecorder getBatchRecorder() {
+    return batchRecorder;
   }
 
   /** Get the lookup table (for dashboard display of entry count, etc.). */

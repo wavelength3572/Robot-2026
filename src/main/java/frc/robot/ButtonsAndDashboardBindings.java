@@ -443,19 +443,19 @@ public class ButtonsAndDashboardBindings {
 
   /** Configure LUT development mode controls for data collection. */
   private static void configureLUTDevControls() {
-    // Record shot buttons — capture actual subsystem values
+    // Record batch buttons — mark a hopper of fuel as success or miss
     SmartDashboard.putData(
         "LUTDev/RecordSuccess",
-        ShootingCommands.recordShotCommand(
-            shootingCoordinator, launcher, turret, hood, motivator, spindexer, true));
+        ShootingCommands.recordBatchCommand(shootingCoordinator, launcher, turret, hood, true));
     SmartDashboard.putData(
         "LUTDev/RecordMiss",
-        ShootingCommands.recordShotCommand(
-            shootingCoordinator, launcher, turret, hood, motivator, spindexer, false));
+        ShootingCommands.recordBatchCommand(shootingCoordinator, launcher, turret, hood, false));
 
     // Data management
-    SmartDashboard.putData("LUTDev/ReloadLUT", ShootingCommands.reloadLUTCommand(shootingCoordinator));
-    SmartDashboard.putData("LUTDev/ClearData", ShootingCommands.clearLUTDataCommand(shootingCoordinator));
+    SmartDashboard.putData(
+        "LUTDev/ReloadLUT", ShootingCommands.reloadLUTCommand(shootingCoordinator));
+    SmartDashboard.putData(
+        "LUTDev/ClearData", ShootingCommands.clearLUTDataCommand(shootingCoordinator));
 
     // LUT dev mode continuous logging (toggle on/off)
     if (turret != null) {
@@ -557,12 +557,12 @@ public class ButtonsAndDashboardBindings {
     if (shootingCoordinator != null && launcher != null) {
       oi.getButtonBox1YAxisPositive()
           .onTrue(
-              ShootingCommands.recordShotCommand(
-                  shootingCoordinator, launcher, turret, hood, motivator, spindexer, true));
+              ShootingCommands.recordBatchCommand(
+                  shootingCoordinator, launcher, turret, hood, true));
       oi.getButtonBox1XAxisNegative()
           .onTrue(
-              ShootingCommands.recordShotCommand(
-                  shootingCoordinator, launcher, turret, hood, motivator, spindexer, false));
+              ShootingCommands.recordBatchCommand(
+                  shootingCoordinator, launcher, turret, hood, false));
     }
 
     // Spindexer feeding suppress - operator can hold to prevent feeding/launching.

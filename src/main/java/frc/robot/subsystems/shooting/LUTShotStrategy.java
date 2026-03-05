@@ -71,8 +71,7 @@ public class LUTShotStrategy implements ShotStrategy {
 
     // Static distance to target
     double staticDistance =
-        Math.sqrt(
-            Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
+        Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
 
     // Velocity compensation iteration using LUT TOF
     Translation3d aimTarget = target;
@@ -82,7 +81,9 @@ public class LUTShotStrategy implements ShotStrategy {
       double tof = lookupTable.lookupTOF(staticDistance);
       if (tof > 0) {
         for (int i = 0; i < VELOCITY_COMP_ITERATIONS; i++) {
-          aimTarget = ShotCalculator.predictTargetPos(target, fieldSpeeds, tof);
+          aimTarget =
+              ShotCalculator.clampAimOffset(
+                  ShotCalculator.predictTargetPos(target, fieldSpeeds, tof), target);
           double aimDistance =
               Math.sqrt(
                   Math.pow(aimTarget.getX() - turretX, 2)
@@ -98,8 +99,7 @@ public class LUTShotStrategy implements ShotStrategy {
     // Final distance to the (possibly velocity-compensated) aim point
     double finalDistance =
         Math.sqrt(
-            Math.pow(aimTarget.getX() - turretX, 2)
-                + Math.pow(aimTarget.getY() - turretY, 2));
+            Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));
 
     // Look up shot params at the final distance
     ShotLookupTable.ShotEntry entry = lookupTable.lookup(finalDistance);

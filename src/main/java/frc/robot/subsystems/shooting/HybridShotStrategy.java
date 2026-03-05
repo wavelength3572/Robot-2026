@@ -66,8 +66,7 @@ public class HybridShotStrategy implements ShotStrategy {
 
     // Static distance
     double staticDistance =
-        Math.sqrt(
-            Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
+        Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
 
     // Velocity compensation using LUT TOF (the key hybrid advantage)
     Translation3d aimTarget = target;
@@ -79,7 +78,9 @@ public class HybridShotStrategy implements ShotStrategy {
       if (tof > 0) {
         usedLutTof = true;
         for (int i = 0; i < VELOCITY_COMP_ITERATIONS; i++) {
-          aimTarget = ShotCalculator.predictTargetPos(target, fieldSpeeds, tof);
+          aimTarget =
+              ShotCalculator.clampAimOffset(
+                  ShotCalculator.predictTargetPos(target, fieldSpeeds, tof), target);
           double aimDistance =
               Math.sqrt(
                   Math.pow(aimTarget.getX() - turretX, 2)

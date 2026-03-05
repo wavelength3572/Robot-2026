@@ -50,7 +50,9 @@ public class ShotLookupTable {
       double timeOfFlightS,
       double motivatorRPM,
       double spindexerRPM) {
-    table.put(distanceMeters, new ShotEntry(rpm, hoodAngleDeg, timeOfFlightS, motivatorRPM, spindexerRPM));
+    table.put(
+        distanceMeters,
+        new ShotEntry(rpm, hoodAngleDeg, timeOfFlightS, motivatorRPM, spindexerRPM));
     return this;
   }
 
@@ -113,17 +115,23 @@ public class ShotLookupTable {
     return entry != null ? entry.timeOfFlightS() : -1.0;
   }
 
-  /** @return true if the table has at least 2 entries (minimum for interpolation) */
+  /**
+   * @return true if the table has at least 2 entries (minimum for interpolation)
+   */
   public boolean hasEnoughData() {
     return table.size() >= 2;
   }
 
-  /** @return true if the table has at least one entry */
+  /**
+   * @return true if the table has at least one entry
+   */
   public boolean hasEntries() {
     return !table.isEmpty();
   }
 
-  /** @return the number of entries in the table */
+  /**
+   * @return the number of entries in the table
+   */
   public int size() {
     return table.size();
   }
@@ -134,21 +142,20 @@ public class ShotLookupTable {
   }
 
   /**
-   * Load data from a list of successful shot data points. Replaces any existing entries. Only
-   * successful shots are used.
+   * Load data from a list of clean LUT entries. Replaces any existing entries.
+   *
+   * @param entries LUT entries from {@link StationaryShotBatchRecorder}
    */
-  public void loadFromDataPoints(List<ShotDataPoint> dataPoints) {
+  public void loadFromLUTEntries(List<StationaryShotBatchRecorder.LUTEntry> entries) {
     table.clear();
-    for (ShotDataPoint p : dataPoints) {
-      if (p.successful()) {
-        addEntry(
-            p.distanceM(),
-            p.targetRPM(),
-            p.targetHoodAngleDeg(),
-            p.timeOfFlightS(),
-            p.targetMotivatorRPM(),
-            p.targetSpindexerRPM());
-      }
+    for (StationaryShotBatchRecorder.LUTEntry e : entries) {
+      addEntry(
+          e.distanceM(),
+          e.rpm(),
+          e.hoodAngleDeg(),
+          e.timeOfFlightS(),
+          e.motivatorRPM(),
+          e.spindexerRPM());
     }
   }
 
@@ -157,8 +164,8 @@ public class ShotLookupTable {
   }
 
   /**
-   * Build the default hub shot lookup table seeded from the known-good fixed shot presets. These are
-   * the HubShot, LeftTrench, and RightTrench values from ShootingCommands tunables.
+   * Build the default hub shot lookup table seeded from the known-good fixed shot presets. These
+   * are the HubShot, LeftTrench, and RightTrench values from ShootingCommands tunables.
    *
    * <p>Replace or supplement with empirical measurements from practice.
    */
