@@ -43,7 +43,23 @@ public final class ShotCalculator {
   /** Turret geometry config (immutable, set once at startup). */
   public record TurretConfig(double heightMeters, double xOffset, double yOffset) {}
 
-  /** Result of a shot calculation. */
+  /**
+   * Result of a shot calculation.
+   *
+   * @param contractionRate How fast the velocity-compensation iteration is converging. This is a
+   *     ratio of successive aim-point corrections: if iteration N moved the aim point by 20 cm and
+   *     iteration N+1 moved it by 2 cm, the contraction rate is 0.1. Lower is better:
+   *     <ul>
+   *       <li>&lt; 0.3 — converging quickly, shot is reliable
+   *       <li>0.3–0.7 — converging, but residual error may be significant
+   *       <li>&gt; 0.7 — barely converging, aim point is unstable (consider not shooting)
+   *       <li>-1.0 — not applicable (robot stationary, so no iteration was needed)
+   *     </ul>
+   *     This comes from fixed-point iteration theory: if the contraction rate is r, the remaining
+   *     error after the final iteration is roughly r × (last correction). So a rate of 0.1 means
+   *     your answer is ~10× better than your last correction — very good. A rate near 1.0 means
+   *     you're not converging and the answer is unreliable.
+   */
   public record ShotResult(
       double exitVelocityMps,
       double launcherRPM, // pre-computed RPM (uses launch efficiency)
@@ -51,7 +67,8 @@ public final class ShotCalculator {
       double hoodAngleDeg,
       double turretAngleDeg, // robot-relative
       Translation3d aimTarget, // velocity-compensated
-      boolean achievable) {
+      boolean achievable,
+      double contractionRate) {
 
     /** Get the launch angle converted to degrees. */
     public double getLaunchAngleDegrees() {
@@ -346,11 +363,53 @@ public final class ShotCalculator {
     return bestOutsideAngle;
   }
 
+  // ========== Convergence Constants ==========
+
+  /**
+   * Maximum number of velocity-compensation iterations (fixed-point iteration).
+   *
+   * <p>Each iteration: estimate time-of-flight → predict where the target appears from the robot's
+   * moving frame → re-solve the shot to the new "virtual goal" → get a new TOF → repeat. With 3
+   * iterations and a typical contraction rate of 0.1–0.3, the residual error is negligible.
+   */
+  private static final int VELOCITY_COMP_MAX_ITERATIONS = 3;
+
+  /**
+   * If the aim point moves less than this between iterations, stop early (meters). 1 cm is well
+   * below any mechanical tolerance on the turret or hood, so further refinement is pointless.
+   */
+  private static final double CONVERGENCE_THRESHOLD_METERS = 0.01;
+
   // ========== Shot Calculations ==========
 
   /**
    * Calculate shot parameters for the hub (uses TrajectoryOptimizer for optimal RPM/angle).
    * Includes velocity compensation for robot movement.
+   *
+   * <h3>How velocity compensation works (the "time-of-flight recursion"):</h3>
+   *
+   * <p>When the robot is moving, the ball's starting position shifts during flight. We compensate
+   * by aiming at a "virtual goal" — the point where the real goal *appears* to be in the robot's
+   * moving reference frame. Finding this virtual goal requires knowing the flight time, but the
+   * flight time depends on the distance to the virtual goal, which we haven't found yet. This
+   * circular dependency is resolved by <b>fixed-point iteration</b>:
+   *
+   * <ol>
+   *   <li>Solve the shot to the real target → get initial time-of-flight (TOF)
+   *   <li>Offset the target by {@code -TOF * robotVelocity} → "virtual goal v1"
+   *   <li>Re-solve the shot to v1 → get a new TOF (distance changed, so TOF changed)
+   *   <li>Offset the *original* target by the new TOF → "virtual goal v2"
+   *   <li>Repeat until the virtual goal stops moving (converges)
+   * </ol>
+   *
+   * <p>We track how much the aim point moved on each iteration. The ratio of successive movements
+   * (the "contraction rate") tells us how reliable the result is — see {@link
+   * ShotResult#contractionRate}.
+   *
+   * <p><b>Why not Newton's method?</b> Fixed-point iteration naturally *fails to converge* when the
+   * shot is infeasible (robot too fast, target behind you). Newton's method can converge to
+   * pathological solutions in those cases. The contraction rate gives us a free "shot quality"
+   * signal that Newton's method doesn't provide. (Source: CD recursive TOF simulator thread.)
    */
   public static ShotResult calculateHubShot(
       Pose2d robotPose,
@@ -370,53 +429,93 @@ public final class ShotCalculator {
     double turretY = turretFieldPos[1];
     Translation3d turretPos = new Translation3d(turretX, turretY, config.heightMeters());
 
-    // Velocity compensation: adjust aim point to counteract robot movement during flight.
-    // Only apply when the initial shot is achievable — if the optimizer fails (returns
-    // exitVelocityMps=0), the ToF calculation produces Double.MAX_VALUE and predictTargetPos
-    // generates infinity coordinates, causing the turret to snap to a garbage angle.
+    // --- Velocity compensation iteration ---
+    //
+    // We keep track of the *last* optimizer result so we can reuse it after the loop exits,
+    // avoiding a redundant 4th optimizer call. The optimizer is the most expensive part of
+    // the shot calculation (it solves a constrained trajectory through two 3D points), so
+    // skipping one call per cycle is a meaningful savings on a 50 Hz control loop.
     Translation3d aimTarget = hubTarget;
+    double contractionRate = -1.0; // -1 means "not applicable" (robot stationary)
+    TrajectoryOptimizer.OptimalShot lastShot =
+        TrajectoryOptimizer.calculateOptimalShot(
+            turretPos, hubTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-    if (robotSpeed > 0.1) {
-      TrajectoryOptimizer.OptimalShot initialShot =
-          TrajectoryOptimizer.calculateOptimalShot(
-              turretPos, hubTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+    if (robotSpeed > 0.1 && lastShot.achievable) {
+      // Seed the iteration with the static shot's time-of-flight.
+      double distanceToTarget =
+          Math.sqrt(
+              Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
+      double tof =
+          calculateTimeOfFlight(
+              lastShot.exitVelocityMps,
+              Math.toRadians(lastShot.launchAngleDeg),
+              distanceToTarget);
 
-      if (initialShot.achievable) {
-        double distanceToTarget =
+      double prevCorrectionDist = 0.0; // how far the aim point moved on the previous iteration
+
+      for (int i = 0; i < VELOCITY_COMP_MAX_ITERATIONS; i++) {
+        // Predict where the target *appears* to be from the robot's moving frame.
+        // We always offset from the ORIGINAL target, not from the last iteration's aim point.
+        // This is important: offsetting from the previous aim point would compound errors.
+        Translation3d newAimTarget =
+            clampAimOffset(predictTargetPos(hubTarget, fieldSpeeds, tof), hubTarget);
+
+        // --- Early exit check ---
+        // Measure how far the aim point moved this iteration compared to last iteration.
+        double correctionDist =
             Math.sqrt(
-                Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
-        double tof =
-            calculateTimeOfFlight(
-                initialShot.exitVelocityMps,
-                Math.toRadians(initialShot.launchAngleDeg),
-                distanceToTarget);
+                Math.pow(newAimTarget.getX() - aimTarget.getX(), 2)
+                    + Math.pow(newAimTarget.getY() - aimTarget.getY(), 2));
 
-        for (int i = 0; i < 3; i++) {
-          aimTarget = clampAimOffset(predictTargetPos(hubTarget, fieldSpeeds, tof), hubTarget);
-          double aimDistance =
-              Math.sqrt(
-                  Math.pow(aimTarget.getX() - turretX, 2)
-                      + Math.pow(aimTarget.getY() - turretY, 2));
-          TrajectoryOptimizer.OptimalShot refinedShot =
-              TrajectoryOptimizer.calculateOptimalShot(
-                  turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
-          if (!refinedShot.achievable) {
-            // Refinement diverged — fall back to raw hub target
-            aimTarget = hubTarget;
-            break;
-          }
-          tof =
-              calculateTimeOfFlight(
-                  refinedShot.exitVelocityMps,
-                  Math.toRadians(refinedShot.launchAngleDeg),
-                  aimDistance);
+        // Compute contraction rate = (this correction) / (previous correction).
+        // Only meaningful from iteration 1 onward (need two corrections to compare).
+        if (i > 0 && prevCorrectionDist > CONVERGENCE_THRESHOLD_METERS) {
+          contractionRate = correctionDist / prevCorrectionDist;
         }
+
+        aimTarget = newAimTarget;
+
+        // If the aim point barely moved, we've converged — no need for more iterations.
+        if (correctionDist < CONVERGENCE_THRESHOLD_METERS) {
+          break;
+        }
+
+        prevCorrectionDist = correctionDist;
+
+        // Re-solve the shot to the new aim point to get an updated TOF.
+        double aimDistance =
+            Math.sqrt(
+                Math.pow(aimTarget.getX() - turretX, 2)
+                    + Math.pow(aimTarget.getY() - turretY, 2));
+        TrajectoryOptimizer.OptimalShot refinedShot =
+            TrajectoryOptimizer.calculateOptimalShot(
+                turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+        if (!refinedShot.achievable) {
+          // Optimizer can't solve at this aim point — the virtual goal is too far off.
+          // Fall back to the static (no velocity compensation) shot.
+          aimTarget = hubTarget;
+          contractionRate = -1.0;
+          break;
+        }
+
+        lastShot = refinedShot;
+        tof =
+            calculateTimeOfFlight(
+                refinedShot.exitVelocityMps,
+                Math.toRadians(refinedShot.launchAngleDeg),
+                aimDistance);
       }
+
+      // If we exited the loop normally (didn't break on !achievable), lastShot already
+      // corresponds to aimTarget. No need for a redundant optimizer call.
     }
 
-    TrajectoryOptimizer.OptimalShot optimalShot =
-        TrajectoryOptimizer.calculateOptimalShot(
-            turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+    // Log the contraction rate for diagnostics. Check this in AdvantageScope —
+    // if it's consistently > 0.7 during matches, the iteration isn't converging
+    // and you may want to slow down or approach the target from a different angle.
+    Logger.recordOutput("Shots/VelocityComp/ContractionRate", contractionRate);
 
     double turretAngleDeg =
         calculateOutsideTurretAngle(
@@ -431,18 +530,22 @@ public final class ShotCalculator {
             config);
 
     return new ShotResult(
-        optimalShot.exitVelocityMps,
-        optimalShot.rpm,
-        Math.toRadians(optimalShot.launchAngleDeg),
-        optimalShot.hoodAngleDeg,
+        lastShot.exitVelocityMps,
+        lastShot.rpm,
+        Math.toRadians(lastShot.launchAngleDeg),
+        lastShot.hoodAngleDeg,
         turretAngleDeg,
         aimTarget,
-        optimalShot.achievable);
+        lastShot.achievable,
+        contractionRate);
   }
 
   /**
    * Calculate shot parameters for a pass to a ground-level target. Uses simple projectile physics
    * with a fixed launch angle instead of the hub-specific TrajectoryOptimizer.
+   *
+   * <p>Velocity compensation uses the same fixed-point iteration as {@link #calculateHubShot}, but
+   * the "solver" here is just the projectile velocity formula instead of TrajectoryOptimizer.
    */
   public static ShotResult calculatePassShot(
       Pose2d robotPose,
@@ -478,13 +581,37 @@ public final class ShotCalculator {
       exitVelocity = 10.0; // fallback
     }
 
-    // Velocity compensation for robot movement
+    // Velocity compensation — same fixed-point iteration as calculateHubShot.
+    // See that method's Javadoc for the full explanation.
     Translation3d aimTarget = passTarget;
+    double contractionRate = -1.0;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+
     if (robotSpeed > 0.1) {
       double tof = calculateTimeOfFlight(exitVelocity, launchAngleRad, horizontalDist);
-      for (int i = 0; i < 3; i++) {
-        aimTarget = clampAimOffset(predictTargetPos(passTarget, fieldSpeeds, tof), passTarget);
+      double prevCorrectionDist = 0.0;
+
+      for (int i = 0; i < VELOCITY_COMP_MAX_ITERATIONS; i++) {
+        Translation3d newAimTarget =
+            clampAimOffset(predictTargetPos(passTarget, fieldSpeeds, tof), passTarget);
+
+        double correctionDist =
+            Math.sqrt(
+                Math.pow(newAimTarget.getX() - aimTarget.getX(), 2)
+                    + Math.pow(newAimTarget.getY() - aimTarget.getY(), 2));
+
+        if (i > 0 && prevCorrectionDist > CONVERGENCE_THRESHOLD_METERS) {
+          contractionRate = correctionDist / prevCorrectionDist;
+        }
+
+        aimTarget = newAimTarget;
+
+        if (correctionDist < CONVERGENCE_THRESHOLD_METERS) {
+          break;
+        }
+
+        prevCorrectionDist = correctionDist;
+
         double aimDist =
             Math.sqrt(
                 Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));
@@ -516,7 +643,8 @@ public final class ShotCalculator {
         90.0 - launchAngleDeg, // convert launch angle to hood angle
         turretAngleDeg,
         aimTarget,
-        true);
+        true,
+        contractionRate);
   }
 
   /**
@@ -565,6 +693,7 @@ public final class ShotCalculator {
         hoodAngleDeg,
         turretAngleDeg,
         target,
-        true);
+        true,
+        -1.0); // manual shot — no velocity compensation iteration
   }
 }

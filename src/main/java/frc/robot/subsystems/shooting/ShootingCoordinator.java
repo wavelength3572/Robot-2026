@@ -324,6 +324,13 @@ public class ShootingCoordinator extends SubsystemBase {
     Logger.recordOutput("Turret/Shot/VelocityCompensation/AimOffsetM", aimOffsetM);
     Logger.recordOutput("Turret/Shot/VelocityCompensation/RobotSpeedMps", robotSpeed);
 
+    // Log contraction rate — the key "shot quality" signal for shoot-on-the-move.
+    // Watch this in AdvantageScope: < 0.3 is great, > 0.7 means the iteration isn't
+    // converging and you should slow down or change your approach angle to the target.
+    // -1.0 means the robot was stationary so no iteration was needed.
+    Logger.recordOutput(
+        "Turret/Shot/VelocityCompensation/ContractionRate", result.contractionRate());
+
     // Log real target position
     Logger.recordOutput("Turret/Shot/Hub", new Pose3d(target, Rotation3d.kZero));
 
