@@ -45,7 +45,7 @@ import frc.robot.subsystems.led.LEDSubsystem;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.motivator.MotivatorIO;
 import frc.robot.subsystems.motivator.MotivatorIOSim;
-import frc.robot.subsystems.motivator.MotivatorIOSparkMax;
+import frc.robot.subsystems.motivator.MotivatorIOSparkFlex;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.spindexer.SpindexerIO;
@@ -102,7 +102,7 @@ public class RobotContainer {
         intake = config.hasIntake() ? new Intake(new IntakeIOSparkMax()) : null;
         launcher = config.hasLauncher() ? new Launcher(new LauncherIOSparkFlex()) : null;
         hood = config.hasHood() ? new Hood(new HoodIOSparkMax()) : null;
-        motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkMax()) : null;
+        motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkFlex()) : null;
         spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSparkMax()) : null;
 
         drive =
