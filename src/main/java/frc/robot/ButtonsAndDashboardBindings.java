@@ -9,6 +9,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OperatorInterface;
+import frc.robot.subsystems.climber.Climber;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.intake.Intake;
@@ -34,6 +35,7 @@ public class ButtonsAndDashboardBindings {
   private static Launcher launcher;
   private static Motivator motivator;
   private static Spindexer spindexer;
+  private static Climber climber;
   private static Hood hood;
   private static ShootingCoordinator shootingCoordinator;
 
@@ -86,6 +88,7 @@ public class ButtonsAndDashboardBindings {
       Motivator motivator,
       Spindexer spindexer,
       Hood hood,
+      Climber climber,
       ShootingCoordinator shootingCoordinator) {
     ButtonsAndDashboardBindings.oi = operatorInterface;
     ButtonsAndDashboardBindings.drive = drive;
@@ -96,6 +99,7 @@ public class ButtonsAndDashboardBindings {
     ButtonsAndDashboardBindings.motivator = motivator;
     ButtonsAndDashboardBindings.spindexer = spindexer;
     ButtonsAndDashboardBindings.hood = hood;
+    ButtonsAndDashboardBindings.climber = climber;
     ButtonsAndDashboardBindings.shootingCoordinator = shootingCoordinator;
 
     configureDriverButtonBindings();
@@ -494,6 +498,7 @@ public class ButtonsAndDashboardBindings {
           .whileTrue(
               ShootingCommands.smartLaunchCommand(
                   launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+                  
       oi.getButtonBox1Button2()
           .whileTrue(
               Commands.run(() -> spindexer.reverseSpindexer(500), spindexer)
@@ -532,9 +537,16 @@ public class ButtonsAndDashboardBindings {
     if (spindexer != null) {
       Trigger suppressTrigger = oi.getButtonBox1Button1();
       suppressTrigger.onTrue(Commands.runOnce(spindexer::suppressFeeding));
-      suppressTrigger.onFalse(Commands.runOnce(spindexer::unsuppressFeeding));
+      suppressTrigger.onFalse(Commands.runOnce(spindexer::unsuppressFeeding)); 
     }
-    ;
+
+    //Climber controls - deploy and climb (requires climber subsystem)
+    if(climber != null) {
+      oi.getButtonBox1Button7() // Deploy Climber - the big switch
+        .onTrue(Commands.runOnce(climber::deployClimber));
+
+         oi.getButtonBox1Button8().onTrue(Commands.runOnce(climber::climb)); // Climb
+    }
   }
 
   /**

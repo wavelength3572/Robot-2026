@@ -70,12 +70,12 @@ public class ClimberIOSpark implements ClimberIO {
       case STOWED:
         climberMotor.set(0.0);
         servoDelay = 0;
-        footDeployTimer = 0;
+        // footDeployTimer = 0;//FIXME: foot Stuff
         break;
       case SERVO:
-        setRelayState(Relay.Value.kReverse); // Foot longer
+        // setRelayState(Relay.Value.kReverse); // Foot longer //FIXME: foot Stuff
         servo.set(0.2);
-        footDeployTimer++;
+        // footDeployTimer++; //FIXME: foot Stuff
         if (servoDelay > 25) { // About .5 seconds
           currentClimberState = CLIMB_STATE.FAST_DEPLOY;
         } else {
@@ -83,13 +83,15 @@ public class ClimberIOSpark implements ClimberIO {
         }
         break;
       case FAST_DEPLOY:
-        if (footDeployTimer >= ClimberConstants.footDeployDuration / 0.02) {
-          setRelayState(Relay.Value.kOff); // Foot stop
-        } else {
-          footDeployTimer++;
-        }
+      //FIXME: foot Stuff
+        // if (footDeployTimer >= ClimberConstants.footDeployDuration / 0.02) {
+        //   setRelayState(Relay.Value.kOff); // Foot stop
+        // } else {
+        //   footDeployTimer++;
+        // }
         targetPosition = ClimberConstants.FAST_DEPLOY_POSITION;
         climberMotor.set(ClimberConstants.climberMaxDeploySpeed); // Deploy as fast as we can
+        //FIXME: wouldn't this mean that we are onlyh in FAST Deploy for one code cycle
         if (climberEncoder.getPosition() < targetPosition) {
           currentClimberState = CLIMB_STATE.DEPLOY;
         }
@@ -100,7 +102,7 @@ public class ClimberIOSpark implements ClimberIO {
             targetPosition, ControlType.kPosition, ClosedLoopSlot.kSlot0);
         break;
       case CLIMB:
-        setRelayState(Relay.Value.kReverse); // Foot longer
+        // setRelayState(Relay.Value.kReverse); // Foot longer //FIXME: foot Stuff
         targetPosition = ClimberConstants.CLIMBED_POSITION;
         climberMotor.set(ClimberConstants.climberMaxClimbSpeed);
         // climberController.setReference(
