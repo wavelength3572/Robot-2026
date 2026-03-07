@@ -1,0 +1,264 @@
+// Copyright (c) 2023-2025 Gold87 and other Elastic contributors
+// This software can be modified and/or shared under the terms
+// defined by the Elastic license:
+// https://github.com/Gold872/elastic-dashboard/blob/main/LICENSE
+
+package frc.robot.util;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.PubSubOption;
+import edu.wpi.first.networktables.StringPublisher;
+import edu.wpi.first.networktables.StringTopic;
+
+public final class Elastic {
+  private static final StringTopic notificationTopic =
+      NetworkTableInstance.getDefault().getStringTopic("/Elastic/RobotNotifications");
+  private static final StringPublisher notificationPublisher =
+      notificationTopic.publish(PubSubOption.sendAll(true), PubSubOption.keepDuplicates(true));
+  private static final StringTopic selectedTabTopic =
+      NetworkTableInstance.getDefault().getStringTopic("/Elastic/SelectedTab");
+  private static final StringPublisher selectedTabPublisher =
+      selectedTabTopic.publish(PubSubOption.keepDuplicates(true));
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+
+  /**
+   * Sends an notification to the Elastic dashboard. The notification is serialized as a JSON string
+   * before being published.
+   *
+   * @param notification the {@link Notification} object containing notification details
+   */
+  public static void sendNotification(Notification notification) {
+    try {
+      notificationPublisher.set(objectMapper.writeValueAsString(notification));
+    } catch (JsonProcessingException e) {
+      e.printStackTrace();
+    }
+  }
+
+  /**
+   * Selects the tab of the dashboard with the given name. If no tab matches the name, this will
+   * have no effect on the widgets or tabs in view.
+   *
+   * <p>If the given name is a number, Elastic will select the tab whose index equals the number
+   * provided.
+   *
+   * @param tabName the name of the tab to select
+   */
+  public static void selectTab(String tabName) {
+    selectedTabPublisher.set(tabName);
+  }
+
+  /**
+   * Selects the tab of the dashboard at the given index. If this index is greater than or equal to
+   * the number of tabs, this will have no effect.
+   *
+   * @param tabIndex the index of the tab to select.
+   */
+  public static void selectTab(int tabIndex) {
+    selectTab(Integer.toString(tabIndex));
+  }
+
+  /**
+   * Represents an notification object to be sent to the Elastic dashboard. This object holds
+   * properties such as level, title, description, display time, and dimensions to control how the
+   * notification is displayed on the dashboard.
+   */
+  public static class Notification {
+    @JsonProperty("level")
+    private NotificationLevel level;
+
+    @JsonProperty("title")
+    private String title;
+
+    @JsonProperty("description")
+    private String description;
+
+    @JsonProperty("displayTime")
+    private int displayTimeMillis;
+
+    @JsonProperty("width")
+    private double width;
+
+    @JsonProperty("height")
+    private double height;
+
+    /**
+     * Creates a new Notification with all default parameters. This constructor is intended to be
+     * used with the chainable decorator methods
+     *
+     * <p>Title and description fields are empty.
+     */
+    public Notification() {
+      this(NotificationLevel.INFO, "", "");
+    }
+
+    /**
+     * Creates a new Notification with all properties specified.
+     *
+     * @param level the level of the notification (e.g., INFO, WARNING, ERROR)
+     * @param title the title text of the notification
+     * @param description the descriptive text of the notification
+     * @param displayTimeMillis the time in milliseconds for which the notification is displayed
+     * @param width the width of the notification display area
+     * @param height the height of the notification display area, inferred if below zero
+     */
+    public Notification(
+        NotificationLevel level,
+        String title,
+        String description,
+        int displayTimeMillis,
+        double width,
+        double height) {
+      this.level = level;
+      this.title = title;
+      this.displayTimeMillis = displayTimeMillis;
+      this.description = description;
+      this.height = height;
+      this.width = width;
+    }
+
+    /**
+     * Creates a new Notification with default display time and dimensions.
+     *
+     * @param level the level of the notification
+     * @param title the title text of the notification
+     * @param description the descriptive text of the notification
+     */
+    public Notification(NotificationLevel level, String title, String description) {
+      this(level, title, description, 3000, 350, -1);
+    }
+
+    /**
+     * Creates a new Notification with a specified display time and default dimensions.
+     *
+     * @param level the level of the notification
+     * @param title the title text of the notification
+     * @param description the descriptive text of the notification
+     * @param displayTimeMillis the display time in milliseconds
+     */
+    public Notification(
+        NotificationLevel level, String title, String description, int displayTimeMillis) {
+      this(level, title, description, displayTimeMillis, 350, -1);
+    }
+
+    /**
+     * Creates a new Notification with specified dimensions and default display time. If the height
+     * is below zero, it is automatically inferred based on screen size.
+     *
+     * @param level the level of the notification
+     * @param title the title text of the notification
+     * @param description the descriptive text of the notification
+     * @param width the width of the notification display area
+     * @param height the height of the notification display area, inferred if below zero
+     */
+    public Notification(
+        NotificationLevel level, String title, String description, double width, double height) {
+      this(level, title, description, 3000, width, height);
+    }
+
+    public void setLevel(NotificationLevel level) {
+      this.level = level;
+    }
+
+    public NotificationLevel getLevel() {
+      return level;
+    }
+
+    public void setTitle(String title) {
+      this.title = title;
+    }
+
+    public String getTitle() {
+      return title;
+    }
+
+    public void setDescription(String description) {
+      this.description = description;
+    }
+
+    public String getDescription() {
+      return description;
+    }
+
+    public void setDisplayTimeSeconds(double seconds) {
+      setDisplayTimeMillis((int) Math.round(seconds * 1000));
+    }
+
+    public void setDisplayTimeMillis(int displayTimeMillis) {
+      this.displayTimeMillis = displayTimeMillis;
+    }
+
+    public int getDisplayTimeMillis() {
+      return displayTimeMillis;
+    }
+
+    public void setWidth(double width) {
+      this.width = width;
+    }
+
+    public double getWidth() {
+      return width;
+    }
+
+    public void setHeight(double height) {
+      this.height = height;
+    }
+
+    public double getHeight() {
+      return height;
+    }
+
+    public Notification withLevel(NotificationLevel level) {
+      this.level = level;
+      return this;
+    }
+
+    public Notification withTitle(String title) {
+      setTitle(title);
+      return this;
+    }
+
+    public Notification withDescription(String description) {
+      setDescription(description);
+      return this;
+    }
+
+    public Notification withDisplaySeconds(double seconds) {
+      return withDisplayMilliseconds((int) Math.round(seconds * 1000));
+    }
+
+    public Notification withDisplayMilliseconds(int displayTimeMillis) {
+      setDisplayTimeMillis(displayTimeMillis);
+      return this;
+    }
+
+    public Notification withWidth(double width) {
+      setWidth(width);
+      return this;
+    }
+
+    public Notification withHeight(double height) {
+      setHeight(height);
+      return this;
+    }
+
+    public Notification withAutomaticHeight() {
+      setHeight(-1);
+      return this;
+    }
+
+    public Notification withNoAutoDismiss() {
+      setDisplayTimeMillis(0);
+      return this;
+    }
+
+    public enum NotificationLevel {
+      INFO,
+      WARNING,
+      ERROR
+    }
+  }
+}
