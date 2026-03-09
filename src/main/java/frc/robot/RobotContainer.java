@@ -41,7 +41,7 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.launcher.LauncherIO;
 import frc.robot.subsystems.launcher.LauncherIOSim;
 import frc.robot.subsystems.launcher.LauncherIOSparkFlex;
-import frc.robot.subsystems.led.LEDSubsystem;
+import frc.robot.subsystems.led.IndicatorLight;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.motivator.MotivatorIO;
 import frc.robot.subsystems.motivator.MotivatorIOSim;
@@ -81,7 +81,7 @@ public class RobotContainer {
   private final Motivator motivator;
   private final Spindexer spindexer;
   private final ShootingCoordinator shootingCoordinator;
-  private final LEDSubsystem leds;
+  private final IndicatorLight leds;
   private OperatorInterface oi = new OperatorInterface() {};
 
   private LoggedDashboardChooser<Command> autoChooser;
@@ -248,9 +248,8 @@ public class RobotContainer {
       shootingCoordinator = null;
     }
 
-    // LED subsystem disabled — not connected
-    // leds = new LEDSubsystem(0, 60, drive, hood);
-    leds = null;
+    // LED subsystem: 42 LEDs on PWM 0, wired in parallel to two physical strips
+    leds = new IndicatorLight();
 
     // Initialize FuelSim for simulation mode (after coordinator so intake can be
     // registered)
