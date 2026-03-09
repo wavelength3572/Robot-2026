@@ -8,6 +8,7 @@ import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.subsystems.led.IndicatorLightConstants.LED_EFFECTS;
+import frc.robot.util.HubShiftUtil;
 import java.util.Random;
 import org.littletonrobotics.junction.Logger;
 
@@ -530,11 +531,21 @@ public class IndicatorLight extends SubsystemBase {
   private LED_EFFECTS updateLightingGoal() {
     // Disabled: orange RSL-style
     if (DriverStation.isDisabled()) {
-      return LED_EFFECTS.RAINBOW;
+      return LED_EFFECTS.RSL;
+    }
+    if (DriverStation.isAutonomous()) {
+      return LED_EFFECTS.PURPLE;
     }
 
-    // Default: blue ombre when enabled
-    return LED_EFFECTS.BLUEOMBRE;
+    // Teleop: green when active, red when inactive, blink white 7s before going active
+    HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getOfficialShiftInfo();
+    if (!shiftInfo.active() && shiftInfo.remainingTime() <= 7.0) {
+      return LED_EFFECTS.BLINK;
+    } else if (shiftInfo.active()) {
+      return LED_EFFECTS.GREEN;
+    } else {
+      return LED_EFFECTS.RED;
+    }
   }
 
   private void doRsl() {

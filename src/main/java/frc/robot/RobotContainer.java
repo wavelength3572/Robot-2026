@@ -61,9 +61,10 @@ import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIODoubleVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.FuelSim;
-import frc.robot.util.MatchPhaseTracker;
+import frc.robot.util.HubShiftUtil;
 import frc.robot.util.RobotStatus;
 import java.io.File;
+import java.util.Optional;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.HashSet;
@@ -85,6 +86,7 @@ public class RobotContainer {
   private OperatorInterface oi = new OperatorInterface() {};
 
   private LoggedDashboardChooser<Command> autoChooser;
+  private final LoggedDashboardChooser<String> allianceWinChooser;
   private boolean lastCompetitionMode = true;
 
   // Simulation: track last selected auto for pose updates
@@ -260,6 +262,19 @@ public class RobotContainer {
     // Register NamedCommands for PathPlanner autos (must be BEFORE
     // buildAutoChooser)
     registerNamedCommands();
+
+    // Alliance win override chooser (for HubShiftUtil shift schedule)
+    allianceWinChooser = new LoggedDashboardChooser<>("Alliance Win Override");
+    allianceWinChooser.addDefaultOption("Auto (FMS)", "auto");
+    allianceWinChooser.addOption("Won Auto", "won");
+    allianceWinChooser.addOption("Lost Auto", "lost");
+    HubShiftUtil.setAllianceWinOverride(
+        () -> {
+          String value = allianceWinChooser.get();
+          if ("won".equals(value)) return Optional.of(true);
+          if ("lost".equals(value)) return Optional.of(false);
+          return Optional.empty();
+        });
 
     // Dashboard toggle: defaults to competition mode (safe for matches)
     SmartDashboard.putBoolean("Competition Mode", false);
@@ -841,10 +856,5 @@ public class RobotContainer {
     if (Constants.currentMode == Constants.Mode.SIM) {
       FuelSim.getInstance().updateSim();
     }
-  }
-
-  /** Update the match phase tracker. Call this from robotPeriodic(). */
-  public void updateMatchPhaseTracker() {
-    MatchPhaseTracker.getInstance().periodic();
   }
 }
