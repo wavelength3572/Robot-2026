@@ -243,9 +243,18 @@ public class RobotContainer {
     if (turret != null) {
       shootingCoordinator = new ShootingCoordinator(turret, hood, launcher, motivator);
       shootingCoordinator.initialize(drive::getPose, drive::getFieldRelativeSpeeds);
-      if (spindexer != null) {
-        shootingCoordinator.setFeedingSuppressedSupplier(spindexer::isFeedingSuppressed);
-      }
+      // Gate launching: suppress if spindexer is suppressed OR hub shift is inactive
+      // (unless "Ignore Hub State" dashboard toggle is on)
+      shootingCoordinator.setFeedingSuppressedSupplier(
+          () -> {
+            // Spindexer operator suppression (button box)
+            if (spindexer != null && spindexer.isFeedingSuppressed()) return true;
+            // Hub shift gating (skip if override is on)
+            if (!SmartDashboard.getBoolean("Match/Ignore Hub State", false)) {
+              return !HubShiftUtil.getShiftedShiftInfo().active();
+            }
+            return false;
+          });
     } else {
       shootingCoordinator = null;
     }
@@ -262,6 +271,9 @@ public class RobotContainer {
     // Register NamedCommands for PathPlanner autos (must be BEFORE
     // buildAutoChooser)
     registerNamedCommands();
+
+    // Dashboard toggle: ignore hub shift state (bypass launch gating)
+    SmartDashboard.putBoolean("Match/Ignore Hub State", false);
 
     // Alliance win override chooser (for HubShiftUtil shift schedule)
     allianceWinChooser = new LoggedDashboardChooser<>("Alliance Win Override");
