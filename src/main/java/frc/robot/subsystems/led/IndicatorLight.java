@@ -2,6 +2,8 @@ package frc.robot.subsystems.led;
 
 import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.AddressableLEDBuffer;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.util.Color;
@@ -16,6 +18,9 @@ public class IndicatorLight extends SubsystemBase {
 
   private LED_EFFECTS currentColor_GOAL = LED_EFFECTS.BLACK;
   private LED_EFFECTS LED_State = LED_EFFECTS.BLACK;
+
+  private final Alert autoWinnerNotSet =
+      new Alert("!!! AUTO WINNER NOT SET - Hub shift schedule unknown !!!", AlertType.kError);
 
   // Define constants for the blink period (in seconds)
   private static final double MAX_BLINK_PERIOD = 0.5; // far from target, slow blink
@@ -535,6 +540,15 @@ public class IndicatorLight extends SubsystemBase {
     }
     if (DriverStation.isAutonomous()) {
       return LED_EFFECTS.PURPLE;
+    }
+
+    // Alert: no game data and no dashboard override — shift schedule is unknown
+    boolean gameDataMissing =
+        DriverStation.getGameSpecificMessage().isEmpty()
+            && HubShiftUtil.getAllianceWinOverride().isEmpty();
+    autoWinnerNotSet.set(gameDataMissing);
+    if (gameDataMissing) {
+      return LED_EFFECTS.BLINK_RED;
     }
 
     // Teleop: green when active, red when inactive, blink white 7s before going active
