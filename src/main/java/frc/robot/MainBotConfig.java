@@ -142,7 +142,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double launcherKp = 0.00004;
   private static final double launcherKi = 0.0;
   private static final double launcherKd = 0.003;
-  private static final double launcherKv = 0.00177;
+  private static final double launcherKv = 0.0017;
   private static final double launcherKs = 0.31;
 
   // Hood Configuration
