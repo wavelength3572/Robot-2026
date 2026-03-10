@@ -142,7 +142,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double launcherKp = 0.00004;
   private static final double launcherKi = 0.0;
   private static final double launcherKd = 0.003;
-  private static final double launcherKv = 0.001742;
+  private static final double launcherKv = 0.00177;
   private static final double launcherKs = 0.31;
 
   // Hood Configuration
@@ -159,7 +159,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double motivatorKp = 0.00001;
   private static final double motivatorKd = 0.0;
   private static final double motivatorKs = 0.23368;
-  private static final double motivatorKv = 0.0021;
+  private static final double motivatorKv = 0.00175;
   private static final double motivatorGearRatio = 1.0 / 3.0;
 
   // Spindexer Configuration
