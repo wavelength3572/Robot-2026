@@ -5,6 +5,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
@@ -142,7 +143,11 @@ public class ShootingCommands {
 
   // Max robot speed for smart launch feeding — above this, subsystems track but don't feed
   private static final LoggedTunableNumber smartShotMaxFeedSpeedMps =
-      new LoggedTunableNumber("Shots/SmartLaunch/MaxFeedSpeedMps", 0.5);
+      new LoggedTunableNumber("Shots/SmartLaunch/MaxFeedSpeedMps", 0.75);
+
+  // Drive speed limit applied while smart launch with speed limit is active
+  private static final LoggedTunableNumber smartLaunchDriveSpeedLimitMps =
+      new LoggedTunableNumber("Shots/SmartLaunch/DriveSpeedLimitMps", 0.75);
 
   // ===== BenchTest/Shooting/* Override Values (for controlled manual testing)
   // =====
@@ -943,6 +948,41 @@ public class ShootingCommands {
   }
 
   /**
+   * Smart launch with drive speed limiting. Runs the smart launch command in parallel with a
+   * speed-limited joystick drive command, so the robot can't exceed the tunable speed limit while
+   * shooting on the move. When released, the default drive command resumes automatically.
+   *
+   * @param launcher The launcher subsystem
+   * @param coordinator The shooting coordinator
+   * @param motivator The motivator subsystem (can be null)
+   * @param turret The turret subsystem
+   * @param hood The hood subsystem (can be null)
+   * @param spindexer The spindexer subsystem (can be null)
+   * @param drive The drive subsystem
+   * @param xSupplier Joystick X axis supplier
+   * @param ySupplier Joystick Y axis supplier
+   * @param omegaSupplier Joystick rotation supplier
+   * @return Command that aims, fires, and limits drive speed while held
+   */
+  public static Command smartLaunchWithSpeedLimitCommand(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer,
+      Drive drive,
+      DoubleSupplier xSupplier,
+      DoubleSupplier ySupplier,
+      DoubleSupplier omegaSupplier) {
+    return Commands.parallel(
+            smartLaunchCommand(launcher, coordinator, motivator, turret, hood, spindexer),
+            DriveCommands.joystickDriveSpeedLimited(
+                drive, xSupplier, ySupplier, omegaSupplier, smartLaunchDriveSpeedLimitMps::get))
+        .withName("SmartLaunch (Speed Limited)");
+  }
+
+  /**
    * Auto-tracking command. Continuously aims turret and hood at the calculated target based on
    * odometry. When used as a toggle, keeps the turret/hood pre-aimed so that firing commands
    * (smartLaunch, hub shot, etc.) can skip the positioning phase — they interrupt this command via
@@ -1004,7 +1044,11 @@ public class ShootingCommands {
   private static Command createBenchTestFiringLoop(
       ShootingCoordinator coordinator, Launcher launcher, Turret turret) {
     return Commands.sequence(
-            Commands.waitUntil(() -> turret.atTarget() && isRobotSlowEnoughToFeed(coordinator)),
+            Commands.waitUntil(
+                () ->
+                    turret.atTarget()
+                        && launcher.atSetpoint()
+                        && isRobotSlowEnoughToFeed(coordinator)),
             Commands.runOnce(
                 () -> {
                   coordinator.launchFuel();

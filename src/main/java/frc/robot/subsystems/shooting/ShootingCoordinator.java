@@ -92,7 +92,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber autoShootMinInterval =
       new LoggedTunableNumber("BenchTest/AutoShoot/MinInterval", 0.15);
   private final LoggedTunableNumber autoShootMaxSpeedMps =
-      new LoggedTunableNumber("BenchTest/AutoShoot/MaxSpeedMps", 0.01);
+      new LoggedTunableNumber("BenchTest/AutoShoot/MaxSpeedMps", 0.75);
 
   /**
    * Creates a new ShootingCoordinator.
@@ -171,6 +171,14 @@ public class ShootingCoordinator extends SubsystemBase {
         visualizer.update(createVisualizerSnapshot(isBlueAlliance));
       }
       return;
+    }
+
+    // Always log robot speed for shoot-on-the-move tuning
+    if (fieldSpeedsSupplier != null) {
+      ChassisSpeeds speeds = fieldSpeedsSupplier.get();
+      Logger.recordOutput(
+          "SmartLaunch/RobotSpeedMps",
+          Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond));
     }
 
     updateShotCalculation(alliance, isBlueAlliance);

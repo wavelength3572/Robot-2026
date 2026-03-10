@@ -100,6 +100,48 @@ public class DriveCommands {
   }
 
   /**
+   * Field relative drive command with a linear speed cap. Joystick inputs are scaled so the robot
+   * never exceeds the given speed limit (m/s), regardless of how far the sticks are pushed.
+   */
+  public static Command joystickDriveSpeedLimited(
+      Drive drive,
+      DoubleSupplier xSupplier,
+      DoubleSupplier ySupplier,
+      DoubleSupplier omegaSupplier,
+      DoubleSupplier speedLimitMps) {
+    return Commands.run(
+        () -> {
+          // Get linear velocity (0-1 magnitude after deadband + squaring)
+          Translation2d linearVelocity =
+              getLinearVelocityFromJoysticks(xSupplier.getAsDouble(), ySupplier.getAsDouble());
+
+          // Scale linear velocity so it caps at the speed limit
+          double maxSpeed = drive.getMaxLinearSpeedMetersPerSec();
+          double limit = speedLimitMps.getAsDouble();
+          double scale = (maxSpeed > 0.0 && limit < maxSpeed) ? limit / maxSpeed : 1.0;
+          linearVelocity = linearVelocity.times(scale);
+
+          // Apply rotation deadband
+          double omega = MathUtil.applyDeadband(omegaSupplier.getAsDouble(), OMEGA_DEADBAND);
+          omega = Math.copySign(omega * omega, omega);
+
+          ChassisSpeeds speeds =
+              new ChassisSpeeds(
+                  linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec(),
+                  linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec(),
+                  omega * drive.getMaxAngularSpeedRadPerSec());
+          boolean isFlipped = RobotStatus.getAlliance() == Alliance.Red;
+          drive.runVelocity(
+              ChassisSpeeds.fromFieldRelativeSpeeds(
+                  speeds,
+                  isFlipped
+                      ? drive.getRotation().plus(new Rotation2d(Math.PI))
+                      : drive.getRotation()));
+        },
+        drive);
+  }
+
+  /**
    * Field relative drive command using joystick for linear control and PID for angular control.
    * Possible use cases include snapping to an angle, aiming at a vision target, or controlling
    * absolute rotation with a joystick.

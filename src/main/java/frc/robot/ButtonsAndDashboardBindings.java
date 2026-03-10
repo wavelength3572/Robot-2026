@@ -454,8 +454,6 @@ public class ButtonsAndDashboardBindings {
     // Data management
     SmartDashboard.putData(
         "LUTDev/ReloadLUT", ShootingCommands.reloadLUTCommand(shootingCoordinator));
-    SmartDashboard.putData(
-        "LUTDev/ClearData", ShootingCommands.clearLUTDataCommand(shootingCoordinator));
 
     // LUT dev mode continuous logging (toggle on/off)
     if (turret != null) {
@@ -553,16 +551,21 @@ public class ButtonsAndDashboardBindings {
                   launcher, shootingCoordinator, motivator, turret, hood, spindexer));
     }
 
-    // LUT recording: Y-axis positive = Record Success, X-axis negative = Record Miss
-    if (shootingCoordinator != null && launcher != null) {
-      oi.getButtonBox1YAxisPositive()
-          .onTrue(
-              ShootingCommands.recordBatchCommand(
-                  shootingCoordinator, launcher, turret, hood, true));
+    // Smart launch with speed limit: X-axis negative — shoot on the move with capped drive speed
+    if (shootingCoordinator != null && launcher != null && turret != null && drive != null) {
       oi.getButtonBox1XAxisNegative()
-          .onTrue(
-              ShootingCommands.recordBatchCommand(
-                  shootingCoordinator, launcher, turret, hood, false));
+          .whileTrue(
+              ShootingCommands.smartLaunchWithSpeedLimitCommand(
+                  launcher,
+                  shootingCoordinator,
+                  motivator,
+                  turret,
+                  hood,
+                  spindexer,
+                  drive,
+                  oi::getTranslateX,
+                  oi::getTranslateY,
+                  oi::getRotate));
     }
 
     // Spindexer feeding suppress - operator can hold to prevent feeding/launching.

@@ -43,7 +43,7 @@ public class ShotVisualizer {
 
   // Max robot speed for showing trajectories (matches SmartLaunch feed speed gate)
   private static final LoggedTunableNumber maxFeedSpeedMps =
-      new LoggedTunableNumber("Shots/SmartLaunch/MaxFeedSpeedMps", 0.5);
+      new LoggedTunableNumber("Shots/SmartLaunch/MaxFeedSpeedMps", 0.75);
 
   // Threshold for determining launcher status
   private static final double RPM_VELOCITY_THRESHOLD = 50.0;
