@@ -41,11 +41,11 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.launcher.LauncherIO;
 import frc.robot.subsystems.launcher.LauncherIOSim;
 import frc.robot.subsystems.launcher.LauncherIOSparkFlex;
-import frc.robot.subsystems.led.LEDSubsystem;
+import frc.robot.subsystems.led.IndicatorLight;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.motivator.MotivatorIO;
 import frc.robot.subsystems.motivator.MotivatorIOSim;
-import frc.robot.subsystems.motivator.MotivatorIOSparkMax;
+import frc.robot.subsystems.motivator.MotivatorIOSparkFlex;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.spindexer.SpindexerIO;
@@ -61,12 +61,13 @@ import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIODoubleVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.FuelSim;
-import frc.robot.util.MatchPhaseTracker;
+import frc.robot.util.HubShiftUtil;
 import frc.robot.util.RobotStatus;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -81,10 +82,11 @@ public class RobotContainer {
   private final Motivator motivator;
   private final Spindexer spindexer;
   private final ShootingCoordinator shootingCoordinator;
-  private final LEDSubsystem leds;
+  private final IndicatorLight leds;
   private OperatorInterface oi = new OperatorInterface() {};
 
   private LoggedDashboardChooser<Command> autoChooser;
+  private final LoggedDashboardChooser<String> allianceWinChooser;
   private boolean lastCompetitionMode = true;
 
   // Simulation: track last selected auto for pose updates
@@ -102,7 +104,7 @@ public class RobotContainer {
         intake = config.hasIntake() ? new Intake(new IntakeIOSparkMax()) : null;
         launcher = config.hasLauncher() ? new Launcher(new LauncherIOSparkFlex()) : null;
         hood = config.hasHood() ? new Hood(new HoodIOSparkMax()) : null;
-        motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkMax()) : null;
+        motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkFlex()) : null;
         spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSparkMax()) : null;
 
         drive =
@@ -126,12 +128,13 @@ public class RobotContainer {
             config.hasVision()
                 ? new Vision(
                     drive::addVisionMeasurement,
+                    new String[] {"CenterRear", "RightFront", "LeftRear", "RightRear"},
                     new VisionIO() {},
                     new VisionIO() {},
                     new VisionIODoubleVision(
-                        VisionConstants.backLeftCam, VisionConstants.mainBotToBackLeftCam),
+                        VisionConstants.leftRearCam, VisionConstants.mainBotToLeftRearCam),
                     new VisionIODoubleVision(
-                        VisionConstants.backRightCam, VisionConstants.mainBotToBackRightCam))
+                        VisionConstants.rightRearCam, VisionConstants.mainBotToRightRearCam))
                 : null;
         break;
 
@@ -156,21 +159,22 @@ public class RobotContainer {
             config.hasVision()
                 ? new Vision(
                     drive::addVisionMeasurement,
+                    new String[] {"CenterRear", "RightFront", "LeftRear", "RightRear"},
                     new VisionIOPhotonVisionSim(
-                        VisionConstants.frontLeftCam,
-                        VisionConstants.mainBotToFrontLeftCam,
+                        VisionConstants.centerRearCam,
+                        VisionConstants.mainBotToCenterRearCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
-                        VisionConstants.frontRightCam,
-                        VisionConstants.mainBotToFrontRightCam,
+                        VisionConstants.rightFrontCam,
+                        VisionConstants.mainBotToRightFrontCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
-                        VisionConstants.backLeftCam,
-                        VisionConstants.mainBotToBackLeftCam,
+                        VisionConstants.leftRearCam,
+                        VisionConstants.mainBotToLeftRearCam,
                         RobotStatus::getRobotPose),
                     new VisionIOPhotonVisionSim(
-                        VisionConstants.backRightCam,
-                        VisionConstants.mainBotToBackRightCam,
+                        VisionConstants.rightRearCam,
+                        VisionConstants.mainBotToRightRearCam,
                         RobotStatus::getRobotPose))
                 : null;
         break;
@@ -197,6 +201,7 @@ public class RobotContainer {
             config.hasVision()
                 ? new Vision(
                     (pose, time, stdDevs) -> {},
+                    new String[] {"CenterRear", "RightFront", "LeftRear", "RightRear"},
                     new VisionIO() {},
                     new VisionIO() {},
                     new VisionIO() {},
@@ -241,16 +246,24 @@ public class RobotContainer {
     if (turret != null) {
       shootingCoordinator = new ShootingCoordinator(turret, hood, launcher, motivator);
       shootingCoordinator.initialize(drive::getPose, drive::getFieldRelativeSpeeds);
-      if (spindexer != null) {
-        shootingCoordinator.setFeedingSuppressedSupplier(spindexer::isFeedingSuppressed);
-      }
+      // Gate launching: suppress if spindexer is suppressed OR hub shift is inactive
+      // (unless "Ignore Hub State" dashboard toggle is on)
+      shootingCoordinator.setFeedingSuppressedSupplier(
+          () -> {
+            // Spindexer operator suppression (button box)
+            if (spindexer != null && spindexer.isFeedingSuppressed()) return true;
+            // Hub shift gating (skip if override is on)
+            if (!SmartDashboard.getBoolean("Match/Ignore Hub State", false)) {
+              return !HubShiftUtil.getShiftedShiftInfo().active();
+            }
+            return false;
+          });
     } else {
       shootingCoordinator = null;
     }
 
-    // LED subsystem disabled — not connected
-    // leds = new LEDSubsystem(0, 60, drive, hood);
-    leds = null;
+    // LED subsystem: 42 LEDs on PWM 0, wired in parallel to two physical strips
+    leds = new IndicatorLight();
 
     // Initialize FuelSim for simulation mode (after coordinator so intake can be
     // registered)
@@ -261,6 +274,54 @@ public class RobotContainer {
     // Register NamedCommands for PathPlanner autos (must be BEFORE
     // buildAutoChooser)
     registerNamedCommands();
+
+    // Dashboard toggle: ignore hub shift state (bypass launch gating)
+    SmartDashboard.putBoolean("Match/Ignore Hub State", false);
+
+    // Alliance win override chooser (for HubShiftUtil shift schedule)
+    allianceWinChooser = new LoggedDashboardChooser<>("Alliance Win Override");
+    allianceWinChooser.addDefaultOption("Auto (FMS)", "auto");
+    allianceWinChooser.addOption("Won Auto", "won");
+    allianceWinChooser.addOption("Lost Auto", "lost");
+    HubShiftUtil.setAllianceWinOverride(
+        () -> {
+          String value = allianceWinChooser.get();
+          if ("won".equals(value)) return Optional.of(true);
+          if ("lost".equals(value)) return Optional.of(false);
+          return Optional.empty();
+        });
+
+    // Launcher default command: pre-spin flywheel before active hub shifts so
+    // the robot is ready to fire instantly.  Shooting commands (smartLaunch,
+    // hubShot, etc.) override this via subsystem requirements; when they end the
+    // default resumes.
+    if (launcher != null) {
+      launcher.setDefaultCommand(
+          Commands.run(
+                  () -> {
+                    // Safety: without FMS, require an explicit alliance win override
+                    // so the flywheel doesn't surprise-spin at the shop.
+                    if (!edu.wpi.first.wpilibj.DriverStation.isFMSAttached()
+                        && "auto".equals(allianceWinChooser.get())) {
+                      launcher.stop();
+                      return;
+                    }
+                    HubShiftUtil.ShiftInfo shift = HubShiftUtil.getShiftedShiftInfo();
+                    boolean shouldSpin =
+                        shift.active() || (!shift.active() && shift.remainingTime() <= 3.0);
+                    if (shouldSpin
+                        && shootingCoordinator != null
+                        && shootingCoordinator.getCurrentShot() != null) {
+                      launcher.setVelocity(shootingCoordinator.getCurrentShot().launcherRPM());
+                    } else if (shouldSpin) {
+                      launcher.setVelocity(1500.0);
+                    } else {
+                      launcher.stop();
+                    }
+                  },
+                  launcher)
+              .withName("LauncherShiftIdle"));
+    }
 
     // Dashboard toggle: defaults to competition mode (safe for matches)
     SmartDashboard.putBoolean("Competition Mode", false);
@@ -842,10 +903,5 @@ public class RobotContainer {
     if (Constants.currentMode == Constants.Mode.SIM) {
       FuelSim.getInstance().updateSim();
     }
-  }
-
-  /** Update the match phase tracker. Call this from robotPeriodic(). */
-  public void updateMatchPhaseTracker() {
-    MatchPhaseTracker.getInstance().periodic();
   }
 }

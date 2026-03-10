@@ -183,7 +183,7 @@ public class MainBotConfig implements RobotConfig {
   // 80A through 20:1 gearbox is enormous torque - lower limit for safer tuning.
   // Can increase once PID is tuned and mechanism moves smoothly.
   private static final int intakeDeployCurrentLimit = 40;
-  private static final int intakeRollerCurrentLimit = 110;
+  private static final int intakeRollerCurrentLimit = 40;
   private static final double intakeDeployStowedPosition = 0.0;
   private static final double intakeDeployRetractedPosition = 0.0;
   private static final double intakeDeployExtendedPosition = 0.07;
