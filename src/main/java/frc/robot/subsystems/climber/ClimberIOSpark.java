@@ -32,7 +32,7 @@ public class ClimberIOSpark implements ClimberIO {
   public ClimberIOSpark() {
     RobotConfig config = Constants.getRobotConfig();
 
-    climberMotor = new SparkMax(99, MotorType.kBrushless);
+    climberMotor = new SparkMax(config.getClimberCanId(), MotorType.kBrushless);
     climberEncoder = climberMotor.getEncoder();
     climberController = climberMotor.getClosedLoopController();
 

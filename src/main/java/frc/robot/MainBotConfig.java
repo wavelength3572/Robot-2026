@@ -201,6 +201,9 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeDeployMaxVelocity = 80.0; // RPM output shaft
   private static final double intakeDeployMaxAcceleration = 80.0; // RPM/s output shaft
 
+  // Climber Configuration
+  private static final int climberMotorCanId = 30;
+
   // Performance
   private static final double maxSpeedMetersPerSec =
       5676.0 / 60.0 / driveMotorReduction * 2.0 * Math.PI * wheelRadiusMeters * 0.95;
@@ -902,5 +905,10 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getIntakeDeployMaxAcceleration() {
     return intakeDeployMaxAcceleration;
+  }
+
+  @Override
+  public int getClimberCanId() {
+    return climberMotorCanId;
   }
 }

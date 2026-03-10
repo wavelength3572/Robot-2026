@@ -553,4 +553,9 @@ public interface RobotConfig {
   default double getIntakeDeployMaxAcceleration() {
     return 5.0;
   }
+
+  /** Hood Climber CAN ID. */
+  default int getClimberCanId() {
+    return 0;
+  }
 }
