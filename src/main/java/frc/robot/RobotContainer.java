@@ -288,6 +288,38 @@ public class RobotContainer {
           return Optional.empty();
         });
 
+    // Launcher default command: pre-spin flywheel before active hub shifts so
+    // the robot is ready to fire instantly.  Shooting commands (smartLaunch,
+    // hubShot, etc.) override this via subsystem requirements; when they end the
+    // default resumes.
+    if (launcher != null) {
+      launcher.setDefaultCommand(
+          Commands.run(
+                  () -> {
+                    // Safety: without FMS, require an explicit alliance win override
+                    // so the flywheel doesn't surprise-spin at the shop.
+                    if (!edu.wpi.first.wpilibj.DriverStation.isFMSAttached()
+                        && "auto".equals(allianceWinChooser.get())) {
+                      launcher.stop();
+                      return;
+                    }
+                    HubShiftUtil.ShiftInfo shift = HubShiftUtil.getShiftedShiftInfo();
+                    boolean shouldSpin =
+                        shift.active() || (!shift.active() && shift.remainingTime() <= 3.0);
+                    if (shouldSpin
+                        && shootingCoordinator != null
+                        && shootingCoordinator.getCurrentShot() != null) {
+                      launcher.setVelocity(shootingCoordinator.getCurrentShot().launcherRPM());
+                    } else if (shouldSpin) {
+                      launcher.setVelocity(1500.0);
+                    } else {
+                      launcher.stop();
+                    }
+                  },
+                  launcher)
+              .withName("LauncherShiftIdle"));
+    }
+
     // Dashboard toggle: defaults to competition mode (safe for matches)
     SmartDashboard.putBoolean("Competition Mode", false);
     autoChooser = buildAutoChooserForMode(true);
