@@ -84,7 +84,7 @@ public class MotivatorIOSparkMax implements MotivatorIO {
 
     var motor1Config = new SparkMaxConfig();
     motor1Config
-        .inverted(true) // TODO: Make robot-specific when MainBot is ready
+        .inverted(true)
         .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(config.getMotivatorCurrentLimit())
         .voltageCompensation(12.0);

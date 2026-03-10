@@ -83,7 +83,7 @@ public class SpindexerIOSparkMax implements SpindexerIO {
 
     var motor1Config = new SparkMaxConfig();
     motor1Config
-        .inverted(false) // TODO: Make robot-specific when MainBot is ready
+        .inverted(false)
         .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(config.getSpindexerCurrentLimit())
         .voltageCompensation(12.0);

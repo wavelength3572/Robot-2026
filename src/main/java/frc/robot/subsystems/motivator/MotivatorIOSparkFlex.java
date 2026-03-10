@@ -78,7 +78,7 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
 
     var motorConfig = new SparkFlexConfig();
     motorConfig
-        .inverted(false) // TODO: Make robot-specific when MainBot is ready
+        .inverted(false)
         .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(config.getMotivatorCurrentLimit())
         .voltageCompensation(12.0);
