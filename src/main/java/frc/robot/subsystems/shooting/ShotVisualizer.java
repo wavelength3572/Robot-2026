@@ -41,10 +41,6 @@ public class ShotVisualizer {
   private final Translation3d[] whatIfTrajectory = new Translation3d[TRAJECTORY_POINTS];
   private static final Translation3d[] EMPTY_TRAJECTORY = new Translation3d[0];
 
-  // Max robot speed for showing trajectories (matches SmartLaunch feed speed gate)
-  private static final LoggedTunableNumber maxFeedSpeedMps =
-      new LoggedTunableNumber("Shots/SmartLaunch/MaxFeedSpeedMps", 0.75);
-
   // Threshold for determining launcher status
   private static final double RPM_VELOCITY_THRESHOLD = 50.0;
   private static final double RPM_SETPOINT_TOLERANCE = 100.0; // RPM tolerance for "at setpoint"
@@ -344,32 +340,18 @@ public class ShotVisualizer {
 
     this.currentAzimuthAngle = targetAzimuthAngle;
 
-    // Check if robot is too fast to fire — hide trajectories if so
-    ChassisSpeeds speeds = fieldSpeedsSupplier.get();
-    double robotSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
-    boolean tooFastToFire = robotSpeed > maxFeedSpeedMps.get();
-    Logger.recordOutput("Turret/Trajectory/TooFastToFire", tooFastToFire);
+    // Actual trajectory: aim direction + robot velocity (what the sim ball does)
+    updateActualTrajectory(
+        shotResult.exitVelocityMps(), shotResult.launchAngleRad(), targetAzimuthAngle);
 
-    if (tooFastToFire) {
-      // Clear all trajectories — robot won't fire at this speed
-      Logger.recordOutput("Turret/Trajectory/Red", EMPTY_TRAJECTORY);
-      Logger.recordOutput("Turret/Trajectory/Yellow", EMPTY_TRAJECTORY);
-      Logger.recordOutput("Turret/Trajectory/Green", EMPTY_TRAJECTORY);
-      Logger.recordOutput("Turret/Trajectory/StaticAim", EMPTY_TRAJECTORY);
-    } else {
-      // Actual trajectory: aim direction + robot velocity (what the sim ball does)
-      updateActualTrajectory(
-          shotResult.exitVelocityMps(), shotResult.launchAngleRad(), targetAzimuthAngle);
-
-      // Static aim trajectory: aim direction only, no robot velocity
-      // Shows where the turret is pointing — what a stationary robot would produce
-      calculateStaticTrajectoryPoints(
-          shotResult.exitVelocityMps(),
-          shotResult.launchAngleRad(),
-          targetAzimuthAngle,
-          whatIfTrajectory);
-      Logger.recordOutput("Turret/Trajectory/StaticAim", whatIfTrajectory);
-    }
+    // Static aim trajectory: aim direction only, no robot velocity
+    // Shows where the turret is pointing — what a stationary robot would produce
+    calculateStaticTrajectoryPoints(
+        shotResult.exitVelocityMps(),
+        shotResult.launchAngleRad(),
+        targetAzimuthAngle,
+        whatIfTrajectory);
+    Logger.recordOutput("Turret/Trajectory/StaticAim", whatIfTrajectory);
 
     Logger.recordOutput("Turret/Shot/CurrentRPM", ShotCalculator.getCurrentLauncherRPM());
     Logger.recordOutput(
