@@ -5,6 +5,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.ProxyCommand;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.ShootingCommands;
@@ -186,6 +187,7 @@ public class ButtonsAndDashboardBindings {
           "Shots/SmartLaunch/Fire",
           ShootingCommands.smartLaunchCommand(
               launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+      SmartDashboard.putBoolean("Shots/SmartLaunch/SpeedLimitMode", false);
       SmartDashboard.putData(
           "Shots/AutoTrack/Toggle",
           ShootingCommands.autoTrackCommand(shootingCoordinator, turret, hood));
@@ -512,12 +514,28 @@ public class ButtonsAndDashboardBindings {
                   intake));
     }
 
-    // Smart launch: D-pad Up + Button 2 — odometry-based aiming (hub or pass)
-    if (shootingCoordinator != null && launcher != null && turret != null) {
+    // Smart launch: D-pad Up — mode selected by dashboard toggle
+    if (shootingCoordinator != null && launcher != null && turret != null && drive != null) {
       oi.getButtonBox1YAxisNegative()
           .whileTrue(
-              ShootingCommands.smartLaunchCommand(
-                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+              new ProxyCommand(
+                  () ->
+                      SmartDashboard.getBoolean("Shots/SmartLaunch/SpeedLimitMode", false)
+                          ? ShootingCommands.smartLaunchWithSpeedLimitCommand(
+                              launcher,
+                              shootingCoordinator,
+                              motivator,
+                              turret,
+                              hood,
+                              spindexer,
+                              drive,
+                              oi::getTranslateX,
+                              oi::getTranslateY,
+                              oi::getRotate)
+                          : ShootingCommands.smartLaunchCommand(
+                              launcher, shootingCoordinator, motivator, turret, hood, spindexer)));
+
+      // Unclog Button
       oi.getButtonBox1Button2()
           .whileTrue(
               Commands.run(() -> spindexer.reverseSpindexer(500), spindexer)
@@ -551,27 +569,10 @@ public class ButtonsAndDashboardBindings {
                   launcher, shootingCoordinator, motivator, turret, hood, spindexer));
     }
 
-    // Smart launch with speed limit: X-axis negative — shoot on the move with capped drive speed
-    if (shootingCoordinator != null && launcher != null && turret != null && drive != null) {
-      oi.getButtonBox1XAxisNegative()
-          .whileTrue(
-              ShootingCommands.smartLaunchWithSpeedLimitCommand(
-                  launcher,
-                  shootingCoordinator,
-                  motivator,
-                  turret,
-                  hood,
-                  spindexer,
-                  drive,
-                  oi::getTranslateX,
-                  oi::getTranslateY,
-                  oi::getRotate));
-    }
-
     // Spindexer feeding suppress - operator can hold to prevent feeding/launching.
     // Uses a flag so shooting commands keep running and resume feeding instantly on release.
     if (spindexer != null) {
-      Trigger suppressTrigger = oi.getButtonBox1Button1();
+      Trigger suppressTrigger = oi.getButtonBox1YAxisPositive();
       suppressTrigger.onTrue(Commands.runOnce(spindexer::suppressFeeding));
       suppressTrigger.onFalse(Commands.runOnce(spindexer::unsuppressFeeding));
     }
