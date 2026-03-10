@@ -79,7 +79,7 @@ public class SquareBotConfig implements RobotConfig {
   private static final double driveSimP = 0.05;
   private static final double driveSimD = 0.0;
   private static final double driveSimKs = 0.04307;
-  private static final double driveSimKv = 0.21126;
+  private static final double driveSimKv = 0.134;
 
   // Turn motor configuration
   private static final boolean turnInverted = true;

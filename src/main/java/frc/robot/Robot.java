@@ -156,7 +156,6 @@ public class Robot extends LoggedRobot {
   public void teleopInit() {
     HubShiftUtil.initialize(); // Start the match phase tracker at the beginning of teleop
 
-
     // This makes sure that the autonomous stops running when
     // teleop starts running. If you want the autonomous to
     // continue until interrupted by another command, remove
