@@ -33,7 +33,7 @@ public class Robot extends LoggedRobot {
   private RobotContainer robotContainer;
 
   public Robot() {
-    super(0.02); // 20ms (50Hz) for both sim and real
+    super(Constants.currentMode == Constants.Mode.SIM ? 0.05 : 0.02);
     // Record metadata
     Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
     Logger.recordMetadata("BuildDate", BuildConstants.BUILD_DATE);
