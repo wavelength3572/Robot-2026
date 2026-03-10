@@ -276,7 +276,7 @@ public class RobotContainer {
     registerNamedCommands();
 
     // Dashboard toggle: ignore hub shift state (bypass launch gating)
-    SmartDashboard.putBoolean("Match/Ignore Hub State", false);
+    SmartDashboard.putBoolean("Match/Ignore Hub State", true);
 
     // Alliance win override chooser (for HubShiftUtil shift schedule)
     allianceWinChooser = new LoggedDashboardChooser<>("Alliance Win Override");
@@ -299,6 +299,11 @@ public class RobotContainer {
       launcher.setDefaultCommand(
           Commands.run(
                   () -> {
+                    // When ignoring hub state (practice mode), skip pre-spin entirely
+                    if (SmartDashboard.getBoolean("Match/Ignore Hub State", true)) {
+                      launcher.stop();
+                      return;
+                    }
                     // Safety: without FMS, require an explicit alliance win override
                     // so the flywheel doesn't surprise-spin at the shop.
                     if (!edu.wpi.first.wpilibj.DriverStation.isFMSAttached()
