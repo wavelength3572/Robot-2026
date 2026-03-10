@@ -718,6 +718,24 @@ public class ShootingCommands {
       Turret turret,
       Hood hood,
       Spindexer spindexer) {
+    return smartLaunchCommand(launcher, coordinator, motivator, turret, hood, spindexer, true);
+  }
+
+  /**
+   * Core smart launch implementation.
+   *
+   * @param gateOnSpeed When true, feeding is suppressed if the robot exceeds the max feed speed.
+   *     When false, feeding is allowed at any speed (used by speed-limited variant where the driver
+   *     already accepts reduced speed).
+   */
+  private static Command smartLaunchCommand(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer,
+      boolean gateOnSpeed) {
     return Commands.sequence(
             Commands.runOnce(() -> setMode(ShootingMode.COMPETITION)),
 
@@ -775,7 +793,7 @@ public class ShootingCommands {
                           boolean turretReady = turret.atTarget();
                           boolean hoodReady = hood == null || hood.atTarget();
                           boolean hasShot = shot != null && shot.achievable();
-                          boolean robotSlow = isRobotSlowEnoughToFeed(coordinator);
+                          boolean robotSlow = !gateOnSpeed || isRobotSlowEnoughToFeed(coordinator);
 
                           boolean allReady =
                               launcherReady
@@ -798,7 +816,7 @@ public class ShootingCommands {
                           boolean turretReady = turret.atTarget();
                           boolean hoodReady = hood == null || hood.atTarget();
                           boolean hasShot = shot != null && shot.achievable();
-                          boolean robotSlow = isRobotSlowEnoughToFeed(coordinator);
+                          boolean robotSlow = !gateOnSpeed || isRobotSlowEnoughToFeed(coordinator);
                           return launcherReady
                               && motivatorReady
                               && turretReady
@@ -888,27 +906,24 @@ public class ShootingCommands {
                         hood)
                     : Commands.none(),
 
-                // Keep motivator running (gated on turret alignment + robot speed)
+                // Keep motivator running at target RPM throughout firing phase.
+                // The motivator just stages fuel — it doesn't need to be gated on
+                // turret alignment or robot speed. Stopping it causes RPM drops
+                // that disrupt shots, especially during shoot-on-the-move when the
+                // turret is continuously tracking and atTarget() flickers.
                 motivator != null
                     ? Commands.run(
-                        () -> {
-                          boolean feedOk =
-                              turret.atTarget() && isRobotSlowEnoughToFeed(coordinator);
-                          if (feedOk) {
-                            motivator.setMotivatorVelocity(smartShotMotivatorRPM.get());
-                          } else {
-                            motivator.stopMotivator();
-                          }
-                        },
+                        () -> motivator.setMotivatorVelocity(smartShotMotivatorRPM.get()),
                         motivator)
                     : Commands.none(),
 
-                // Run spindexer to feed fuel (gated on turret alignment + robot speed)
+                // Run spindexer to feed fuel (gated on turret alignment + optionally robot speed)
                 spindexer != null
                     ? Commands.run(
                         () -> {
                           boolean feedOk =
-                              turret.atTarget() && isRobotSlowEnoughToFeed(coordinator);
+                              turret.atTarget()
+                                  && (!gateOnSpeed || isRobotSlowEnoughToFeed(coordinator));
                           if (feedOk) {
                             spindexer.setSpindexerVelocity(smartShotSpindexerRPM.get());
                           } else {
@@ -976,7 +991,7 @@ public class ShootingCommands {
       DoubleSupplier ySupplier,
       DoubleSupplier omegaSupplier) {
     return Commands.parallel(
-            smartLaunchCommand(launcher, coordinator, motivator, turret, hood, spindexer),
+            smartLaunchCommand(launcher, coordinator, motivator, turret, hood, spindexer, false),
             DriveCommands.joystickDriveSpeedLimited(
                 drive, xSupplier, ySupplier, omegaSupplier, smartLaunchDriveSpeedLimitMps::get))
         .withName("SmartLaunch (Speed Limited)");
