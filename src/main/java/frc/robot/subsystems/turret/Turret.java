@@ -35,8 +35,8 @@ public class Turret extends SubsystemBase {
   private static final LoggedTunableNumber kD =
       new LoggedTunableNumber("Tuning/Turret/kD", Constants.getRobotConfig().getTurretKd());
 
-  // TODO: Turret uses PD-only control (no kI, no feedforward). This causes steady-state error
-  // where the motor can't push through friction at small errors. Consider adding kI and/or kS.
+  // Note: Turret uses PD-only control (no kI, no feedforward). If steady-state error from
+  // friction becomes a problem, consider adding kI and/or kS.
 
   // Tunable ready-gate tolerance for atTarget() — does NOT affect motor control
   private static final LoggedTunableNumber readyToleranceAngleDeg =
