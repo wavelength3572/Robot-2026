@@ -12,13 +12,23 @@ public interface ClimberIO {
     public boolean climbingFinished = false;
   }
 
-  public default void updateInputs(ClimberIOInputs inputs) {}
+  public default void setClimberVoltage(double volts) {
+  }
 
-  public default void deployClimber() {}
+  public default void setServoPosition(double position) {
+  }
 
-  public default void climb() {}
+  public default void updateInputs(ClimberIOInputs inputs) {
+  }
 
-  public default void stopClimber() {}
+  public default void deployClimber() {
+  }
+
+  public default void climb() {
+  }
+
+  public default void stopClimber() {
+  }
 
   public default boolean isClimberDeployed() {
     return false;
