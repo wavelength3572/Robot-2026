@@ -30,6 +30,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.Logger;
 
 public class DriveCommands {
   private static final double DEADBAND = 0.15;
@@ -46,8 +47,8 @@ public class DriveCommands {
   private DriveCommands() {}
 
   private static Translation2d getLinearVelocityFromJoysticks(double x, double y) {
-    // Apply deadband
-    double linearMagnitude = MathUtil.applyDeadband(Math.hypot(x, y), DEADBAND);
+    // Apply deadband and clamp so diagonal stick inputs don't exceed 1.0
+    double linearMagnitude = Math.min(MathUtil.applyDeadband(Math.hypot(x, y), DEADBAND), 1.0);
     Rotation2d linearDirection = new Rotation2d(Math.atan2(y, x));
 
     // Square magnitude for more precise control
@@ -120,6 +121,12 @@ public class DriveCommands {
           double limit = speedLimitMps.getAsDouble();
           double scale = (maxSpeed > 0.0 && limit < maxSpeed) ? limit / maxSpeed : 1.0;
           linearVelocity = linearVelocity.times(scale);
+
+          double commandedSpeed =
+              Math.hypot(linearVelocity.getX() * maxSpeed, linearVelocity.getY() * maxSpeed);
+          Logger.recordOutput("SpeedLimitDrive/CommandedMps", commandedSpeed);
+          Logger.recordOutput("SpeedLimitDrive/LimitMps", limit);
+          Logger.recordOutput("SpeedLimitDrive/Active", true);
 
           // Apply rotation deadband
           double omega = MathUtil.applyDeadband(omegaSupplier.getAsDouble(), OMEGA_DEADBAND);
