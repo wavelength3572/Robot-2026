@@ -30,10 +30,6 @@ public final class ShotCalculator {
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
   private static final double MAX_EXIT_VELOCITY = 15.0; // m/s
 
-  // Maximum velocity compensation aim offset (meters from original target)
-  // Prevents the aim target from drifting off-field when TOF is large
-  private static final double MAX_AIM_OFFSET_METERS = 1.5;
-
   // ========== Launcher RPM Tracking ==========
   // currentLauncherRPM = what the launcher is actually doing right now
   // targetLauncherRPM = what we're commanding the launcher to do (setpoint)
@@ -219,21 +215,11 @@ public final class ShotCalculator {
   // ========== Field Position Helpers ==========
 
   /**
-   * Clamp a velocity-compensated aim target so it doesn't drift too far from the original target.
-   * Prevents the aim point from going off-field when TOF is large.
+   * Pass through a velocity-compensated aim target. The smart launch speed gates already prevent
+   * shooting at speeds where the offset would be unreasonable, so no clamping is needed.
    */
   public static Translation3d clampAimOffset(
       Translation3d aimTarget, Translation3d originalTarget) {
-    double offsetX = aimTarget.getX() - originalTarget.getX();
-    double offsetY = aimTarget.getY() - originalTarget.getY();
-    double offsetDist = Math.hypot(offsetX, offsetY);
-    if (offsetDist > MAX_AIM_OFFSET_METERS) {
-      double scale = MAX_AIM_OFFSET_METERS / offsetDist;
-      return new Translation3d(
-          originalTarget.getX() + offsetX * scale,
-          originalTarget.getY() + offsetY * scale,
-          originalTarget.getZ());
-    }
     return aimTarget;
   }
 
@@ -392,19 +378,20 @@ public final class ShotCalculator {
                 distanceToTarget);
 
         for (int i = 0; i < 3; i++) {
-          aimTarget = clampAimOffset(predictTargetPos(hubTarget, fieldSpeeds, tof), hubTarget);
+          Translation3d candidate =
+              clampAimOffset(predictTargetPos(hubTarget, fieldSpeeds, tof), hubTarget);
           double aimDistance =
               Math.sqrt(
-                  Math.pow(aimTarget.getX() - turretX, 2)
-                      + Math.pow(aimTarget.getY() - turretY, 2));
+                  Math.pow(candidate.getX() - turretX, 2)
+                      + Math.pow(candidate.getY() - turretY, 2));
           TrajectoryOptimizer.OptimalShot refinedShot =
               TrajectoryOptimizer.calculateOptimalShot(
-                  turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+                  turretPos, candidate, hoodMinAngleDeg, hoodMaxAngleDeg);
           if (!refinedShot.achievable) {
-            // Refinement diverged — fall back to raw hub target
-            aimTarget = hubTarget;
+            // Refinement diverged — keep last successful aimTarget
             break;
           }
+          aimTarget = candidate;
           tof =
               calculateTimeOfFlight(
                   refinedShot.exitVelocityMps,

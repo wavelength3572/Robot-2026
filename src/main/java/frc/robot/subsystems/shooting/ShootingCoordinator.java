@@ -92,7 +92,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber autoShootMinInterval =
       new LoggedTunableNumber("BenchTest/AutoShoot/MinInterval", 0.15);
   private final LoggedTunableNumber autoShootMaxSpeedMps =
-      new LoggedTunableNumber("BenchTest/AutoShoot/MaxSpeedMps", 0.75);
+      new LoggedTunableNumber("BenchTest/AutoShoot/MaxSpeedMps", 1.75);
 
   /**
    * Creates a new ShootingCoordinator.
@@ -710,6 +710,11 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Get the field speeds supplier (for recording shot data). */
   public Supplier<ChassisSpeeds> getFieldSpeedsSupplier() {
     return fieldSpeedsSupplier;
+  }
+
+  /** Get the max robot speed for auto-shoot and smart launch feeding. */
+  public double getMaxShootSpeedMps() {
+    return autoShootMaxSpeedMps.get();
   }
 
   // ========== Snapshot Creation ==========

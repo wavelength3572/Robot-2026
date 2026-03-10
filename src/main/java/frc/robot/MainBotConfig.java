@@ -201,7 +201,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeDeployMaxVelocity = 80.0; // RPM output shaft
   private static final double intakeDeployMaxAcceleration = 80.0; // RPM/s output shaft
 
-  // Climber Configuration
+  // Climb Configuration:
   private static final int climberMotorCanId = 30;
 
   // Performance
