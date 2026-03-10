@@ -153,6 +153,15 @@ public class IndicatorLight extends SubsystemBase {
     LightMode mode = lightModeChooser.getSelected();
     if (mode == null) mode = LightMode.MATCH;
 
+    // Disabled RSL shows in all modes
+    if (DriverStation.isDisabled()) {
+      LED_State = LED_EFFECTS.RSL;
+      doRsl();
+      publishLEDColors();
+      Logger.recordOutput("LED/Pattern", LED_State.toString());
+      return;
+    }
+
     if (mode == LightMode.OFF) {
       LED_State = LED_EFFECTS.BLACK;
       setActiveBuffer(wlBlackLEDBuffer);
