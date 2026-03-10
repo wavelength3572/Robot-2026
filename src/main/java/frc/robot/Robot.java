@@ -14,8 +14,6 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.util.FuelSim;
 import frc.robot.util.HubShiftUtil;
-import frc.robot.util.MatchPhaseTracker;
-
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -157,8 +155,6 @@ public class Robot extends LoggedRobot {
   @Override
   public void teleopInit() {
     HubShiftUtil.initialize(); // Start the match phase tracker at the beginning of teleop
-
-    MatchPhaseTracker.getInstance().startPhaseTime(0);
 
 
     // This makes sure that the autonomous stops running when
