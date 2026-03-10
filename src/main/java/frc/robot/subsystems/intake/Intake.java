@@ -51,9 +51,6 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber deployOutputLimit;
   private static final LoggedTunableNumber retractOutputLimit;
 
-  // Small duty cycle applied after retract to keep the intake tucked against gravity
-  private static final LoggedTunableNumber retractHoldDutyCycle;
-
   // Deploy position at which rollers are allowed to turn on (before full deploy)
   private static final LoggedTunableNumber rollerActivationPosition;
 
@@ -92,8 +89,6 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/DeployOutputLimit", 0.5);
     retractOutputLimit =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", 1.0);
-    retractHoldDutyCycle =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractHoldDutyCycle", -0.05);
     rollerActivationPosition =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerActivationPosition", 0.05);
   }
@@ -208,8 +203,7 @@ public class Intake extends SubsystemBase {
             brakeTimer.restart();
             deployState = DeployState.BRAKING;
           } else {
-            // Retract: brake + small hold voltage to stay tucked
-            io.setDeployDutyCycle(retractHoldDutyCycle.get());
+            // Retract: just brake, no active hold needed at target
             deployState = DeployState.HOLDING;
           }
         }
@@ -224,7 +218,7 @@ public class Intake extends SubsystemBase {
         }
         break;
       case HOLDING:
-        // Retract hold: continuously apply small duty cycle (tunable via NetworkTables)
+        // Retract hold: brake mode only. If knocked out, driver can re-press retract.
         break;
       case IDLE:
       default:
@@ -242,8 +236,12 @@ public class Intake extends SubsystemBase {
 
     // Update deploy arm angle
     // Retracted (0 rotations) = 90° (pointing up)
-    // Deployed (0.5 rotations) = 0° (pointing forward over bumper)
-    double deployAngleDegrees = 90 - (inputs.deployPositionRotations * 180.0);
+    // Deployed (extended position) = 0° (parallel with ground)
+    double deployFraction =
+        (deployExtendedPosition != 0.0)
+            ? inputs.deployPositionRotations / deployExtendedPosition
+            : 0.0;
+    double deployAngleDegrees = 90 - (deployFraction * 90.0);
     deployArm.setAngle(deployAngleDegrees);
 
     // Update roller rotation (continuous spin based on velocity)
