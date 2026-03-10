@@ -1,11 +1,11 @@
 package frc.robot.subsystems.led;
 
 import edu.wpi.first.wpilibj.AddressableLED;
-import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -33,17 +33,17 @@ public class IndicatorLight extends SubsystemBase {
   private double currentBlinkPeriod = MAX_BLINK_PERIOD;
 
   private AddressableLED wlLED;
-  private AddressableLEDBuffer wlLEDBuffer;
-  private AddressableLEDBuffer wlGreenLEDBuffer;
-  private AddressableLEDBuffer wlOrangeLEDBuffer;
-  private AddressableLEDBuffer wlPurpleLEDBuffer;
-  private AddressableLEDBuffer wlRedLEDBuffer;
-  private AddressableLEDBuffer wlYellowLEDBuffer;
-  private AddressableLEDBuffer wlBlueLEDBuffer;
-  private AddressableLEDBuffer wlIndigoLEDBuffer;
-  private AddressableLEDBuffer wlVioletLEDBuffer;
-  private AddressableLEDBuffer wlWhiteLEDBuffer;
-  private AddressableLEDBuffer wlBlackLEDBuffer;
+  private RGBWBuffer wlLEDBuffer;
+  private RGBWBuffer wlGreenLEDBuffer;
+  private RGBWBuffer wlOrangeLEDBuffer;
+  private RGBWBuffer wlPurpleLEDBuffer;
+  private RGBWBuffer wlRedLEDBuffer;
+  private RGBWBuffer wlYellowLEDBuffer;
+  private RGBWBuffer wlBlueLEDBuffer;
+  private RGBWBuffer wlIndigoLEDBuffer;
+  private RGBWBuffer wlVioletLEDBuffer;
+  private RGBWBuffer wlWhiteLEDBuffer;
+  private RGBWBuffer wlBlackLEDBuffer;
 
   // Store what the last hue of the first pixel is
   private int rainbowFirstPixelHue = 0;
@@ -64,74 +64,67 @@ public class IndicatorLight extends SubsystemBase {
   private int center = 9;
   private final double updateInterval = 0.05; // Interval in seconds for updates
 
-  private AddressableLEDBuffer currentActiveBuffer;
+  private RGBWBuffer currentActiveBuffer;
 
   public IndicatorLight() {
+    int numLEDs = IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH;
 
     wlLED = new AddressableLED(IndicatorLightConstants.ADDRESSABLE_LED_PORT);
-    wlLEDBuffer = new AddressableLEDBuffer(IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH);
-    wlLED.setLength(wlLEDBuffer.getLength());
+    wlLEDBuffer = new RGBWBuffer(numLEDs);
+    wlLED.setLength(wlLEDBuffer.getInternalBuffer().getLength());
     center = wlLEDBuffer.getLength() / 2;
-    currentActiveBuffer = wlLEDBuffer; // Set the default active buffer
-    wlLED.setData(wlLEDBuffer);
+    currentActiveBuffer = wlLEDBuffer;
+    wlLEDBuffer.flushToBuffer();
+    wlLED.setData(wlLEDBuffer.getInternalBuffer());
     wlLED.start();
 
-    wlGreenLEDBuffer =
-        new AddressableLEDBuffer(IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH);
+    wlGreenLEDBuffer = new RGBWBuffer(numLEDs);
     for (var i = 0; i < wlGreenLEDBuffer.getLength(); i++) {
       wlGreenLEDBuffer.setHSV(i, IndicatorLightConstants.GREEN_HUE, 255, 128);
     }
 
-    wlOrangeLEDBuffer =
-        new AddressableLEDBuffer(IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH);
+    wlOrangeLEDBuffer = new RGBWBuffer(numLEDs);
     for (var i = 0; i < wlOrangeLEDBuffer.getLength(); i++) {
       wlOrangeLEDBuffer.setLED(i, new Color8Bit(255, 27, 0));
     }
 
-    wlPurpleLEDBuffer =
-        new AddressableLEDBuffer(IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH);
+    wlPurpleLEDBuffer = new RGBWBuffer(numLEDs);
     for (var i = 0; i < wlPurpleLEDBuffer.getLength(); i++) {
       wlPurpleLEDBuffer.setHSV(i, IndicatorLightConstants.PURPLE_HUE, 63, 92);
     }
 
-    wlRedLEDBuffer =
-        new AddressableLEDBuffer(IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH);
+    wlRedLEDBuffer = new RGBWBuffer(numLEDs);
     for (var i = 0; i < wlRedLEDBuffer.getLength(); i++) {
       wlRedLEDBuffer.setHSV(i, IndicatorLightConstants.RED_HUE, 255, 128);
     }
 
-    wlYellowLEDBuffer =
-        new AddressableLEDBuffer(IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH);
+    wlYellowLEDBuffer = new RGBWBuffer(numLEDs);
     for (int i = 0; i < wlYellowLEDBuffer.getLength(); i++) {
       wlYellowLEDBuffer.setLED(i, Color.kYellow);
     }
 
-    wlBlueLEDBuffer =
-        new AddressableLEDBuffer(IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH);
+    wlBlueLEDBuffer = new RGBWBuffer(numLEDs);
     for (var i = 0; i < wlBlueLEDBuffer.getLength(); i++) {
       wlBlueLEDBuffer.setLED(i, Color.kBlue);
     }
 
-    wlIndigoLEDBuffer =
-        new AddressableLEDBuffer(IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH);
+    wlIndigoLEDBuffer = new RGBWBuffer(numLEDs);
     for (var i = 0; i < wlIndigoLEDBuffer.getLength(); i++) {
       wlIndigoLEDBuffer.setLED(i, Color.kIndigo);
     }
 
-    wlVioletLEDBuffer =
-        new AddressableLEDBuffer(IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH);
+    wlVioletLEDBuffer = new RGBWBuffer(numLEDs);
     for (var i = 0; i < wlVioletLEDBuffer.getLength(); i++) {
       wlVioletLEDBuffer.setLED(i, Color.kViolet);
     }
 
-    wlWhiteLEDBuffer =
-        new AddressableLEDBuffer(IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH);
+    wlWhiteLEDBuffer = new RGBWBuffer(numLEDs);
     for (var i = 0; i < wlWhiteLEDBuffer.getLength(); i++) {
-      wlWhiteLEDBuffer.setLED(i, Color.kWhite);
+      // Use the dedicated white channel for true white on RGBW strips
+      wlWhiteLEDBuffer.setRGBW(i, 0, 0, 0, 255);
     }
 
-    wlBlackLEDBuffer =
-        new AddressableLEDBuffer(IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH);
+    wlBlackLEDBuffer = new RGBWBuffer(numLEDs);
     for (var i = 0; i < wlBlackLEDBuffer.getLength(); i++) {
       wlBlackLEDBuffer.setLED(i, Color.kBlack);
     }
@@ -271,7 +264,7 @@ public class IndicatorLight extends SubsystemBase {
           wlLEDBuffer.setRGB(center + i, brightness, brightness, 0);
           wlLEDBuffer.setRGB(center - i, brightness, brightness, 0);
         }
-        wlLED.setData(wlLEDBuffer);
+        setActiveBuffer(wlLEDBuffer);
       } else {
         effectPhase = 2; // Move to fading phase
       }
@@ -284,7 +277,7 @@ public class IndicatorLight extends SubsystemBase {
           int brightness = Math.max(0, fadeStep - ((maxBrightness / center) * distance));
           wlLEDBuffer.setRGB(i, brightness, brightness, 0);
         }
-        wlLED.setData(wlLEDBuffer);
+        setActiveBuffer(wlLEDBuffer);
       } else {
         effectPhase = 0; // End the effect and wait for the next restart
       }
@@ -298,7 +291,7 @@ public class IndicatorLight extends SubsystemBase {
       int blue = random.nextInt(256);
       wlLEDBuffer.setRGB(i, red, green, blue);
     }
-    wlLED.setData(wlLEDBuffer);
+    setActiveBuffer(wlLEDBuffer);
   }
 
   private void doSegmentParty() {
@@ -321,7 +314,7 @@ public class IndicatorLight extends SubsystemBase {
       }
     } else counter++;
 
-    wlLED.setData(wlLEDBuffer);
+    setActiveBuffer(wlLEDBuffer);
   }
 
   private void doPokadot() {
@@ -331,7 +324,7 @@ public class IndicatorLight extends SubsystemBase {
       int blue = random.nextInt(256);
       wlLEDBuffer.setRGB(i, red, green, blue);
     }
-    wlLED.setData(wlLEDBuffer);
+    setActiveBuffer(wlLEDBuffer);
   }
 
   public void doRainbow() {
@@ -543,8 +536,11 @@ public class IndicatorLight extends SubsystemBase {
     }
 
     // Alert: no game data and no dashboard override — shift schedule is unknown
+    // Skip this alert when "Ignore Hub State" is on (e.g. practice without FMS)
+    boolean ignoreHubState = SmartDashboard.getBoolean("Match/Ignore Hub State", true);
     boolean gameDataMissing =
-        DriverStation.getGameSpecificMessage().isEmpty()
+        !ignoreHubState
+            && DriverStation.getGameSpecificMessage().isEmpty()
             && HubShiftUtil.getAllianceWinOverride().isEmpty();
     autoWinnerNotSet.set(gameDataMissing);
     if (gameDataMissing) {
@@ -566,8 +562,9 @@ public class IndicatorLight extends SubsystemBase {
     setActiveBuffer(wlOrangeLEDBuffer);
   }
 
-  private void setActiveBuffer(AddressableLEDBuffer buffer) {
+  private void setActiveBuffer(RGBWBuffer buffer) {
     currentActiveBuffer = buffer;
-    wlLED.setData(buffer);
+    buffer.flushToBuffer();
+    wlLED.setData(buffer.getInternalBuffer());
   }
 }
