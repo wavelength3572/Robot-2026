@@ -1,0 +1,58 @@
+[
+  {
+    "timestamp": 181.108841,
+    "robotX": 3.5670003852559153,
+    "robotY": 0.4020452702400284,
+    "distanceM": 3.917028293475633,
+    "rpm": 0.0,
+    "hoodAngleDeg": 13.0,
+    "turretAngleDeg": 63.873,
+    "timeOfFlightS": 3.917028293475633,
+    "motivatorRPM": 1800.0,
+    "spindexerRPM": 325.0,
+    "fuelFired": 0,
+    "successful": true
+  },
+  {
+    "timestamp": 183.338784,
+    "robotX": 3.567000531238226,
+    "robotY": 0.4020455916680505,
+    "distanceM": 3.917027954011675,
+    "rpm": 0.0,
+    "hoodAngleDeg": 13.0,
+    "turretAngleDeg": 63.873,
+    "timeOfFlightS": 3.917027954011675,
+    "motivatorRPM": 1800.0,
+    "spindexerRPM": 325.0,
+    "fuelFired": 0,
+    "successful": false
+  },
+  {
+    "timestamp": 190.010613,
+    "robotX": 3.5670005594549843,
+    "robotY": 0.4020461952043229,
+    "distanceM": 3.9170273936129694,
+    "rpm": 0.0,
+    "hoodAngleDeg": 13.0,
+    "turretAngleDeg": 63.873,
+    "timeOfFlightS": 3.9170273936129694,
+    "motivatorRPM": 1800.0,
+    "spindexerRPM": 325.0,
+    "fuelFired": 0,
+    "successful": false
+  },
+  {
+    "timestamp": 193.501593,
+    "robotX": 3.567000383996104,
+    "robotY": 0.40204565659156744,
+    "distanceM": 3.9170279407330924,
+    "rpm": 0.0,
+    "hoodAngleDeg": 13.0,
+    "turretAngleDeg": 63.873,
+    "timeOfFlightS": 3.9170279407330924,
+    "motivatorRPM": 1800.0,
+    "spindexerRPM": 325.0,
+    "fuelFired": 0,
+    "successful": false
+  }
+]

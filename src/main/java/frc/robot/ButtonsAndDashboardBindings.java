@@ -144,6 +144,7 @@ public class ButtonsAndDashboardBindings {
     // Coordinated shooting controls (requires coordinator and launcher)
     if (shootingCoordinator != null && launcher != null) {
       configureShootingControls();
+      configureLUTDevControls();
     }
 
     // Per-subsystem tuning run buttons (always, for all robot types)
@@ -440,6 +441,29 @@ public class ButtonsAndDashboardBindings {
             .withName("Read Optimized Shot"));
   }
 
+  /** Configure LUT development mode controls for data collection. */
+  private static void configureLUTDevControls() {
+    // Record batch buttons — mark a hopper of fuel as success or miss
+    SmartDashboard.putData(
+        "LUTDev/RecordSuccess",
+        ShootingCommands.recordBatchCommand(shootingCoordinator, launcher, turret, hood, true));
+    SmartDashboard.putData(
+        "LUTDev/RecordMiss",
+        ShootingCommands.recordBatchCommand(shootingCoordinator, launcher, turret, hood, false));
+
+    // Data management
+    SmartDashboard.putData(
+        "LUTDev/ReloadLUT", ShootingCommands.reloadLUTCommand(shootingCoordinator));
+
+    // LUT dev mode continuous logging (toggle on/off)
+    if (turret != null) {
+      SmartDashboard.putData(
+          "LUTDev/DevMode", ShootingCommands.lutDevModeCommand(shootingCoordinator, turret));
+    }
+
+    System.out.println("[LUTDev] LUT development controls configured on SmartDashboard");
+  }
+
   /****************************** */
   /*** DRIVER BINDINGS ****** */
   /****************************** */
@@ -525,6 +549,23 @@ public class ButtonsAndDashboardBindings {
           .whileTrue(
               ShootingCommands.rightTrenchShotCommand(
                   launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+    }
+
+    // Smart launch with speed limit: X-axis negative — shoot on the move with capped drive speed
+    if (shootingCoordinator != null && launcher != null && turret != null && drive != null) {
+      oi.getButtonBox1XAxisNegative()
+          .whileTrue(
+              ShootingCommands.smartLaunchWithSpeedLimitCommand(
+                  launcher,
+                  shootingCoordinator,
+                  motivator,
+                  turret,
+                  hood,
+                  spindexer,
+                  drive,
+                  oi::getTranslateX,
+                  oi::getTranslateY,
+                  oi::getRotate));
     }
 
     // Spindexer feeding suppress - operator can hold to prevent feeding/launching.

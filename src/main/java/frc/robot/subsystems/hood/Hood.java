@@ -149,20 +149,6 @@ public class Hood extends SubsystemBase {
         config.getHoodMinAngleDegrees(), Math.min(config.getHoodMaxAngleDegrees(), angleDeg));
   }
 
-  /**
-   * Check if the hood is raised above the stow/safe angle. When the robot is near a trench, a
-   * raised hood risks collision with the trench ceiling.
-   *
-   * <p>The "safe" angle is the minimum hood angle (stow position, typically 13 degrees). Any angle
-   * more than {@code margin} degrees above that is considered raised.
-   *
-   * @param margin degrees above minimum that's still considered safe (e.g., 3.0)
-   * @return true if the hood is raised above the safe threshold
-   */
-  public boolean isRaisedAboveSafe(double margin) {
-    return inputs.currentAngleDeg > config.getHoodMinAngleDegrees() + margin;
-  }
-
   // ========== Commands ==========
 
   /**

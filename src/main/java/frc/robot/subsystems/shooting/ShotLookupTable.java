@@ -1,11 +1,12 @@
 package frc.robot.subsystems.shooting;
 
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * Interpolating lookup table for shot parameters. Maps distance (meters) to shot parameters
- * (launcher RPM, hood angle). Uses linear interpolation between entries for smooth transitions.
+ * Interpolating lookup table for shot parameters. Maps distance (meters) to shot parameters (RPM,
+ * hood angle, TOF, motivator RPM, spindexer RPM). Uses linear interpolation between entries.
  *
  * <p>Usage: populate with empirically measured shots at known distances, then query for any
  * distance. Entries outside the table range clamp to the nearest entry.
@@ -15,8 +16,16 @@ import java.util.TreeMap;
  */
 public class ShotLookupTable {
 
-  /** A single entry in the lookup table: RPM + hood angle at a known distance. */
-  public record ShotEntry(double rpm, double hoodAngleDeg) {}
+  /**
+   * A single entry in the lookup table: all shot parameters at a known distance. TOF is critical
+   * for accurate velocity compensation (captures real-world drag that physics ignores).
+   */
+  public record ShotEntry(
+      double rpm,
+      double hoodAngleDeg,
+      double timeOfFlightS,
+      double motivatorRPM,
+      double spindexerRPM) {}
 
   private final TreeMap<Double, ShotEntry> table = new TreeMap<>();
 
@@ -24,7 +33,31 @@ public class ShotLookupTable {
   public ShotLookupTable() {}
 
   /**
-   * Add a measured shot entry at a known distance.
+   * Add a measured shot entry at a known distance (full parameters).
+   *
+   * @param distanceMeters Horizontal distance to the target in meters
+   * @param rpm Actual launcher RPM that worked at this distance
+   * @param hoodAngleDeg Hood angle that worked at this distance
+   * @param timeOfFlightS Measured or calculated time of flight in seconds
+   * @param motivatorRPM Motivator RPM used for this shot
+   * @param spindexerRPM Spindexer RPM used for this shot
+   * @return this (for chaining)
+   */
+  public ShotLookupTable addEntry(
+      double distanceMeters,
+      double rpm,
+      double hoodAngleDeg,
+      double timeOfFlightS,
+      double motivatorRPM,
+      double spindexerRPM) {
+    table.put(
+        distanceMeters,
+        new ShotEntry(rpm, hoodAngleDeg, timeOfFlightS, motivatorRPM, spindexerRPM));
+    return this;
+  }
+
+  /**
+   * Add a measured shot entry (RPM + hood angle only, with default feed speeds and estimated TOF).
    *
    * @param distanceMeters Horizontal distance to the target in meters
    * @param rpm Launcher RPM that worked at this distance
@@ -32,8 +65,9 @@ public class ShotLookupTable {
    * @return this (for chaining)
    */
   public ShotLookupTable addEntry(double distanceMeters, double rpm, double hoodAngleDeg) {
-    table.put(distanceMeters, new ShotEntry(rpm, hoodAngleDeg));
-    return this;
+    // Estimate TOF from distance assuming ~10 m/s horizontal velocity
+    double estimatedTOF = distanceMeters / 10.0;
+    return addEntry(distanceMeters, rpm, hoodAngleDeg, estimatedTOF, 1800.0, 325.0);
   }
 
   /**
@@ -60,10 +94,32 @@ public class ShotLookupTable {
     double t = (distanceMeters - floor.getKey()) / (ceil.getKey() - floor.getKey());
     ShotEntry lo = floor.getValue();
     ShotEntry hi = ceil.getValue();
-    double rpm = lo.rpm() + t * (hi.rpm() - lo.rpm());
-    double hoodAngle = lo.hoodAngleDeg() + t * (hi.hoodAngleDeg() - lo.hoodAngleDeg());
 
-    return new ShotEntry(rpm, hoodAngle);
+    return new ShotEntry(
+        lerp(lo.rpm(), hi.rpm(), t),
+        lerp(lo.hoodAngleDeg(), hi.hoodAngleDeg(), t),
+        lerp(lo.timeOfFlightS(), hi.timeOfFlightS(), t),
+        lerp(lo.motivatorRPM(), hi.motivatorRPM(), t),
+        lerp(lo.spindexerRPM(), hi.spindexerRPM(), t));
+  }
+
+  /**
+   * Look up only the time of flight for a given distance. Used by the Hybrid strategy for velocity
+   * compensation with real-world drag.
+   *
+   * @param distanceMeters Horizontal distance to the target
+   * @return Interpolated TOF in seconds, or -1 if table is empty
+   */
+  public double lookupTOF(double distanceMeters) {
+    ShotEntry entry = lookup(distanceMeters);
+    return entry != null ? entry.timeOfFlightS() : -1.0;
+  }
+
+  /**
+   * @return true if the table has at least 2 entries (minimum for interpolation)
+   */
+  public boolean hasEnoughData() {
+    return table.size() >= 2;
   }
 
   /**
@@ -80,15 +136,42 @@ public class ShotLookupTable {
     return table.size();
   }
 
+  /** Clear all entries from the table. */
+  public void clear() {
+    table.clear();
+  }
+
   /**
-   * Build the default hub shot lookup table with placeholder entries. Replace these values with
-   * empirical measurements from the actual robot.
+   * Load data from a list of clean LUT entries. Replaces any existing entries.
    *
-   * <p>Entry format: distance (m) → (RPM, hood angle deg)
+   * @param entries LUT entries from {@link StationaryShotBatchRecorder}
+   */
+  public void loadFromLUTEntries(List<StationaryShotBatchRecorder.LUTEntry> entries) {
+    table.clear();
+    for (StationaryShotBatchRecorder.LUTEntry e : entries) {
+      addEntry(
+          e.distanceM(),
+          e.rpm(),
+          e.hoodAngleDeg(),
+          e.timeOfFlightS(),
+          e.motivatorRPM(),
+          e.spindexerRPM());
+    }
+  }
+
+  private static double lerp(double a, double b, double t) {
+    return a + t * (b - a);
+  }
+
+  /**
+   * Build the default hub shot lookup table seeded from the known-good fixed shot presets. These
+   * are the HubShot, LeftTrench, and RightTrench values from ShootingCommands tunables.
+   *
+   * <p>Replace or supplement with empirical measurements from practice.
    */
   public static ShotLookupTable buildDefaultHubTable() {
     return new ShotLookupTable()
-        // Close range
+        // Close range (placeholder)
         .addEntry(1.5, 2000, 35.0)
         .addEntry(2.0, 2200, 32.0)
         .addEntry(2.5, 2400, 29.0)

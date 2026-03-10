@@ -340,8 +340,18 @@ public class ShotVisualizer {
 
     this.currentAzimuthAngle = targetAzimuthAngle;
 
+    // Actual trajectory: aim direction + robot velocity (what the sim ball does)
     updateActualTrajectory(
         shotResult.exitVelocityMps(), shotResult.launchAngleRad(), targetAzimuthAngle);
+
+    // Static aim trajectory: aim direction only, no robot velocity
+    // Shows where the turret is pointing — what a stationary robot would produce
+    calculateStaticTrajectoryPoints(
+        shotResult.exitVelocityMps(),
+        shotResult.launchAngleRad(),
+        targetAzimuthAngle,
+        whatIfTrajectory);
+    Logger.recordOutput("Turret/Trajectory/StaticAim", whatIfTrajectory);
 
     Logger.recordOutput("Turret/Shot/CurrentRPM", ShotCalculator.getCurrentLauncherRPM());
     Logger.recordOutput(
@@ -355,6 +365,35 @@ public class ShotVisualizer {
    */
   public double getCurrentAzimuthAngle() {
     return currentAzimuthAngle;
+  }
+
+  /**
+   * Calculate trajectory points WITHOUT robot velocity — shows pure aim direction. This is what a
+   * stationary robot would produce, useful for visualizing velocity compensation offset.
+   */
+  private void calculateStaticTrajectoryPoints(
+      double exitVelocity,
+      double launchAngle,
+      double azimuthAngle,
+      Translation3d[] trajectoryArray) {
+    double horizontalVel = exitVelocity * Math.cos(launchAngle);
+    double verticalVel = exitVelocity * Math.sin(launchAngle);
+    double vx = horizontalVel * Math.cos(azimuthAngle);
+    double vy = horizontalVel * Math.sin(azimuthAngle);
+
+    Translation3d turretPos = getTurretFieldPosition();
+    double startX = turretPos.getX();
+    double startY = turretPos.getY();
+    double startZ = turretPos.getZ();
+
+    for (int i = 0; i < TRAJECTORY_POINTS; i++) {
+      double t = i * TRAJECTORY_TIME_STEP;
+      double x = startX + vx * t;
+      double y = startY + vy * t;
+      double z = startZ + verticalVel * t - 0.5 * GRAVITY * t * t;
+      if (z < 0) z = 0;
+      trajectoryArray[i] = new Translation3d(x, y, z);
+    }
   }
 
   /**

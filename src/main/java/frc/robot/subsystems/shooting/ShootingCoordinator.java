@@ -7,6 +7,8 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
@@ -39,6 +41,15 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Turret geometry config (immutable)
   private final ShotCalculator.TurretConfig turretConfig;
+
+  // Shot strategy system (LUT / Parametric / Hybrid) — dropdown on dashboard
+  private final SendableChooser<String> strategyChooser = new SendableChooser<>();
+  private final ShotLookupTable lookupTable = new ShotLookupTable();
+  private final StationaryShotBatchRecorder batchRecorder = new StationaryShotBatchRecorder();
+  private final ParametricShotStrategy parametricStrategy = new ParametricShotStrategy();
+  private final LUTShotStrategy lutStrategy;
+  private final HybridShotStrategy hybridStrategy;
+  private ShotStrategy activeStrategy;
 
   // Visualizer (created during initialize)
   private ShotVisualizer visualizer = null;
@@ -81,7 +92,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber autoShootMinInterval =
       new LoggedTunableNumber("BenchTest/AutoShoot/MinInterval", 0.15);
   private final LoggedTunableNumber autoShootMaxSpeedMps =
-      new LoggedTunableNumber("BenchTest/AutoShoot/MaxSpeedMps", 0.01);
+      new LoggedTunableNumber("BenchTest/AutoShoot/MaxSpeedMps", 0.75);
 
   /**
    * Creates a new ShootingCoordinator.
@@ -101,6 +112,20 @@ public class ShootingCoordinator extends SubsystemBase {
     this.turretConfig =
         new ShotCalculator.TurretConfig(
             config.getTurretHeightMeters(), config.getTurretOffsetX(), config.getTurretOffsetY());
+
+    // Initialize shot strategies
+    this.lutStrategy = new LUTShotStrategy(lookupTable);
+    this.hybridStrategy = new HybridShotStrategy(lookupTable);
+    this.activeStrategy = parametricStrategy;
+
+    // Strategy dropdown on dashboard
+    strategyChooser.setDefaultOption("Parametric (Physics)", "Parametric");
+    strategyChooser.addOption("LUT (Lookup Table)", "LUT");
+    strategyChooser.addOption("Hybrid (LUT TOF + Physics RPM)", "Hybrid");
+    SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
+
+    // Load any previously recorded LUT data from disk
+    reloadLUTData();
   }
 
   /**
@@ -146,6 +171,14 @@ public class ShootingCoordinator extends SubsystemBase {
         visualizer.update(createVisualizerSnapshot(isBlueAlliance));
       }
       return;
+    }
+
+    // Always log robot speed for shoot-on-the-move tuning
+    if (fieldSpeedsSupplier != null) {
+      ChassisSpeeds speeds = fieldSpeedsSupplier.get();
+      Logger.recordOutput(
+          "SmartLaunch/RobotSpeedMps",
+          Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond));
     }
 
     updateShotCalculation(alliance, isBlueAlliance);
@@ -247,8 +280,12 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Calculate shot to a specific target and log results. */
   private void calculateShotToTarget(
       Pose2d robotPose, ChassisSpeeds fieldSpeeds, Translation3d target) {
+
+    // Update active strategy based on tunable selector
+    updateActiveStrategy();
+
     ShotCalculator.ShotResult result =
-        ShotCalculator.calculateHubShot(
+        activeStrategy.calculateShot(
             robotPose,
             fieldSpeeds,
             target,
@@ -258,6 +295,9 @@ public class ShootingCoordinator extends SubsystemBase {
             turret.getMaxAngle(),
             hood != null ? hood.getMinAngle() : 16.0,
             hood != null ? hood.getMaxAngle() : 46.0);
+
+    Logger.recordOutput("Shots/Strategy/Active", activeStrategy.getName());
+    Logger.recordOutput("Shots/Strategy/LUTDataPoints", lookupTable.size());
 
     currentShot = result;
 
@@ -609,6 +649,67 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   public ShotVisualizer getVisualizer() {
     return visualizer;
+  }
+
+  // ========== Shot Strategy Management ==========
+
+  /** Update the active strategy based on the dashboard dropdown. */
+  private void updateActiveStrategy() {
+    String selected = strategyChooser.getSelected();
+    if (selected == null) selected = "Parametric";
+
+    ShotStrategy newStrategy =
+        switch (selected) {
+          case "LUT" -> lutStrategy;
+          case "Hybrid" -> hybridStrategy;
+          default -> parametricStrategy;
+        };
+
+    if (newStrategy != activeStrategy) {
+      System.out.println("[ShootingCoordinator] Strategy changed to: " + newStrategy.getName());
+      activeStrategy = newStrategy;
+    }
+  }
+
+  /**
+   * Reload LUT data from the recorder (disk). Call after recording new shots or at startup. Loads
+   * only successful batch entries into the lookup table.
+   */
+  public void reloadLUTData() {
+    lookupTable.loadFromLUTEntries(batchRecorder.getLUTEntries());
+    System.out.println(
+        "[ShootingCoordinator] LUT reloaded: "
+            + lookupTable.size()
+            + " entries from "
+            + batchRecorder.getBatchCount()
+            + " total batches ("
+            + batchRecorder.getSuccessCount()
+            + " successful)");
+  }
+
+  /** Get the batch recorder for recording new data collection sessions. */
+  public StationaryShotBatchRecorder getBatchRecorder() {
+    return batchRecorder;
+  }
+
+  /** Get the lookup table (for dashboard display of entry count, etc.). */
+  public ShotLookupTable getLookupTable() {
+    return lookupTable;
+  }
+
+  /** Get the turret config (for external calculations like distance-to-target). */
+  public ShotCalculator.TurretConfig getTurretConfig() {
+    return turretConfig;
+  }
+
+  /** Get the robot pose supplier (for recording shot data). */
+  public Supplier<Pose2d> getRobotPoseSupplier() {
+    return robotPoseSupplier;
+  }
+
+  /** Get the field speeds supplier (for recording shot data). */
+  public Supplier<ChassisSpeeds> getFieldSpeedsSupplier() {
+    return fieldSpeedsSupplier;
   }
 
   // ========== Snapshot Creation ==========
