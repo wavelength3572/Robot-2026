@@ -5,6 +5,7 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
@@ -15,6 +16,15 @@ import java.util.Random;
 import org.littletonrobotics.junction.Logger;
 
 public class IndicatorLight extends SubsystemBase {
+
+  /** Dashboard-selectable light mode: match auto-lighting, off, or pit (blue ombre). */
+  public enum LightMode {
+    MATCH,
+    OFF,
+    PIT
+  }
+
+  private final SendableChooser<LightMode> lightModeChooser = new SendableChooser<>();
 
   private LED_EFFECTS currentColor_GOAL = LED_EFFECTS.BLACK;
   private LED_EFFECTS LED_State = LED_EFFECTS.BLACK;
@@ -67,6 +77,12 @@ public class IndicatorLight extends SubsystemBase {
   private RGBWBuffer currentActiveBuffer;
 
   public IndicatorLight() {
+    // Dashboard chooser: Match (default auto-lighting), Off, or Pit (blue ombre)
+    lightModeChooser.setDefaultOption("Match", LightMode.MATCH);
+    lightModeChooser.addOption("Off", LightMode.OFF);
+    lightModeChooser.addOption("Pit", LightMode.PIT);
+    SmartDashboard.putData("Match/Light Mode", lightModeChooser);
+
     int numLEDs = IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH;
 
     wlLED = new AddressableLED(IndicatorLightConstants.ADDRESSABLE_LED_PORT);
@@ -134,6 +150,26 @@ public class IndicatorLight extends SubsystemBase {
 
   @Override
   public void periodic() {
+    LightMode mode = lightModeChooser.getSelected();
+    if (mode == null) mode = LightMode.MATCH;
+
+    if (mode == LightMode.OFF) {
+      LED_State = LED_EFFECTS.BLACK;
+      setActiveBuffer(wlBlackLEDBuffer);
+      publishLEDColors();
+      Logger.recordOutput("LED/Pattern", LED_State.toString());
+      return;
+    }
+
+    if (mode == LightMode.PIT) {
+      LED_State = LED_EFFECTS.BLUEOMBRE;
+      doBlueOmbre();
+      publishLEDColors();
+      Logger.recordOutput("LED/Pattern", LED_State.toString());
+      return;
+    }
+
+    // MATCH mode: normal auto-lighting logic
     currentColor_GOAL = updateLightingGoal();
 
     if (LED_State != LED_EFFECTS.BLINK) {
