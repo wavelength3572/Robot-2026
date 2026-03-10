@@ -10,43 +10,31 @@ issue is, *why* it matters, and *what to do about it*.
 
 ## 1. Critical Bugs (Fix Before Next Match)
 
-These are broken behaviors in the current code that directly affect robot functionality.
+> **Note:** Several bugs from `TODO-from-SCU.md` (items 1-3, 5) have already been
+> fixed in the current codebase. They are listed here as "RESOLVED" for traceability.
 
-### 1.1 HoodIOSparkMax: `connected` hardcoded to `false`
-- **File:** `src/main/java/frc/robot/subsystems/hood/HoodIOSparkMax.java` (~line 100)
-- **Problem:** `inputs.connected = false;` — the hood always appears disconnected in
-  logs and dashboard, making debugging impossible.
-- **Fix:** Change to `inputs.connected = true;` (or use actual connection status).
+### 1.1 ~~HoodIOSparkMax: `connected` hardcoded to `false`~~ — RESOLVED
+- Already fixed. Line 100 now correctly checks `motorSpark.getLastError()`.
+  The `false` on line 109 is only in the `else` branch when connection is being
+  skipped (correct behavior for the `SparkConnection` pattern).
 
-### 1.2 HoodIOSparkMax: `atTarget` hardcoded to `false`
-- **File:** `src/main/java/frc/robot/subsystems/hood/HoodIOSparkMax.java` (~line 112)
-- **Problem:** `inputs.atTarget = false;` — any command waiting for hood readiness
-  (including smartLaunchCommand) will never proceed. This silently breaks all
-  shooting sequences that check `hood.atTarget()`.
-- **Fix:** `inputs.atTarget = Math.abs(inputs.currentAngleDeg - targetAngle) < 1.0;`
+### 1.2 ~~HoodIOSparkMax: `atTarget` hardcoded to `false`~~ — RESOLVED
+- Already fixed. Line 113 now correctly uses tolerance-based check:
+  `Math.abs(inputs.currentAngleDeg - targetAngle) < toleranceDeg`
 
-### 1.3 ShootingCommands: `getInsideTurretAngleDeg()` returns wrong tunable
-- **File:** `src/main/java/frc/robot/commands/ShootingCommands.java` (~line 170)
-- **Problem:** Returns `testOutsideTurretAngleDeg` instead of `testInsideTurretAngleDeg`.
-- **Impact:** Inside-angle bench testing is broken — you think you're testing inside
-  angle but you're actually reading the outside angle tunable.
-- **Fix:** Return `testInsideTurretAngleDeg` instead.
+### 1.3 ~~ShootingCommands: `getInsideTurretAngleDeg()` returns wrong tunable~~ — RESOLVED
+- Already fixed. Line 254 correctly returns `testInsideTurretAngleDeg`.
 
-### 1.4 SquareBotConfig missing `getTurretZeroOffset()` override
-- **File:** `SquareBotConfig.java`
-- **Problem:** Defines `turretZeroOffset = 63.873` but never overrides the interface
-  method. The default returns `0.0`, so `TurretIOSparkMax` gets the wrong offset.
-- **Impact:** Incorrect inside/outside angle conversions and wrong soft limits.
-- **Fix:** Add `@Override public double getTurretZeroOffset() { return turretZeroOffset; }`
+### 1.4 ~~SquareBotConfig missing `getTurretZeroOffset()` override~~ — NOT APPLICABLE
+- SquareBot is just a drive base now (no turret). The turret constants in
+  SquareBotConfig are dead code.
+- **Recommendation:** Remove the unused turret constants from SquareBotConfig entirely
+  to avoid confusion. This is a cleanup item, not a bug.
 
-### 1.5 TurretIOSim: missing outside angle support
-- **File:** `src/main/java/frc/robot/subsystems/turret/TurretIOSim.java`
-- **Problem:** Never implements `getOutsideCurrentAngle()` / `getOutsideTargetAngle()`,
-  never populates `inputs.currentOutsideAngleDeg` or `inputs.targetOutsideAngleDeg`.
-- **Impact:** Sim turret always reports 0 degrees. Breaks shot calculations, `atTarget()`
-  checks, and all turret logging in simulation. This makes sim-based development
-  unreliable for any shooting-related work.
-- **Fix:** Override both methods and populate outside angle inputs in `updateInputs()`.
+### 1.5 ~~TurretIOSim: missing outside angle support~~ — RESOLVED
+- Already fixed. `TurretIOSim` now properly tracks outside angles, populates
+  `inputs.currentOutsideAngleDeg` and `inputs.targetOutsideAngleDeg`, and
+  implements `getOutsideTargetAngle()` / `getOutsideCurrentAngle()`.
 
 ### 1.6 IntakeIOSparkMax: deploy motor workaround
 - **File:** `src/main/java/frc/robot/subsystems/intake/IntakeIOSparkMax.java` (line 171)
@@ -253,7 +241,7 @@ For maximum impact with minimum risk:
 
 | Phase | Items | Why This Order |
 |-------|-------|----------------|
-| **Phase 1: Critical fixes** | 1.1, 1.2, 1.3, 1.4, 1.5 | These are bugs. Fix them first. |
+| **Phase 1: Critical fixes** | 1.6 | 1.1-1.3, 1.5 already resolved. 1.4 N/A (SquareBot has no turret). Only intake workaround remains. |
 | **Phase 2: Hardware config** | 4.1, 4.2, 4.3, 1.6 | Needed before the robot runs correctly. |
 | **Phase 3: Naming & readability** | 2.6, 2.7, 5.1, 5.3 | Low risk, high readability payoff. |
 | **Phase 4: Architecture** | 2.1, 2.2, 2.5, 5.2 | Bigger changes, do after critical path is clear. |
@@ -265,16 +253,18 @@ For maximum impact with minimum risk:
 
 ## Summary
 
-| Category | Count | Severity |
-|----------|-------|----------|
-| Critical bugs | 6 | Must fix |
+| Category | Count | Status |
+|----------|-------|--------|
+| Critical bugs (from SCU) | 6 | 4 already resolved, 1 low-risk, 1 open |
 | Feature gaps (from SCU) | 7 | Important |
 | Control tuning | 3 | Important |
 | Hardware config | 3 | Pre-competition |
 | Code readability | 6 | Quality of life |
-| **Total** | **25** | |
+| **Total** | **25** | **~19 actionable** |
 
-The most impactful single change is **fixing items 1.1 and 1.2** (HoodIOSparkMax
-hardcoded values) because they silently break the entire shooting pipeline. The most
-impactful readability change is **splitting ShootingCommands.java** (5.1) because
-at 54KB it's the hardest file to navigate and the most frequently edited.
+Good news: several of the scariest bugs from `TODO-from-SCU.md` (HoodIOSparkMax
+hardcoded values, getInsideTurretAngleDeg, TurretIOSim outside angles) have
+**already been fixed**. The most impactful remaining change is the **architecture
+work** (CoordinatorMode state machine, un-commenting turret aiming, unified launch
+command). The most impactful readability change is **splitting ShootingCommands.java**
+(5.1) because at 54KB it's the hardest file to navigate and the most frequently edited.
