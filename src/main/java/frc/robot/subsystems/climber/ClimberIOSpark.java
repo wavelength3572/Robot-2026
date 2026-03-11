@@ -4,7 +4,6 @@ import static frc.robot.util.SparkUtil.*;
 
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.spark.FeedbackSensor;
-import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
@@ -24,7 +23,8 @@ public class ClimberIOSpark implements ClimberIO {
 
   private double targetPosition = 0;
 
-  private static final LoggedTunableNumber climbServoPosition = new LoggedTunableNumber("Climber/servo", 0.0);
+  private static final LoggedTunableNumber climbServoPosition =
+      new LoggedTunableNumber("Climber/servo", 0.0);
 
   private Servo servo = new Servo(1);
 
@@ -48,10 +48,11 @@ public class ClimberIOSpark implements ClimberIO {
     tryUntilOk(
         climberMotor,
         5,
-        () -> climberMotor.configure(
-            climberConfig,
-            com.revrobotics.ResetMode.kResetSafeParameters,
-            com.revrobotics.PersistMode.kPersistParameters));
+        () ->
+            climberMotor.configure(
+                climberConfig,
+                com.revrobotics.ResetMode.kResetSafeParameters,
+                com.revrobotics.PersistMode.kPersistParameters));
 
     climberMotor.set(0.0);
     tryUntilOk(climberMotor, 5, () -> climberEncoder.setPosition(0.0));
@@ -82,17 +83,14 @@ public class ClimberIOSpark implements ClimberIO {
   }
 
   @Override
-  public void deployClimber() {
-
-  }
+  public void deployClimber() {}
 
   @Override
   public void stopClimber() {
     climberMotor.setVoltage(0.0);
   }
 
-  public void climb() {
-  }
+  public void climb() {}
 
   @Override
   public boolean isClimberDeployed() {
