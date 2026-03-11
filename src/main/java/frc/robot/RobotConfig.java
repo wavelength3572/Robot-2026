@@ -544,6 +544,16 @@ public interface RobotConfig {
     return 0.0;
   }
 
+  /** Intake deploy feedforward static gain (kS). */
+  default double getIntakeDeployKs() {
+    return 0.0;
+  }
+
+  /** Intake deploy feedforward velocity gain (kV). */
+  default double getIntakeDeployKv() {
+    return 0.0;
+  }
+
   /** Intake deploy MAXMotion max velocity in RPM (output shaft). */
   default double getIntakeDeployMaxVelocity() {
     return 5.0;

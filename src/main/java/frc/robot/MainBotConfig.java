@@ -111,9 +111,9 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretZeroOffset = 63.873;
   private static final double turretOutsideMaxAngleDeg = turretInsideMaxAngleDeg + turretZeroOffset;
   private static final double turretOutsideMinAngleDeg = turretInsideMinAngleDeg + turretZeroOffset;
-  private static final double turretAbsoluteEncoderOffset = 0.8283; // 0.078061;
+  private static final double turretAbsoluteEncoderOffset = 0.68495; // 0.8283; // 0.078061;
   private static final int turretCurrentLimitAmps = 10;
-  private static final double turretKp = 0.15;
+  private static final double turretKp = 0.0;
   private static final double turretKd = 0.0;
   private static final boolean turretMotorInverted = true;
 
@@ -186,20 +186,23 @@ public class MainBotConfig implements RobotConfig {
   private static final int intakeRollerCurrentLimit = 40;
   private static final double intakeDeployStowedPosition = 0.0;
   private static final double intakeDeployRetractedPosition = 0.0;
-  private static final double intakeDeployExtendedPosition = 0.07;
+  private static final double intakeDeployExtendedPosition = 0.055;
   // kP=100 caused massive oscillation because it saturates output for any error > 0.01 rotations
   // (total travel is only 0.13 rotations). REV recommends starting at kP=0.01 for rotations.
   // kP=5 gives 65% duty cycle at full travel error - strong but not saturated.
   // kD provides damping to prevent oscillation near setpoint.
   private static final double intakeDeployKp = 5.0;
   private static final double intakeDeployKi = 0.0;
-  private static final double intakeDeployKd = 1.0;
+  private static final double intakeDeployKd = 0.0;
+  private static final double intakeDeployKs = 0.0; // Static feedforward (tune first)
+  private static final double intakeDeployKv = 0.08; // Velocity feedforward (tune first)
+  private static final double intakeDeployMaxVelocity = 80.0; // RPM output shaft
+  private static final double intakeDeployMaxAcceleration = 80.0; // RPM/s output shaft
+
   private static final double intakeRollerKp = 0.00005;
   private static final double intakeRollerKi = 0.0;
   private static final double intakeRollerKd = 0.000001;
-  private static final double intakeRollerKff = 0.000387;
-  private static final double intakeDeployMaxVelocity = 80.0; // RPM output shaft
-  private static final double intakeDeployMaxAcceleration = 80.0; // RPM/s output shaft
+  private static final double intakeRollerKff = 0.004644;
 
   // Climb Configuration:
   private static final int climberMotorCanId = 30;
@@ -895,6 +898,16 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getIntakeRollerKff() {
     return intakeRollerKff;
+  }
+
+  @Override
+  public double getIntakeDeployKs() {
+    return intakeDeployKs;
+  }
+
+  @Override
+  public double getIntakeDeployKv() {
+    return intakeDeployKv;
   }
 
   @Override

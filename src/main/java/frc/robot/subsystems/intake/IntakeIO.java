@@ -56,6 +56,9 @@ public interface IntakeIO {
   /** Configure PID gains for the deploy motor. */
   default void configureDeployPID(double kP, double kI, double kD) {}
 
+  /** Configure feedforward gains for the deploy motor MAXMotion. */
+  default void configureDeployFeedforward(double kS, double kV) {}
+
   /** Configure PID + FF gains for the roller motor velocity control. */
   default void configureRollerPID(double kP, double kI, double kD, double kFF) {}
 

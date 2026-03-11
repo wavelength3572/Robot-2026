@@ -41,6 +41,10 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber deployRetractedPos;
   private static final LoggedTunableNumber deployTolerance;
 
+  // Tunable feedforward gains for deploy MAXMotion
+  private static final LoggedTunableNumber deployKS;
+  private static final LoggedTunableNumber deployKV;
+
   // Tunable MAXMotion parameters for smooth deploy/retract
   private static final LoggedTunableNumber deployMaxVelocity;
   private static final LoggedTunableNumber deployMaxAcceleration;
@@ -79,6 +83,8 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kD", config.getIntakeRollerKd());
     rollerKFF =
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kFF", config.getIntakeRollerKff());
+    deployKS = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kS", config.getIntakeDeployKs());
+    deployKV = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kV", config.getIntakeDeployKv());
     deployMaxVelocity =
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/MaxVelocity", config.getIntakeDeployMaxVelocity());
@@ -86,9 +92,9 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
     deployOutputLimit =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/DeployOutputLimit", 0.5);
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/DeployOutputLimit", 0.05);
     retractOutputLimit =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", 1.0);
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", .5);
     rollerActivationPosition =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerActivationPosition", 0.05);
   }
@@ -178,6 +184,9 @@ public class Intake extends SubsystemBase {
     // Push tunable changes to IO
     if (LoggedTunableNumber.hasChanged(deployKP, deployKI, deployKD)) {
       io.configureDeployPID(deployKP.get(), deployKI.get(), deployKD.get());
+    }
+    if (LoggedTunableNumber.hasChanged(deployKS, deployKV)) {
+      io.configureDeployFeedforward(deployKS.get(), deployKV.get());
     }
     if (LoggedTunableNumber.hasChanged(rollerKP, rollerKI, rollerKD, rollerKFF)) {
       io.configureRollerPID(rollerKP.get(), rollerKI.get(), rollerKD.get(), rollerKFF.get());
