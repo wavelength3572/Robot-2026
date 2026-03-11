@@ -54,8 +54,8 @@ public class ButtonsAndDashboardBindings {
       new LoggedTunableNumber("Tuning/Spindexer/TuningVelocity", 1000.0);
   private static final LoggedTunableNumber tuningHoodAngle =
       new LoggedTunableNumber("Tuning/Hood/TuningAngle", 15.0);
-  private static final LoggedTunableNumber tuningTurretAngle =
-      new LoggedTunableNumber("Tuning/Turret/TuningAngle", 0.0);
+  private static final LoggedTunableNumber outsideTuningAngle =
+      new LoggedTunableNumber("Tuning/Turret/OutsideTuningAngle", 0.0);
   private static final LoggedTunableNumber tuningIntakeDeployedVelocity =
       new LoggedTunableNumber("Tuning/Intake/IntakeRollers/DeployedVelocity", 2000.0);
   private static final LoggedTunableNumber tuningIntakeAgitationVelocity =
@@ -250,7 +250,7 @@ public class ButtonsAndDashboardBindings {
     if (turret != null) {
       SmartDashboard.putData(
           "Tuning/Turret/SetToTuningAngle",
-          Commands.run(() -> turret.setOutsideTurretAngle(tuningTurretAngle.get()), turret)
+          Commands.run(() -> turret.setOutsideTurretAngle(outsideTuningAngle.get()), turret)
               .withName("Turret: Set Tuning Angle"));
     }
 
