@@ -27,7 +27,6 @@ public class ClimberIOSpark implements ClimberIO {
       new LoggedTunableNumber("Climber/servo", 0.0);
 
   private Servo servo = new Servo(1);
-  private double servoDelay = 0;
 
   public ClimberIOSpark() {
     RobotConfig config = Constants.getRobotConfig();
@@ -63,23 +62,33 @@ public class ClimberIOSpark implements ClimberIO {
   @Override
   public void updateInputs(ClimberIOInputs inputs) {
     if (LoggedTunableNumber.hasChanged(climbServoPosition)) {
-      servo.set(climbServoPosition.get());
+      setServoPosition(climbServoPosition.get());
     }
-
     inputs.appliedVolts = climberMotor.getAppliedOutput() * RobotController.getBatteryVoltage();
     inputs.currentAmps = climberMotor.getOutputCurrent();
     inputs.currentPosition = climberEncoder.getPosition();
     inputs.targetPosition = this.targetPosition;
   }
 
-  public void deployClimber() {
-    servoDelay = 0;
+  @Override
+  public void setClimberVoltage(double volts) {
+    climberMotor.setVoltage(volts);
   }
 
-  // public void stopClimber() {
-  // targetPosition = climberEncoder.getPosition();
-  // currentClimberState = CLIMB_STATE.FINAL;
-  // }
+  @Override
+  public void setServoPosition(double position) {
+    // Position is 0 to 1.0
+    // where 0.0 is one extreme and 1.0 is the other
+    servo.set(position);
+  }
+
+  @Override
+  public void deployClimber() {}
+
+  @Override
+  public void stopClimber() {
+    climberMotor.setVoltage(0.0);
+  }
 
   public void climb() {}
 
