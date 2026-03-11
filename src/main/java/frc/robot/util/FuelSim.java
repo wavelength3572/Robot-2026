@@ -40,6 +40,8 @@ public class FuelSim {
   private static final double TRENCH_BAR_WIDTH = 0.152;
   private static final double FRICTION =
       0.1; // proportion of horizontal velocity to lose per second while on ground
+  private static final double FUEL_DIAMETER_SQ =
+      (FUEL_RADIUS * 2) * (FUEL_RADIUS * 2); // squared diameter for fast collision checks
 
   private static FuelSim instance = null;
 
@@ -367,6 +369,13 @@ public class FuelSim {
     }
   }
 
+  private static double distanceSquared(Translation3d a, Translation3d b) {
+    double dx = a.getX() - b.getX();
+    double dy = a.getY() - b.getY();
+    double dz = a.getZ() - b.getZ();
+    return dx * dx + dy * dy + dz * dz;
+  }
+
   private static void handleFuelCollision(Fuel a, Fuel b) {
     Translation3d normal = a.pos.minus(b.pos);
     double distance = normal.getNorm();
@@ -391,20 +400,29 @@ public class FuelSim {
   @SuppressWarnings("unchecked")
   private final ArrayList<Fuel>[][] grid = new ArrayList[GRID_COLS][GRID_ROWS];
 
-  private void handleFuelCollisions(ArrayList<Fuel> fuels) {
-    // Clear grid
-    for (int i = 0; i < GRID_COLS; i++) {
-      for (int j = 0; j < GRID_ROWS; j++) {
-        grid[i][j].clear();
-      }
-    }
+  // Track which grid cells were populated to avoid clearing all 2178 cells each frame
+  private final int[] populatedCellCols = new int[500];
+  private final int[] populatedCellRows = new int[500];
+  private int populatedCellCount = 0;
 
-    // Populate grid
+  private void handleFuelCollisions(ArrayList<Fuel> fuels) {
+    // Clear only previously populated cells
+    for (int k = 0; k < populatedCellCount; k++) {
+      grid[populatedCellCols[k]][populatedCellRows[k]].clear();
+    }
+    populatedCellCount = 0;
+
+    // Populate grid and track which cells are used
     for (Fuel fuel : fuels) {
       int col = (int) (fuel.pos.getX() / CELL_SIZE);
       int row = (int) (fuel.pos.getY() / CELL_SIZE);
 
       if (col >= 0 && col < GRID_COLS && row >= 0 && row < GRID_ROWS) {
+        if (grid[col][row].isEmpty() && populatedCellCount < populatedCellCols.length) {
+          populatedCellCols[populatedCellCount] = col;
+          populatedCellRows[populatedCellCount] = row;
+          populatedCellCount++;
+        }
         grid[col][row].add(fuel);
       }
     }
@@ -419,7 +437,7 @@ public class FuelSim {
         for (int j = row - 1; j <= row + 1; j++) {
           if (i >= 0 && i < GRID_COLS && j >= 0 && j < GRID_ROWS) {
             for (Fuel other : grid[i][j]) {
-              if (fuel != other && fuel.pos.getDistance(other.pos) < FUEL_RADIUS * 2) {
+              if (fuel != other && distanceSquared(fuel.pos, other.pos) < FUEL_DIAMETER_SQ) {
                 // Use hashCode comparison to avoid processing same pair twice
                 if (fuel.hashCode() < other.hashCode()) {
                   handleFuelCollision(fuel, other);
@@ -609,11 +627,20 @@ public class FuelSim {
     return outpostBarriersEnabled.get();
   }
 
+  // Pre-allocated array for logging fuel positions (avoids stream/map GC every frame)
+  private Translation3d[] fuelPosBuffer = new Translation3d[0];
+
   /** Logs fuel positions to AdvantageKit for visualization in AdvantageScope */
   public void logFuels() {
-    Logger.recordOutput(
-        "FuelSim/Fuels", fuels.stream().map((fuel) -> fuel.pos).toArray(Translation3d[]::new));
-    Logger.recordOutput("FuelSim/FuelCount", fuels.size());
+    int size = fuels.size();
+    if (fuelPosBuffer.length != size) {
+      fuelPosBuffer = new Translation3d[size];
+    }
+    for (int i = 0; i < size; i++) {
+      fuelPosBuffer[i] = fuels.get(i).pos;
+    }
+    Logger.recordOutput("FuelSim/Fuels", fuelPosBuffer);
+    Logger.recordOutput("FuelSim/FuelCount", size);
     Logger.recordOutput("FuelSim/BlueScore", Hub.BLUE_HUB.getScore());
     Logger.recordOutput("FuelSim/RedScore", Hub.RED_HUB.getScore());
     Logger.recordOutput("FuelSim/OutpostBarriers", outpostBarriersEnabled.get());
@@ -763,14 +790,15 @@ public class FuelSim {
 
   private void handleIntakes(ArrayList<Fuel> fuels) {
     Pose2d robot = robotSupplier.get();
-    for (SimIntake intake : intakes) {
-      for (int i = 0; i < fuels.size(); i++) {
-        if (intake.shouldIntake(fuels.get(i), robot)) {
-          fuels.remove(i);
-          i--;
-        }
-      }
-    }
+    fuels.removeIf(
+        fuel -> {
+          for (SimIntake intake : intakes) {
+            if (intake.shouldIntake(fuel, robot)) {
+              return true;
+            }
+          }
+          return false;
+        });
   }
 
   private static void fuelCollideRectangle(Fuel fuel, Translation3d start, Translation3d end) {
