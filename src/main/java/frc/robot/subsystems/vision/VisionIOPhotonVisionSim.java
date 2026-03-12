@@ -53,9 +53,13 @@ public class VisionIOPhotonVisionSim extends VisionIOPhotonVision {
     // For 1280x800 (16:10 aspect), 70° horizontal FOV ≈ 79° diagonal FOV
     cameraProperties.setCalibration(1280, 800, Rotation2d.fromDegrees(79));
     cameraSim = new PhotonCameraSim(camera, cameraProperties, aprilTagLayout);
-    cameraSim.enableRawStream(true);
-    cameraSim.enableProcessedStream(true);
-    cameraSim.enableDrawWireframe(true);
+    // Limit detection range to match real-world performance (~5m for multi-tag)
+    // This dramatically reduces sim CPU load by skipping distant tags
+    cameraSim.setMaxSightRange(MAX_MULTI_TAG_DISTANCE);
+    // Disable visualization streams — only needed when viewing PhotonVision web UI
+    cameraSim.enableRawStream(false);
+    cameraSim.enableProcessedStream(false);
+    cameraSim.enableDrawWireframe(false);
     visionSim.addCamera(cameraSim, robotToCamera);
   }
 
