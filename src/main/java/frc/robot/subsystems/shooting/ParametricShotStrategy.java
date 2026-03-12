@@ -14,8 +14,9 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
  * <ul>
  *   <li><b>Calibrated</b> (default): Uses the RPM-dependent efficiency model derived from LUT data.
  *       This is the normal mode — parametric physics with empirically-tuned efficiency.
- *   <li><b>Raw</b>: Bypasses the efficiency model entirely and uses a static tunable fallback. Use
- *       this as a factory reset if LUT data is bad or after a mechanical change.
+ *   <li><b>Raw</b>: Uses the same trajectory physics as calibrated (identical arc), but converts
+ *       exit velocity to RPM using the static fallback efficiency instead of the fitted model.
+ *       This shows what RPM the real robot would need without calibration data.
  * </ul>
  */
 public class ParametricShotStrategy implements ShotStrategy {
@@ -31,7 +32,7 @@ public class ParametricShotStrategy implements ShotStrategy {
   /**
    * Create a parametric strategy.
    *
-   * @param useRawEfficiency If true, bypasses the efficiency model and uses the static fallback
+   * @param useRawEfficiency If true, recalculates RPM using the static fallback efficiency
    */
   public ParametricShotStrategy(boolean useRawEfficiency) {
     this.useRawEfficiency = useRawEfficiency;
@@ -50,37 +51,36 @@ public class ParametricShotStrategy implements ShotStrategy {
       double hoodMinAngleDeg,
       double hoodMaxAngleDeg) {
 
-    // Temporarily disable the efficiency model for raw mode
+    // Always compute the shot with the full efficiency model — trajectory physics are
+    // identical regardless of efficiency. This avoids mutating global state and ensures
+    // the velocity compensation loop converges the same way for both modes.
+    ShotCalculator.ShotResult calibratedResult =
+        ShotCalculator.calculateHubShot(
+            robotPose,
+            fieldSpeeds,
+            target,
+            config,
+            currentTurretAngleDeg,
+            effectiveMinDeg,
+            effectiveMaxDeg,
+            hoodMinAngleDeg,
+            hoodMaxAngleDeg);
+
     if (!useRawEfficiency) {
-      return ShotCalculator.calculateHubShot(
-          robotPose,
-          fieldSpeeds,
-          target,
-          config,
-          currentTurretAngleDeg,
-          effectiveMinDeg,
-          effectiveMaxDeg,
-          hoodMinAngleDeg,
-          hoodMaxAngleDeg);
+      return calibratedResult;
     }
 
-    // Raw mode: null the model, compute, ALWAYS restore (even on exception)
-    LaunchEfficiencyModel savedModel = ShotCalculator.getEfficiencyModel();
-    ShotCalculator.setEfficiencyModel(null);
-    try {
-      return ShotCalculator.calculateHubShot(
-          robotPose,
-          fieldSpeeds,
-          target,
-          config,
-          currentTurretAngleDeg,
-          effectiveMinDeg,
-          effectiveMaxDeg,
-          hoodMinAngleDeg,
-          hoodMaxAngleDeg);
-    } finally {
-      ShotCalculator.setEfficiencyModel(savedModel);
-    }
+    // Raw mode: same trajectory, just recalculate RPM using the static fallback efficiency.
+    // This shows what the real robot would need without any calibration data.
+    double rawRPM = ShotCalculator.calculateRPMFromFallbackEfficiency(calibratedResult.exitVelocityMps());
+    return new ShotCalculator.ShotResult(
+        calibratedResult.exitVelocityMps(),
+        rawRPM,
+        calibratedResult.launchAngleRad(),
+        calibratedResult.hoodAngleDeg(),
+        calibratedResult.turretAngleDeg(),
+        calibratedResult.aimTarget(),
+        calibratedResult.achievable());
   }
 
   @Override

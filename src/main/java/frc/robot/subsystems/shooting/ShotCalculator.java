@@ -143,6 +143,18 @@ public final class ShotCalculator {
   }
 
   /**
+   * Calculate RPM using only the static fallback efficiency (ignoring the fitted model). Used by raw
+   * parametric mode to show what RPM would be needed without calibration data.
+   *
+   * @param targetExitVelocity Desired exit velocity in m/s
+   * @return Required wheel RPM using fallback efficiency
+   */
+  public static double calculateRPMFromFallbackEfficiency(double targetExitVelocity) {
+    double surfaceVelocity = targetExitVelocity / fallbackEfficiency.get();
+    return (surfaceVelocity * 60.0) / (2.0 * Math.PI * WHEEL_RADIUS_METERS);
+  }
+
+  /**
    * Get what RPM would be needed to achieve a target exit velocity. Uses iterative solve because
    * efficiency depends on RPM: starts with a guess, computes efficiency at that RPM, refines.
    * Converges in 3-5 iterations.
