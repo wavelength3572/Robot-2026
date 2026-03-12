@@ -723,11 +723,12 @@ public class ShootingCoordinator extends SubsystemBase {
     double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
     double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
 
-    // Compute LUT, calibrated parametric, and raw parametric for comparison.
-    // Only LUT and parametric get trajectories (raw parametric arc is identical to calibrated).
+    // Compute LUT and calibrated parametric for comparison trajectories.
+    // Raw parametric is NOT computed here — it mutates global efficiency model state,
+    // which is fragile. Its RPM can be derived from calibrated parametric's exit velocity
+    // using the static fallback efficiency.
     ShotCalculator.ShotResult lutShot = null;
     ShotCalculator.ShotResult parametricShot = null;
-    ShotCalculator.ShotResult rawParametricShot = null;
 
     try {
       lutShot =
@@ -747,57 +748,33 @@ public class ShootingCoordinator extends SubsystemBase {
       Logger.recordOutput("Shots/Compare/Parametric/Error", e.getMessage());
     }
 
-    try {
-      rawParametricShot =
-          rawParametricStrategy.calculateShot(
-              robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle, maxAngle,
-              hoodMin, hoodMax);
-    } catch (Exception e) {
-      Logger.recordOutput("Shots/Compare/RawParametric/Error", e.getMessage());
-    }
-
-    // Structured comparison table — all strategies side-by-side under Shots/Compare/
-    // RPM
+    // Structured comparison table — strategies side-by-side under Shots/Compare/
+    // LUT
     Logger.recordOutput("Shots/Compare/LUT/RPM", lutShot != null ? lutShot.launcherRPM() : 0.0);
     Logger.recordOutput(
-        "Shots/Compare/Parametric/RPM", parametricShot != null ? parametricShot.launcherRPM() : 0);
-    Logger.recordOutput(
-        "Shots/Compare/RawParametric/RPM",
-        rawParametricShot != null ? rawParametricShot.launcherRPM() : 0.0);
-
-    // Hood angle
-    Logger.recordOutput(
         "Shots/Compare/LUT/HoodDeg", lutShot != null ? lutShot.hoodAngleDeg() : 0.0);
-    Logger.recordOutput(
-        "Shots/Compare/Parametric/HoodDeg",
-        parametricShot != null ? parametricShot.hoodAngleDeg() : 0.0);
-    Logger.recordOutput(
-        "Shots/Compare/RawParametric/HoodDeg",
-        rawParametricShot != null ? rawParametricShot.hoodAngleDeg() : 0.0);
-
-    // Exit velocity
     Logger.recordOutput(
         "Shots/Compare/LUT/ExitVelocityMps",
         lutShot != null ? lutShot.exitVelocityMps() : 0.0);
     Logger.recordOutput(
+        "Shots/Compare/LUT/LaunchAngleDeg",
+        lutShot != null ? lutShot.getLaunchAngleDegrees() : 0.0);
+
+    // Parametric (calibrated)
+    Logger.recordOutput(
+        "Shots/Compare/Parametric/RPM",
+        parametricShot != null ? parametricShot.launcherRPM() : 0.0);
+    Logger.recordOutput(
+        "Shots/Compare/Parametric/HoodDeg",
+        parametricShot != null ? parametricShot.hoodAngleDeg() : 0.0);
+    Logger.recordOutput(
         "Shots/Compare/Parametric/ExitVelocityMps",
         parametricShot != null ? parametricShot.exitVelocityMps() : 0.0);
     Logger.recordOutput(
-        "Shots/Compare/RawParametric/ExitVelocityMps",
-        rawParametricShot != null ? rawParametricShot.exitVelocityMps() : 0.0);
-
-    // Launch angle
-    Logger.recordOutput(
-        "Shots/Compare/LUT/LaunchAngleDeg",
-        lutShot != null ? lutShot.getLaunchAngleDegrees() : 0.0);
-    Logger.recordOutput(
         "Shots/Compare/Parametric/LaunchAngleDeg",
         parametricShot != null ? parametricShot.getLaunchAngleDegrees() : 0.0);
-    Logger.recordOutput(
-        "Shots/Compare/RawParametric/LaunchAngleDeg",
-        rawParametricShot != null ? rawParametricShot.getLaunchAngleDegrees() : 0.0);
 
-    // Trajectories — only LUT and parametric (raw parametric arc is the same)
+    // Trajectories
     visualizer.visualizeComparisonTrajectories(lutShot, parametricShot);
   }
 
