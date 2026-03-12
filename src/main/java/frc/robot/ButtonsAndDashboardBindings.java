@@ -526,9 +526,9 @@ public class ButtonsAndDashboardBindings {
           .onFalse(Commands.runOnce(intake::stopRollers, intake));
     }
 
-    // Smart launch: D-pad Up — mode selected by dashboard toggle
+    // Smart launch:Button 12— mode selected by dashboard toggle
     if (shootingCoordinator != null && launcher != null && turret != null && drive != null) {
-      oi.getButtonBox1YAxisNegative()
+      oi.getButtonBox1Button12()
           .whileTrue(
               new ProxyCommand(
                   () ->
@@ -584,7 +584,7 @@ public class ButtonsAndDashboardBindings {
     // Spindexer feeding suppress - operator can hold to prevent feeding/launching.
     // Uses a flag so shooting commands keep running and resume feeding instantly on release.
     if (spindexer != null) {
-      Trigger suppressTrigger = oi.getButtonBox1YAxisPositive();
+      Trigger suppressTrigger = oi.getButtonBox1Button11();
       suppressTrigger.onTrue(Commands.runOnce(spindexer::suppressFeeding));
       suppressTrigger.onFalse(Commands.runOnce(spindexer::unsuppressFeeding));
     }
@@ -596,4 +596,9 @@ public class ButtonsAndDashboardBindings {
    * intake is retracted. If the intake is deployed, does nothing so the normal roller speed is not
    * interrupted.
    */
+
+
+   // Climb Extend: button 7 
+   //Climb(retract) : button 10 
+   // Turret Lock: button 1
 }
