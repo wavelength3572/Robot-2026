@@ -340,17 +340,19 @@ public class ShotVisualizer {
 
     this.currentAzimuthAngle = targetAzimuthAngle;
 
+    // Use the RPM-derived exit velocity (what the ball will ACTUALLY do at the commanded RPM).
+    // In calibrated mode this equals the geometric velocity. In raw mode it may differ,
+    // showing the real-world effect of using a different efficiency assumption.
+    double actualExitVelocity =
+        ShotCalculator.calculateExitVelocityFromRPM(shotResult.launcherRPM());
+
     // Actual trajectory: aim direction + robot velocity (what the sim ball does)
-    updateActualTrajectory(
-        shotResult.exitVelocityMps(), shotResult.launchAngleRad(), targetAzimuthAngle);
+    updateActualTrajectory(actualExitVelocity, shotResult.launchAngleRad(), targetAzimuthAngle);
 
     // Static aim trajectory: aim direction only, no robot velocity
     // Shows where the turret is pointing — what a stationary robot would produce
     calculateStaticTrajectoryPoints(
-        shotResult.exitVelocityMps(),
-        shotResult.launchAngleRad(),
-        targetAzimuthAngle,
-        whatIfTrajectory);
+        actualExitVelocity, shotResult.launchAngleRad(), targetAzimuthAngle, whatIfTrajectory);
     Logger.recordOutput("Turret/Trajectory/StaticAim", whatIfTrajectory);
 
     Logger.recordOutput("Turret/Shot/CurrentRPM", ShotCalculator.getCurrentLauncherRPM());

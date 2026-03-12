@@ -353,7 +353,6 @@ public class ShootingCoordinator extends SubsystemBase {
     double distanceToTarget =
         Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
     Logger.recordOutput("Turret/Shot/DistanceToTargetM", distanceToTarget);
-
   }
 
   /** Calculate and apply pass shot. */
@@ -548,8 +547,12 @@ public class ShootingCoordinator extends SubsystemBase {
       Translation3d target = currentShot.aimTarget();
       double azimuthAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
 
-      visualizer.launchFuel(
-          currentShot.exitVelocityMps(), currentShot.launchAngleRad(), azimuthAngle);
+      // Use RPM-derived exit velocity so the sim ball matches the trajectory visualization.
+      // In calibrated mode this equals the geometric velocity; in raw mode it shows the
+      // real-world effect of the different efficiency assumption.
+      double actualExitVelocity =
+          ShotCalculator.calculateExitVelocityFromRPM(currentShot.launcherRPM());
+      visualizer.launchFuel(actualExitVelocity, currentShot.launchAngleRad(), azimuthAngle);
 
       // Track shot counts (auto vs teleop)
       totalShots++;
