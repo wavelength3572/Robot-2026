@@ -771,15 +771,13 @@ public class ShootingCommands {
                           // Continuously update targets while waiting
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                           if (shot != null) {
-                            double rpm =
-                                ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps());
-                            launcher.setVelocity(rpm);
+                            launcher.setVelocity(shot.launcherRPM());
                             turret.setOutsideTurretAngle(shot.turretAngleDeg());
                             if (hood != null) {
                               hood.setHoodAngle(shot.hoodAngleDeg());
                             }
                             coordinator.setManualShotParameters(
-                                rpm, shot.hoodAngleDeg(), shot.turretAngleDeg());
+                                shot.launcherRPM(), shot.hoodAngleDeg(), shot.turretAngleDeg());
                           }
 
                           boolean launcherReady = launcher.atSetpoint();
