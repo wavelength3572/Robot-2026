@@ -716,7 +716,7 @@ public class ShootingCoordinator extends SubsystemBase {
     lookupTable.clear();
     lookupTable.addFromLUTEntries(empiricalEntries);
 
-    System.out.println(
+    frc.robot.util.StartupLogger.log(
         "[ShootingCoordinator] LUT reloaded: "
             + empiricalEntries.size()
             + " empirical entries"

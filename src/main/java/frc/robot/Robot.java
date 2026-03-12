@@ -9,11 +9,15 @@ package frc.robot;
 
 import com.revrobotics.util.StatusLogger;
 import edu.wpi.first.hal.AllianceStationID;
+import edu.wpi.first.wpilibj.IterativeRobotBase;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.Watchdog;
 import edu.wpi.first.wpilibj.simulation.DriverStationSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.util.FuelSim;
 import frc.robot.util.HubShiftUtil;
+import java.lang.reflect.Field;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -29,11 +33,27 @@ import org.littletonrobotics.urcl.URCL;
  * project.
  */
 public class Robot extends LoggedRobot {
+  private static final double STARTUP_SUPPRESSION_SECONDS = 10.0;
+
   private Command autonomousCommand;
   private RobotContainer robotContainer;
+  private final Timer startupTimer = new Timer();
+  private Watchdog watchdog;
 
   public Robot() {
     super(0.02);
+
+    // Suppress loop overrun warnings during startup (re-enabled after STARTUP_SUPPRESSION_SECONDS)
+    try {
+      Field f = IterativeRobotBase.class.getDeclaredField("m_watchdog");
+      f.setAccessible(true);
+      watchdog = (Watchdog) f.get(this);
+      watchdog.setTimeout(Double.MAX_VALUE);
+      System.out.println("[Robot] Suppressed loop overrun warnings for startup");
+    } catch (ReflectiveOperationException e) {
+      watchdog = null;
+    }
+    startupTimer.start();
     // Record metadata
     Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
     Logger.recordMetadata("BuildDate", BuildConstants.BUILD_DATE);
@@ -81,6 +101,12 @@ public class Robot extends LoggedRobot {
     // Instantiate our RobotContainer. This will perform all our button bindings,
     // and put our autonomous chooser on the dashboard.
     robotContainer = new RobotContainer();
+
+    // Suppress CommandScheduler's own loop overrun warnings during startup
+    CommandScheduler.getInstance().setPeriod(Double.MAX_VALUE);
+
+    // Print all buffered startup messages together
+    frc.robot.util.StartupLogger.flush();
   }
 
   /** This function is called periodically during all modes. */
@@ -89,6 +115,15 @@ public class Robot extends LoggedRobot {
     // Optionally switch the thread to high priority to improve loop
     // timing (see the template project documentation for details)
     // Threads.setCurrentThreadPriority(true, 99);
+
+    // Re-enable loop overrun warnings after startup settles
+    if (watchdog != null && startupTimer.hasElapsed(STARTUP_SUPPRESSION_SECONDS)) {
+      watchdog.setTimeout(0.02); // Restore IterativeRobotBase 20ms overrun detection
+      CommandScheduler.getInstance().setPeriod(0.02); // Restore CommandScheduler overrun detection
+      startupTimer.stop();
+      watchdog = null; // Skip this check on future loops
+      System.out.println("[Robot] Loop overrun warnings re-enabled");
+    }
 
     // Refresh cached values before subsystem periodic methods run
     frc.robot.util.RobotStatus.refreshAlliance();

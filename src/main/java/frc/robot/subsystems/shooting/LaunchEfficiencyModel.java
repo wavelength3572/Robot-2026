@@ -139,7 +139,7 @@ public class LaunchEfficiencyModel {
     Logger.recordOutput("Shots/Efficiency/At2600RPM", getEfficiency(2600));
     Logger.recordOutput("Shots/Efficiency/At3000RPM", getEfficiency(3000));
 
-    System.out.println(
+    frc.robot.util.StartupLogger.log(
         String.format(
             "[LaunchEfficiencyModel] Refit from %d points: efficiency = %.4f + %.7f * RPM"
                 + "  (%.3f @ 2200, %.3f @ 2600, %.3f @ 3000)",

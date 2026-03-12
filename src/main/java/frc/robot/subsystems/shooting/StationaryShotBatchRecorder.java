@@ -239,7 +239,7 @@ public class StationaryShotBatchRecorder {
       String line;
       while ((line = reader.readLine()) != null) sb.append(line);
       parseLUTJson(sb.toString());
-      System.out.println(
+      frc.robot.util.StartupLogger.log(
           "[StationaryShotBatchRecorder] Loaded " + lutEntries.size() + " LUT entries");
     } catch (Exception e) {
       System.err.println("[StationaryShotBatchRecorder] Failed to load LUT: " + e.getMessage());
@@ -303,7 +303,7 @@ public class StationaryShotBatchRecorder {
       String line;
       while ((line = reader.readLine()) != null) sb.append(line);
       parseLogJson(sb.toString());
-      System.out.println(
+      frc.robot.util.StartupLogger.log(
           "[StationaryShotBatchRecorder] Loaded " + batchRecords.size() + " batch records");
     } catch (Exception e) {
       System.err.println("[StationaryShotBatchRecorder] Failed to load log: " + e.getMessage());
