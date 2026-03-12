@@ -723,42 +723,37 @@ public class ShootingCoordinator extends SubsystemBase {
     double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
     double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
 
-    // Compute each strategy's result (skip the active one — already shown as main trajectory)
+    // Compute ALL strategies — each gets a consistent log key for AdvantageScope coloring.
+    // The active strategy overlaps with Red/Yellow/Green, but that's fine — user can hide either.
     ShotCalculator.ShotResult lutShot = null;
     ShotCalculator.ShotResult parametricShot = null;
     ShotCalculator.ShotResult rawParametricShot = null;
 
-    if (activeStrategy != lutStrategy) {
-      try {
-        lutShot =
-            lutStrategy.calculateShot(
-                robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle,
-                maxAngle, hoodMin, hoodMax);
-      } catch (Exception e) {
-        // LUT may not have data — that's fine
-      }
+    try {
+      lutShot =
+          lutStrategy.calculateShot(
+              robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle, maxAngle,
+              hoodMin, hoodMax);
+    } catch (Exception e) {
+      // LUT may not have data — that's fine
     }
 
-    if (activeStrategy != parametricStrategy) {
-      try {
-        parametricShot =
-            parametricStrategy.calculateShot(
-                robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle,
-                maxAngle, hoodMin, hoodMax);
-      } catch (Exception e) {
-        Logger.recordOutput("Shots/Compare/Parametric/Error", e.getMessage());
-      }
+    try {
+      parametricShot =
+          parametricStrategy.calculateShot(
+              robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle, maxAngle,
+              hoodMin, hoodMax);
+    } catch (Exception e) {
+      Logger.recordOutput("Shots/Compare/Parametric/Error", e.getMessage());
     }
 
-    if (activeStrategy != rawParametricStrategy) {
-      try {
-        rawParametricShot =
-            rawParametricStrategy.calculateShot(
-                robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle,
-                maxAngle, hoodMin, hoodMax);
-      } catch (Exception e) {
-        Logger.recordOutput("Shots/Compare/RawParametric/Error", e.getMessage());
-      }
+    try {
+      rawParametricShot =
+          rawParametricStrategy.calculateShot(
+              robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle, maxAngle,
+              hoodMin, hoodMax);
+    } catch (Exception e) {
+      Logger.recordOutput("Shots/Compare/RawParametric/Error", e.getMessage());
     }
 
     // Log comparison RPM/hood for easy numeric comparison on dashboard
@@ -775,8 +770,7 @@ public class ShootingCoordinator extends SubsystemBase {
       Logger.recordOutput("Shots/Compare/RawParametric/HoodDeg", rawParametricShot.hoodAngleDeg());
     }
 
-    visualizer.visualizeComparisonTrajectories(
-        lutShot, parametricShot, rawParametricShot, activeStrategy.getName());
+    visualizer.visualizeComparisonTrajectories(lutShot, parametricShot, rawParametricShot);
   }
 
   /**

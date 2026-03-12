@@ -367,23 +367,22 @@ public class ShotVisualizer {
   }
 
   /**
-   * Visualize comparison trajectories from all strategies. Each strategy gets its own log key so
-   * they can be individually colored in AdvantageScope's 3D field viewer.
+   * Visualize trajectories from all strategies. Each gets its own log key so they can be
+   * independently colored in AdvantageScope's 3D field viewer. The active strategy will overlap
+   * with Red/Yellow/Green — user can hide whichever they don't want.
    *
    * @param lutShot Shot result from LUT strategy (may be null)
    * @param parametricShot Shot result from calibrated parametric strategy (may be null)
    * @param rawParametricShot Shot result from raw parametric strategy (may be null)
-   * @param activeStrategyName Name of the currently active strategy (to skip duplicate)
    */
   public void visualizeComparisonTrajectories(
       ShotCalculator.ShotResult lutShot,
       ShotCalculator.ShotResult parametricShot,
-      ShotCalculator.ShotResult rawParametricShot,
-      String activeStrategyName) {
+      ShotCalculator.ShotResult rawParametricShot) {
     Translation3d turretPos = getTurretFieldPosition();
 
     // LUT trajectory
-    if (lutShot != null && !"LUT".equals(activeStrategyName)) {
+    if (lutShot != null) {
       double azimuth =
           Math.atan2(
               lutShot.aimTarget().getY() - turretPos.getY(),
@@ -396,7 +395,7 @@ public class ShotVisualizer {
     }
 
     // Calibrated parametric trajectory
-    if (parametricShot != null && !"Parametric".equals(activeStrategyName)) {
+    if (parametricShot != null) {
       double azimuth =
           Math.atan2(
               parametricShot.aimTarget().getY() - turretPos.getY(),
@@ -412,7 +411,7 @@ public class ShotVisualizer {
     }
 
     // Raw parametric trajectory
-    if (rawParametricShot != null && !"Parametric (Raw)".equals(activeStrategyName)) {
+    if (rawParametricShot != null) {
       double azimuth =
           Math.atan2(
               rawParametricShot.aimTarget().getY() - turretPos.getY(),
