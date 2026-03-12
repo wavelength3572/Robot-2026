@@ -5,7 +5,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.ProxyCommand;
+import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.ShootingCommands;
@@ -24,6 +24,8 @@ import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.BenchTestMetrics;
 import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ButtonsAndDashboardBindings {
 
@@ -518,15 +520,23 @@ public class ButtonsAndDashboardBindings {
 
     // Smart launch: D-pad Up — mode selected by dashboard toggle
     if (shootingCoordinator != null && launcher != null && turret != null && drive != null) {
+      Set<Subsystem> smartLaunchReqs = new HashSet<>();
+      smartLaunchReqs.add(launcher);
+      smartLaunchReqs.add(turret);
+      if (hood != null) smartLaunchReqs.add(hood);
+      if (motivator != null) smartLaunchReqs.add(motivator);
+      if (spindexer != null) smartLaunchReqs.add(spindexer);
+
       oi.getButtonBox1YAxisNegative()
           .whileTrue(
-              new ProxyCommand(
+              Commands.defer(
                   () ->
                       SmartDashboard.getBoolean("Shots/SmartLaunch/SpeedLimitMode", true)
                           ? ShootingCommands.smartLaunchWithSpeedLimitCommand(
                               launcher, shootingCoordinator, motivator, turret, hood, spindexer)
                           : ShootingCommands.smartLaunchCommand(
-                              launcher, shootingCoordinator, motivator, turret, hood, spindexer)));
+                              launcher, shootingCoordinator, motivator, turret, hood, spindexer),
+                  smartLaunchReqs));
 
       // Unclog Button
       oi.getButtonBox1Button2()
