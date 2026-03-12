@@ -1,5 +1,7 @@
 package frc.robot.subsystems.shooting;
 
+import edu.wpi.first.math.geometry.Translation3d;
+import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -161,6 +163,72 @@ public class ShotLookupTable {
 
   private static double lerp(double a, double b, double t) {
     return a + t * (b - a);
+  }
+
+  /**
+   * Add entries from a list of LUT entries without clearing the table first. Empirical entries at
+   * the same distance will overwrite any existing (e.g. parametric) entry.
+   *
+   * @param entries LUT entries from {@link StationaryShotBatchRecorder}
+   */
+  public void addFromLUTEntries(List<StationaryShotBatchRecorder.LUTEntry> entries) {
+    for (StationaryShotBatchRecorder.LUTEntry e : entries) {
+      addEntry(
+          e.distanceM(),
+          e.rpm(),
+          e.hoodAngleDeg(),
+          e.timeOfFlightS(),
+          e.motivatorRPM(),
+          e.spindexerRPM());
+    }
+  }
+
+  /**
+   * Seed the table with parametric data from the TrajectoryOptimizer. Generates entries at regular
+   * distance intervals using physics-based calculations. This gives the LUT dense coverage so
+   * interpolation has more to work with, especially at ranges where empirical data is sparse.
+   *
+   * <p>Call this before overlaying empirical data — real measurements will overwrite parametric
+   * entries at the same (or very close) distances.
+   *
+   * @param turretHeightM Turret height above ground in meters
+   * @param hubTarget 3D position of the hub target
+   * @param hoodMinAngleDeg Minimum mechanical hood angle
+   * @param hoodMaxAngleDeg Maximum mechanical hood angle
+   * @param minDistanceM Minimum distance to generate entries for
+   * @param maxDistanceM Maximum distance to generate entries for
+   * @param stepM Distance step between generated entries
+   * @return Number of achievable entries added
+   */
+  public int seedFromParametric(
+      double turretHeightM,
+      Translation3d hubTarget,
+      double hoodMinAngleDeg,
+      double hoodMaxAngleDeg,
+      double minDistanceM,
+      double maxDistanceM,
+      double stepM) {
+    int added = 0;
+
+    for (double dist = minDistanceM; dist <= maxDistanceM + 0.001; dist += stepM) {
+      // Create a synthetic turret position at the given distance from the hub target
+      Translation3d turretPos =
+          new Translation3d(hubTarget.getX() - dist, hubTarget.getY(), turretHeightM);
+
+      TrajectoryOptimizer.OptimalShot shot =
+          TrajectoryOptimizer.calculateOptimalShot(
+              turretPos, hubTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+
+      if (shot.achievable) {
+        double tof =
+            ShotCalculator.calculateTimeOfFlight(
+                shot.exitVelocityMps, Math.toRadians(shot.launchAngleDeg), dist);
+        addEntry(dist, shot.rpm, shot.hoodAngleDeg, tof, 1800.0, 325.0);
+        added++;
+      }
+    }
+
+    return added;
   }
 
   /**

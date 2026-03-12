@@ -672,19 +672,40 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Reload LUT data from the recorder (disk). Call after recording new shots or at startup. Loads
-   * only successful batch entries into the lookup table.
+   * Reload LUT data from the recorder (disk). Call after recording new shots or at startup.
+   *
+   * <p>Seeds the table with parametric (physics-based) entries at 0.25m intervals first, giving
+   * dense coverage for smooth interpolation. Then overlays empirical data on top so real
+   * measurements win where available.
    */
   public void reloadLUTData() {
-    lookupTable.loadFromLUTEntries(batchRecorder.getLUTEntries());
+    lookupTable.clear();
+
+    // Seed with parametric data from TrajectoryOptimizer (0.25m steps, 1m to 6m)
+    double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
+    double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
+    int parametricCount =
+        lookupTable.seedFromParametric(
+            turretConfig.heightMeters(),
+            FieldConstants.Hub.innerCenterPoint,
+            hoodMin,
+            hoodMax,
+            1.0,
+            6.0,
+            0.25);
+
+    // Overlay empirical data — real measurements overwrite parametric at matching distances
+    var empiricalEntries = batchRecorder.getLUTEntries();
+    lookupTable.addFromLUTEntries(empiricalEntries);
+
     System.out.println(
         "[ShootingCoordinator] LUT reloaded: "
+            + parametricCount
+            + " parametric + "
+            + empiricalEntries.size()
+            + " empirical = "
             + lookupTable.size()
-            + " entries from "
-            + batchRecorder.getBatchCount()
-            + " total batches ("
-            + batchRecorder.getSuccessCount()
-            + " successful)");
+            + " total entries");
   }
 
   /** Get the batch recorder for recording new data collection sessions. */
