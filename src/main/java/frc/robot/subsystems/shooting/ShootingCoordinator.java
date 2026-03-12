@@ -84,6 +84,10 @@ public class ShootingCoordinator extends SubsystemBase {
   private Translation3d cachedLeftTarget = null;
   private Translation3d cachedRightTarget = null;
 
+  // Comparison trajectories: show all strategies simultaneously in AdvantageScope
+  private final LoggedTunableNumber showComparisonTrajectories =
+      new LoggedTunableNumber("Shots/Visualization/ShowComparison", 0.0);
+
   // Auto-shoot: fires automatically when conditions are met (for autonomous)
   private boolean autoShootEnabled = false;
   private Runnable onShotFiredCallback = null;
@@ -353,6 +357,9 @@ public class ShootingCoordinator extends SubsystemBase {
     double distanceToTarget =
         Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
     Logger.recordOutput("Turret/Shot/DistanceToTargetM", distanceToTarget);
+
+    // Compute comparison trajectories from all strategies (when enabled)
+    updateComparisonTrajectories(robotPose, fieldSpeeds, target);
   }
 
   /** Calculate and apply pass shot. */
@@ -693,6 +700,75 @@ public class ShootingCoordinator extends SubsystemBase {
       System.out.println("[ShootingCoordinator] Strategy changed to: " + newStrategy.getName());
       activeStrategy = newStrategy;
     }
+  }
+
+  /**
+   * Compute comparison trajectories from all strategies and pass to visualizer. Only runs when the
+   * comparison toggle is enabled (Shots/Visualization/ShowComparison = 1). Each non-active strategy
+   * gets its own trajectory log key for independent coloring in AdvantageScope.
+   */
+  private void updateComparisonTrajectories(
+      Pose2d robotPose, ChassisSpeeds fieldSpeeds, Translation3d target) {
+    if (visualizer == null) return;
+
+    boolean enabled = showComparisonTrajectories.get() > 0.5;
+    if (!enabled) {
+      visualizer.clearComparisonTrajectories();
+      return;
+    }
+
+    double currentTurretAngle = turret.getOutsideCurrentAngle();
+    double minAngle = turret.getMinAngle();
+    double maxAngle = turret.getMaxAngle();
+    double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
+    double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
+
+    // Compute each strategy's result (skip the active one — already shown as main trajectory)
+    ShotCalculator.ShotResult lutShot = null;
+    ShotCalculator.ShotResult parametricShot = null;
+    ShotCalculator.ShotResult rawParametricShot = null;
+
+    if (activeStrategy != lutStrategy) {
+      try {
+        lutShot =
+            lutStrategy.calculateShot(
+                robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle,
+                maxAngle, hoodMin, hoodMax);
+      } catch (Exception e) {
+        // LUT may not have data — that's fine
+      }
+    }
+
+    if (activeStrategy != parametricStrategy) {
+      parametricShot =
+          parametricStrategy.calculateShot(
+              robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle, maxAngle,
+              hoodMin, hoodMax);
+    }
+
+    if (activeStrategy != rawParametricStrategy) {
+      rawParametricShot =
+          rawParametricStrategy.calculateShot(
+              robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle, maxAngle,
+              hoodMin, hoodMax);
+    }
+
+    // Log comparison RPM/hood for easy numeric comparison on dashboard
+    if (lutShot != null) {
+      Logger.recordOutput("Shots/Compare/LUT/RPM", lutShot.launcherRPM());
+      Logger.recordOutput("Shots/Compare/LUT/HoodDeg", lutShot.hoodAngleDeg());
+    }
+    if (parametricShot != null) {
+      Logger.recordOutput("Shots/Compare/Parametric/RPM", parametricShot.launcherRPM());
+      Logger.recordOutput("Shots/Compare/Parametric/HoodDeg", parametricShot.hoodAngleDeg());
+    }
+    if (rawParametricShot != null) {
+      Logger.recordOutput("Shots/Compare/RawParametric/RPM", rawParametricShot.launcherRPM());
+      Logger.recordOutput("Shots/Compare/RawParametric/HoodDeg", rawParametricShot.hoodAngleDeg());
+    }
+
+    visualizer.visualizeComparisonTrajectories(
+        lutShot, parametricShot, rawParametricShot, activeStrategy.getName());
   }
 
   /**
