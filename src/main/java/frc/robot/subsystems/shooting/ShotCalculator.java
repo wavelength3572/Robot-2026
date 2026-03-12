@@ -99,8 +99,8 @@ public final class ShotCalculator {
   }
 
   /**
-   * Get the launch efficiency at the current target RPM. Uses the RPM-dependent model if
-   * available, otherwise falls back to the static tunable.
+   * Get the launch efficiency at the current target RPM. Uses the RPM-dependent model if available,
+   * otherwise falls back to the static tunable.
    */
   public static double getEfficiency() {
     if (efficiencyModel != null) {

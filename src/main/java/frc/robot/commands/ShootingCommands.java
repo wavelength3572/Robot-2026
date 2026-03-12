@@ -5,7 +5,6 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
@@ -143,7 +142,7 @@ public class ShootingCommands {
 
   // Max drive speed (m/s) while smart launch speed-limit mode is active
   private static final LoggedTunableNumber smartLaunchSpeedLimitCapMps =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpeedLimitCapMps", 1.5);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpeedLimitCapMps", 0.5);
 
   // ===== BenchTest/Shooting/* Override Values (for controlled manual testing)
   // =====
@@ -959,9 +958,10 @@ public class ShootingCommands {
   }
 
   /**
-   * Smart launch with drive speed limiting. Runs the smart launch command in parallel with a
-   * speed-limited joystick drive command, so the robot can't exceed the tunable speed limit while
-   * shooting on the move. When released, the default drive command resumes automatically.
+   * Smart launch with drive speed limiting. Sets a global speed limit on the default drive command
+   * while active. When released, the speed limit ramps back up smoothly (via {@link
+   * DriveCommands#clearSpeedLimit()}) to prevent sudden acceleration if the driver is pushing the
+   * stick forward.
    *
    * @param launcher The launcher subsystem
    * @param coordinator The shooting coordinator
@@ -969,10 +969,6 @@ public class ShootingCommands {
    * @param turret The turret subsystem
    * @param hood The hood subsystem (can be null)
    * @param spindexer The spindexer subsystem (can be null)
-   * @param drive The drive subsystem
-   * @param xSupplier Joystick X axis supplier
-   * @param ySupplier Joystick Y axis supplier
-   * @param omegaSupplier Joystick rotation supplier
    * @return Command that aims, fires, and limits drive speed while held
    */
   public static Command smartLaunchWithSpeedLimitCommand(
@@ -981,15 +977,10 @@ public class ShootingCommands {
       Motivator motivator,
       Turret turret,
       Hood hood,
-      Spindexer spindexer,
-      Drive drive,
-      DoubleSupplier xSupplier,
-      DoubleSupplier ySupplier,
-      DoubleSupplier omegaSupplier) {
-    return Commands.parallel(
-            smartLaunchCommand(launcher, coordinator, motivator, turret, hood, spindexer, false),
-            DriveCommands.joystickDriveSpeedLimited(
-                drive, xSupplier, ySupplier, omegaSupplier, smartLaunchSpeedLimitCapMps::get))
+      Spindexer spindexer) {
+    return smartLaunchCommand(launcher, coordinator, motivator, turret, hood, spindexer, false)
+        .beforeStarting(() -> DriveCommands.setSpeedLimit(smartLaunchSpeedLimitCapMps.get()))
+        .finallyDo(() -> DriveCommands.clearSpeedLimit())
         .withName("SmartLaunch (Speed Limited)");
   }
 

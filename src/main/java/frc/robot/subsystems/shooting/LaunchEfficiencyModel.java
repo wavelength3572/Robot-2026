@@ -8,9 +8,9 @@ import org.littletonrobotics.junction.Logger;
  * velocity to wheel surface velocity) from empirical LUT data, then fits a linear model so the
  * parametric system can predict accurate RPMs at any distance.
  *
- * <p>Why not a single constant? Higher RPM = more slip between wheel and ball = lower efficiency.
- * A static 0.55 might be close at 2200 RPM but way off at 3000 RPM — which is exactly why
- * parametric drifts at longer distances.
+ * <p>Why not a single constant? Higher RPM = more slip between wheel and ball = lower efficiency. A
+ * static 0.55 might be close at 2200 RPM but way off at 3000 RPM — which is exactly why parametric
+ * drifts at longer distances.
  *
  * <p>The model is: efficiency(rpm) = intercept + slope * rpm
  *
@@ -61,9 +61,9 @@ public class LaunchEfficiencyModel {
   }
 
   /**
-   * Refit the linear model from current LUT data. For each entry, back-calculates the exit
-   * velocity that must have been produced (from projectile physics to the hub), computes the wheel
-   * surface velocity from RPM, and derives efficiency = exitVelocity / surfaceVelocity.
+   * Refit the linear model from current LUT data. For each entry, back-calculates the exit velocity
+   * that must have been produced (from projectile physics to the hub), computes the wheel surface
+   * velocity from RPM, and derives efficiency = exitVelocity / surfaceVelocity.
    *
    * <p>Then fits a line through (RPM, efficiency) using least-squares regression.
    *

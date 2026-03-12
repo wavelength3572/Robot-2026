@@ -732,8 +732,15 @@ public class ShootingCoordinator extends SubsystemBase {
     try {
       lutShot =
           lutStrategy.calculateShot(
-              robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle, maxAngle,
-              hoodMin, hoodMax);
+              robotPose,
+              fieldSpeeds,
+              target,
+              turretConfig,
+              currentTurretAngle,
+              minAngle,
+              maxAngle,
+              hoodMin,
+              hoodMax);
     } catch (Exception e) {
       // LUT may not have data — that's fine
     }
@@ -741,8 +748,15 @@ public class ShootingCoordinator extends SubsystemBase {
     try {
       parametricShot =
           parametricStrategy.calculateShot(
-              robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle, maxAngle,
-              hoodMin, hoodMax);
+              robotPose,
+              fieldSpeeds,
+              target,
+              turretConfig,
+              currentTurretAngle,
+              minAngle,
+              maxAngle,
+              hoodMin,
+              hoodMax);
     } catch (Exception e) {
       Logger.recordOutput("Shots/Compare/Parametric/Error", e.getMessage());
     }
@@ -750,8 +764,15 @@ public class ShootingCoordinator extends SubsystemBase {
     try {
       rawParametricShot =
           rawParametricStrategy.calculateShot(
-              robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle, maxAngle,
-              hoodMin, hoodMax);
+              robotPose,
+              fieldSpeeds,
+              target,
+              turretConfig,
+              currentTurretAngle,
+              minAngle,
+              maxAngle,
+              hoodMin,
+              hoodMax);
     } catch (Exception e) {
       Logger.recordOutput("Shots/Compare/RawParametric/Error", e.getMessage());
     }
@@ -777,8 +798,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Exit velocity
     Logger.recordOutput(
-        "Shots/Compare/LUT/ExitVelocityMps",
-        lutShot != null ? lutShot.exitVelocityMps() : 0.0);
+        "Shots/Compare/LUT/ExitVelocityMps", lutShot != null ? lutShot.exitVelocityMps() : 0.0);
     Logger.recordOutput(
         "Shots/Compare/Parametric/ExitVelocityMps",
         parametricShot != null ? parametricShot.exitVelocityMps() : 0.0);

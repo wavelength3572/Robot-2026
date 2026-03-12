@@ -23,6 +23,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
+import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.RobotStatus;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
@@ -43,6 +44,60 @@ public class DriveCommands {
   private static final double FF_RAMP_RATE = 0.1; // Volts/Sec
   private static final double WHEEL_RADIUS_MAX_VELOCITY = 0.25; // Rad/Sec
   private static final double WHEEL_RADIUS_RAMP_RATE = 0.05; // Rad/Sec^2
+
+  // Speed limit ramp-back system: prevents sudden acceleration when a speed-limiting
+  // command (e.g. smart launch) ends while the driver is pushing the stick forward.
+  private static final LoggedTunableNumber speedLimitRampRateMps2 =
+      new LoggedTunableNumber("Drive/SpeedLimit/RampRateMps2", 4.0);
+
+  private static double speedLimitTargetMps = Double.MAX_VALUE;
+  private static double effectiveSpeedLimitMps = Double.MAX_VALUE;
+  private static double lastRampTimestamp = 0.0;
+
+  /** Set the drive speed limit (m/s). Takes effect instantly (no ramp on the way down). */
+  public static void setSpeedLimit(double limitMps) {
+    speedLimitTargetMps = limitMps;
+    effectiveSpeedLimitMps = limitMps; // Snap down immediately
+    lastRampTimestamp = Timer.getFPGATimestamp();
+  }
+
+  /** Clear the drive speed limit. Speed ramps back up at the configured rate. */
+  public static void clearSpeedLimit() {
+    speedLimitTargetMps = Double.MAX_VALUE;
+    lastRampTimestamp = Timer.getFPGATimestamp();
+    // effectiveSpeedLimitMps is NOT snapped up — it ramps in joystickDrive
+  }
+
+  /**
+   * Ramp the effective speed limit toward the target. Called each cycle from joystickDrive. Returns
+   * the scale factor (0-1) to apply to linear velocity.
+   */
+  private static double getSpeedLimitScale(double maxSpeedMps) {
+    double now = Timer.getFPGATimestamp();
+    double dt = now - lastRampTimestamp;
+    lastRampTimestamp = now;
+
+    // Clamp dt to avoid huge jumps after long pauses (e.g. disabled → enabled)
+    dt = Math.min(dt, 0.1);
+
+    if (effectiveSpeedLimitMps < speedLimitTargetMps) {
+      // Ramping back up
+      effectiveSpeedLimitMps =
+          Math.min(effectiveSpeedLimitMps + speedLimitRampRateMps2.get() * dt, speedLimitTargetMps);
+    } else {
+      effectiveSpeedLimitMps = speedLimitTargetMps;
+    }
+
+    double clampedLimit = Math.min(effectiveSpeedLimitMps, maxSpeedMps);
+    double scale = (maxSpeedMps > 0.0 && clampedLimit < maxSpeedMps) ? clampedLimit / maxSpeedMps : 1.0;
+
+    Logger.recordOutput("SpeedLimit/EffectiveMps", Math.min(effectiveSpeedLimitMps, maxSpeedMps));
+    Logger.recordOutput("SpeedLimit/TargetMps", Math.min(speedLimitTargetMps, maxSpeedMps));
+    Logger.recordOutput("SpeedLimit/Scale", scale);
+    Logger.recordOutput("SpeedLimit/Ramping", effectiveSpeedLimitMps < speedLimitTargetMps);
+
+    return scale;
+  }
 
   private DriveCommands() {}
 
@@ -73,6 +128,10 @@ public class DriveCommands {
           // Get linear velocity
           Translation2d linearVelocity =
               getLinearVelocityFromJoysticks(xSupplier.getAsDouble(), ySupplier.getAsDouble());
+
+          // Apply speed limit ramp-back (smooth transition when speed-limiting commands end)
+          double speedLimitScale = getSpeedLimitScale(drive.getMaxLinearSpeedMetersPerSec());
+          linearVelocity = linearVelocity.times(speedLimitScale);
 
           // Apply rotation deadband
           double omega = MathUtil.applyDeadband(omegaSupplier.getAsDouble(), OMEGA_DEADBAND);

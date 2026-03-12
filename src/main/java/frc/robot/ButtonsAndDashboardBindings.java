@@ -187,7 +187,7 @@ public class ButtonsAndDashboardBindings {
           "Shots/SmartLaunch/Fire",
           ShootingCommands.smartLaunchCommand(
               launcher, shootingCoordinator, motivator, turret, hood, spindexer));
-      SmartDashboard.putBoolean("Shots/SmartLaunch/SpeedLimitMode", false);
+      SmartDashboard.putBoolean("Shots/SmartLaunch/SpeedLimitMode", true);
       SmartDashboard.putData(
           "Shots/AutoTrack/Toggle",
           ShootingCommands.autoTrackCommand(shootingCoordinator, turret, hood));
@@ -522,18 +522,14 @@ public class ButtonsAndDashboardBindings {
           .whileTrue(
               new ProxyCommand(
                   () ->
-                      SmartDashboard.getBoolean("Shots/SmartLaunch/SpeedLimitMode", false)
+                      SmartDashboard.getBoolean("Shots/SmartLaunch/SpeedLimitMode", true)
                           ? ShootingCommands.smartLaunchWithSpeedLimitCommand(
                               launcher,
                               shootingCoordinator,
                               motivator,
                               turret,
                               hood,
-                              spindexer,
-                              drive,
-                              oi::getTranslateX,
-                              oi::getTranslateY,
-                              oi::getRotate)
+                              spindexer)
                           : ShootingCommands.smartLaunchCommand(
                               launcher, shootingCoordinator, motivator, turret, hood, spindexer)));
 
