@@ -6,6 +6,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
@@ -58,6 +59,10 @@ public class Intake extends SubsystemBase {
   // Deploy position at which rollers are allowed to turn on (before full deploy)
   private static final LoggedTunableNumber rollerActivationPosition;
 
+  // Agitation tunables
+  private static final LoggedTunableNumber agitationFallTime;
+  private static final LoggedTunableNumber agitationSpeedThreshold;
+
   static {
     RobotConfig config = Constants.getRobotConfig();
     deployKP = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kP", config.getIntakeDeployKp());
@@ -92,11 +97,15 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
     deployOutputLimit =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/DeployOutputLimit", 0.05);
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/DeployOutputLimit", 0.10);
     retractOutputLimit =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", .5);
     rollerActivationPosition =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerActivationPosition", 0.05);
+    agitationFallTime =
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationFallTimeSec", 1.0);
+    agitationSpeedThreshold =
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationSpeedThresholdMps", 0.3);
   }
 
   // Deploy positions (from config, used for soft limit init)
@@ -244,13 +253,14 @@ public class Intake extends SubsystemBase {
     Logger.recordOutput("Intake/DeployState", deployState.name());
 
     // Update deploy arm angle
-    // Retracted (0 rotations) = 90° (pointing up)
-    // Deployed (extended position) = 0° (parallel with ground)
+    // Retracted (0 rotations) = 45° (angled up)
+    // Extended position = 15° (motor-held deploy position)
+    // Gravity sag past extended = down toward 0° (horizontal)
     double deployFraction =
         (deployExtendedPosition != 0.0)
             ? inputs.deployPositionRotations / deployExtendedPosition
             : 0.0;
-    double deployAngleDegrees = 90 - (deployFraction * 90.0);
+    double deployAngleDegrees = Math.max(0.0, 45 - (deployFraction * 30.0));
     deployArm.setAngle(deployAngleDegrees);
 
     // Update roller rotation (continuous spin based on velocity)
@@ -406,6 +416,7 @@ public class Intake extends SubsystemBase {
 
   /** Stop the rollers. */
   public void stopRollers() {
+    rollersPending = false;
     io.setRollerDutyCycle(0.0);
   }
 
@@ -465,6 +476,40 @@ public class Intake extends SubsystemBase {
   /** Get the roller current draw (useful for game piece detection). */
   public double getRollerCurrentAmps() {
     return inputs.rollerCurrentAmps;
+  }
+
+  /** Check if the deploy state machine is idle (no motion in progress). */
+  public boolean isDeployIdle() {
+    return deployState == DeployState.IDLE;
+  }
+
+  /**
+   * Command that agitates the intake to shake game pieces toward the spindexer. Deploys the arm up
+   * to the extended position (which is above gravity's resting point), waits for the deploy state
+   * machine to reach IDLE (deploy → brake → coast), then waits for gravity to pull it back down.
+   * Repeats this cycle. Pauses when robot speed exceeds threshold. Rollers spin during agitation.
+   *
+   * @param rollerRPM Supplier for roller velocity in RPM
+   * @return Command that agitates until cancelled
+   */
+  public Command agitateCommand(DoubleSupplier rollerRPM) {
+    return Commands.waitUntil(
+            () -> inputs.deployPositionRotations >= deployExtendedPos.get() - deployTolerance.get())
+        .andThen(
+            Commands.sequence(
+                    runOnce(
+                        () -> {
+                          deploy();
+                          setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
+                        }),
+                    Commands.waitUntil(this::isDeployIdle),
+                    Commands.waitSeconds(agitationFallTime.get()))
+                .repeatedly()
+                .onlyWhile(
+                    () -> robotVelocitySupplier.getAsDouble() < agitationSpeedThreshold.get())
+                .repeatedly())
+        .finallyDo(this::stopRollers)
+        .withName("Intake: Agitate");
   }
 
   // ========== Commands ==========
