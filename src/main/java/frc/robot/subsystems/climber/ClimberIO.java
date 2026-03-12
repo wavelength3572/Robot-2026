@@ -12,6 +12,10 @@ public interface ClimberIO {
     public boolean climbingFinished = false;
   }
 
+  public default void setClimberVoltage(double volts) {}
+
+  public default void setServoPosition(double position) {}
+
   public default void updateInputs(ClimberIOInputs inputs) {}
 
   public default void deployClimber() {}

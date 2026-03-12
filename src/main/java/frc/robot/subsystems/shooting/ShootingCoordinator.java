@@ -91,8 +91,8 @@ public class ShootingCoordinator extends SubsystemBase {
   private int teleopShots = 0;
   private final LoggedTunableNumber autoShootMinInterval =
       new LoggedTunableNumber("BenchTest/AutoShoot/MinInterval", 0.15);
-  private final LoggedTunableNumber autoShootMaxSpeedMps =
-      new LoggedTunableNumber("BenchTest/AutoShoot/MaxSpeedMps", 1.75);
+  private final LoggedTunableNumber maxFeedSpeedMps =
+      new LoggedTunableNumber("Shots/SmartLaunch/MaxFeedSpeedMps", 1.75);
 
   /**
    * Creates a new ShootingCoordinator.
@@ -465,7 +465,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
     double robotSpeedMps = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-    boolean robotSlow = !inAllianceZone || robotSpeedMps <= autoShootMaxSpeedMps.get();
+    boolean robotSlow = !inAllianceZone || robotSpeedMps <= maxFeedSpeedMps.get();
 
     Logger.recordOutput("Turret/AutoShoot/LauncherReady", launcherReady);
     Logger.recordOutput("Turret/AutoShoot/Aimed", aimed);
@@ -712,9 +712,9 @@ public class ShootingCoordinator extends SubsystemBase {
     return fieldSpeedsSupplier;
   }
 
-  /** Get the max robot speed for auto-shoot and smart launch feeding. */
-  public double getMaxShootSpeedMps() {
-    return autoShootMaxSpeedMps.get();
+  /** Get the max robot speed for smart launch and auto-shoot feeding. */
+  public double getMaxFeedSpeedMps() {
+    return maxFeedSpeedMps.get();
   }
 
   // ========== Snapshot Creation ==========

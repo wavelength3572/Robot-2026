@@ -240,10 +240,7 @@ public class TurretIOSparkMax implements TurretIO {
 
     // Convert degrees to motor rotations for the PID controller
     motorController.setSetpoint(
-        degreesToMotorRotations(targetInsideDeg),
-        ControlType.kPosition,
-        ClosedLoopSlot.kSlot0,
-        0.13);
+        degreesToMotorRotations(targetInsideDeg), ControlType.kPosition, ClosedLoopSlot.kSlot0, 0);
   }
 
   public void setInsideTurretAngle_ONLY_FOR_TESTING(double insideTurretTarget) {

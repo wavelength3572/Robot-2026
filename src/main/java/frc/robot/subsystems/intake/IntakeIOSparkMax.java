@@ -78,7 +78,12 @@ public class IntakeIOSparkMax implements IntakeIO {
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(config.getIntakeDeployKp(), config.getIntakeDeployKi(), config.getIntakeDeployKd());
-    deployConfig.closedLoop.outputRange(-0.5, 0.5);
+    deployConfig.closedLoop.outputRange(-0.25, 0.25);
+    deployConfig
+        .closedLoop
+        .feedForward
+        .kS(config.getIntakeDeployKs())
+        .kV(config.getIntakeDeployKv());
     deployConfig
         .closedLoop
         .maxMotion
@@ -256,6 +261,14 @@ public class IntakeIOSparkMax implements IntakeIO {
   public void configureDeployPID(double kP, double kI, double kD) {
     var config = new SparkMaxConfig();
     config.closedLoop.pid(kP, kI, kD);
+    deployMotor.configure(
+        config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void configureDeployFeedforward(double kS, double kV) {
+    var config = new SparkMaxConfig();
+    config.closedLoop.feedForward.kS(kS).kV(kV);
     deployMotor.configure(
         config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }

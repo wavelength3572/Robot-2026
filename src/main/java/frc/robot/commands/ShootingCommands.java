@@ -141,9 +141,9 @@ public class ShootingCommands {
   private static final LoggedTunableNumber smartShotSpindexerRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerRPM", 325.0);
 
-  // Drive speed limit applied while smart launch with speed limit is active
-  private static final LoggedTunableNumber smartLaunchDriveSpeedLimitMps =
-      new LoggedTunableNumber("Shots/SmartLaunch/DriveSpeedLimitMps", 1.5);
+  // Max drive speed (m/s) while smart launch speed-limit mode is active
+  private static final LoggedTunableNumber smartLaunchSpeedLimitCapMps =
+      new LoggedTunableNumber("Shots/SmartLaunch/SpeedLimitCapMps", 1.5);
 
   // ===== BenchTest/Shooting/* Override Values (for controlled manual testing)
   // =====
@@ -704,7 +704,7 @@ public class ShootingCommands {
     if (coordinator.getFieldSpeedsSupplier() == null) return true;
     edu.wpi.first.math.kinematics.ChassisSpeeds speeds = coordinator.getFieldSpeedsSupplier().get();
     double speed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
-    return speed <= coordinator.getMaxShootSpeedMps();
+    return speed <= coordinator.getMaxFeedSpeedMps();
   }
 
   public static Command smartLaunchCommand(
@@ -989,7 +989,7 @@ public class ShootingCommands {
     return Commands.parallel(
             smartLaunchCommand(launcher, coordinator, motivator, turret, hood, spindexer, false),
             DriveCommands.joystickDriveSpeedLimited(
-                drive, xSupplier, ySupplier, omegaSupplier, smartLaunchDriveSpeedLimitMps::get))
+                drive, xSupplier, ySupplier, omegaSupplier, smartLaunchSpeedLimitCapMps::get))
         .withName("SmartLaunch (Speed Limited)");
   }
 
