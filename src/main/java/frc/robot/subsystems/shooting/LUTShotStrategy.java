@@ -20,7 +20,8 @@ import org.littletonrobotics.junction.Logger;
  *   <li>Final LUT lookup at converged distance gives RPM + hood angle
  * </ol>
  *
- * <p>Falls back to {@link ParametricShotStrategy} if the LUT has fewer than 2 data points.
+ * <p>Falls back to {@link ParametricShotStrategy} if the LUT has fewer than 2 data points or the
+ * target distance is outside the empirical data range.
  */
 public class LUTShotStrategy implements ShotStrategy {
 
@@ -48,6 +49,7 @@ public class LUTShotStrategy implements ShotStrategy {
     // Fall back to parametric if not enough LUT data
     if (!lookupTable.hasEnoughData()) {
       Logger.recordOutput("Shots/Strategy/LUT/Fallback", true);
+      Logger.recordOutput("Shots/Strategy/LUT/FallbackReason", "Not enough data");
       return fallback.calculateShot(
           robotPose,
           fieldSpeeds,
@@ -59,7 +61,6 @@ public class LUTShotStrategy implements ShotStrategy {
           hoodMinAngleDeg,
           hoodMaxAngleDeg);
     }
-    Logger.recordOutput("Shots/Strategy/LUT/Fallback", false);
 
     // Get turret field position
     double robotHeadingRad = robotPose.getRotation().getRadians();
@@ -72,6 +73,29 @@ public class LUTShotStrategy implements ShotStrategy {
     // Static distance to target
     double staticDistance =
         Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
+
+    // Fall back to parametric if outside the empirical data range
+    if (!lookupTable.isInRange(staticDistance)) {
+      Logger.recordOutput("Shots/Strategy/LUT/Fallback", true);
+      Logger.recordOutput(
+          "Shots/Strategy/LUT/FallbackReason",
+          String.format(
+              "Distance %.2fm outside LUT range [%.2f-%.2f]",
+              staticDistance, lookupTable.getMinDistance(), lookupTable.getMaxDistance()));
+      return fallback.calculateShot(
+          robotPose,
+          fieldSpeeds,
+          target,
+          config,
+          currentTurretAngleDeg,
+          effectiveMinDeg,
+          effectiveMaxDeg,
+          hoodMinAngleDeg,
+          hoodMaxAngleDeg);
+    }
+
+    Logger.recordOutput("Shots/Strategy/LUT/Fallback", false);
+    Logger.recordOutput("Shots/Strategy/LUT/FallbackReason", "");
 
     // Velocity compensation iteration using LUT TOF
     Translation3d aimTarget = target;

@@ -125,6 +125,28 @@ public class ShotLookupTable {
   }
 
   /**
+   * Check if a distance falls within the range of empirical data. Returns false if outside the
+   * min/max recorded distances, indicating the LUT would clamp rather than interpolate.
+   *
+   * @param distanceMeters Distance to check
+   * @return true if the distance is within the LUT's data range
+   */
+  public boolean isInRange(double distanceMeters) {
+    if (table.size() < 2) return false;
+    return distanceMeters >= table.firstKey() && distanceMeters <= table.lastKey();
+  }
+
+  /** Get the minimum distance in the table, or -1 if empty. */
+  public double getMinDistance() {
+    return table.isEmpty() ? -1.0 : table.firstKey();
+  }
+
+  /** Get the maximum distance in the table, or -1 if empty. */
+  public double getMaxDistance() {
+    return table.isEmpty() ? -1.0 : table.lastKey();
+  }
+
+  /**
    * @return true if the table has at least one entry
    */
   public boolean hasEntries() {

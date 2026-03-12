@@ -123,11 +123,11 @@ public class ShootingCoordinator extends SubsystemBase {
     // Initialize shot strategies
     this.lutStrategy = new LUTShotStrategy(lookupTable);
     this.hybridStrategy = new HybridShotStrategy(lookupTable);
-    this.activeStrategy = parametricStrategy;
+    this.activeStrategy = lutStrategy;
 
     // Strategy dropdown on dashboard
-    strategyChooser.setDefaultOption("Parametric (Physics)", "Parametric");
-    strategyChooser.addOption("LUT (Lookup Table)", "LUT");
+    strategyChooser.setDefaultOption("LUT (Lookup Table)", "LUT");
+    strategyChooser.addOption("Parametric (Physics)", "Parametric");
     strategyChooser.addOption("Hybrid (LUT TOF + Physics RPM)", "Hybrid");
     SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
 
@@ -677,7 +677,7 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Update the active strategy based on the dashboard dropdown. */
   private void updateActiveStrategy() {
     String selected = strategyChooser.getSelected();
-    if (selected == null) selected = "Parametric";
+    if (selected == null) selected = "LUT";
 
     ShotStrategy newStrategy =
         switch (selected) {
@@ -695,43 +695,24 @@ public class ShootingCoordinator extends SubsystemBase {
   /**
    * Reload LUT data from the recorder (disk). Call after recording new shots or at startup.
    *
-   * <p>First refits the efficiency model from empirical data (so parametric seeding uses accurate
-   * RPMs). Then seeds the table with parametric entries at 0.25m intervals, and overlays empirical
-   * data on top so real measurements win where available.
+   * <p>Loads only empirical data — no parametric seeding. The LUT strategy falls back to parametric
+   * (with calibrated efficiency) for distances outside the empirical range.
    */
   public void reloadLUTData() {
-    // Refit efficiency model FIRST so parametric seeding benefits from updated efficiency
+    // Refit efficiency model from empirical data
     var empiricalEntries = batchRecorder.getLUTEntries();
     if (empiricalEntries.size() >= 2) {
       efficiencyModel.fitFromLUTData(empiricalEntries);
     }
 
+    // Pure empirical LUT — no parametric seeding
     lookupTable.clear();
-
-    // Seed with parametric data from TrajectoryOptimizer (0.25m steps, 1m to 6m)
-    double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
-    double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
-    int parametricCount =
-        lookupTable.seedFromParametric(
-            turretConfig.heightMeters(),
-            FieldConstants.Hub.innerCenterPoint,
-            hoodMin,
-            hoodMax,
-            1.0,
-            6.0,
-            0.25);
-
-    // Overlay empirical data — real measurements overwrite parametric at matching distances
     lookupTable.addFromLUTEntries(empiricalEntries);
 
     System.out.println(
         "[ShootingCoordinator] LUT reloaded: "
-            + parametricCount
-            + " parametric + "
             + empiricalEntries.size()
-            + " empirical = "
-            + lookupTable.size()
-            + " total entries"
+            + " empirical entries"
             + (efficiencyModel.isFitted()
                 ? " (efficiency fitted from " + efficiencyModel.getDataPointCount() + " points)"
                 : " (using default efficiency)"));
