@@ -524,12 +524,7 @@ public class ButtonsAndDashboardBindings {
                   () ->
                       SmartDashboard.getBoolean("Shots/SmartLaunch/SpeedLimitMode", true)
                           ? ShootingCommands.smartLaunchWithSpeedLimitCommand(
-                              launcher,
-                              shootingCoordinator,
-                              motivator,
-                              turret,
-                              hood,
-                              spindexer)
+                              launcher, shootingCoordinator, motivator, turret, hood, spindexer)
                           : ShootingCommands.smartLaunchCommand(
                               launcher, shootingCoordinator, motivator, turret, hood, spindexer)));
 

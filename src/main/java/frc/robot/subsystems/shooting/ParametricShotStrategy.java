@@ -79,10 +79,8 @@ public class ParametricShotStrategy implements ShotStrategy {
       Logger.recordOutput("Shots/Debug/Raw/RPM", rawResult.launcherRPM());
       Logger.recordOutput("Shots/Debug/Raw/HoodAngleDeg", rawResult.hoodAngleDeg());
       Logger.recordOutput("Shots/Debug/Raw/Achievable", rawResult.achievable());
-      Logger.recordOutput(
-          "Shots/Debug/Raw/AimTargetX", rawResult.aimTarget().getX());
-      Logger.recordOutput(
-          "Shots/Debug/Raw/AimTargetY", rawResult.aimTarget().getY());
+      Logger.recordOutput("Shots/Debug/Raw/AimTargetX", rawResult.aimTarget().getX());
+      Logger.recordOutput("Shots/Debug/Raw/AimTargetY", rawResult.aimTarget().getY());
 
       // Also compute calibrated for comparison (restore model, compute, null again)
       ShotCalculator.setEfficiencyModel(savedModel);
@@ -104,10 +102,8 @@ public class ParametricShotStrategy implements ShotStrategy {
       Logger.recordOutput("Shots/Debug/Cal/RPM", calResult.launcherRPM());
       Logger.recordOutput("Shots/Debug/Cal/HoodAngleDeg", calResult.hoodAngleDeg());
       Logger.recordOutput("Shots/Debug/Cal/Achievable", calResult.achievable());
-      Logger.recordOutput(
-          "Shots/Debug/Cal/AimTargetX", calResult.aimTarget().getX());
-      Logger.recordOutput(
-          "Shots/Debug/Cal/AimTargetY", calResult.aimTarget().getY());
+      Logger.recordOutput("Shots/Debug/Cal/AimTargetX", calResult.aimTarget().getX());
+      Logger.recordOutput("Shots/Debug/Cal/AimTargetY", calResult.aimTarget().getY());
 
       return rawResult;
     } finally {
