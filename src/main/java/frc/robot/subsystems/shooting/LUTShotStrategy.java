@@ -178,7 +178,9 @@ public class LUTShotStrategy implements ShotStrategy {
         entry.hoodAngleDeg(),
         turretAngleDeg,
         aimTarget,
-        achievable);
+        achievable,
+        entry.motivatorRPM(),
+        entry.spindexerRPM());
   }
 
   @Override

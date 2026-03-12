@@ -716,6 +716,9 @@ public class ShootingCoordinator extends SubsystemBase {
     lookupTable.clear();
     lookupTable.addFromLUTEntries(empiricalEntries);
 
+    // Log full table to AdvantageKit for live dashboard viewing
+    lookupTable.logTable("LUTDev/Table");
+
     frc.robot.util.StartupLogger.log(
         "[ShootingCoordinator] LUT reloaded: "
             + empiricalEntries.size()

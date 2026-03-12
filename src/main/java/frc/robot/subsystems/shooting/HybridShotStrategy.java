@@ -126,6 +126,18 @@ public class HybridShotStrategy implements ShotStrategy {
     Logger.recordOutput("Shots/Strategy/Hybrid/FinalRPM", optimalShot.rpm);
     Logger.recordOutput("Shots/Strategy/Hybrid/FinalHoodDeg", optimalShot.hoodAngleDeg);
 
+    // Get feed speeds from LUT if available
+    double finalDistance =
+        Math.sqrt(
+            Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));
+    double motivatorRPM = 0.0;
+    double spindexerRPM = 0.0;
+    ShotLookupTable.ShotEntry feedEntry = lookupTable.lookup(finalDistance);
+    if (feedEntry != null) {
+      motivatorRPM = feedEntry.motivatorRPM();
+      spindexerRPM = feedEntry.spindexerRPM();
+    }
+
     return new ShotCalculator.ShotResult(
         optimalShot.exitVelocityMps,
         optimalShot.rpm,
@@ -133,7 +145,9 @@ public class HybridShotStrategy implements ShotStrategy {
         optimalShot.hoodAngleDeg,
         turretAngleDeg,
         aimTarget,
-        optimalShot.achievable);
+        optimalShot.achievable,
+        motivatorRPM,
+        spindexerRPM);
   }
 
   @Override

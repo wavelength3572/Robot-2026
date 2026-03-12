@@ -35,9 +35,16 @@ public class StationaryShotBatchRecorder {
       double distanceM,
       double rpm,
       double hoodAngleDeg,
-      double timeOfFlightS,
+      double timeOfFlightTheoreticalS,
+      double timeOfFlightMeasuredS,
       double motivatorRPM,
-      double spindexerRPM) {}
+      double spindexerRPM) {
+
+    /** Returns measured TOF if available (> 0), otherwise theoretical. */
+    public double getEffectiveTOF() {
+      return timeOfFlightMeasuredS > 0 ? timeOfFlightMeasuredS : timeOfFlightTheoreticalS;
+    }
+  }
 
   /** Full batch record for analysis — includes context and diagnostics. */
   public record BatchRecord(
@@ -48,7 +55,8 @@ public class StationaryShotBatchRecorder {
       double rpm,
       double hoodAngleDeg,
       double turretAngleDeg,
-      double timeOfFlightS,
+      double timeOfFlightTheoreticalS,
+      double timeOfFlightMeasuredS,
       double motivatorRPM,
       double spindexerRPM,
       int fuelFired,
@@ -100,7 +108,8 @@ public class StationaryShotBatchRecorder {
       double rpm,
       double hoodAngleDeg,
       double turretAngleDeg,
-      double timeOfFlightS,
+      double timeOfFlightTheoreticalS,
+      double timeOfFlightMeasuredS,
       double motivatorRPM,
       double spindexerRPM,
       int currentFuelCount,
@@ -123,7 +132,8 @@ public class StationaryShotBatchRecorder {
             rpm,
             hoodAngleDeg,
             turretAngleDeg,
-            timeOfFlightS,
+            timeOfFlightTheoreticalS,
+            timeOfFlightMeasuredS,
             motivatorRPM,
             spindexerRPM,
             fuelFired,
@@ -134,7 +144,14 @@ public class StationaryShotBatchRecorder {
     // Only add to LUT if successful
     if (successful) {
       lutEntries.add(
-          new LUTEntry(distanceM, rpm, hoodAngleDeg, timeOfFlightS, motivatorRPM, spindexerRPM));
+          new LUTEntry(
+              distanceM,
+              rpm,
+              hoodAngleDeg,
+              timeOfFlightTheoreticalS,
+              timeOfFlightMeasuredS,
+              motivatorRPM,
+              spindexerRPM));
       saveLUTToFile();
     }
 
@@ -219,7 +236,8 @@ public class StationaryShotBatchRecorder {
         w.print("\"distanceM\":" + e.distanceM());
         w.print(",\"rpm\":" + e.rpm());
         w.print(",\"hoodAngleDeg\":" + e.hoodAngleDeg());
-        w.print(",\"timeOfFlightS\":" + e.timeOfFlightS());
+        w.print(",\"timeOfFlightTheoreticalS\":" + e.timeOfFlightTheoreticalS());
+        w.print(",\"timeOfFlightMeasuredS\":" + e.timeOfFlightMeasuredS());
         w.print(",\"motivatorRPM\":" + e.motivatorRPM());
         w.print(",\"spindexerRPM\":" + e.spindexerRPM());
         w.print("}");
@@ -251,12 +269,20 @@ public class StationaryShotBatchRecorder {
     if (json.isEmpty()) return;
     for (String obj : splitObjects(json)) {
       try {
+        // Try new field names first, fall back to old "timeOfFlightS" for backward compat
+        double theoreticalTOF = getDouble(obj, "timeOfFlightTheoreticalS");
+        double measuredTOF = getDouble(obj, "timeOfFlightMeasuredS");
+        if (theoreticalTOF == 0.0) {
+          // Old format: single "timeOfFlightS" field → treat as theoretical
+          theoreticalTOF = getDouble(obj, "timeOfFlightS");
+        }
         lutEntries.add(
             new LUTEntry(
                 getDouble(obj, "distanceM"),
                 getDouble(obj, "rpm"),
                 getDouble(obj, "hoodAngleDeg"),
-                getDouble(obj, "timeOfFlightS"),
+                theoreticalTOF,
+                measuredTOF,
                 getDouble(obj, "motivatorRPM"),
                 getDouble(obj, "spindexerRPM")));
       } catch (Exception e) {
@@ -281,7 +307,8 @@ public class StationaryShotBatchRecorder {
         w.print(",\"rpm\":" + b.rpm());
         w.print(",\"hoodAngleDeg\":" + b.hoodAngleDeg());
         w.print(",\"turretAngleDeg\":" + b.turretAngleDeg());
-        w.print(",\"timeOfFlightS\":" + b.timeOfFlightS());
+        w.print(",\"timeOfFlightTheoreticalS\":" + b.timeOfFlightTheoreticalS());
+        w.print(",\"timeOfFlightMeasuredS\":" + b.timeOfFlightMeasuredS());
         w.print(",\"motivatorRPM\":" + b.motivatorRPM());
         w.print(",\"spindexerRPM\":" + b.spindexerRPM());
         w.print(",\"fuelFired\":" + b.fuelFired());
@@ -315,6 +342,12 @@ public class StationaryShotBatchRecorder {
     if (json.isEmpty()) return;
     for (String obj : splitObjects(json)) {
       try {
+        // Try new field names first, fall back to old "timeOfFlightS" for backward compat
+        double theoreticalTOF = getDouble(obj, "timeOfFlightTheoreticalS");
+        double measuredTOF = getDouble(obj, "timeOfFlightMeasuredS");
+        if (theoreticalTOF == 0.0) {
+          theoreticalTOF = getDouble(obj, "timeOfFlightS");
+        }
         batchRecords.add(
             new BatchRecord(
                 getDouble(obj, "timestamp"),
@@ -324,7 +357,8 @@ public class StationaryShotBatchRecorder {
                 getDouble(obj, "rpm"),
                 getDouble(obj, "hoodAngleDeg"),
                 getDouble(obj, "turretAngleDeg"),
-                getDouble(obj, "timeOfFlightS"),
+                theoreticalTOF,
+                measuredTOF,
                 getDouble(obj, "motivatorRPM"),
                 getDouble(obj, "spindexerRPM"),
                 getInt(obj, "fuelFired"),

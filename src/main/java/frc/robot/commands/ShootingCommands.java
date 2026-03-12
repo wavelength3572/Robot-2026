@@ -225,6 +225,9 @@ public class ShootingCommands {
     SmartDashboard.putBoolean("Match/Status/ReadyMotivators", false);
     SmartDashboard.putBoolean("Match/Status/ReadyTurret", false);
     SmartDashboard.putString("Match/Status/State", "Idle");
+
+    // Measured TOF input — students fill this in from slow-mo camera analysis (seconds)
+    SmartDashboard.putNumber("LUTDev/MeasuredTOF_s", 0.0);
   }
 
   // ===== Public Getters for BenchTest Tunables =====
@@ -748,7 +751,11 @@ public class ShootingCommands {
                   }
 
                   if (motivator != null) {
-                    motivator.setMotivatorVelocity(smartShotMotivatorRPM.get());
+                    double motRPM =
+                        (shot != null && shot.motivatorRPM() > 0)
+                            ? shot.motivatorRPM()
+                            : smartShotMotivatorRPM.get();
+                    motivator.setMotivatorVelocity(motRPM);
                   }
 
                   // Start a LUT batch — captures fuel count for batch tracking
@@ -906,7 +913,14 @@ public class ShootingCommands {
                 // turret is continuously tracking and atTarget() flickers.
                 motivator != null
                     ? Commands.run(
-                        () -> motivator.setMotivatorVelocity(smartShotMotivatorRPM.get()),
+                        () -> {
+                          ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                          double motRPM =
+                              (s != null && s.motivatorRPM() > 0)
+                                  ? s.motivatorRPM()
+                                  : smartShotMotivatorRPM.get();
+                          motivator.setMotivatorVelocity(motRPM);
+                        },
                         motivator)
                     : Commands.none(),
 
@@ -918,7 +932,12 @@ public class ShootingCommands {
                               turret.atTarget()
                                   && (!gateOnSpeed || isRobotSlowEnoughToFeed(coordinator));
                           if (feedOk) {
-                            spindexer.setSpindexerVelocity(smartShotSpindexerRPM.get());
+                            ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                            double spnRPM =
+                                (s != null && s.spindexerRPM() > 0)
+                                    ? s.spindexerRPM()
+                                    : smartShotSpindexerRPM.get();
+                            spindexer.setSpindexerVelocity(spnRPM);
                           } else {
                             spindexer.stopSpindexer();
                           }
@@ -1128,19 +1147,28 @@ public class ShootingCommands {
                       ? currentShot.hoodAngleDeg()
                       : (hood != null ? hood.getCurrentAngle() : 0.0);
               double turretAngle = turret.getOutsideCurrentAngle();
-              double motivatorRPM = smartShotMotivatorRPM.get();
-              double spindexerRPM = smartShotSpindexerRPM.get();
+              double motivatorRPM =
+                  (currentShot != null && currentShot.motivatorRPM() > 0)
+                      ? currentShot.motivatorRPM()
+                      : smartShotMotivatorRPM.get();
+              double spindexerRPM =
+                  (currentShot != null && currentShot.spindexerRPM() > 0)
+                      ? currentShot.spindexerRPM()
+                      : smartShotSpindexerRPM.get();
 
-              // Calculate TOF
+              // Calculate theoretical TOF
               double exitVelocity = ShotCalculator.calculateExitVelocityFromRPM(rpm);
-              double tof = 0.0;
+              double theoreticalTOF = 0.0;
               if (currentShot != null && currentShot.exitVelocityMps() > 0) {
-                tof =
+                theoreticalTOF =
                     ShotCalculator.calculateTimeOfFlight(
                         currentShot.exitVelocityMps(), currentShot.launchAngleRad(), distance);
               } else {
-                tof = distance / Math.max(exitVelocity * 0.8, 1.0);
+                theoreticalTOF = distance / Math.max(exitVelocity * 0.8, 1.0);
               }
+
+              // Read measured TOF from dashboard (students input from slow-mo camera)
+              double measuredTOF = SmartDashboard.getNumber("LUTDev/MeasuredTOF_s", 0.0);
 
               // Get current fuel count for batch calculation
               ShotVisualizer visualizer = coordinator.getVisualizer();
@@ -1155,11 +1183,15 @@ public class ShootingCommands {
                       rpm,
                       hoodAngle,
                       turretAngle,
-                      tof,
+                      theoreticalTOF,
+                      measuredTOF,
                       motivatorRPM,
                       spindexerRPM,
                       currentFuel,
                       successful);
+
+              // Reset measured TOF input after recording
+              SmartDashboard.putNumber("LUTDev/MeasuredTOF_s", 0.0);
 
               // Auto-reload LUT after recording a success
               if (successful) {
@@ -1170,6 +1202,10 @@ public class ShootingCommands {
               Logger.recordOutput("LUTDev/LastDistance", distance);
               Logger.recordOutput("LUTDev/LastRPM", rpm);
               Logger.recordOutput("LUTDev/LastHoodDeg", hoodAngle);
+              Logger.recordOutput("LUTDev/LastTheoreticalTOF", theoreticalTOF);
+              Logger.recordOutput("LUTDev/LastMeasuredTOF", measuredTOF);
+              Logger.recordOutput("LUTDev/LastMotivatorRPM", motivatorRPM);
+              Logger.recordOutput("LUTDev/LastSpindexerRPM", spindexerRPM);
               Logger.recordOutput("LUTDev/LastFuelFired", fuelFired);
               Logger.recordOutput("LUTDev/LastSuccessful", successful);
               Logger.recordOutput("LUTDev/LUTEntries", recorder.getLUTEntryCount());

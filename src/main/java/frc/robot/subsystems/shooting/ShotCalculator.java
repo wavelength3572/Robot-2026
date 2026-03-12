@@ -56,7 +56,9 @@ public final class ShotCalculator {
       double hoodAngleDeg,
       double turretAngleDeg, // robot-relative
       Translation3d aimTarget, // velocity-compensated
-      boolean achievable) {
+      boolean achievable,
+      double motivatorRPM, // 0.0 = no LUT data, use fallback tunable
+      double spindexerRPM) { // 0.0 = no LUT data, use fallback tunable
 
     /** Get the launch angle converted to degrees. */
     public double getLaunchAngleDegrees() {
@@ -474,7 +476,9 @@ public final class ShotCalculator {
         optimalShot.hoodAngleDeg,
         turretAngleDeg,
         aimTarget,
-        optimalShot.achievable);
+        optimalShot.achievable,
+        0.0,
+        0.0);
   }
 
   /**
@@ -553,7 +557,9 @@ public final class ShotCalculator {
         90.0 - launchAngleDeg, // convert launch angle to hood angle
         turretAngleDeg,
         aimTarget,
-        true);
+        true,
+        0.0,
+        0.0);
   }
 
   /**
@@ -602,6 +608,8 @@ public final class ShotCalculator {
         hoodAngleDeg,
         turretAngleDeg,
         target,
-        true);
+        true,
+        0.0,
+        0.0);
   }
 }
