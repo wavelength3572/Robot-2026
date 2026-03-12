@@ -569,13 +569,13 @@ public class ButtonsAndDashboardBindings {
                   launcher, shootingCoordinator, motivator, turret, hood, spindexer));
 
       // Left trench shot: Button 6
-      oi.getButtonBox1Button6()
+      oi.getButtonBox1Button5()
           .whileTrue(
               ShootingCommands.leftTrenchShotCommand(
                   launcher, shootingCoordinator, motivator, turret, hood, spindexer));
 
       // Right trench shot: Button 5
-      oi.getButtonBox1Button5()
+      oi.getButtonBox1Button6()
           .whileTrue(
               ShootingCommands.rightTrenchShotCommand(
                   launcher, shootingCoordinator, motivator, turret, hood, spindexer));
