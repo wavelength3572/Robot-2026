@@ -58,8 +58,8 @@ public class ButtonsAndDashboardBindings {
       new LoggedTunableNumber("Tuning/Turret/OutsideTuningAngle", 0.0);
   private static final LoggedTunableNumber tuningIntakeDeployedVelocity =
       new LoggedTunableNumber("Tuning/Intake/IntakeRollers/DeployedVelocity", 2000.0);
-  private static final LoggedTunableNumber tuningIntakeAgitationVelocity =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/AgitationVelocity", 0.0);
+  private static final LoggedTunableNumber tuningIntakeRetractRollerVelocity =
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/RetractRollerVelocity", 1000.0);
 
   // Preset field positions for simulation (label, x_meters, y_meters, rotation_degrees)
   private static final String[][] PRESET_POSITIONS = {
@@ -520,7 +520,7 @@ public class ButtonsAndDashboardBindings {
               Commands.runOnce(
                   () -> {
                     intake.retract();
-                    intake.setRollerVelocity(tuningIntakeAgitationVelocity.get());
+                    intake.setRollerVelocity(tuningIntakeRetractRollerVelocity.get());
                   },
                   intake))
           .onFalse(Commands.runOnce(intake::stopRollers, intake));
@@ -597,8 +597,7 @@ public class ButtonsAndDashboardBindings {
    * interrupted.
    */
 
-
-   // Climb Extend: button 7 
-   //Climb(retract) : button 10 
-   // Turret Lock: button 1
+  // Climb Extend: button 7
+  // Climb(retract) : button 10
+  // Turret Lock: button 1
 }

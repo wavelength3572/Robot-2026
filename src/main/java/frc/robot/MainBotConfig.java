@@ -191,7 +191,7 @@ public class MainBotConfig implements RobotConfig {
   // (total travel is only 0.13 rotations). REV recommends starting at kP=0.01 for rotations.
   // kP=5 gives 65% duty cycle at full travel error - strong but not saturated.
   // kD provides damping to prevent oscillation near setpoint.
-  private static final double intakeDeployKp = 5.0;
+  private static final double intakeDeployKp = 7.0;
   private static final double intakeDeployKi = 0.0;
   private static final double intakeDeployKd = 0.0;
   private static final double intakeDeployKs = 0.0; // Static feedforward (tune first)
