@@ -47,6 +47,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final ShotLookupTable lookupTable = new ShotLookupTable();
   private final StationaryShotBatchRecorder batchRecorder = new StationaryShotBatchRecorder();
   private final ParametricShotStrategy parametricStrategy = new ParametricShotStrategy();
+  private final ParametricShotStrategy rawParametricStrategy = new ParametricShotStrategy(true);
   private final LUTShotStrategy lutStrategy;
   private final HybridShotStrategy hybridStrategy;
   private ShotStrategy activeStrategy;
@@ -127,7 +128,8 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Strategy dropdown on dashboard
     strategyChooser.setDefaultOption("LUT (Lookup Table)", "LUT");
-    strategyChooser.addOption("Parametric (Physics)", "Parametric");
+    strategyChooser.addOption("Parametric (Calibrated)", "Parametric");
+    strategyChooser.addOption("Parametric (Raw)", "RawParametric");
     strategyChooser.addOption("Hybrid (LUT TOF + Physics RPM)", "Hybrid");
     SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
 
@@ -683,6 +685,7 @@ public class ShootingCoordinator extends SubsystemBase {
         switch (selected) {
           case "LUT" -> lutStrategy;
           case "Hybrid" -> hybridStrategy;
+          case "RawParametric" -> rawParametricStrategy;
           default -> parametricStrategy;
         };
 

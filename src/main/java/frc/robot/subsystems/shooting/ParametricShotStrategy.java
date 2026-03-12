@@ -6,13 +6,37 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 
 /**
  * Parametric (physics-based) shot strategy. Delegates directly to {@link
- * ShotCalculator#calculateHubShot}, preserving the existing ballistic trajectory calculation with
- * velocity compensation.
+ * ShotCalculator#calculateHubShot}, using the ballistic trajectory calculation with velocity
+ * compensation.
  *
- * <p>This is the default strategy — robot behavior is identical to before the strategy pattern was
- * introduced.
+ * <p>Two modes:
+ *
+ * <ul>
+ *   <li><b>Calibrated</b> (default): Uses the RPM-dependent efficiency model derived from LUT data.
+ *       This is the normal mode — parametric physics with empirically-tuned efficiency.
+ *   <li><b>Raw</b>: Bypasses the efficiency model entirely and uses a static tunable fallback. Use
+ *       this as a factory reset if LUT data is bad or after a mechanical change.
+ * </ul>
  */
 public class ParametricShotStrategy implements ShotStrategy {
+
+  private final boolean useRawEfficiency;
+  private final String name;
+
+  /** Create a calibrated parametric strategy (uses LUT-derived efficiency model). */
+  public ParametricShotStrategy() {
+    this(false);
+  }
+
+  /**
+   * Create a parametric strategy.
+   *
+   * @param useRawEfficiency If true, bypasses the efficiency model and uses the static fallback
+   */
+  public ParametricShotStrategy(boolean useRawEfficiency) {
+    this.useRawEfficiency = useRawEfficiency;
+    this.name = useRawEfficiency ? "Parametric (Raw)" : "Parametric";
+  }
 
   @Override
   public ShotCalculator.ShotResult calculateShot(
@@ -25,20 +49,36 @@ public class ParametricShotStrategy implements ShotStrategy {
       double effectiveMaxDeg,
       double hoodMinAngleDeg,
       double hoodMaxAngleDeg) {
-    return ShotCalculator.calculateHubShot(
-        robotPose,
-        fieldSpeeds,
-        target,
-        config,
-        currentTurretAngleDeg,
-        effectiveMinDeg,
-        effectiveMaxDeg,
-        hoodMinAngleDeg,
-        hoodMaxAngleDeg);
+
+    // Temporarily disable the efficiency model for raw mode
+    LaunchEfficiencyModel savedModel = null;
+    if (useRawEfficiency) {
+      savedModel = ShotCalculator.getEfficiencyModel();
+      ShotCalculator.setEfficiencyModel(null);
+    }
+
+    ShotCalculator.ShotResult result =
+        ShotCalculator.calculateHubShot(
+            robotPose,
+            fieldSpeeds,
+            target,
+            config,
+            currentTurretAngleDeg,
+            effectiveMinDeg,
+            effectiveMaxDeg,
+            hoodMinAngleDeg,
+            hoodMaxAngleDeg);
+
+    // Restore the model after raw calculation
+    if (useRawEfficiency && savedModel != null) {
+      ShotCalculator.setEfficiencyModel(savedModel);
+    }
+
+    return result;
   }
 
   @Override
   public String getName() {
-    return "Parametric";
+    return name;
   }
 }
