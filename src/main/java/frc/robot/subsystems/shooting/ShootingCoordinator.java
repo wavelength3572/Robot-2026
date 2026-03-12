@@ -51,6 +51,9 @@ public class ShootingCoordinator extends SubsystemBase {
   private final HybridShotStrategy hybridStrategy;
   private ShotStrategy activeStrategy;
 
+  // RPM-dependent efficiency model — derived from LUT data, used by parametric & hybrid
+  private final LaunchEfficiencyModel efficiencyModel;
+
   // Visualizer (created during initialize)
   private ShotVisualizer visualizer = null;
   private Supplier<Pose2d> robotPoseSupplier = null;
@@ -113,6 +116,10 @@ public class ShootingCoordinator extends SubsystemBase {
         new ShotCalculator.TurretConfig(
             config.getTurretHeightMeters(), config.getTurretOffsetX(), config.getTurretOffsetY());
 
+    // Initialize RPM-dependent efficiency model and register with ShotCalculator
+    this.efficiencyModel = new LaunchEfficiencyModel(turretConfig.heightMeters());
+    ShotCalculator.setEfficiencyModel(efficiencyModel);
+
     // Initialize shot strategies
     this.lutStrategy = new LUTShotStrategy(lookupTable);
     this.hybridStrategy = new HybridShotStrategy(lookupTable);
@@ -124,7 +131,12 @@ public class ShootingCoordinator extends SubsystemBase {
     strategyChooser.addOption("Hybrid (LUT TOF + Physics RPM)", "Hybrid");
     SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
 
-    // Load any previously recorded LUT data from disk
+    // Dashboard button: refit efficiency model from current LUT data
+    SmartDashboard.putData(
+        "Shots/Efficiency/RefitFromLUT",
+        runOnce(this::refitEfficiencyFromLUT).withName("Refit Efficiency"));
+
+    // Load any previously recorded LUT data from disk (also auto-fits efficiency)
     reloadLUTData();
   }
 
@@ -416,6 +428,15 @@ public class ShootingCoordinator extends SubsystemBase {
         "SmartLaunch/Ready/All",
         launcherReady && motivatorReady && turretReady && hoodReady && achievable);
 
+    // --- Efficiency model state ---
+    if (efficiencyModel != null && currentShot != null) {
+      Logger.recordOutput(
+          "SmartLaunch/Efficiency/AtTargetRPM",
+          efficiencyModel.getEfficiency(currentShot.launcherRPM()));
+      Logger.recordOutput("SmartLaunch/Efficiency/Fitted", efficiencyModel.isFitted());
+      Logger.recordOutput("SmartLaunch/Efficiency/DataPoints", efficiencyModel.getDataPointCount());
+    }
+
     if (currentShot != null) {
       double targetRPM = currentShot.launcherRPM();
 
@@ -674,11 +695,17 @@ public class ShootingCoordinator extends SubsystemBase {
   /**
    * Reload LUT data from the recorder (disk). Call after recording new shots or at startup.
    *
-   * <p>Seeds the table with parametric (physics-based) entries at 0.25m intervals first, giving
-   * dense coverage for smooth interpolation. Then overlays empirical data on top so real
-   * measurements win where available.
+   * <p>First refits the efficiency model from empirical data (so parametric seeding uses accurate
+   * RPMs). Then seeds the table with parametric entries at 0.25m intervals, and overlays empirical
+   * data on top so real measurements win where available.
    */
   public void reloadLUTData() {
+    // Refit efficiency model FIRST so parametric seeding benefits from updated efficiency
+    var empiricalEntries = batchRecorder.getLUTEntries();
+    if (empiricalEntries.size() >= 2) {
+      efficiencyModel.fitFromLUTData(empiricalEntries);
+    }
+
     lookupTable.clear();
 
     // Seed with parametric data from TrajectoryOptimizer (0.25m steps, 1m to 6m)
@@ -695,7 +722,6 @@ public class ShootingCoordinator extends SubsystemBase {
             0.25);
 
     // Overlay empirical data — real measurements overwrite parametric at matching distances
-    var empiricalEntries = batchRecorder.getLUTEntries();
     lookupTable.addFromLUTEntries(empiricalEntries);
 
     System.out.println(
@@ -705,7 +731,23 @@ public class ShootingCoordinator extends SubsystemBase {
             + empiricalEntries.size()
             + " empirical = "
             + lookupTable.size()
-            + " total entries");
+            + " total entries"
+            + (efficiencyModel.isFitted()
+                ? " (efficiency fitted from " + efficiencyModel.getDataPointCount() + " points)"
+                : " (using default efficiency)"));
+  }
+
+  /**
+   * Refit the efficiency model from the current LUT data. Called from the dashboard button or
+   * programmatically after recording new shots.
+   */
+  public void refitEfficiencyFromLUT() {
+    var entries = batchRecorder.getLUTEntries();
+    int pointCount = efficiencyModel.fitFromLUTData(entries);
+    if (pointCount > 0) {
+      // Re-seed parametric entries with updated efficiency
+      reloadLUTData();
+    }
   }
 
   /** Get the batch recorder for recording new data collection sessions. */
