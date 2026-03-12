@@ -740,17 +740,25 @@ public class ShootingCoordinator extends SubsystemBase {
     }
 
     if (activeStrategy != parametricStrategy) {
-      parametricShot =
-          parametricStrategy.calculateShot(
-              robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle, maxAngle,
-              hoodMin, hoodMax);
+      try {
+        parametricShot =
+            parametricStrategy.calculateShot(
+                robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle,
+                maxAngle, hoodMin, hoodMax);
+      } catch (Exception e) {
+        Logger.recordOutput("Shots/Compare/Parametric/Error", e.getMessage());
+      }
     }
 
     if (activeStrategy != rawParametricStrategy) {
-      rawParametricShot =
-          rawParametricStrategy.calculateShot(
-              robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle, maxAngle,
-              hoodMin, hoodMax);
+      try {
+        rawParametricShot =
+            rawParametricStrategy.calculateShot(
+                robotPose, fieldSpeeds, target, turretConfig, currentTurretAngle, minAngle,
+                maxAngle, hoodMin, hoodMax);
+      } catch (Exception e) {
+        Logger.recordOutput("Shots/Compare/RawParametric/Error", e.getMessage());
+      }
     }
 
     // Log comparison RPM/hood for easy numeric comparison on dashboard
