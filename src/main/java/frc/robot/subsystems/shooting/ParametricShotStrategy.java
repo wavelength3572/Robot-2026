@@ -51,30 +51,36 @@ public class ParametricShotStrategy implements ShotStrategy {
       double hoodMaxAngleDeg) {
 
     // Temporarily disable the efficiency model for raw mode
-    LaunchEfficiencyModel savedModel = null;
-    if (useRawEfficiency) {
-      savedModel = ShotCalculator.getEfficiencyModel();
-      ShotCalculator.setEfficiencyModel(null);
+    if (!useRawEfficiency) {
+      return ShotCalculator.calculateHubShot(
+          robotPose,
+          fieldSpeeds,
+          target,
+          config,
+          currentTurretAngleDeg,
+          effectiveMinDeg,
+          effectiveMaxDeg,
+          hoodMinAngleDeg,
+          hoodMaxAngleDeg);
     }
 
-    ShotCalculator.ShotResult result =
-        ShotCalculator.calculateHubShot(
-            robotPose,
-            fieldSpeeds,
-            target,
-            config,
-            currentTurretAngleDeg,
-            effectiveMinDeg,
-            effectiveMaxDeg,
-            hoodMinAngleDeg,
-            hoodMaxAngleDeg);
-
-    // Restore the model after raw calculation
-    if (useRawEfficiency && savedModel != null) {
+    // Raw mode: null the model, compute, ALWAYS restore (even on exception)
+    LaunchEfficiencyModel savedModel = ShotCalculator.getEfficiencyModel();
+    ShotCalculator.setEfficiencyModel(null);
+    try {
+      return ShotCalculator.calculateHubShot(
+          robotPose,
+          fieldSpeeds,
+          target,
+          config,
+          currentTurretAngleDeg,
+          effectiveMinDeg,
+          effectiveMaxDeg,
+          hoodMinAngleDeg,
+          hoodMaxAngleDeg);
+    } finally {
       ShotCalculator.setEfficiencyModel(savedModel);
     }
-
-    return result;
   }
 
   @Override
