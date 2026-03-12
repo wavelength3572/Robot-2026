@@ -111,7 +111,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretZeroOffset = 63.873;
   private static final double turretOutsideMaxAngleDeg = turretInsideMaxAngleDeg + turretZeroOffset;
   private static final double turretOutsideMinAngleDeg = turretInsideMinAngleDeg + turretZeroOffset;
-  private static final double turretAbsoluteEncoderOffset = 0.80204; // 0.8283; // 0.078061;
+  private static final double turretAbsoluteEncoderOffset = 0.8223; // 0.8283; // 0.078061;
   private static final int turretCurrentLimitAmps = 10;
   private static final double turretKp = 0.15;
   private static final double turretKd = 0.0;

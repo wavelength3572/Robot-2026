@@ -493,7 +493,7 @@ public class ButtonsAndDashboardBindings {
   private static void configureOperatorButtonBindings() {
     // Intake controls
     if (intake != null) {
-      // Button 4: Deploy and run rollers (press once, stays running)
+      // Button 4: Deploy and run rollers while held; on release, stop rollers but stay deployed
       oi.getButtonBox1Button4()
           .onTrue(
               Commands.runOnce(
@@ -501,9 +501,10 @@ public class ButtonsAndDashboardBindings {
                     intake.deploy();
                     intake.setRollerVelocityWhenDeployed(tuningIntakeDeployedVelocity.get());
                   },
-                  intake));
+                  intake))
+          .onFalse(Commands.runOnce(intake::stopRollers, intake));
 
-      // Button 3: Retract and run rollers at agitation speed (press once, stays running)
+      // Button 3: Retract and run rollers while held; on release, stop rollers but stay retracted
       oi.getButtonBox1Button3()
           .onTrue(
               Commands.runOnce(
@@ -511,7 +512,8 @@ public class ButtonsAndDashboardBindings {
                     intake.retract();
                     intake.setRollerVelocity(tuningIntakeAgitationVelocity.get());
                   },
-                  intake));
+                  intake))
+          .onFalse(Commands.runOnce(intake::stopRollers, intake));
     }
 
     // Smart launch: D-pad Up — mode selected by dashboard toggle

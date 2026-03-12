@@ -24,11 +24,17 @@ public final class ShotCalculator {
   // Single value — no distance interpolation. Keep it simple so the LUT and parametric
   // systems are easy to reason about. Tune this once, then use LUT for fine-tuning per distance.
   private static final LoggedTunableNumber launchEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.50);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.55);
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
   private static final double MAX_EXIT_VELOCITY = 15.0; // m/s
+
+  // Velocity compensation multipliers for shoot-while-moving (0.0 = no compensation, 1.0 = full)
+  private static final LoggedTunableNumber velocityCompX =
+      new LoggedTunableNumber("Shots/VelocityComp/X", 1.0);
+  private static final LoggedTunableNumber velocityCompY =
+      new LoggedTunableNumber("Shots/VelocityComp/Y", 1.0);
 
   // ========== Launcher RPM Tracking ==========
   // currentLauncherRPM = what the launcher is actually doing right now
@@ -207,8 +213,10 @@ public final class ShotCalculator {
    */
   public static Translation3d predictTargetPos(
       Translation3d target, ChassisSpeeds fieldSpeeds, double timeOfFlight) {
-    double predictedX = target.getX() - fieldSpeeds.vxMetersPerSecond * timeOfFlight;
-    double predictedY = target.getY() - fieldSpeeds.vyMetersPerSecond * timeOfFlight;
+    double predictedX =
+        target.getX() - fieldSpeeds.vxMetersPerSecond * timeOfFlight * velocityCompX.get();
+    double predictedY =
+        target.getY() - fieldSpeeds.vyMetersPerSecond * timeOfFlight * velocityCompY.get();
     return new Translation3d(predictedX, predictedY, target.getZ());
   }
 
