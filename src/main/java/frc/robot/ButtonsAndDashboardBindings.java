@@ -4,6 +4,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.ProxyCommand;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
@@ -503,12 +504,16 @@ public class ButtonsAndDashboardBindings {
   private static void configureOperatorButtonBindings() {
     // Intake controls
     if (intake != null) {
-      // Button 4: Deploy and run rollers while held; on release, stop rollers but stay deployed
+      // Button 4: Deploy and run rollers while held; on release, stop rollers but stay deployed.
+      // Only commands deploy motion if not already deployed (avoids re-deploying causing a
+      // retract-then-extend glitch when the intake is already out).
       oi.getButtonBox1Button4()
           .onTrue(
               Commands.runOnce(
                   () -> {
-                    intake.deploy();
+                    if (!intake.isDeployed()) {
+                      intake.deploy();
+                    }
                     intake.setRollerVelocityWhenDeployed(tuningIntakeDeployedVelocity.get());
                   },
                   intake))
@@ -528,31 +533,33 @@ public class ButtonsAndDashboardBindings {
 
     // Smart launch:Button 12— mode selected by dashboard toggle
     if (shootingCoordinator != null && launcher != null && turret != null && drive != null) {
-      oi.getButtonBox1Button12()
-          .whileTrue(
-              new ProxyCommand(
-                  () ->
-                      SmartDashboard.getBoolean("Shots/SmartLaunch/SpeedLimitMode", false)
-                          ? ShootingCommands.smartLaunchWithSpeedLimitCommand(
-                              launcher,
-                              shootingCoordinator,
-                              motivator,
-                              turret,
-                              hood,
-                              spindexer,
-                              drive,
-                              oi::getTranslateX,
-                              oi::getTranslateY,
-                              oi::getRotate)
-                          : ShootingCommands.smartLaunchCommand(
-                              launcher, shootingCoordinator, motivator, turret, hood, spindexer)));
+      Command smartLaunchCmd =
+          new ProxyCommand(
+              () ->
+                  SmartDashboard.getBoolean("Shots/SmartLaunch/SpeedLimitMode", false)
+                      ? ShootingCommands.smartLaunchWithSpeedLimitCommand(
+                          launcher,
+                          shootingCoordinator,
+                          motivator,
+                          turret,
+                          hood,
+                          spindexer,
+                          drive,
+                          oi::getTranslateX,
+                          oi::getTranslateY,
+                          oi::getRotate)
+                      : ShootingCommands.smartLaunchCommand(
+                          launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+      if (intake != null) {
+        smartLaunchCmd =
+            smartLaunchCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
+      }
+      oi.getButtonBox1Button12().whileTrue(smartLaunchCmd);
 
-      // Unclog Button
-      oi.getButtonBox1Button2()
-          .whileTrue(
-              Commands.run(() -> spindexer.reverseSpindexer(500), spindexer)
-                  .withTimeout(0.5)
-                  .finallyDo(() -> spindexer.stopSpindexer()));
+      // Unclog Button — flag-based so it doesn't interrupt the active shooting command.
+      // While held, the spindexer reverses; on release, shooting resumes instantly.
+      oi.getButtonBox1Button2().onTrue(Commands.runOnce(spindexer::activateUnclog));
+      oi.getButtonBox1Button2().onFalse(Commands.runOnce(spindexer::deactivateUnclog));
     }
 
     // Auto-tracking toggle: APAC right — turret/hood continuously track target
@@ -563,22 +570,33 @@ public class ButtonsAndDashboardBindings {
 
     // Hub shot: Button 8 — fixed position launch for close-range hub shots
     if (launcher != null && turret != null) {
-      oi.getButtonBox1Button8()
-          .whileTrue(
-              ShootingCommands.hubShotCommand(
-                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+      Command hubShotCmd =
+          ShootingCommands.hubShotCommand(
+              launcher, shootingCoordinator, motivator, turret, hood, spindexer);
+      if (intake != null) {
+        hubShotCmd = hubShotCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
+      }
+      oi.getButtonBox1Button8().whileTrue(hubShotCmd);
 
       // Left trench shot: Button 6
-      oi.getButtonBox1Button5()
-          .whileTrue(
-              ShootingCommands.leftTrenchShotCommand(
-                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+      Command leftTrenchCmd =
+          ShootingCommands.leftTrenchShotCommand(
+              launcher, shootingCoordinator, motivator, turret, hood, spindexer);
+      if (intake != null) {
+        leftTrenchCmd =
+            leftTrenchCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
+      }
+      oi.getButtonBox1Button5().whileTrue(leftTrenchCmd);
 
       // Right trench shot: Button 5
-      oi.getButtonBox1Button6()
-          .whileTrue(
-              ShootingCommands.rightTrenchShotCommand(
-                  launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+      Command rightTrenchCmd =
+          ShootingCommands.rightTrenchShotCommand(
+              launcher, shootingCoordinator, motivator, turret, hood, spindexer);
+      if (intake != null) {
+        rightTrenchCmd =
+            rightTrenchCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
+      }
+      oi.getButtonBox1Button6().whileTrue(rightTrenchCmd);
     }
 
     // Spindexer feeding suppress - operator can hold to prevent feeding/launching.
