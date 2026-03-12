@@ -86,7 +86,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Comparison trajectories: show all strategies simultaneously in AdvantageScope
   private final LoggedTunableNumber showComparisonTrajectories =
-      new LoggedTunableNumber("Shots/Visualization/ShowComparison", 0.0);
+      new LoggedTunableNumber("Shots/Visualization/ShowComparison", 1.0);
 
   // Auto-shoot: fires automatically when conditions are met (for autonomous)
   private boolean autoShootEnabled = false;
