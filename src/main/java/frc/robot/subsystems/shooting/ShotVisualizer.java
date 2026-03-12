@@ -44,7 +44,6 @@ public class ShotVisualizer {
   // Comparison trajectories — show what each strategy would produce
   private final Translation3d[] lutTrajectory = new Translation3d[TRAJECTORY_POINTS];
   private final Translation3d[] parametricTrajectory = new Translation3d[TRAJECTORY_POINTS];
-  private final Translation3d[] rawParametricTrajectory = new Translation3d[TRAJECTORY_POINTS];
 
   // Threshold for determining launcher status
   private static final double RPM_VELOCITY_THRESHOLD = 50.0;
@@ -99,7 +98,6 @@ public class ShotVisualizer {
       whatIfTrajectory[i] = new Translation3d();
       lutTrajectory[i] = new Translation3d();
       parametricTrajectory[i] = new Translation3d();
-      rawParametricTrajectory[i] = new Translation3d();
     }
   }
 
@@ -367,18 +365,15 @@ public class ShotVisualizer {
   }
 
   /**
-   * Visualize trajectories from all strategies. Each gets its own log key so they can be
-   * independently colored in AdvantageScope's 3D field viewer. The active strategy will overlap
-   * with Red/Yellow/Green — user can hide whichever they don't want.
+   * Visualize LUT and parametric trajectories. Each gets its own log key for independent coloring
+   * in AdvantageScope. Raw parametric is omitted since its trajectory is identical to calibrated
+   * (same physics, different RPM only).
    *
    * @param lutShot Shot result from LUT strategy (may be null)
    * @param parametricShot Shot result from calibrated parametric strategy (may be null)
-   * @param rawParametricShot Shot result from raw parametric strategy (may be null)
    */
   public void visualizeComparisonTrajectories(
-      ShotCalculator.ShotResult lutShot,
-      ShotCalculator.ShotResult parametricShot,
-      ShotCalculator.ShotResult rawParametricShot) {
+      ShotCalculator.ShotResult lutShot, ShotCalculator.ShotResult parametricShot) {
     Translation3d turretPos = getTurretFieldPosition();
 
     // LUT trajectory
@@ -394,7 +389,7 @@ public class ShotVisualizer {
       Logger.recordOutput("Turret/Trajectory/LUT", EMPTY_TRAJECTORY);
     }
 
-    // Calibrated parametric trajectory
+    // Parametric trajectory (calibrated — same arc as raw, only RPM differs)
     if (parametricShot != null) {
       double azimuth =
           Math.atan2(
@@ -409,29 +404,12 @@ public class ShotVisualizer {
     } else {
       Logger.recordOutput("Turret/Trajectory/Parametric", EMPTY_TRAJECTORY);
     }
-
-    // Raw parametric trajectory
-    if (rawParametricShot != null) {
-      double azimuth =
-          Math.atan2(
-              rawParametricShot.aimTarget().getY() - turretPos.getY(),
-              rawParametricShot.aimTarget().getX() - turretPos.getX());
-      calculateStaticTrajectoryPoints(
-          rawParametricShot.exitVelocityMps(),
-          rawParametricShot.launchAngleRad(),
-          azimuth,
-          rawParametricTrajectory);
-      Logger.recordOutput("Turret/Trajectory/RawParametric", rawParametricTrajectory);
-    } else {
-      Logger.recordOutput("Turret/Trajectory/RawParametric", EMPTY_TRAJECTORY);
-    }
   }
 
   /** Clear all comparison trajectories. */
   public void clearComparisonTrajectories() {
     Logger.recordOutput("Turret/Trajectory/LUT", EMPTY_TRAJECTORY);
     Logger.recordOutput("Turret/Trajectory/Parametric", EMPTY_TRAJECTORY);
-    Logger.recordOutput("Turret/Trajectory/RawParametric", EMPTY_TRAJECTORY);
   }
 
   /**

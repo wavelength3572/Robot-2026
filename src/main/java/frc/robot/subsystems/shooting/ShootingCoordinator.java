@@ -723,8 +723,8 @@ public class ShootingCoordinator extends SubsystemBase {
     double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
     double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
 
-    // Compute ALL strategies — each gets a consistent log key for AdvantageScope coloring.
-    // The active strategy overlaps with Red/Yellow/Green, but that's fine — user can hide either.
+    // Compute LUT, calibrated parametric, and raw parametric for comparison.
+    // Only LUT and parametric get trajectories (raw parametric arc is identical to calibrated).
     ShotCalculator.ShotResult lutShot = null;
     ShotCalculator.ShotResult parametricShot = null;
     ShotCalculator.ShotResult rawParametricShot = null;
@@ -756,21 +756,49 @@ public class ShootingCoordinator extends SubsystemBase {
       Logger.recordOutput("Shots/Compare/RawParametric/Error", e.getMessage());
     }
 
-    // Log comparison RPM/hood for easy numeric comparison on dashboard
-    if (lutShot != null) {
-      Logger.recordOutput("Shots/Compare/LUT/RPM", lutShot.launcherRPM());
-      Logger.recordOutput("Shots/Compare/LUT/HoodDeg", lutShot.hoodAngleDeg());
-    }
-    if (parametricShot != null) {
-      Logger.recordOutput("Shots/Compare/Parametric/RPM", parametricShot.launcherRPM());
-      Logger.recordOutput("Shots/Compare/Parametric/HoodDeg", parametricShot.hoodAngleDeg());
-    }
-    if (rawParametricShot != null) {
-      Logger.recordOutput("Shots/Compare/RawParametric/RPM", rawParametricShot.launcherRPM());
-      Logger.recordOutput("Shots/Compare/RawParametric/HoodDeg", rawParametricShot.hoodAngleDeg());
-    }
+    // Structured comparison table — all strategies side-by-side under Shots/Compare/
+    // RPM
+    Logger.recordOutput("Shots/Compare/LUT/RPM", lutShot != null ? lutShot.launcherRPM() : 0.0);
+    Logger.recordOutput(
+        "Shots/Compare/Parametric/RPM", parametricShot != null ? parametricShot.launcherRPM() : 0);
+    Logger.recordOutput(
+        "Shots/Compare/RawParametric/RPM",
+        rawParametricShot != null ? rawParametricShot.launcherRPM() : 0.0);
 
-    visualizer.visualizeComparisonTrajectories(lutShot, parametricShot, rawParametricShot);
+    // Hood angle
+    Logger.recordOutput(
+        "Shots/Compare/LUT/HoodDeg", lutShot != null ? lutShot.hoodAngleDeg() : 0.0);
+    Logger.recordOutput(
+        "Shots/Compare/Parametric/HoodDeg",
+        parametricShot != null ? parametricShot.hoodAngleDeg() : 0.0);
+    Logger.recordOutput(
+        "Shots/Compare/RawParametric/HoodDeg",
+        rawParametricShot != null ? rawParametricShot.hoodAngleDeg() : 0.0);
+
+    // Exit velocity
+    Logger.recordOutput(
+        "Shots/Compare/LUT/ExitVelocityMps",
+        lutShot != null ? lutShot.exitVelocityMps() : 0.0);
+    Logger.recordOutput(
+        "Shots/Compare/Parametric/ExitVelocityMps",
+        parametricShot != null ? parametricShot.exitVelocityMps() : 0.0);
+    Logger.recordOutput(
+        "Shots/Compare/RawParametric/ExitVelocityMps",
+        rawParametricShot != null ? rawParametricShot.exitVelocityMps() : 0.0);
+
+    // Launch angle
+    Logger.recordOutput(
+        "Shots/Compare/LUT/LaunchAngleDeg",
+        lutShot != null ? lutShot.getLaunchAngleDegrees() : 0.0);
+    Logger.recordOutput(
+        "Shots/Compare/Parametric/LaunchAngleDeg",
+        parametricShot != null ? parametricShot.getLaunchAngleDegrees() : 0.0);
+    Logger.recordOutput(
+        "Shots/Compare/RawParametric/LaunchAngleDeg",
+        rawParametricShot != null ? rawParametricShot.getLaunchAngleDegrees() : 0.0);
+
+    // Trajectories — only LUT and parametric (raw parametric arc is the same)
+    visualizer.visualizeComparisonTrajectories(lutShot, parametricShot);
   }
 
   /**
