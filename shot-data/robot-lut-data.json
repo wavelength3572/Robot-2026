@@ -1,0 +1,12 @@
+[
+  {"distanceM":1.2612760750491223,"rpm":2200.0,"hoodAngleDeg":13.0,"timeOfFlightS":0.8710526856714915,"motivatorRPM":1300.0,"spindexerRPM":325.0,"timestamp":0.0},
+  {"distanceM":1.6594504498329132,"rpm":2300.0,"hoodAngleDeg":18.0,"timeOfFlightS":0.7979929771848718,"motivatorRPM":1300.0,"spindexerRPM":325.0,"timestamp":0.0},
+  {"distanceM":1.8605070656230285,"rpm":2350.0,"hoodAngleDeg":20.0,"timeOfFlightS":0.791146219249101,"motivatorRPM":1300.0,"spindexerRPM":325.0,"timestamp":0.0},
+  {"distanceM":2.1650884125002348,"rpm":2425.0,"hoodAngleDeg":26.0,"timeOfFlightS":0.6960924310154545,"motivatorRPM":1300.0,"spindexerRPM":325.0,"timestamp":0.0},
+  {"distanceM":2.467528493857957,"rpm":2650.0,"hoodAngleDeg":22.0,"timeOfFlightS":0.8495439777888942,"motivatorRPM":1400.0,"spindexerRPM":325.0,"timestamp":0.0},
+  {"distanceM":2.7745814748801334,"rpm":2700.0,"hoodAngleDeg":22.0,"timeOfFlightS":0.9375690906540037,"motivatorRPM":1500.0,"spindexerRPM":325.0,"timestamp":0.0},
+  {"distanceM":2.7745857810193377,"rpm":2700.0,"hoodAngleDeg":22.0,"timeOfFlightS":0.9375705457574327,"motivatorRPM":1500.0,"spindexerRPM":325.0,"timestamp":0.0},
+  {"distanceM":3.0112184913685187,"rpm":2800.0,"hoodAngleDeg":22.0,"timeOfFlightS":0.9811915524580094,"motivatorRPM":1500.0,"spindexerRPM":325.0,"timestamp":0.0},
+  {"distanceM":3.1643096588803283,"rpm":3000.0,"hoodAngleDeg":23.5,"timeOfFlightS":0.9040720031433633,"motivatorRPM":1800.0,"spindexerRPM":325.0,"timestamp":690.20321},
+  {"distanceM":3.0014209297576335,"rpm":2650.0,"hoodAngleDeg":23.5,"timeOfFlightS":0.9707923178687612,"motivatorRPM":1800.0,"spindexerRPM":325.0,"timestamp":972.051947}
+]

@@ -145,6 +145,12 @@ public class ShootingCommands {
   private static final LoggedTunableNumber smartLaunchSpeedLimitCapMps =
       new LoggedTunableNumber("Shots/SmartLaunch/SpeedLimitCapMps", 1.5);
 
+  // ===== LUT Dev Overrides (manual RPM/hood for data collection) =====
+  private static final LoggedTunableNumber lutDevOverrideRPM =
+      new LoggedTunableNumber("LUTDev/OverrideRPM", 2500.0);
+  private static final LoggedTunableNumber lutDevOverrideHoodDeg =
+      new LoggedTunableNumber("LUTDev/OverrideHoodDeg", 25.0);
+
   // ===== BenchTest/Shooting/* Override Values (for controlled manual testing)
   // =====
 
@@ -208,6 +214,10 @@ public class ShootingCommands {
     // Smart shot tunables
     smartShotMotivatorRPM.get();
     smartShotSpindexerRPM.get();
+
+    // LUT Dev override tunables
+    lutDevOverrideRPM.get();
+    lutDevOverrideHoodDeg.get();
 
     // BenchTest tunables
     testLauncherRPM.get();
@@ -740,11 +750,11 @@ public class ShootingCommands {
                 () -> {
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
-                    double rpm = shot.launcherRPM();
+                    double rpm = getEffectiveRPM(shot);
                     launcher.setVelocity(rpm);
                     turret.setOutsideTurretAngle(shot.turretAngleDeg());
                     if (hood != null) {
-                      hood.setHoodAngle(shot.hoodAngleDeg());
+                      hood.setHoodAngle(getEffectiveHoodDeg(shot));
                     }
                   }
 
@@ -772,15 +782,15 @@ public class ShootingCommands {
                           // Continuously update targets while waiting
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                           if (shot != null) {
-                            double rpm =
-                                ShotCalculator.calculateRPMForVelocity(shot.exitVelocityMps());
+                            double rpm = getEffectiveRPM(shot);
+                            double hoodDeg = getEffectiveHoodDeg(shot);
                             launcher.setVelocity(rpm);
                             turret.setOutsideTurretAngle(shot.turretAngleDeg());
                             if (hood != null) {
-                              hood.setHoodAngle(shot.hoodAngleDeg());
+                              hood.setHoodAngle(hoodDeg);
                             }
                             coordinator.setManualShotParameters(
-                                rpm, shot.hoodAngleDeg(), shot.turretAngleDeg());
+                                rpm, hoodDeg, shot.turretAngleDeg());
                           }
 
                           boolean launcherReady = launcher.atSetpoint();
@@ -788,7 +798,8 @@ public class ShootingCommands {
                               motivator == null || motivator.isMotivatorAtSetpoint();
                           boolean turretReady = turret.atTarget();
                           boolean hoodReady = hood == null || hood.atTarget();
-                          boolean hasShot = shot != null && shot.achievable();
+                          boolean hasShot =
+                              shot != null && (isLutDevOverrideActive() || shot.achievable());
                           boolean robotSlow = !gateOnSpeed || isRobotSlowEnoughToFeed(coordinator);
 
                           boolean allReady =
@@ -811,7 +822,8 @@ public class ShootingCommands {
                               motivator == null || motivator.isMotivatorAtSetpoint();
                           boolean turretReady = turret.atTarget();
                           boolean hoodReady = hood == null || hood.atTarget();
-                          boolean hasShot = shot != null && shot.achievable();
+                          boolean hasShot =
+                              shot != null && (isLutDevOverrideActive() || shot.achievable());
                           boolean robotSlow = !gateOnSpeed || isRobotSlowEnoughToFeed(coordinator);
                           return launcherReady
                               && motivatorReady
@@ -830,7 +842,8 @@ public class ShootingCommands {
                               motivator == null || motivator.isMotivatorAtSetpoint();
                           boolean turretReady = turret.atTarget();
                           boolean hoodReady = hood == null || hood.atTarget();
-                          boolean hasShot = shot != null && shot.achievable();
+                          boolean hasShot =
+                              shot != null && (isLutDevOverrideActive() || shot.achievable());
                           Logger.recordOutput("SmartLaunch/Phase", "Timeout");
                           System.out.println(
                               "[SmartLaunch] WARNING: Setup timeout! Conditions: "
@@ -872,10 +885,18 @@ public class ShootingCommands {
                     () -> {
                       ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                       if (shot != null) {
-                        double rpm = shot.launcherRPM();
+                        double rpm = getEffectiveRPM(shot);
+                        double hoodDeg = getEffectiveHoodDeg(shot);
                         launcher.setVelocity(rpm);
-                        coordinator.setManualShotParameters(
-                            rpm, shot.hoodAngleDeg(), shot.turretAngleDeg());
+                        coordinator.setManualShotParameters(rpm, hoodDeg, shot.turretAngleDeg());
+                        // Cache params so recordBatchCommand can read them after SmartLaunch ends
+                        coordinator
+                            .getBatchRecorder()
+                            .cacheParams(
+                                rpm,
+                                hoodDeg,
+                                smartShotMotivatorRPM.get(),
+                                smartShotSpindexerRPM.get());
                       }
                     },
                     launcher),
@@ -896,7 +917,7 @@ public class ShootingCommands {
                         () -> {
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                           if (shot != null) {
-                            hood.setHoodAngle(shot.hoodAngleDeg());
+                            hood.setHoodAngle(getEffectiveHoodDeg(shot));
                           }
                         },
                         hood)
@@ -1080,6 +1101,26 @@ public class ShootingCommands {
             });
   }
 
+  // ===== LUT Dev Override Helpers =====
+
+  private static boolean isLutDevOverrideActive() {
+    return SmartDashboard.getBoolean("LUTDev/UseOverrides", false);
+  }
+
+  private static double getEffectiveRPM(ShotCalculator.ShotResult shot) {
+    if (isLutDevOverrideActive()) {
+      return lutDevOverrideRPM.get();
+    }
+    return shot != null ? shot.launcherRPM() : 0.0;
+  }
+
+  private static double getEffectiveHoodDeg(ShotCalculator.ShotResult shot) {
+    if (isLutDevOverrideActive()) {
+      return lutDevOverrideHoodDeg.get();
+    }
+    return shot != null ? shot.hoodAngleDeg() : 0.0;
+  }
+
   // ===== LUT Dev Mode Commands =====
 
   /**
@@ -1131,27 +1172,25 @@ public class ShootingCommands {
               ShotCalculator.TurretConfig config = coordinator.getTurretConfig();
               double distance = calculateDistanceToHub(robotPose, config);
 
-              // Get shot parameters from current calculation
-              ShotCalculator.ShotResult currentShot = coordinator.getCurrentShot();
-              double rpm = launcher.getTargetVelocity();
-              double hoodAngle =
-                  currentShot != null
-                      ? currentShot.hoodAngleDeg()
-                      : (hood != null ? hood.getCurrentAngle() : 0.0);
+              // Use cached params from SmartLaunch (survive after command ends)
+              double rpm = recorder.getCachedRPM();
+              double hoodAngle = recorder.getCachedHoodAngleDeg();
               double turretAngle = turret.getOutsideCurrentAngle();
-              double motivatorRPM = smartShotMotivatorRPM.get();
-              double spindexerRPM = smartShotSpindexerRPM.get();
+              double motivatorRPM = recorder.getCachedMotivatorRPM();
+              double spindexerRPM = recorder.getCachedSpindexerRPM();
 
-              // Calculate TOF
-              double exitVelocity = ShotCalculator.calculateExitVelocityFromRPM(rpm);
-              double tof = 0.0;
-              if (currentShot != null && currentShot.exitVelocityMps() > 0) {
-                tof =
-                    ShotCalculator.calculateTimeOfFlight(
-                        currentShot.exitVelocityMps(), currentShot.launchAngleRad(), distance);
-              } else {
-                tof = distance / Math.max(exitVelocity * 0.8, 1.0);
+              if (rpm <= 0) {
+                System.out.println(
+                    "[LUTDev] WARNING: Cached RPM is 0 — did you fire before recording?");
               }
+
+              // Calculate TOF from cached values
+              double exitVelocity = ShotCalculator.calculateExitVelocityFromRPM(rpm);
+              double launchAngleRad = Math.toRadians(90.0 - hoodAngle);
+              double tof =
+                  exitVelocity > 0
+                      ? ShotCalculator.calculateTimeOfFlight(exitVelocity, launchAngleRad, distance)
+                      : distance / Math.max(exitVelocity * 0.8, 1.0);
 
               // Get current fuel count for batch calculation
               ShotVisualizer visualizer = coordinator.getVisualizer();
@@ -1189,25 +1228,25 @@ public class ShootingCommands {
               Logger.recordOutput("LUTDev/MissCount", recorder.getMissCount());
               Logger.recordOutput("LUTDev/BatchLog", recorder.getBatchSummaries());
 
-              // Console output
-              System.out.println(
-                  "[LUTDev] Batch "
-                      + (successful ? "SUCCESS" : "MISS")
-                      + " at "
-                      + String.format("%.2f", distance)
-                      + "m | RPM="
+              // Summary string for quick dashboard verification
+              String summary =
+                  (successful ? "HIT" : "MISS")
+                      + " | "
+                      + String.format("%.2fm", distance)
+                      + " | RPM="
                       + String.format("%.0f", rpm)
-                      + " Hood="
-                      + String.format("%.1f", hoodAngle)
-                      + "° | "
-                      + fuelFired
-                      + " fuel fired | "
-                      + recorder.getSuccessCount()
-                      + "/"
-                      + recorder.getBatchCount()
-                      + " batches successful | "
-                      + recorder.getLUTEntryCount()
-                      + " LUT entries");
+                      + " | Hood="
+                      + String.format("%.1f°", hoodAngle)
+                      + " | Mot="
+                      + String.format("%.0f", motivatorRPM)
+                      + " | Spx="
+                      + String.format("%.0f", spindexerRPM)
+                      + " | TOF="
+                      + String.format("%.3fs", tof);
+              SmartDashboard.putString("LUTDev/LastEntry", summary);
+
+              // Console output
+              System.out.println("[LUTDev] Batch " + summary + " | " + fuelFired + " fuel fired");
             })
         .ignoringDisable(true)
         .withName("Record Batch " + (successful ? "Success" : "Miss"));
@@ -1243,6 +1282,57 @@ public class ShootingCommands {
   }
 
   /**
+   * Command to remove the last LUT entry (undo a bad recording).
+   *
+   * @param coordinator The shooting coordinator
+   * @return Command that removes the last entry
+   */
+  public static Command undoLastLUTEntryCommand(ShootingCoordinator coordinator) {
+    return Commands.runOnce(
+            () -> {
+              String removed = coordinator.getBatchRecorder().removeLastLUTEntry();
+              if (removed != null) {
+                coordinator.reloadLUTData();
+                SmartDashboard.putString("LUTDev/LastEntry", "UNDONE: " + removed);
+                System.out.println("[LUTDev] Removed last entry: " + removed);
+              } else {
+                SmartDashboard.putString("LUTDev/LastEntry", "Nothing to undo");
+                System.out.println("[LUTDev] No entries to remove");
+              }
+            })
+        .ignoringDisable(true)
+        .withName("Undo Last LUT Entry");
+  }
+
+  /**
+   * Command to remove a specific LUT entry by index (shown in LUTDev/LUTData).
+   *
+   * @param coordinator The shooting coordinator
+   * @return Command that removes the entry at the index in LUTDev/RemoveIndex
+   */
+  public static Command removeLUTEntryCommand(ShootingCoordinator coordinator) {
+    return Commands.runOnce(
+            () -> {
+              int index = (int) SmartDashboard.getNumber("LUTDev/RemoveIndex", -1);
+              if (index < 0) {
+                SmartDashboard.putString("LUTDev/LastEntry", "Set RemoveIndex first");
+                return;
+              }
+              String removed = coordinator.getBatchRecorder().removeLUTEntry(index);
+              if (removed != null) {
+                coordinator.reloadLUTData();
+                SmartDashboard.putString("LUTDev/LastEntry", "REMOVED: " + removed);
+                System.out.println("[LUTDev] Removed entry: " + removed);
+              } else {
+                SmartDashboard.putString("LUTDev/LastEntry", "Invalid index: " + index);
+                System.out.println("[LUTDev] Invalid index: " + index);
+              }
+            })
+        .ignoringDisable(true)
+        .withName("Remove LUT Entry");
+  }
+
+  /**
    * LUT dev mode logging command. Runs continuously to output useful info to the dashboard while
    * collecting LUT data.
    *
@@ -1270,6 +1360,8 @@ public class ShootingCommands {
               Logger.recordOutput("LUTDev/BatchCount", recorder.getBatchCount());
               Logger.recordOutput("LUTDev/SuccessCount", recorder.getSuccessCount());
               Logger.recordOutput("LUTDev/MissCount", recorder.getMissCount());
+              Logger.recordOutput("LUTDev/OverridesActive", isLutDevOverrideActive());
+              Logger.recordOutput("LUTDev/LUTData", recorder.getLUTSummaries());
             })
         .ignoringDisable(true)
         .withName("LUT Dev Mode");

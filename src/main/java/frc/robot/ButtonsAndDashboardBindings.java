@@ -453,9 +453,19 @@ public class ButtonsAndDashboardBindings {
         "LUTDev/RecordMiss",
         ShootingCommands.recordBatchCommand(shootingCoordinator, launcher, turret, hood, false));
 
+    // Override toggle — use manual RPM/hood values instead of auto-calculated
+    SmartDashboard.putBoolean("LUTDev/UseOverrides", false);
+
     // Data management
     SmartDashboard.putData(
         "LUTDev/ReloadLUT", ShootingCommands.reloadLUTCommand(shootingCoordinator));
+    SmartDashboard.putData(
+        "LUTDev/ClearData", ShootingCommands.clearLUTDataCommand(shootingCoordinator));
+    SmartDashboard.putData(
+        "LUTDev/UndoLast", ShootingCommands.undoLastLUTEntryCommand(shootingCoordinator));
+    SmartDashboard.putNumber("LUTDev/RemoveIndex", -1);
+    SmartDashboard.putData(
+        "LUTDev/RemoveEntry", ShootingCommands.removeLUTEntryCommand(shootingCoordinator));
 
     // LUT dev mode continuous logging (toggle on/off)
     if (turret != null) {
