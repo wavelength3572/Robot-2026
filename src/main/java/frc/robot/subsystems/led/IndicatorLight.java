@@ -67,6 +67,7 @@ public class IndicatorLight extends SubsystemBase {
   private int skittleCount = 0;
 
   private double countdownRemainingTime = 7.0;
+  private double warningRemainingTime = 5.0;
 
   private Random random = new Random();
 
@@ -628,26 +629,43 @@ public class IndicatorLight extends SubsystemBase {
   public void doGreenRedWarning() {
     double timeStamp = Timer.getFPGATimestamp();
     int numLEDs = wlLEDBuffer.getLength();
-    int half = numLEDs / 2;
 
-    // Flip-flop at ~4 Hz (0.25s period)
-    if (timeStamp - lastTime >= 0.125) {
-      on = !on;
-      lastTime = timeStamp;
-    }
+    // First 3s (5.0→2.0): green/red split blink. Last 2s (2.0→0.0): blink red.
+    boolean redOnlyPhase = warningRemainingTime <= 2.0;
 
-    for (int i = 0; i < numLEDs; i++) {
-      boolean firstHalf = i < half;
-      // on=true: first half green, second half red. on=false: flip.
-      boolean greenPixel = (firstHalf && on) || (!firstHalf && !on);
-      if (greenPixel) {
-        wlLEDBuffer.setHSV(i, IndicatorLightConstants.GREEN_HUE, 255, 128);
-      } else {
-        wlLEDBuffer.setHSV(i, IndicatorLightConstants.RED_HUE, 255, 128);
+    if (redOnlyPhase) {
+      // Blink red on/off at ~5 Hz
+      if (timeStamp - lastTime >= 0.1) {
+        on = !on;
+        lastTime = timeStamp;
       }
-    }
+      if (on) {
+        setActiveBuffer(wlRedLEDBuffer);
+      } else {
+        setActiveBuffer(wlBlackLEDBuffer);
+      }
+    } else {
+      int half = numLEDs / 2;
 
-    setActiveBuffer(wlLEDBuffer);
+      // Flip-flop at ~4 Hz (0.25s period)
+      if (timeStamp - lastTime >= 0.125) {
+        on = !on;
+        lastTime = timeStamp;
+      }
+
+      for (int i = 0; i < numLEDs; i++) {
+        boolean firstHalf = i < half;
+        // on=true: first half green, second half red. on=false: flip.
+        boolean greenPixel = (firstHalf && on) || (!firstHalf && !on);
+        if (greenPixel) {
+          wlLEDBuffer.setHSV(i, IndicatorLightConstants.GREEN_HUE, 255, 128);
+        } else {
+          wlLEDBuffer.setHSV(i, IndicatorLightConstants.RED_HUE, 255, 128);
+        }
+      }
+
+      setActiveBuffer(wlLEDBuffer);
+    }
   }
 
   public void updateBlinkPeriod(double lateralError) {
@@ -690,7 +708,8 @@ public class IndicatorLight extends SubsystemBase {
     if (!shiftInfo.active() && shiftInfo.remainingTime() <= 7.0) {
       countdownRemainingTime = shiftInfo.remainingTime();
       return LED_EFFECTS.COUNTDOWN_BLINK;
-    } else if (shiftInfo.active() && shiftInfo.remainingTime() <= 2.0) {
+    } else if (shiftInfo.active() && shiftInfo.remainingTime() <= 5.0) {
+      warningRemainingTime = shiftInfo.remainingTime();
       return LED_EFFECTS.GREEN_RED_WARNING;
     } else if (shiftInfo.active()) {
       return LED_EFFECTS.GREEN;
