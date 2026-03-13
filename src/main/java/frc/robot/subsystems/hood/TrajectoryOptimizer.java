@@ -33,7 +33,7 @@ public class TrajectoryOptimizer {
   // PRIMARY TUNABLE: Descent angle (angle of line from hub edge to hub center)
   // Tune this to match the hub wall angle visually (60° matches well)
   private static final LoggedTunableNumber descentAngleDeg =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/DescentAngleDeg", 60.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/DescentAngleDeg", 48.0);
 
   // Minimum descent angle for fallback. When the preferred angle requires a hood position
   // below the mechanical limit (too close to hub), the optimizer steps down in 1° increments
@@ -47,7 +47,7 @@ public class TrajectoryOptimizer {
           "Shots/SmartLaunch/Trajectory/MinClearanceInches", 1.5); // Safety margin
   private static final LoggedTunableNumber maxClearanceInches =
       new LoggedTunableNumber(
-          "Shots/SmartLaunch/Trajectory/MaxClearanceInches", 24.0); // Sanity check
+          "Shots/SmartLaunch/Trajectory/MaxClearanceInches", 22.0); // Sanity check
 
   // RPM limits
   private static final LoggedTunableNumber minRPM =
@@ -55,7 +55,7 @@ public class TrajectoryOptimizer {
   private static final LoggedTunableNumber maxRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxRPM", 5000.0);
   private static final LoggedTunableNumber maxPeakHeightFt =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxPeakHeightFt", 16.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxPeakHeightFt", 10.0);
 
   /** Result of trajectory optimization. */
   public static class OptimalShot {

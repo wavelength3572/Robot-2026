@@ -57,6 +57,9 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Visualizer (created during initialize)
   private ShotVisualizer visualizer = null;
+
+  // Throttle counter for non-critical logging (reduces loop time)
+  private int periodicCounter = 0;
   private Supplier<Pose2d> robotPoseSupplier = null;
   private Supplier<ChassisSpeeds> fieldSpeedsSupplier = null;
 
@@ -124,12 +127,12 @@ public class ShootingCoordinator extends SubsystemBase {
     // Initialize shot strategies
     this.lutStrategy = new LUTShotStrategy(lookupTable);
     this.hybridStrategy = new HybridShotStrategy(lookupTable);
-    this.activeStrategy = lutStrategy;
+    this.activeStrategy = rawParametricStrategy;
 
     // Strategy dropdown on dashboard
-    strategyChooser.setDefaultOption("LUT (Lookup Table)", "LUT");
+    strategyChooser.setDefaultOption("Parametric (Raw)", "RawParametric");
+    strategyChooser.addOption("LUT (Lookup Table)", "LUT");
     strategyChooser.addOption("Parametric (Calibrated)", "Parametric");
-    strategyChooser.addOption("Parametric (Raw)", "RawParametric");
     strategyChooser.addOption("Hybrid (LUT TOF + Physics RPM)", "Hybrid");
     SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
 
@@ -197,7 +200,12 @@ public class ShootingCoordinator extends SubsystemBase {
 
     updateShotCalculation(alliance, isBlueAlliance);
     runAutoShoot(alliance);
-    logShotState();
+
+    // Throttle non-critical logging to every other cycle to reduce loop time
+    periodicCounter++;
+    if (periodicCounter % 2 == 0) {
+      logShotState();
+    }
 
     // Visualization runs AFTER all control logic (passive observer)
     if (visualizer != null && robotPoseSupplier != null) {
@@ -310,49 +318,52 @@ public class ShootingCoordinator extends SubsystemBase {
             hood != null ? hood.getMinAngle() : 16.0,
             hood != null ? hood.getMaxAngle() : 46.0);
 
-    Logger.recordOutput("Shots/Strategy/Active", activeStrategy.getName());
-    Logger.recordOutput("Shots/Strategy/LUTDataPoints", lookupTable.size());
-
     currentShot = result;
 
     // Shot parameters are calculated only — commands use getCurrentShot() to drive actuators
 
-    // Log shot data
-    double robotHeadingRad = robotPose.getRotation().getRadians();
-    double[] turretFieldPos =
-        ShotCalculator.getTurretFieldPosition(
-            robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
-    double turretX = turretFieldPos[0];
-    double turretY = turretFieldPos[1];
+    // Throttle shot diagnostics logging to every other cycle
+    if (periodicCounter % 2 == 0) {
+      Logger.recordOutput("Shots/Strategy/Active", activeStrategy.getName());
+      Logger.recordOutput("Shots/Strategy/LUTDataPoints", lookupTable.size());
 
-    double azimuthDeg =
-        Math.toDegrees(
-            Math.atan2(result.aimTarget().getY() - turretY, result.aimTarget().getX() - turretX));
+      // Log shot data
+      double robotHeadingRad = robotPose.getRotation().getRadians();
+      double[] turretFieldPos =
+          ShotCalculator.getTurretFieldPosition(
+              robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
+      double turretX = turretFieldPos[0];
+      double turretY = turretFieldPos[1];
 
-    Logger.recordOutput("Turret/Shot/ExitVelocityMps", result.exitVelocityMps());
-    Logger.recordOutput("Turret/Shot/HoodAngleDeg", result.hoodAngleDeg());
-    Logger.recordOutput("Turret/Shot/LaunchAngleDeg", result.getLaunchAngleDegrees());
-    Logger.recordOutput("Turret/Shot/IdealRPM", result.launcherRPM());
-    Logger.recordOutput("Turret/Shot/Achievable", result.achievable());
-    Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
-    Logger.recordOutput("Turret/Shot/RelativeAngleDeg", result.turretAngleDeg());
+      double azimuthDeg =
+          Math.toDegrees(
+              Math.atan2(result.aimTarget().getY() - turretY, result.aimTarget().getX() - turretX));
 
-    // Log velocity compensation
-    double aimOffsetM =
-        Math.sqrt(
-            Math.pow(result.aimTarget().getX() - target.getX(), 2)
-                + Math.pow(result.aimTarget().getY() - target.getY(), 2));
-    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-    Logger.recordOutput("Turret/Shot/VelocityCompensation/AimOffsetM", aimOffsetM);
-    Logger.recordOutput("Turret/Shot/VelocityCompensation/RobotSpeedMps", robotSpeed);
+      Logger.recordOutput("Turret/Shot/ExitVelocityMps", result.exitVelocityMps());
+      Logger.recordOutput("Turret/Shot/HoodAngleDeg", result.hoodAngleDeg());
+      Logger.recordOutput("Turret/Shot/LaunchAngleDeg", result.getLaunchAngleDegrees());
+      Logger.recordOutput("Turret/Shot/IdealRPM", result.launcherRPM());
+      Logger.recordOutput("Turret/Shot/Achievable", result.achievable());
+      Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
+      Logger.recordOutput("Turret/Shot/RelativeAngleDeg", result.turretAngleDeg());
 
-    // Log real target position
-    Logger.recordOutput("Turret/Shot/Hub", new Pose3d(target, Rotation3d.kZero));
+      // Log velocity compensation
+      double aimOffsetM =
+          Math.sqrt(
+              Math.pow(result.aimTarget().getX() - target.getX(), 2)
+                  + Math.pow(result.aimTarget().getY() - target.getY(), 2));
+      double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+      Logger.recordOutput("Turret/Shot/VelocityCompensation/AimOffsetM", aimOffsetM);
+      Logger.recordOutput("Turret/Shot/VelocityCompensation/RobotSpeedMps", robotSpeed);
 
-    // Log distance to target
-    double distanceToTarget =
-        Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
-    Logger.recordOutput("Turret/Shot/DistanceToTargetM", distanceToTarget);
+      // Log real target position
+      Logger.recordOutput("Turret/Shot/Hub", new Pose3d(target, Rotation3d.kZero));
+
+      // Log distance to target
+      double distanceToTarget =
+          Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
+      Logger.recordOutput("Turret/Shot/DistanceToTargetM", distanceToTarget);
+    }
   }
 
   /** Calculate and apply pass shot. */
@@ -613,10 +624,27 @@ public class ShootingCoordinator extends SubsystemBase {
   public void setManualShotParameters(
       double launcherRPM, double hoodAngleDeg, double targetTurretAngleDeg) {
     if (robotPoseSupplier != null) {
+      // Preserve motivator/spindexer RPM from the strategy-calculated shot
+      double prevMotivatorRPM = currentShot != null ? currentShot.motivatorRPM() : 0.0;
+      double prevSpindexerRPM = currentShot != null ? currentShot.spindexerRPM() : 0.0;
+
       Pose2d robotPose = robotPoseSupplier.get();
-      currentShot =
+      ShotCalculator.ShotResult manualShot =
           ShotCalculator.calculateManualShot(
               robotPose, turretConfig, launcherRPM, hoodAngleDeg, targetTurretAngleDeg);
+
+      // Re-create with preserved feed speeds so LUT motivator/spindexer values aren't lost
+      currentShot =
+          new ShotCalculator.ShotResult(
+              manualShot.exitVelocityMps(),
+              manualShot.launcherRPM(),
+              manualShot.launchAngleRad(),
+              manualShot.hoodAngleDeg(),
+              manualShot.turretAngleDeg(),
+              manualShot.aimTarget(),
+              manualShot.achievable(),
+              prevMotivatorRPM,
+              prevSpindexerRPM);
 
       // Update the ShotCalculator's target RPM for consistency
       ShotCalculator.setTargetLauncherRPM(launcherRPM);

@@ -15,6 +15,7 @@ import edu.wpi.first.wpilibj.Watchdog;
 import edu.wpi.first.wpilibj.simulation.DriverStationSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.commands.DriveCommands;
 import frc.robot.util.FuelSim;
 import frc.robot.util.HubShiftUtil;
 import java.lang.reflect.Field;
@@ -208,6 +209,9 @@ public class Robot extends LoggedRobot {
     if (robotContainer.getShootingCoordinator() != null) {
       robotContainer.getShootingCoordinator().disableAutoShoot();
     }
+
+    // Clear any stale speed limit from a previous command that didn't end cleanly
+    DriveCommands.clearSpeedLimit();
 
     // Force OI rebind on teleop init to ensure controls are bound
     // This fixes the issue where going directly to teleop without

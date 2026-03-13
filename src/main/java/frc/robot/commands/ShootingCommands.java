@@ -136,7 +136,7 @@ public class ShootingCommands {
 
   // Smart shot motivator/spindexer speeds (separate from basic launch)
   private static final LoggedTunableNumber smartShotMotivatorRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorRPM", 1800.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorRPM", 1500.0);
   private static final LoggedTunableNumber smartShotSpindexerRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerRPM", 325.0);
 
@@ -1129,6 +1129,27 @@ public class ShootingCommands {
       return lutDevOverrideHoodDeg.get();
     }
     return shot != null ? shot.hoodAngleDeg() : 0.0;
+  }
+
+  /**
+   * Seeds the LUT dev override sliders from the current calculated shot, so you can start from the
+   * physics answer and fine-tune. Also enables UseOverrides automatically.
+   */
+  public static Command seedOverridesFromCalculatedCommand(ShootingCoordinator coordinator) {
+    return Commands.runOnce(
+        () -> {
+          ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+          if (shot == null) {
+            System.out.println("[LUTDev] No calculated shot available to seed from");
+            return;
+          }
+          lutDevOverrideRPM.set(shot.launcherRPM());
+          lutDevOverrideHoodDeg.set(shot.hoodAngleDeg());
+          SmartDashboard.putBoolean("LUTDev/UseOverrides", true);
+          System.out.printf(
+              "[LUTDev] Seeded overrides from calculated shot: RPM=%.0f, Hood=%.1f deg%n",
+              shot.launcherRPM(), shot.hoodAngleDeg());
+        });
   }
 
   // ===== LUT Dev Mode Commands =====

@@ -62,6 +62,20 @@ public class LoggedTunableNumber {
   }
 
   /**
+   * Programmatically sets the value, updating both the cached value and NetworkTables. Only works
+   * in tuning mode.
+   *
+   * @param value The new value to set
+   */
+  public void set(double value) {
+    currentValue = value;
+    lastHasChangedValue = value;
+    if (entry != null) {
+      entry.set(value);
+    }
+  }
+
+  /**
    * Refresh all tunable number values from NetworkTables. Call once per robot loop cycle (e.g., in
    * Robot.robotPeriodic) to batch NT reads instead of reading per-call.
    */

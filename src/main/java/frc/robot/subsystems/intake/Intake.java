@@ -3,8 +3,6 @@ package frc.robot.subsystems.intake;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.util.Color;
-import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -14,9 +12,6 @@ import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
-import org.littletonrobotics.junction.mechanism.LoggedMechanism2d;
-import org.littletonrobotics.junction.mechanism.LoggedMechanismLigament2d;
-import org.littletonrobotics.junction.mechanism.LoggedMechanismRoot2d;
 
 // TODO might need some sort of deploy sequence or intelligence to fix the backlash with respect to
 // deploy
@@ -155,13 +150,6 @@ public class Intake extends SubsystemBase {
   // Optional: supplier for robot velocity (for velocity-based roller speed)
   private DoubleSupplier robotVelocitySupplier = () -> 0.0;
 
-  // Mechanism2d visualization (using AdvantageKit's logged version)
-  private final LoggedMechanism2d mechanism = new LoggedMechanism2d(3, 3);
-  private final LoggedMechanismRoot2d root = mechanism.getRoot("intake", 1.5, 0.2);
-  private final LoggedMechanismLigament2d deployArm;
-  private final LoggedMechanismLigament2d roller;
-  private double rollerAngle = 0.0; // Track cumulative roller angle
-
   /**
    * Creates a new Intake subsystem.
    *
@@ -174,16 +162,6 @@ public class Intake extends SubsystemBase {
     deployStowedPosition = config.getIntakeDeployStowedPosition();
     deployRetractedPosition = config.getIntakeDeployRetractedPosition();
     deployExtendedPosition = config.getIntakeDeployExtendedPosition();
-
-    // Create deploy arm (pivots based on deploy position)
-    deployArm =
-        root.append(
-            new LoggedMechanismLigament2d("deployArm", 0.5, 0, 6, new Color8Bit(Color.kOrange)));
-
-    // Create roller at end of deploy arm (rotates when running)
-    roller =
-        deployArm.append(
-            new LoggedMechanismLigament2d("roller", 0.15, 90, 4, new Color8Bit(Color.kGreen)));
   }
 
   /**
@@ -261,26 +239,6 @@ public class Intake extends SubsystemBase {
 
     // Log deploy state machine
     Logger.recordOutput("Intake/DeployState", deployState.name());
-
-    // Update deploy arm angle
-    // Retracted (0 rotations) = 45° (angled up)
-    // Extended position = 15° (motor-held deploy position)
-    // Gravity sag past extended = down toward 0° (horizontal)
-    double deployFraction =
-        (deployExtendedPosition != 0.0)
-            ? inputs.deployPositionRotations / deployExtendedPosition
-            : 0.0;
-    double deployAngleDegrees = Math.max(0.0, 45 - (deployFraction * 30.0));
-    deployArm.setAngle(deployAngleDegrees);
-
-    // Update roller rotation (continuous spin based on velocity)
-    // Visual scaling: RPM * 0.012 gives 18°/frame at 1500 RPM (smooth animation)
-    rollerAngle += inputs.rollerVelocityRPM * 0.012;
-    rollerAngle = rollerAngle % 360.0; // Keep in 0-360 range
-    roller.setAngle(90 + rollerAngle); // 90° base offset
-
-    // Log the mechanism to AdvantageKit (2D view)
-    Logger.recordOutput("Intake/Mechanism2d", mechanism);
   }
 
   // ========== DEPLOY CONTROL ==========

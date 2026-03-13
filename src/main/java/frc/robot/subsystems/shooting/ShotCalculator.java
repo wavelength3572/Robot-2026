@@ -27,7 +27,7 @@ public final class ShotCalculator {
 
   // Fallback static efficiency used only if no model is set (e.g. unit tests)
   private static final LoggedTunableNumber fallbackEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FallbackEfficiency", 0.47);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FallbackEfficiency", 0.48);
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s

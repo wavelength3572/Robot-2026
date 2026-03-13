@@ -1,0 +1,72 @@
+[
+  {
+    "distanceM": 3.6268123132833625,
+    "rpm": 3168.6532956400397,
+    "hoodAngleDeg": 18.0,
+    "timeOfFlightTheoreticalS": 1.3249246128744674,
+    "timeOfFlightMeasuredS": 1.509,
+    "motivatorRPM": 1800.0,
+    "spindexerRPM": 325.0,
+    "timestamp": 642.474982
+  },
+  {
+    "distanceM": 3.0666447228618114,
+    "rpm": 2650.0,
+    "hoodAngleDeg": 18.0,
+    "timeOfFlightTheoreticalS": 1.2541686403253325,
+    "timeOfFlightMeasuredS": 1.215,
+    "motivatorRPM": 1800.0,
+    "spindexerRPM": 325.0,
+    "timestamp": 1205.010354
+  },
+  {
+    "distanceM": 1.155184588102637,
+    "rpm": 2300.0,
+    "hoodAngleDeg": 13.0,
+    "timeOfFlightTheoreticalS": 0.8763887433040366,
+    "timeOfFlightMeasuredS": 1.05,
+    "motivatorRPM": 1300.0,
+    "spindexerRPM": 325.0,
+    "timestamp": 342.372022
+  },
+  {
+    "distanceM": 1.7481591757190609,
+    "rpm": 2550.0,
+    "hoodAngleDeg": 14.119970980499403,
+    "timeOfFlightTheoreticalS": 1.0949999648790374,
+    "timeOfFlightMeasuredS": 1.25,
+    "motivatorRPM": 1350.0,
+    "spindexerRPM": 325.0,
+    "timestamp": 897.532527
+  },
+  {
+    "distanceM": 3.2517784758872548,
+    "rpm": 2700.0,
+    "hoodAngleDeg": 18.8,
+    "timeOfFlightTheoreticalS": 1.277713778563085,
+    "timeOfFlightMeasuredS": 1.133,
+    "motivatorRPM": 1550.0,
+    "spindexerRPM": 325.0,
+    "timestamp": 999.975497
+  },
+  {
+    "distanceM": 3.850802846039485,
+    "rpm": 2950.0,
+    "hoodAngleDeg": 19.707904425878567,
+    "timeOfFlightTheoreticalS": 1.3527162790572005,
+    "timeOfFlightMeasuredS": 1.127,
+    "motivatorRPM": 1550.0,
+    "spindexerRPM": 325.0,
+    "timestamp": 1831.201127
+  },
+  {
+    "distanceM": 5.346877018312631,
+    "rpm": 3700.0,
+    "hoodAngleDeg": 39.0,
+    "timeOfFlightTheoreticalS": 1.529065318265208,
+    "timeOfFlightMeasuredS": 1.412,
+    "motivatorRPM": 1800.0,
+    "spindexerRPM": 225.0,
+    "timestamp": 2985.955174
+  }
+]

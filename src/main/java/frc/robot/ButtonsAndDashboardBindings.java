@@ -190,7 +190,7 @@ public class ButtonsAndDashboardBindings {
           "Shots/SmartLaunch/Fire",
           ShootingCommands.smartLaunchCommand(
               launcher, shootingCoordinator, motivator, turret, hood, spindexer));
-      SmartDashboard.putBoolean("Shots/SmartLaunch/SpeedLimitMode", true);
+      SmartDashboard.putBoolean("Shots/SmartLaunch/SpeedLimitMode", false);
       SmartDashboard.putData(
           "Shots/AutoTrack/Toggle",
           ShootingCommands.autoTrackCommand(shootingCoordinator, turret, hood));
@@ -459,6 +459,11 @@ public class ButtonsAndDashboardBindings {
     // Override toggle — use manual RPM/hood values instead of auto-calculated
     SmartDashboard.putBoolean("LUTDev/UseOverrides", false);
 
+    // Seed overrides from current physics-calculated shot (start tuning from the physics answer)
+    SmartDashboard.putData(
+        "LUTDev/SeedFromCalculated",
+        ShootingCommands.seedOverridesFromCalculatedCommand(shootingCoordinator));
+
     // Data management
     SmartDashboard.putData(
         "LUTDev/ReloadLUT", ShootingCommands.reloadLUTCommand(shootingCoordinator));
@@ -475,6 +480,9 @@ public class ButtonsAndDashboardBindings {
       SmartDashboard.putData(
           "LUTDev/DevMode", ShootingCommands.lutDevModeCommand(shootingCoordinator, turret));
     }
+
+    // TODO: Re-record deleted LUT entry:
+    // 2.32m | RPM=2500 | Hood=16.8° | TOF=1.200s | Mot=1550 | Spx=325
 
     System.out.println("[LUTDev] LUT development controls configured on SmartDashboard");
   }
@@ -541,8 +549,6 @@ public class ButtonsAndDashboardBindings {
       if (hood != null) smartLaunchReqs.add(hood);
       if (motivator != null) smartLaunchReqs.add(motivator);
       if (spindexer != null) smartLaunchReqs.add(spindexer);
-      if (drive != null) smartLaunchReqs.add(drive);
-
       Command smartLaunchCmd =
           Commands.defer(
               () ->
