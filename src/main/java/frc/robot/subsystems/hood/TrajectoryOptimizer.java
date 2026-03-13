@@ -296,8 +296,8 @@ public class TrajectoryOptimizer {
     }
     double velocity = Math.sqrt(vSquared);
 
-    // Convert to RPM (using distance-aware efficiency for accurate far shots)
-    double rpm = ShotCalculator.calculateRPMForVelocity(velocity, x2);
+    // Convert exit velocity to RPM using efficiency constant
+    double rpm = ShotCalculator.calculateRPMForVelocity(velocity);
 
     // Check RPM limits
     if (rpm < minRPM.get() || rpm > maxRPM.get()) {

@@ -20,14 +20,12 @@ public final class ShotCalculator {
   private static final double GRAVITY = 9.81; // m/s^2
   private static final double WHEEL_RADIUS_METERS = 0.0508; // 4" diameter = 2" radius
 
-  // RPM-dependent efficiency model: derived from LUT data via least-squares fit.
-  // Replaces the old static constant (0.55) which was inaccurate at higher RPMs.
-  // Call setEfficiencyModel() at startup, then refitEfficiency() when new LUT data is collected.
-  private static LaunchEfficiencyModel efficiencyModel = null;
-
-  // Fallback static efficiency used only if no model is set (e.g. unit tests)
-  private static final LoggedTunableNumber fallbackEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/FallbackEfficiency", 0.48);
+  // Single tunable efficiency constant: ratio of ball exit velocity to wheel surface velocity.
+  // This is the ONE knob for parametric mode. Typical range 0.35-0.55.
+  // Higher = ball leaves faster for a given RPM. Tune by comparing parametric predictions to
+  // actual successful shots.
+  private static final LoggedTunableNumber launchEfficiency =
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.48);
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -90,48 +88,23 @@ public final class ShotCalculator {
     return targetLauncherRPM;
   }
 
-  /** Set the RPM-dependent efficiency model. Call once at startup from ShootingCoordinator. */
-  public static void setEfficiencyModel(LaunchEfficiencyModel model) {
-    efficiencyModel = model;
-  }
-
-  /** Get the efficiency model (for external callers that need RPM-specific efficiency). */
-  public static LaunchEfficiencyModel getEfficiencyModel() {
-    return efficiencyModel;
-  }
-
   /**
-   * Get the launch efficiency at the current target RPM. Uses the RPM-dependent model if available,
-   * otherwise falls back to the static tunable.
+   * Get the launch efficiency. Single constant — no RPM-dependent model.
+   *
+   * @return Efficiency factor (typically 0.35-0.55)
    */
   public static double getEfficiency() {
-    if (efficiencyModel != null) {
-      return efficiencyModel.getEfficiency(targetLauncherRPM);
-    }
-    return fallbackEfficiency.get();
-  }
-
-  /**
-   * Get the launch efficiency at a specific RPM. Uses the RPM-dependent model if available.
-   *
-   * @param rpm The RPM to evaluate efficiency at
-   * @return Efficiency factor (typically 0.4-0.55)
-   */
-  public static double getEfficiencyAtRPM(double rpm) {
-    if (efficiencyModel != null) {
-      return efficiencyModel.getEfficiency(rpm);
-    }
-    return fallbackEfficiency.get();
+    return launchEfficiency.get();
   }
 
   /**
    * Calculate ball exit velocity from a given wheel RPM.
    *
-   * <p>Formula: exitVelocity = (RPM × 2π × radius / 60) × efficiency(RPM)
+   * <p>Formula: exitVelocity = (RPM × 2π × radius / 60) × efficiency
    */
   public static double calculateExitVelocityFromRPM(double rpm) {
     double surfaceVelocity = (rpm * 2.0 * Math.PI * WHEEL_RADIUS_METERS) / 60.0;
-    return surfaceVelocity * getEfficiencyAtRPM(rpm);
+    return surfaceVelocity * getEfficiency();
   }
 
   /** Calculate ball exit velocity from current launcher RPM. */
@@ -145,40 +118,17 @@ public final class ShotCalculator {
   }
 
   /**
-   * Get what RPM would be needed to achieve a target exit velocity. Uses iterative solve because
-   * efficiency depends on RPM: starts with a guess, computes efficiency at that RPM, refines.
-   * Converges in 3-5 iterations.
+   * Get what RPM would be needed to achieve a target exit velocity. Simple division with the single
+   * efficiency constant.
    *
    * @param targetExitVelocity Desired exit velocity in m/s
    * @return Required wheel RPM
    */
   public static double calculateRPMForVelocity(double targetExitVelocity) {
-    if (efficiencyModel == null) {
-      // No model — simple division with static efficiency
-      double surfaceVelocity = targetExitVelocity / fallbackEfficiency.get();
-      return (surfaceVelocity * 60.0) / (2.0 * Math.PI * WHEEL_RADIUS_METERS);
-    }
-
-    // Iterative solve: RPM depends on efficiency, efficiency depends on RPM
-    double rpm = (targetExitVelocity / 0.47) * 60.0 / (2.0 * Math.PI * WHEEL_RADIUS_METERS);
-    for (int i = 0; i < 5; i++) {
-      double eff = efficiencyModel.getEfficiency(rpm);
-      double surfaceVelocity = targetExitVelocity / eff;
-      rpm = (surfaceVelocity * 60.0) / (2.0 * Math.PI * WHEEL_RADIUS_METERS);
-    }
-    return rpm;
+    double surfaceVelocity = targetExitVelocity / getEfficiency();
+    return (surfaceVelocity * 60.0) / (2.0 * Math.PI * WHEEL_RADIUS_METERS);
   }
 
-  /**
-   * Get what RPM would be needed to achieve a target exit velocity at a given distance.
-   *
-   * @param targetExitVelocity Desired exit velocity in m/s
-   * @param distanceM Horizontal distance to target in meters (unused, kept for API compatibility)
-   * @return Required wheel RPM
-   */
-  public static double calculateRPMForVelocity(double targetExitVelocity, double distanceM) {
-    return calculateRPMForVelocity(targetExitVelocity);
-  }
 
   // ========== Physics Utilities ==========
 

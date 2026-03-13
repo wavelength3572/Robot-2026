@@ -7,7 +7,11 @@ import org.littletonrobotics.junction.Logger;
 
 /**
  * Pure lookup-table shot strategy. All shot parameters (RPM, hood angle, TOF) come from empirically
- * recorded data — no physics fudge factors involved.
+ * recorded data — no physics involved at all.
+ *
+ * <p>Completely independent from the parametric system. Does NOT fall back to parametric — if the
+ * LUT has insufficient data, returns a non-achievable result. Outside the data range, clamps to the
+ * nearest entry (like 6328's approach).
  *
  * <p>Velocity compensation uses LUT-based time-of-flight, which captures real-world drag that the
  * parametric model ignores. The iteration loop (per Oblarg/CD) is:
@@ -19,14 +23,10 @@ import org.littletonrobotics.junction.Logger;
  *   <li>Re-compute distance to new aim point → re-look up TOF → repeat 3x
  *   <li>Final LUT lookup at converged distance gives RPM + hood angle
  * </ol>
- *
- * <p>Falls back to {@link ParametricShotStrategy} if the LUT has fewer than 2 data points or the
- * target distance is outside the empirical data range.
  */
 public class LUTShotStrategy implements ShotStrategy {
 
   private final ShotLookupTable lookupTable;
-  private final ParametricShotStrategy fallback = new ParametricShotStrategy();
 
   private static final int VELOCITY_COMP_ITERATIONS = 3;
 
@@ -46,21 +46,14 @@ public class LUTShotStrategy implements ShotStrategy {
       double hoodMinAngleDeg,
       double hoodMaxAngleDeg) {
 
-    // Fall back to parametric if not enough LUT data
+    // If not enough LUT data, return non-achievable — don't silently fall back to parametric
     if (!lookupTable.hasEnoughData()) {
-      Logger.recordOutput("Shots/Strategy/LUT/Fallback", true);
-      Logger.recordOutput("Shots/Strategy/LUT/FallbackReason", "Not enough data");
-      return fallback.calculateShot(
-          robotPose,
-          fieldSpeeds,
-          target,
-          config,
-          currentTurretAngleDeg,
-          effectiveMinDeg,
-          effectiveMaxDeg,
-          hoodMinAngleDeg,
-          hoodMaxAngleDeg);
+      Logger.recordOutput("Shots/Strategy/LUT/Status", "NO_DATA");
+      return new ShotCalculator.ShotResult(
+          0.0, 0.0, 0.0, 0.0, 0.0, target, false, 0.0, 0.0);
     }
+
+    Logger.recordOutput("Shots/Strategy/LUT/Status", "OK");
 
     // Get turret field position
     double robotHeadingRad = robotPose.getRotation().getRadians();
@@ -74,30 +67,8 @@ public class LUTShotStrategy implements ShotStrategy {
     double staticDistance =
         Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
 
-    // Fall back to parametric if outside the empirical data range
-    if (!lookupTable.isInRange(staticDistance)) {
-      Logger.recordOutput("Shots/Strategy/LUT/Fallback", true);
-      Logger.recordOutput(
-          "Shots/Strategy/LUT/FallbackReason",
-          String.format(
-              "Distance %.2fm outside LUT range [%.2f-%.2f]",
-              staticDistance, lookupTable.getMinDistance(), lookupTable.getMaxDistance()));
-      return fallback.calculateShot(
-          robotPose,
-          fieldSpeeds,
-          target,
-          config,
-          currentTurretAngleDeg,
-          effectiveMinDeg,
-          effectiveMaxDeg,
-          hoodMinAngleDeg,
-          hoodMaxAngleDeg);
-    }
-
-    Logger.recordOutput("Shots/Strategy/LUT/Fallback", false);
-    Logger.recordOutput("Shots/Strategy/LUT/FallbackReason", "");
-
     // Velocity compensation iteration using LUT TOF
+    // Outside the data range, lookup() clamps to nearest entry — no fallback needed
     Translation3d aimTarget = target;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
 
@@ -125,20 +96,11 @@ public class LUTShotStrategy implements ShotStrategy {
         Math.sqrt(
             Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));
 
-    // Look up shot params at the final distance
+    // Look up shot params at the final distance (clamps at boundaries)
     ShotLookupTable.ShotEntry entry = lookupTable.lookup(finalDistance);
     if (entry == null) {
-      // Shouldn't happen if hasEnoughData() passed, but be safe
-      return fallback.calculateShot(
-          robotPose,
-          fieldSpeeds,
-          target,
-          config,
-          currentTurretAngleDeg,
-          effectiveMinDeg,
-          effectiveMaxDeg,
-          hoodMinAngleDeg,
-          hoodMaxAngleDeg);
+      return new ShotCalculator.ShotResult(
+          0.0, 0.0, 0.0, 0.0, 0.0, target, false, 0.0, 0.0);
     }
 
     // Calculate turret angle to aim at the target
@@ -158,7 +120,7 @@ public class LUTShotStrategy implements ShotStrategy {
     double launchAngleRad = Math.toRadians(90.0 - entry.hoodAngleDeg());
 
     // RPM comes directly from LUT — no efficiency conversion needed
-    // The LUT stores actual RPMs that worked, bypassing the fudge factor entirely
+    // The LUT stores actual RPMs that worked, bypassing efficiency entirely
     double exitVelocityMps = ShotCalculator.calculateExitVelocityFromRPM(entry.rpm());
 
     // Check hood angle is achievable
@@ -167,6 +129,7 @@ public class LUTShotStrategy implements ShotStrategy {
 
     Logger.recordOutput("Shots/Strategy/LUT/StaticDistanceM", staticDistance);
     Logger.recordOutput("Shots/Strategy/LUT/FinalDistanceM", finalDistance);
+    Logger.recordOutput("Shots/Strategy/LUT/InRange", lookupTable.isInRange(finalDistance));
     Logger.recordOutput("Shots/Strategy/LUT/LookupRPM", entry.rpm());
     Logger.recordOutput("Shots/Strategy/LUT/LookupHoodDeg", entry.hoodAngleDeg());
     Logger.recordOutput("Shots/Strategy/LUT/LookupTOF", entry.timeOfFlightS());

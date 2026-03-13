@@ -42,18 +42,15 @@ public class ShootingCoordinator extends SubsystemBase {
   // Turret geometry config (immutable)
   private final ShotCalculator.TurretConfig turretConfig;
 
-  // Shot strategy system (LUT / Parametric / Hybrid) — dropdown on dashboard
+  // Shot strategy system — two completely independent modes:
+  //   Parametric: physics-based, tuned via single efficiency constant
+  //   LUT: pure empirical data, no physics involved
   private final SendableChooser<String> strategyChooser = new SendableChooser<>();
   private final ShotLookupTable lookupTable = new ShotLookupTable();
   private final StationaryShotBatchRecorder batchRecorder = new StationaryShotBatchRecorder();
   private final ParametricShotStrategy parametricStrategy = new ParametricShotStrategy();
-  private final ParametricShotStrategy rawParametricStrategy = new ParametricShotStrategy(true);
   private final LUTShotStrategy lutStrategy;
-  private final HybridShotStrategy hybridStrategy;
   private ShotStrategy activeStrategy;
-
-  // RPM-dependent efficiency model — derived from LUT data, used by parametric & hybrid
-  private final LaunchEfficiencyModel efficiencyModel;
 
   // Visualizer (created during initialize)
   private ShotVisualizer visualizer = null;
@@ -120,28 +117,16 @@ public class ShootingCoordinator extends SubsystemBase {
         new ShotCalculator.TurretConfig(
             config.getTurretHeightMeters(), config.getTurretOffsetX(), config.getTurretOffsetY());
 
-    // Initialize RPM-dependent efficiency model and register with ShotCalculator
-    this.efficiencyModel = new LaunchEfficiencyModel(turretConfig.heightMeters());
-    ShotCalculator.setEfficiencyModel(efficiencyModel);
-
-    // Initialize shot strategies
+    // Initialize shot strategies — completely independent, no shared efficiency model
     this.lutStrategy = new LUTShotStrategy(lookupTable);
-    this.hybridStrategy = new HybridShotStrategy(lookupTable);
-    this.activeStrategy = rawParametricStrategy;
+    this.activeStrategy = parametricStrategy;
 
-    // Strategy dropdown on dashboard
-    strategyChooser.setDefaultOption("Parametric (Raw)", "RawParametric");
+    // Strategy dropdown on dashboard — just two clean options
+    strategyChooser.setDefaultOption("Parametric", "Parametric");
     strategyChooser.addOption("LUT (Lookup Table)", "LUT");
-    strategyChooser.addOption("Parametric (Calibrated)", "Parametric");
-    strategyChooser.addOption("Hybrid (LUT TOF + Physics RPM)", "Hybrid");
     SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
 
-    // Dashboard button: refit efficiency model from current LUT data
-    SmartDashboard.putData(
-        "Shots/Efficiency/RefitFromLUT",
-        runOnce(this::refitEfficiencyFromLUT).withName("Refit Efficiency"));
-
-    // Load any previously recorded LUT data from disk (also auto-fits efficiency)
+    // Load any previously recorded LUT data from disk
     reloadLUTData();
   }
 
@@ -441,14 +426,8 @@ public class ShootingCoordinator extends SubsystemBase {
         "SmartLaunch/Ready/All",
         launcherReady && motivatorReady && turretReady && hoodReady && achievable);
 
-    // --- Efficiency model state ---
-    if (efficiencyModel != null && currentShot != null) {
-      Logger.recordOutput(
-          "SmartLaunch/Efficiency/AtTargetRPM",
-          efficiencyModel.getEfficiency(currentShot.launcherRPM()));
-      Logger.recordOutput("SmartLaunch/Efficiency/Fitted", efficiencyModel.isFitted());
-      Logger.recordOutput("SmartLaunch/Efficiency/DataPoints", efficiencyModel.getDataPointCount());
-    }
+    // --- Efficiency constant ---
+    Logger.recordOutput("SmartLaunch/Efficiency/Value", ShotCalculator.getEfficiency());
 
     if (currentShot != null) {
       double targetRPM = currentShot.launcherRPM();
@@ -711,15 +690,9 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Update the active strategy based on the dashboard dropdown. */
   private void updateActiveStrategy() {
     String selected = strategyChooser.getSelected();
-    if (selected == null) selected = "LUT";
+    if (selected == null) selected = "Parametric";
 
-    ShotStrategy newStrategy =
-        switch (selected) {
-          case "LUT" -> lutStrategy;
-          case "Hybrid" -> hybridStrategy;
-          case "RawParametric" -> rawParametricStrategy;
-          default -> parametricStrategy;
-        };
+    ShotStrategy newStrategy = "LUT".equals(selected) ? lutStrategy : parametricStrategy;
 
     if (newStrategy != activeStrategy) {
       System.out.println("[ShootingCoordinator] Strategy changed to: " + newStrategy.getName());
@@ -730,15 +703,11 @@ public class ShootingCoordinator extends SubsystemBase {
   /**
    * Reload LUT data from the recorder (disk). Call after recording new shots or at startup.
    *
-   * <p>Loads only empirical data — no parametric seeding. The LUT strategy falls back to parametric
-   * (with calibrated efficiency) for distances outside the empirical range.
+   * <p>Loads only empirical data — no parametric seeding, no efficiency fitting. The LUT is
+   * completely independent from parametric.
    */
   public void reloadLUTData() {
-    // Refit efficiency model from empirical data
     var empiricalEntries = batchRecorder.getLUTEntries();
-    if (empiricalEntries.size() >= 2) {
-      efficiencyModel.fitFromLUTData(empiricalEntries);
-    }
 
     // Pure empirical LUT — no parametric seeding
     lookupTable.clear();
@@ -748,25 +717,7 @@ public class ShootingCoordinator extends SubsystemBase {
     lookupTable.logTable("LUTDev/Table");
 
     frc.robot.util.StartupLogger.log(
-        "[ShootingCoordinator] LUT reloaded: "
-            + empiricalEntries.size()
-            + " empirical entries"
-            + (efficiencyModel.isFitted()
-                ? " (efficiency fitted from " + efficiencyModel.getDataPointCount() + " points)"
-                : " (using default efficiency)"));
-  }
-
-  /**
-   * Refit the efficiency model from the current LUT data. Called from the dashboard button or
-   * programmatically after recording new shots.
-   */
-  public void refitEfficiencyFromLUT() {
-    var entries = batchRecorder.getLUTEntries();
-    int pointCount = efficiencyModel.fitFromLUTData(entries);
-    if (pointCount > 0) {
-      // Re-seed parametric entries with updated efficiency
-      reloadLUTData();
-    }
+        "[ShootingCoordinator] LUT reloaded: " + empiricalEntries.size() + " empirical entries");
   }
 
   /** Get the batch recorder for recording new data collection sessions. */

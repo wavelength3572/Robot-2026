@@ -1,7 +1,5 @@
 package frc.robot.subsystems.shooting;
 
-import edu.wpi.first.math.geometry.Translation3d;
-import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -238,53 +236,6 @@ public class ShotLookupTable {
     }
   }
 
-  /**
-   * Seed the table with parametric data from the TrajectoryOptimizer. Generates entries at regular
-   * distance intervals using physics-based calculations. This gives the LUT dense coverage so
-   * interpolation has more to work with, especially at ranges where empirical data is sparse.
-   *
-   * <p>Call this before overlaying empirical data — real measurements will overwrite parametric
-   * entries at the same (or very close) distances.
-   *
-   * @param turretHeightM Turret height above ground in meters
-   * @param hubTarget 3D position of the hub target
-   * @param hoodMinAngleDeg Minimum mechanical hood angle
-   * @param hoodMaxAngleDeg Maximum mechanical hood angle
-   * @param minDistanceM Minimum distance to generate entries for
-   * @param maxDistanceM Maximum distance to generate entries for
-   * @param stepM Distance step between generated entries
-   * @return Number of achievable entries added
-   */
-  public int seedFromParametric(
-      double turretHeightM,
-      Translation3d hubTarget,
-      double hoodMinAngleDeg,
-      double hoodMaxAngleDeg,
-      double minDistanceM,
-      double maxDistanceM,
-      double stepM) {
-    int added = 0;
-
-    for (double dist = minDistanceM; dist <= maxDistanceM + 0.001; dist += stepM) {
-      // Create a synthetic turret position at the given distance from the hub target
-      Translation3d turretPos =
-          new Translation3d(hubTarget.getX() - dist, hubTarget.getY(), turretHeightM);
-
-      TrajectoryOptimizer.OptimalShot shot =
-          TrajectoryOptimizer.calculateOptimalShot(
-              turretPos, hubTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
-
-      if (shot.achievable) {
-        double tof =
-            ShotCalculator.calculateTimeOfFlight(
-                shot.exitVelocityMps, Math.toRadians(shot.launchAngleDeg), dist);
-        addEntry(dist, shot.rpm, shot.hoodAngleDeg, tof, 0.0, 1800.0, 325.0);
-        added++;
-      }
-    }
-
-    return added;
-  }
 
   /**
    * Log the full table contents to AdvantageKit as parallel arrays. Call after any table
@@ -328,25 +279,4 @@ public class ShotLookupTable {
     Logger.recordOutput(prefix + "/EntryCount", n);
   }
 
-  /**
-   * Build the default hub shot lookup table seeded from the known-good fixed shot presets. These
-   * are the HubShot, LeftTrench, and RightTrench values from ShootingCommands tunables.
-   *
-   * <p>Replace or supplement with empirical measurements from practice.
-   */
-  public static ShotLookupTable buildDefaultHubTable() {
-    return new ShotLookupTable()
-        // Close range (placeholder)
-        .addEntry(1.5, 2000, 35.0)
-        .addEntry(2.0, 2200, 32.0)
-        .addEntry(2.5, 2400, 29.0)
-        // Mid range
-        .addEntry(3.0, 2600, 26.0)
-        .addEntry(3.5, 2800, 24.0)
-        .addEntry(4.0, 3000, 22.0)
-        // Long range
-        .addEntry(4.5, 3200, 20.0)
-        .addEntry(5.0, 3400, 18.0)
-        .addEntry(5.5, 3600, 17.0);
-  }
 }
