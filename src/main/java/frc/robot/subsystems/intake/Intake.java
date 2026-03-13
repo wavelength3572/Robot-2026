@@ -245,6 +245,13 @@ public class Intake extends SubsystemBase {
 
   /** Deploy the intake (extend). Stops motor first for clean retarget. */
   public void deploy() {
+    // Skip motion if already at or past the deployed position
+    if (isAtOrPastDeployed()) {
+      deployCommanded = true;
+      deployState = DeployState.IDLE;
+      io.setDeployBrakeMode(false);
+      return;
+    }
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     io.setDeployBrakeMode(false); // Coast mode while PID is driving
     deployCommanded = true;
@@ -313,6 +320,12 @@ public class Intake extends SubsystemBase {
   public boolean isDeployed() {
     return Math.abs(inputs.deployPositionRotations - deployExtendedPos.get())
         <= deployTolerance.get();
+  }
+
+  /** Check if the intake is at or past the deployed position (handles overshoot). */
+  @AutoLogOutput(key = "Intake/IsAtOrPastDeployed")
+  public boolean isAtOrPastDeployed() {
+    return inputs.deployPositionRotations >= deployExtendedPos.get() - deployTolerance.get();
   }
 
   /** Check if the intake is fully retracted. */
