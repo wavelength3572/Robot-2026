@@ -308,6 +308,16 @@ public interface RobotConfig {
     return 0.0;
   }
 
+  /** Launcher IZone for MAXMotion velocity control (motor RPM). */
+  default double getLauncherIZone() {
+    return 200.0;
+  }
+
+  /** Launcher MAXMotion max acceleration (motor RPM/s). */
+  default double getLauncherMaxAcceleration() {
+    return 10000.0;
+  }
+
   // ========== Hood Configuration ==========
   // Default implementations return 0/false for robots without hoods
 

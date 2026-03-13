@@ -144,6 +144,8 @@ public class MainBotConfig implements RobotConfig {
   private static final double launcherKd = 0.003;
   private static final double launcherKv = 0.0017;
   private static final double launcherKs = 0.31;
+  private static final double launcherIZone = 200.0; // motor RPM - integral only below this error
+  private static final double launcherMaxAcceleration = 10000.0; // motor RPM/s
 
   // Hood Configuration
   private static final int hoodMotorCanId = 60;
@@ -652,6 +654,16 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getLauncherKs() {
     return launcherKs;
+  }
+
+  @Override
+  public double getLauncherIZone() {
+    return launcherIZone;
+  }
+
+  @Override
+  public double getLauncherMaxAcceleration() {
+    return launcherMaxAcceleration;
   }
 
   // ========== Hood Configuration ==========

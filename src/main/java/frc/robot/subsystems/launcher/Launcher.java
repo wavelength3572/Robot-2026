@@ -36,7 +36,12 @@ public class Launcher extends SubsystemBase {
   private static final LoggedTunableNumber recoveryKpBoost =
       new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.0);
 
-  // Tunable feedforward gains
+  // IZone: integral only accumulates when error is below this threshold (motor RPM).
+  // Prevents windup during spin-up while allowing kI to eliminate steady-state error.
+  private static final LoggedTunableNumber iZone;
+
+  // MAXMotion max acceleration (motor RPM/s) for smooth velocity profiling
+  private static final LoggedTunableNumber maxAcceleration;
 
   // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control
   private static final LoggedTunableNumber velocityToleranceRPM =
@@ -55,8 +60,11 @@ public class Launcher extends SubsystemBase {
     kD = new LoggedTunableNumber("Tuning/Launcher/kD", config.getLauncherKd());
     kS = new LoggedTunableNumber("Tuning/Launcher/kS", config.getLauncherKs());
     kV = new LoggedTunableNumber("Tuning/Launcher/kV", config.getLauncherKv());
-    // kA = new LoggedTunableNumber("Tuning/Launcher/kA", config.getLauncherKa());
     kA = new LoggedTunableNumber("Tuning/Launcher/kA", 0.0);
+    iZone = new LoggedTunableNumber("Tuning/Launcher/IZone", config.getLauncherIZone());
+    maxAcceleration =
+        new LoggedTunableNumber(
+            "Tuning/Launcher/MaxAcceleration", config.getLauncherMaxAcceleration());
   }
 
   // Feeding flag - set by ShootingCommands when prefeed starts
@@ -145,11 +153,14 @@ public class Launcher extends SubsystemBase {
     }
 
     // Push tunable changes to IO
-    if (LoggedTunableNumber.hasChanged(kP, kI, kD, recoveryKpBoost)) {
-      io.configurePID(kP.get(), kI.get(), kD.get(), recoveryKpBoost.get());
+    if (LoggedTunableNumber.hasChanged(kP, kI, kD, recoveryKpBoost, iZone)) {
+      io.configurePID(kP.get(), kI.get(), kD.get(), recoveryKpBoost.get(), iZone.get());
     }
     if (LoggedTunableNumber.hasChanged(kS, kV, kA)) {
       io.configureFeedforward(kS.get(), kV.get(), kA.get());
+    }
+    if (LoggedTunableNumber.hasChanged(maxAcceleration)) {
+      io.configureMaxMotion(maxAcceleration.get());
     }
     if (LoggedTunableNumber.hasChanged(velocityToleranceRPM)) {
       io.setVelocityTolerance(velocityToleranceRPM.get());
