@@ -349,6 +349,59 @@ public class ShootingCoordinator extends SubsystemBase {
           Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
       Logger.recordOutput("Turret/Shot/DistanceToTargetM", distanceToTarget);
     }
+
+    // === Side-by-side comparison: run BOTH strategies and log under Shots/Compare/ ===
+    // Throttled to every 10th cycle (~200ms) to minimize CPU cost.
+    if (periodicCounter % 10 == 0 && lookupTable.hasEnoughData()) {
+      double currentAngle = turret.getOutsideCurrentAngle();
+      double turretMin = turret.getMinAngle();
+      double turretMax = turret.getMaxAngle();
+      double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
+      double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
+
+      ShotCalculator.ShotResult parametricResult =
+          parametricStrategy.calculateShot(
+              robotPose, fieldSpeeds, target, turretConfig,
+              currentAngle, turretMin, turretMax, hoodMin, hoodMax);
+      ShotCalculator.ShotResult lutResult =
+          lutStrategy.calculateShot(
+              robotPose, fieldSpeeds, target, turretConfig,
+              currentAngle, turretMin, turretMax, hoodMin, hoodMax);
+
+      // Distance for context
+      double robotHeadingRad = robotPose.getRotation().getRadians();
+      double[] tPos =
+          ShotCalculator.getTurretFieldPosition(
+              robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
+      double dist =
+          Math.sqrt(Math.pow(target.getX() - tPos[0], 2) + Math.pow(target.getY() - tPos[1], 2));
+      Logger.recordOutput("Shots/Compare/DistanceM", dist);
+      Logger.recordOutput("Shots/Compare/InLUTRange", lookupTable.isInRange(dist));
+
+      // Parametric side
+      Logger.recordOutput("Shots/Compare/Parametric/RPM", parametricResult.launcherRPM());
+      Logger.recordOutput("Shots/Compare/Parametric/HoodAngleDeg", parametricResult.hoodAngleDeg());
+      Logger.recordOutput(
+          "Shots/Compare/Parametric/ExitVelocityMps", parametricResult.exitVelocityMps());
+      Logger.recordOutput("Shots/Compare/Parametric/Achievable", parametricResult.achievable());
+
+      // LUT side
+      Logger.recordOutput("Shots/Compare/LUT/RPM", lutResult.launcherRPM());
+      Logger.recordOutput("Shots/Compare/LUT/HoodAngleDeg", lutResult.hoodAngleDeg());
+      Logger.recordOutput("Shots/Compare/LUT/ExitVelocityMps", lutResult.exitVelocityMps());
+      Logger.recordOutput("Shots/Compare/LUT/Achievable", lutResult.achievable());
+
+      // Deltas — how much the two models disagree
+      Logger.recordOutput(
+          "Shots/Compare/Delta/RPM",
+          parametricResult.launcherRPM() - lutResult.launcherRPM());
+      Logger.recordOutput(
+          "Shots/Compare/Delta/HoodAngleDeg",
+          parametricResult.hoodAngleDeg() - lutResult.hoodAngleDeg());
+      Logger.recordOutput(
+          "Shots/Compare/Delta/ExitVelocityMps",
+          parametricResult.exitVelocityMps() - lutResult.exitVelocityMps());
+    }
   }
 
   /** Calculate and apply pass shot. */
