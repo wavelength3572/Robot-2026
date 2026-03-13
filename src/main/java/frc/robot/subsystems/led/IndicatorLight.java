@@ -4,6 +4,7 @@ import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -64,6 +65,9 @@ public class IndicatorLight extends SubsystemBase {
   private double blinkTime = 0.0;
   private boolean on = false;
   private int skittleCount = 0;
+
+  private double countdownRemainingTime = 7.0;
+  private double warningRemainingTime = 5.0;
 
   private Random random = new Random();
 
@@ -203,6 +207,7 @@ public class IndicatorLight extends SubsystemBase {
       case RAINBOW -> doRainbow();
       case BLUEOMBRE -> doBlueOmbre();
       case BLINK -> doBlink();
+      case COUNTDOWN_BLINK -> doCountdownBlink();
       case BLINK_PURPLE -> blinkPurple();
       case PARTY -> doParty();
       case RSL -> doRsl();
@@ -211,6 +216,7 @@ public class IndicatorLight extends SubsystemBase {
       case POLKADOT -> doPokadot();
       case SEARCH_LIGHT -> doSearchlightSingleEffect();
       case DYNAMIC_BLINK -> dynamicBlink();
+      case GREEN_RED_WARNING -> doGreenRedWarning();
       default -> {}
     }
 
@@ -218,9 +224,18 @@ public class IndicatorLight extends SubsystemBase {
     Logger.recordOutput("LED/Pattern", LED_State.toString());
   }
 
-  /** Publish LED buffer to the hardware strip. */
+  /** Publish LED colors to NetworkTables for Elastic Multi Color View widget (sim only). */
   private void publishLEDColors() {
-    // Color string logging removed — String.format per LED caused ~14ms GC spikes on roboRIO
+    if (!RobotBase.isSimulation()) return;
+    int len = currentActiveBuffer.getLength();
+    String[] colors = new String[len];
+    for (int i = 0; i < len; i++) {
+      Color c = currentActiveBuffer.getLED(i);
+      colors[i] =
+          String.format(
+              "#%02X%02X%02X", (int) (c.red * 255), (int) (c.green * 255), (int) (c.blue * 255));
+    }
+    SmartDashboard.putStringArray("LED/Colors", colors);
   }
 
   // ========== Public setters for LED effects ==========
@@ -427,6 +442,62 @@ public class IndicatorLight extends SubsystemBase {
     setActiveBuffer(wlLEDBuffer);
   }
 
+  public void doCountdownBlink() {
+    double timeStamp = Timer.getFPGATimestamp();
+    int numLEDs = wlLEDBuffer.getLength(); // 42
+    int half = numLEDs / 2; // 21
+
+    // Phase 1: progressive fill (7.0s → 3.0s), Phase 2: full bar blink (3.0s → 0.0s)
+    boolean phase2 = countdownRemainingTime <= 3.0;
+
+    double blinkPeriod;
+    if (!phase2) {
+      // Phase 1: blink period 0.4s → 0.15s as remainingTime goes 7.0 → 3.0
+      double t = 1.0 - (countdownRemainingTime - 3.0) / 4.0; // 0.0 → 1.0
+      t = Math.max(0.0, Math.min(1.0, t));
+      blinkPeriod = 0.4 - t * (0.4 - 0.15);
+    } else {
+      // Phase 2: blink period 0.12s → 0.05s as remainingTime goes 3.0 → 0.0
+      double t = 1.0 - countdownRemainingTime / 3.0; // 0.0 → 1.0
+      t = Math.max(0.0, Math.min(1.0, t));
+      blinkPeriod = 0.12 - t * (0.12 - 0.05);
+    }
+
+    // Toggle on/off using existing blink fields
+    if (timeStamp - lastTime >= blinkPeriod) {
+      on = !on;
+      lastTime = timeStamp;
+    }
+
+    if (!phase2) {
+      // Phase 1: fill from both ends inward
+      double progress = 1.0 - (countdownRemainingTime - 3.0) / 4.0; // 0.0 → 1.0
+      progress = Math.max(0.0, Math.min(1.0, progress));
+      int ledsPerSide = Math.max(2, (int) Math.ceil(progress * half));
+
+      for (int i = 0; i < numLEDs; i++) {
+        // Light LED if it's within ledsPerSide from either end
+        boolean lit = (i < ledsPerSide) || (i >= numLEDs - ledsPerSide);
+        if (lit && on) {
+          wlLEDBuffer.setRGBW(i, 0, 0, 0, 255);
+        } else {
+          wlLEDBuffer.setRGB(i, 0, 0, 0);
+        }
+      }
+    } else {
+      // Phase 2: all LEDs blink
+      for (int i = 0; i < numLEDs; i++) {
+        if (on) {
+          wlLEDBuffer.setRGBW(i, 0, 0, 0, 255);
+        } else {
+          wlLEDBuffer.setRGB(i, 0, 0, 0);
+        }
+      }
+    }
+
+    setActiveBuffer(wlLEDBuffer);
+  }
+
   public void doBlinkRed() {
     LED_State = LED_EFFECTS.BLINK_RED;
     double timeStamp = Timer.getFPGATimestamp();
@@ -555,6 +626,48 @@ public class IndicatorLight extends SubsystemBase {
     }
   }
 
+  public void doGreenRedWarning() {
+    double timeStamp = Timer.getFPGATimestamp();
+    int numLEDs = wlLEDBuffer.getLength();
+
+    // First 3s (5.0→2.0): green/red split blink. Last 2s (2.0→0.0): blink red.
+    boolean redOnlyPhase = warningRemainingTime <= 2.0;
+
+    if (redOnlyPhase) {
+      // Blink red on/off at ~5 Hz
+      if (timeStamp - lastTime >= 0.1) {
+        on = !on;
+        lastTime = timeStamp;
+      }
+      if (on) {
+        setActiveBuffer(wlRedLEDBuffer);
+      } else {
+        setActiveBuffer(wlBlackLEDBuffer);
+      }
+    } else {
+      int half = numLEDs / 2;
+
+      // Flip-flop at ~4 Hz (0.25s period)
+      if (timeStamp - lastTime >= 0.125) {
+        on = !on;
+        lastTime = timeStamp;
+      }
+
+      for (int i = 0; i < numLEDs; i++) {
+        boolean firstHalf = i < half;
+        // on=true: first half green, second half red. on=false: flip.
+        boolean greenPixel = (firstHalf && on) || (!firstHalf && !on);
+        if (greenPixel) {
+          wlLEDBuffer.setHSV(i, IndicatorLightConstants.GREEN_HUE, 255, 128);
+        } else {
+          wlLEDBuffer.setHSV(i, IndicatorLightConstants.RED_HUE, 255, 128);
+        }
+      }
+
+      setActiveBuffer(wlLEDBuffer);
+    }
+  }
+
   public void updateBlinkPeriod(double lateralError) {
     if (lateralError <= MIN_TOLERANCE_BLINK) {
       currentBlinkPeriod = MIN_BLINK_PERIOD;
@@ -593,7 +706,11 @@ public class IndicatorLight extends SubsystemBase {
     // Teleop: green when active, red when inactive, blink white 7s before going active
     HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getOfficialShiftInfo();
     if (!shiftInfo.active() && shiftInfo.remainingTime() <= 7.0) {
-      return LED_EFFECTS.BLINK;
+      countdownRemainingTime = shiftInfo.remainingTime();
+      return LED_EFFECTS.COUNTDOWN_BLINK;
+    } else if (shiftInfo.active() && shiftInfo.remainingTime() <= 5.0) {
+      warningRemainingTime = shiftInfo.remainingTime();
+      return LED_EFFECTS.GREEN_RED_WARNING;
     } else if (shiftInfo.active()) {
       return LED_EFFECTS.GREEN;
     } else {

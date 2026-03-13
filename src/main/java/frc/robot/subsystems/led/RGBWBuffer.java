@@ -66,7 +66,11 @@ public class RGBWBuffer {
    * @param w White (0-255)
    */
   public void setRGBW(int index, int r, int g, int b, int w) {
-    logicalColors[index] = new Color(r / 255.0, g / 255.0, b / 255.0);
+    logicalColors[index] =
+        new Color(
+            Math.min(1.0, (r + w) / 255.0),
+            Math.min(1.0, (g + w) / 255.0),
+            Math.min(1.0, (b + w) / 255.0));
     // SK6812 RGBW wire order: Green, Red, Blue, White
     // Brightness scaling is applied later in flushToBuffer()
     int base = index * 4;

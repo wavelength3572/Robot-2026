@@ -518,27 +518,27 @@ public class ButtonsAndDashboardBindings {
       // Only commands deploy motion if not already deployed (avoids re-deploying causing a
       // retract-then-extend glitch when the intake is already out).
       oi.getButtonBox1Button4()
-          .onTrue(
-              Commands.runOnce(
+          .whileTrue(
+              Commands.startEnd(
                   () -> {
-                    if (!intake.isDeployed()) {
+                    if (!intake.isAtOrPastDeployed()) {
                       intake.deploy();
                     }
                     intake.setRollerVelocityWhenDeployed(tuningIntakeDeployedVelocity.get());
                   },
-                  intake))
-          .onFalse(Commands.runOnce(intake::stopRollers, intake));
+                  intake::stopRollers,
+                  intake));
 
       // Button 3: Retract and run rollers while held; on release, stop rollers but stay retracted
       oi.getButtonBox1Button3()
-          .onTrue(
-              Commands.runOnce(
+          .whileTrue(
+              Commands.startEnd(
                   () -> {
                     intake.retract();
                     intake.setRollerVelocity(tuningIntakeRetractRollerVelocity.get());
                   },
-                  intake))
-          .onFalse(Commands.runOnce(intake::stopRollers, intake));
+                  intake::stopRollers,
+                  intake));
     }
 
     // Smart launch:Button 12— mode selected by dashboard toggle

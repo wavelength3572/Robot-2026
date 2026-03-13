@@ -25,6 +25,7 @@ public class IndicatorLightConstants {
     RAINBOW,
     BLUEOMBRE,
     BLINK,
+    COUNTDOWN_BLINK,
     BLINK_RED,
     BLINK_PURPLE,
     POLKADOT,
@@ -33,7 +34,8 @@ public class IndicatorLightConstants {
     SEGMENTPARTY,
     EXPLOSION,
     SEARCH_LIGHT,
-    DYNAMIC_BLINK
+    DYNAMIC_BLINK,
+    GREEN_RED_WARNING
   }
 
   // Define an array with 20 chosen colors (as RGB values)

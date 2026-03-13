@@ -126,7 +126,8 @@ public class Intake extends SubsystemBase {
     IDLE, // No motion in progress
     MOVING, // PID driving to target
     BRAKING, // At target, brake mode on for settling (deploy only)
-    HOLDING // Retract: brake + small hold voltage; Deploy: coast, fully settled
+    HOLDING, // Retract: brake + small hold voltage; Deploy: coast, fully settled
+    AGITATE_SETTLING // Post-agitate: brake for fall time, then coast
   }
 
   private DeployState deployState = DeployState.IDLE;
@@ -226,6 +227,14 @@ public class Intake extends SubsystemBase {
       case HOLDING:
         // Retract hold: brake mode only. If knocked out, driver can re-press retract.
         break;
+      case AGITATE_SETTLING:
+        // Post-agitate: brake for fall duration, then switch to coast
+        if (brakeTimer.hasElapsed(agitationFallTime.get())) {
+          brakeTimer.stop();
+          io.setDeployBrakeMode(false);
+          deployState = DeployState.IDLE;
+        }
+        break;
       case IDLE:
       default:
         break;
@@ -245,6 +254,13 @@ public class Intake extends SubsystemBase {
 
   /** Deploy the intake (extend). Stops motor first for clean retarget. */
   public void deploy() {
+    // Skip motion if already at or past the deployed position
+    if (isAtOrPastDeployed()) {
+      deployCommanded = true;
+      deployState = DeployState.IDLE;
+      io.setDeployBrakeMode(false);
+      return;
+    }
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     io.setDeployBrakeMode(false); // Coast mode while PID is driving
     deployCommanded = true;
@@ -313,6 +329,12 @@ public class Intake extends SubsystemBase {
   public boolean isDeployed() {
     return Math.abs(inputs.deployPositionRotations - deployExtendedPos.get())
         <= deployTolerance.get();
+  }
+
+  /** Check if the intake is at or past the deployed position (handles overshoot). */
+  @AutoLogOutput(key = "Intake/IsAtOrPastDeployed")
+  public boolean isAtOrPastDeployed() {
+    return inputs.deployPositionRotations >= deployExtendedPos.get() - deployTolerance.get();
   }
 
   /** Check if the intake is fully retracted. */
@@ -476,7 +498,7 @@ public class Intake extends SubsystemBase {
                     runOnce(
                         () -> {
                           io.disableDeploy();
-                          io.setDeployBrakeMode(false);
+                          io.setDeployBrakeMode(true);
                         }),
                     Commands.waitSeconds(agitationFallTime.get()))
                 .repeatedly()
@@ -486,8 +508,10 @@ public class Intake extends SubsystemBase {
         .finallyDo(
             () -> {
               io.disableDeploy();
-              io.setDeployBrakeMode(false);
+              io.setDeployBrakeMode(true);
               stopRollers();
+              brakeTimer.restart();
+              deployState = DeployState.AGITATE_SETTLING;
             })
         .withName("Intake: Agitate");
   }
