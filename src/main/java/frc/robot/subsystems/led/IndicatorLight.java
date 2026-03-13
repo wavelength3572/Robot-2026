@@ -76,12 +76,22 @@ public class IndicatorLight extends SubsystemBase {
 
   private RGBWBuffer currentActiveBuffer;
 
+  // Pre-allocated array for AdvantageScope LED color visualization
+  private final String[] ledColorStrings =
+      new String[IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH];
+  private boolean ledColorsDirty = true;
+  private int publishThrottleCounter = 0;
+
   public IndicatorLight() {
     // Dashboard chooser: Match (default auto-lighting), Off, or Pit (blue ombre)
     lightModeChooser.setDefaultOption("Match", LightMode.MATCH);
     lightModeChooser.addOption("Off", LightMode.OFF);
     lightModeChooser.addOption("Pit", LightMode.PIT);
     SmartDashboard.putData("Match/Light Mode", lightModeChooser);
+
+    // Default brightness to 50% — adjustable via dashboard (0.0 to 1.0)
+    SmartDashboard.putNumber("Match/LED Brightness", 0.5);
+    RGBWBuffer.setBrightnessScalar(0.5);
 
     int numLEDs = IndicatorLightConstants.ADDRESSABLE_LED_BUFFER_LENGTH;
 
@@ -150,6 +160,8 @@ public class IndicatorLight extends SubsystemBase {
 
   @Override
   public void periodic() {
+    RGBWBuffer.setBrightnessScalar(SmartDashboard.getNumber("Match/LED Brightness", 0.5));
+
     LightMode mode = lightModeChooser.getSelected();
     if (mode == null) mode = LightMode.MATCH;
 
@@ -214,15 +226,22 @@ public class IndicatorLight extends SubsystemBase {
 
   /** Publish LED buffer colors as a hex string array for AdvantageScope visualization. */
   private void publishLEDColors() {
+    // Only publish every 5 cycles (~10Hz) for animated effects, or immediately when state changes
+    publishThrottleCounter++;
+    if (!ledColorsDirty && publishThrottleCounter < 5) {
+      return;
+    }
+    publishThrottleCounter = 0;
+    ledColorsDirty = false;
+
     int length = currentActiveBuffer.getLength();
-    String[] colors = new String[length];
     for (int i = 0; i < length; i++) {
       Color c = currentActiveBuffer.getLED(i);
-      colors[i] =
+      ledColorStrings[i] =
           String.format(
               "#%02X%02X%02X", (int) (c.red * 255), (int) (c.green * 255), (int) (c.blue * 255));
     }
-    Logger.recordOutput("LED/Colors", colors);
+    Logger.recordOutput("LED/Colors", ledColorStrings);
   }
 
   // ========== Public setters for LED effects ==========
@@ -608,7 +627,11 @@ public class IndicatorLight extends SubsystemBase {
   }
 
   private void setActiveBuffer(RGBWBuffer buffer) {
+    if (currentActiveBuffer != buffer) {
+      ledColorsDirty = true;
+    }
     currentActiveBuffer = buffer;
+    ledColorsDirty = true; // Also mark dirty for animated effects that modify the same buffer
     buffer.flushToBuffer();
     wlLED.setData(buffer.getInternalBuffer());
   }

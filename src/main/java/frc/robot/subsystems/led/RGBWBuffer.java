@@ -12,6 +12,9 @@ import edu.wpi.first.wpilibj.util.Color8Bit;
  * <p>For N physical RGBW LEDs, we allocate ceil(N * 4 / 3) virtual RGB LEDs in the internal buffer.
  */
 public class RGBWBuffer {
+  /** Global brightness scalar applied to all LED output (0.0 = off, 1.0 = full). */
+  private static double brightnessScalar = 1.0;
+
   private final int numLEDs;
   private final AddressableLEDBuffer internalBuffer;
   private final byte[] rawBytes; // GRBW wire bytes for all LEDs
@@ -26,6 +29,16 @@ public class RGBWBuffer {
     for (int i = 0; i < numLEDs; i++) {
       logicalColors[i] = Color.kBlack;
     }
+  }
+
+  /** Set the global brightness scalar (0.0 = off, 1.0 = full brightness). Clamped to [0.0, 1.0]. */
+  public static void setBrightnessScalar(double scalar) {
+    brightnessScalar = Math.max(0.0, Math.min(1.0, scalar));
+  }
+
+  /** Returns the current global brightness scalar. */
+  public static double getBrightnessScalar() {
+    return brightnessScalar;
   }
 
   /** Returns the number of physical RGBW LEDs. */
@@ -55,6 +68,7 @@ public class RGBWBuffer {
   public void setRGBW(int index, int r, int g, int b, int w) {
     logicalColors[index] = new Color(r / 255.0, g / 255.0, b / 255.0);
     // SK6812 RGBW wire order: Green, Red, Blue, White
+    // Brightness scaling is applied later in flushToBuffer()
     int base = index * 4;
     rawBytes[base] = (byte) g;
     rawBytes[base + 1] = (byte) r;
@@ -124,6 +138,10 @@ public class RGBWBuffer {
       int g = (wireBase < rawBytes.length) ? Byte.toUnsignedInt(rawBytes[wireBase]) : 0;
       int r = (wireBase + 1 < rawBytes.length) ? Byte.toUnsignedInt(rawBytes[wireBase + 1]) : 0;
       int b = (wireBase + 2 < rawBytes.length) ? Byte.toUnsignedInt(rawBytes[wireBase + 2]) : 0;
+      // Apply brightness scalar at output time so it works with pre-built buffers
+      g = (int) (g * brightnessScalar);
+      r = (int) (r * brightnessScalar);
+      b = (int) (b * brightnessScalar);
       internalBuffer.setRGB(v, r, g, b);
     }
   }

@@ -59,9 +59,14 @@ public class Intake extends SubsystemBase {
   // Deploy position at which rollers are allowed to turn on (before full deploy)
   private static final LoggedTunableNumber rollerActivationPosition;
 
+  // How long to brake after deploy reaches target before switching to coast
+  private static final LoggedTunableNumber deployBrakeTime;
+
   // Agitation tunables
   private static final LoggedTunableNumber agitationFallTime;
   private static final LoggedTunableNumber agitationSpeedThreshold;
+  private static final LoggedTunableNumber agitationBurstPower;
+  private static final LoggedTunableNumber agitationBurstTime;
 
   static {
     RobotConfig config = Constants.getRobotConfig();
@@ -102,10 +107,15 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", .5);
     rollerActivationPosition =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerActivationPosition", 0.05);
+    deployBrakeTime = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/BrakeTimeSec", 0.5);
     agitationFallTime =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationFallTimeSec", 1.0);
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationFallTimeSec", 0.6);
     agitationSpeedThreshold =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationSpeedThresholdMps", 0.3);
+    agitationBurstPower =
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationBurstPower", -0.3);
+    agitationBurstTime =
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationBurstTimeSec", 0.15);
   }
 
   // Deploy positions (from config, used for soft limit init)
@@ -227,8 +237,8 @@ public class Intake extends SubsystemBase {
         }
         break;
       case BRAKING:
-        // Deploy only: after 1 second of braking, switch to coast and go idle
-        if (brakeTimer.hasElapsed(1.0)) {
+        // Deploy only: after brake time elapses, switch to coast and go idle
+        if (brakeTimer.hasElapsed(deployBrakeTime.get())) {
           brakeTimer.stop();
           io.disableDeploy();
           io.setDeployBrakeMode(false);
@@ -484,10 +494,10 @@ public class Intake extends SubsystemBase {
   }
 
   /**
-   * Command that agitates the intake to shake game pieces toward the spindexer. Deploys the arm up
-   * to the extended position (which is above gravity's resting point), waits for the deploy state
-   * machine to reach IDLE (deploy → brake → coast), then waits for gravity to pull it back down.
-   * Repeats this cycle. Pauses when robot speed exceeds threshold. Rollers spin during agitation.
+   * Command that agitates the intake to shake game pieces toward the spindexer. Uses a burst of
+   * duty cycle power to jerk the arm up (bypassing MAXMotion output limits), then releases to coast
+   * so gravity pulls it back down. Repeats this cycle. Pauses when robot speed exceeds threshold.
+   * Rollers spin during agitation.
    *
    * @param rollerRPM Supplier for roller velocity in RPM
    * @return Command that agitates until cancelled
@@ -499,16 +509,28 @@ public class Intake extends SubsystemBase {
             Commands.sequence(
                     runOnce(
                         () -> {
-                          deploy();
+                          io.setDeployDutyCycle(
+                              Math.max(-0.35, Math.min(0.35, agitationBurstPower.get())));
+                          deployState = DeployState.IDLE;
                           setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
                         }),
-                    Commands.waitUntil(this::isDeployIdle),
+                    Commands.waitSeconds(agitationBurstTime.get()),
+                    runOnce(
+                        () -> {
+                          io.disableDeploy();
+                          io.setDeployBrakeMode(false);
+                        }),
                     Commands.waitSeconds(agitationFallTime.get()))
                 .repeatedly()
                 .onlyWhile(
                     () -> robotVelocitySupplier.getAsDouble() < agitationSpeedThreshold.get())
                 .repeatedly())
-        .finallyDo(this::stopRollers)
+        .finallyDo(
+            () -> {
+              io.disableDeploy();
+              io.setDeployBrakeMode(false);
+              stopRollers();
+            })
         .withName("Intake: Agitate");
   }
 
