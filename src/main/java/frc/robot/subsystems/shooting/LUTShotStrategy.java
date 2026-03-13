@@ -119,7 +119,8 @@ public class LUTShotStrategy implements ShotStrategy {
 
     // RPM comes directly from LUT — no efficiency conversion needed
     // The LUT stores actual RPMs that worked, bypassing efficiency entirely
-    double exitVelocityMps = ShotCalculator.calculateExitVelocityFromRPM(entry.rpm());
+    double exitVelocityMps =
+        ShotCalculator.calculateExitVelocityFromRPM(entry.rpm(), finalDistance);
 
     // Check hood angle is achievable
     boolean achievable =

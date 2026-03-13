@@ -18,14 +18,23 @@ public final class ShotCalculator {
 
   // ========== Physical Constants ==========
   private static final double GRAVITY = 9.81; // m/s^2
-  private static final double WHEEL_RADIUS_METERS = 0.0508; // 4" diameter = 2" radius
 
-  // Single tunable efficiency constant: ratio of ball exit velocity to wheel surface velocity.
-  // This is the ONE knob for parametric mode. Typical range 0.35-0.55.
-  // Higher = ball leaves faster for a given RPM. Tune by comparing parametric predictions to
-  // actual successful shots.
-  private static final LoggedTunableNumber launchEfficiency =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/LaunchEfficiency", 0.48);
+  // Two-roller launcher model:
+  // - Main wheel: 3" diameter (1.5" radius)
+  // - Hood rollers: 2" diameter, surface speed is 1/1.41 of main wheel (chained together)
+  // Ball exit velocity ≈ average of both surface speeds × slip efficiency
+  private static final double MAIN_WHEEL_RADIUS_METERS = 0.0381; // 3" diameter = 1.5" radius
+  private static final double HOOD_SURFACE_SPEED_RATIO = 1.0 / 1.41; // hood rolls slower
+
+  // Distance-dependent slip/compression efficiency, derived from LUT calibration data.
+  // Formula: efficiency = A*d^2 + B*d + C, where d = distance to target in meters.
+  // Peaks ~0.785 at mid-range, drops at close range (steep angle) and long range (flat/high slip).
+  // Recalculate these coefficients when updating ShotTableConstants baseline data.
+  private static final double EFFICIENCY_A = -0.0232;
+  private static final double EFFICIENCY_B = 0.1311;
+  private static final double EFFICIENCY_C = 0.5929;
+  private static final double EFFICIENCY_MIN = 0.50; // floor to prevent nonsense at extreme range
+  private static final double EFFICIENCY_MAX = 0.85; // ceiling
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -89,22 +98,43 @@ public final class ShotCalculator {
   }
 
   /**
-   * Get the launch efficiency. Single constant — no RPM-dependent model.
+   * Get the distance-dependent launch efficiency.
    *
-   * @return Efficiency factor (typically 0.35-0.55)
+   * @param distanceMeters Horizontal distance to target
+   * @return Efficiency factor (clamped to safe range)
    */
+  public static double getEfficiency(double distanceMeters) {
+    double eff =
+        EFFICIENCY_A * distanceMeters * distanceMeters
+            + EFFICIENCY_B * distanceMeters
+            + EFFICIENCY_C;
+    return Math.max(EFFICIENCY_MIN, Math.min(EFFICIENCY_MAX, eff));
+  }
+
+  /** Get efficiency at a default mid-range distance (for call sites without distance context). */
   public static double getEfficiency() {
-    return launchEfficiency.get();
+    return getEfficiency(3.0);
   }
 
   /**
-   * Calculate ball exit velocity from a given wheel RPM.
+   * Calculate ball exit velocity from a given wheel RPM using the two-roller model.
    *
-   * <p>Formula: exitVelocity = (RPM × 2π × radius / 60) × efficiency
+   * <p>Exit velocity = average of main wheel and hood roller surface speeds × distance-dependent
+   * efficiency.
+   *
+   * @param rpm Launcher wheel RPM
+   * @param distanceMeters Horizontal distance to target (for efficiency curve)
    */
+  public static double calculateExitVelocityFromRPM(double rpm, double distanceMeters) {
+    double mainSurfaceVelocity = (rpm * 2.0 * Math.PI * MAIN_WHEEL_RADIUS_METERS) / 60.0;
+    double hoodSurfaceVelocity = mainSurfaceVelocity * HOOD_SURFACE_SPEED_RATIO;
+    double averageSurfaceVelocity = (mainSurfaceVelocity + hoodSurfaceVelocity) / 2.0;
+    return averageSurfaceVelocity * getEfficiency(distanceMeters);
+  }
+
+  /** Overload using default mid-range efficiency (for call sites without distance context). */
   public static double calculateExitVelocityFromRPM(double rpm) {
-    double surfaceVelocity = (rpm * 2.0 * Math.PI * WHEEL_RADIUS_METERS) / 60.0;
-    return surfaceVelocity * getEfficiency();
+    return calculateExitVelocityFromRPM(rpm, 3.0);
   }
 
   /** Calculate ball exit velocity from current launcher RPM. */
@@ -118,15 +148,22 @@ public final class ShotCalculator {
   }
 
   /**
-   * Get what RPM would be needed to achieve a target exit velocity. Simple division with the single
-   * efficiency constant.
+   * Get what RPM would be needed to achieve a target exit velocity at a given distance.
    *
    * @param targetExitVelocity Desired exit velocity in m/s
+   * @param distanceMeters Horizontal distance to target (for efficiency curve)
    * @return Required wheel RPM
    */
+  public static double calculateRPMForVelocity(double targetExitVelocity, double distanceMeters) {
+    double averageSurfaceVelocity = targetExitVelocity / getEfficiency(distanceMeters);
+    // Reverse the two-roller average: avg = main × (1 + hoodRatio) / 2
+    double mainSurfaceVelocity = averageSurfaceVelocity * 2.0 / (1.0 + HOOD_SURFACE_SPEED_RATIO);
+    return (mainSurfaceVelocity * 60.0) / (2.0 * Math.PI * MAIN_WHEEL_RADIUS_METERS);
+  }
+
+  /** Overload using default mid-range efficiency. */
   public static double calculateRPMForVelocity(double targetExitVelocity) {
-    double surfaceVelocity = targetExitVelocity / getEfficiency();
-    return (surfaceVelocity * 60.0) / (2.0 * Math.PI * WHEEL_RADIUS_METERS);
+    return calculateRPMForVelocity(targetExitVelocity, 3.0);
   }
 
   // ========== Physics Utilities ==========
@@ -499,9 +536,13 @@ public final class ShotCalculator {
             effectiveMaxDeg,
             config);
 
+    double finalDist =
+        Math.sqrt(
+            Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));
+
     return new ShotResult(
         exitVelocity,
-        calculateRPMForVelocity(exitVelocity),
+        calculateRPMForVelocity(exitVelocity, finalDist),
         launchAngleRad,
         90.0 - launchAngleDeg, // convert launch angle to hood angle
         turretAngleDeg,

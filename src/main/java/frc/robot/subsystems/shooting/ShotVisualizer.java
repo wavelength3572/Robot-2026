@@ -341,10 +341,12 @@ public class ShotVisualizer {
     this.currentAzimuthAngle = targetAzimuthAngle;
 
     // Use the RPM-derived exit velocity (what the ball will ACTUALLY do at the commanded RPM).
-    // In calibrated mode this equals the geometric velocity. In raw mode it may differ,
-    // showing the real-world effect of using a different efficiency assumption.
+    double distanceToTarget =
+        Math.sqrt(
+            Math.pow(target.getX() - turretPos.getX(), 2)
+                + Math.pow(target.getY() - turretPos.getY(), 2));
     double actualExitVelocity =
-        ShotCalculator.calculateExitVelocityFromRPM(shotResult.launcherRPM());
+        ShotCalculator.calculateExitVelocityFromRPM(shotResult.launcherRPM(), distanceToTarget);
 
     // Actual trajectory: aim direction + robot velocity (what the sim ball does)
     updateActualTrajectory(actualExitVelocity, shotResult.launchAngleRad(), targetAzimuthAngle);

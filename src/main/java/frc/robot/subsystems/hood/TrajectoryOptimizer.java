@@ -214,7 +214,7 @@ public class TrajectoryOptimizer {
     double H_target = HUB_CENTER_HEIGHT - turretHeightM;
 
     return calculateTrajectoryThroughTwoPoints(
-        D_edge, H_edge, D, H_target, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg);
+        D_edge, H_edge, D, H_target, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg, D);
   }
 
   /**
@@ -239,7 +239,8 @@ public class TrajectoryOptimizer {
       double y2,
       double turretHeightM,
       double hoodMinAngleDeg,
-      double hoodMaxAngleDeg) {
+      double hoodMaxAngleDeg,
+      double horizontalDistanceM) {
 
     // Compute descent angle for this trajectory (angle of line from point A to point B)
     double heightAtEdge = turretHeightM + y1;
@@ -296,8 +297,8 @@ public class TrajectoryOptimizer {
     }
     double velocity = Math.sqrt(vSquared);
 
-    // Convert exit velocity to RPM using efficiency constant
-    double rpm = ShotCalculator.calculateRPMForVelocity(velocity);
+    // Convert exit velocity to RPM using distance-dependent efficiency
+    double rpm = ShotCalculator.calculateRPMForVelocity(velocity, horizontalDistanceM);
 
     // Check RPM limits
     if (rpm < minRPM.get() || rpm > maxRPM.get()) {
