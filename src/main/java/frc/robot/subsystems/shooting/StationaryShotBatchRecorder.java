@@ -15,7 +15,8 @@ import java.util.List;
  *
  * <ul>
  *   <li><b>lut-data.json</b> — Clean LUT entries: distance, RPM, hood angle, TOF, feed speeds. Only
- *       successful batches. This is what {@link ShotLookupTable#loadFromLUTEntries} consumes.
+ *       successful batches. Review these after practice and promote good values to {@link
+ *       ShotTableConstants#BASELINE_TABLE}.
  *   <li><b>shot-log.json</b> — Full batch records for analysis: timestamp, position, params, fuel
  *       count, success/fail. All batches included.
  * </ul>
@@ -85,8 +86,8 @@ public class StationaryShotBatchRecorder {
     }
     this.lutFile = new File(dir, LUT_FILE);
     this.logFile = new File(dir, LOG_FILE);
-    loadLUTFromFile();
-    loadLogFromFile();
+    // Don't reload previous session data — each session starts fresh.
+    // Files are still written to disk for offline review / manual promotion to ShotTableConstants.
   }
 
   // ========== Batch Tracking ==========

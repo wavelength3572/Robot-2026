@@ -603,11 +603,12 @@ public class ShootingCoordinator extends SubsystemBase {
       Translation3d target = currentShot.aimTarget();
       double azimuthAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
 
-      // Use RPM-derived exit velocity so the sim ball matches the trajectory visualization.
-      // In calibrated mode this equals the geometric velocity; in raw mode it shows the
-      // real-world effect of the different efficiency assumption.
+      // Use RPM-derived exit velocity with distance-dependent efficiency so the sim ball
+      // matches the trajectory visualization.
+      double launchDist =
+          Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
       double actualExitVelocity =
-          ShotCalculator.calculateExitVelocityFromRPM(currentShot.launcherRPM());
+          ShotCalculator.calculateExitVelocityFromRPM(currentShot.launcherRPM(), launchDist);
       visualizer.launchFuel(actualExitVelocity, currentShot.launchAngleRad(), azimuthAngle);
 
       // Track shot counts (auto vs teleop)
@@ -776,22 +777,15 @@ public class ShootingCoordinator extends SubsystemBase {
   public void reloadLUTData() {
     lookupTable.clear();
 
-    // 1. Load hardcoded baseline (version-controlled, easy to edit)
+    // Load hardcoded baseline only — field-recorded data is for offline review,
+    // not runtime use. To update shots, edit ShotTableConstants and redeploy.
     int baselineCount = ShotTableConstants.loadBaseline(lookupTable);
-
-    // 2. Overlay field-recorded entries (overrides baseline at same/close distances)
-    var empiricalEntries = batchRecorder.getLUTEntries();
-    lookupTable.addFromLUTEntries(empiricalEntries);
 
     // Log full table to AdvantageKit for live dashboard viewing
     lookupTable.logTable("LUTDev/Table");
 
     frc.robot.util.StartupLogger.log(
-        "[ShootingCoordinator] LUT reloaded: "
-            + baselineCount
-            + " baseline + "
-            + empiricalEntries.size()
-            + " field entries");
+        "[ShootingCoordinator] LUT loaded: " + baselineCount + " baseline entries");
   }
 
   /** Get the batch recorder for recording new data collection sessions. */

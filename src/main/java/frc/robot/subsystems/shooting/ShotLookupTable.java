@@ -1,6 +1,5 @@
 package frc.robot.subsystems.shooting;
 
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import org.littletonrobotics.junction.Logger;
@@ -194,46 +193,8 @@ public class ShotLookupTable {
     table.clear();
   }
 
-  /**
-   * Load data from a list of clean LUT entries. Replaces any existing entries.
-   *
-   * @param entries LUT entries from {@link StationaryShotBatchRecorder}
-   */
-  public void loadFromLUTEntries(List<StationaryShotBatchRecorder.LUTEntry> entries) {
-    table.clear();
-    for (StationaryShotBatchRecorder.LUTEntry e : entries) {
-      addEntry(
-          e.distanceM(),
-          e.rpm(),
-          e.hoodAngleDeg(),
-          e.timeOfFlightTheoreticalS(),
-          e.timeOfFlightMeasuredS(),
-          e.motivatorRPM(),
-          e.spindexerRPM());
-    }
-  }
-
   private static double lerp(double a, double b, double t) {
     return a + t * (b - a);
-  }
-
-  /**
-   * Add entries from a list of LUT entries without clearing the table first. Empirical entries at
-   * the same distance will overwrite any existing (e.g. parametric) entry.
-   *
-   * @param entries LUT entries from {@link StationaryShotBatchRecorder}
-   */
-  public void addFromLUTEntries(List<StationaryShotBatchRecorder.LUTEntry> entries) {
-    for (StationaryShotBatchRecorder.LUTEntry e : entries) {
-      addEntry(
-          e.distanceM(),
-          e.rpm(),
-          e.hoodAngleDeg(),
-          e.timeOfFlightTheoreticalS(),
-          e.timeOfFlightMeasuredS(),
-          e.motivatorRPM(),
-          e.spindexerRPM());
-    }
   }
 
   /**
