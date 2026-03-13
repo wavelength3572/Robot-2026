@@ -135,8 +135,9 @@ public class Launcher extends SubsystemBase {
     Logger.recordOutput("Launcher/velocityMismatchAlert", mismatchAlert);
 
     if (mismatchAlert) {
-      System.err.println(
-          "[Launcher] WARNING: Velocity mismatch detected! Leader: "
+      Logger.recordOutput(
+          "Launcher/velocityMismatchMessage",
+          "Velocity mismatch! Leader: "
               + inputs.leaderVelocityRPM
               + " RPM, Follower: "
               + inputs.followerVelocityRPM

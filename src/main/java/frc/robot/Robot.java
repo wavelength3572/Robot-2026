@@ -31,6 +31,7 @@ import org.littletonrobotics.urcl.URCL;
 public class Robot extends LoggedRobot {
   private Command autonomousCommand;
   private RobotContainer robotContainer;
+  private int hubShiftLogCounter = 0;
 
   public Robot() {
     super(Constants.currentMode == Constants.Mode.SIM ? 0.05 : 0.02);
@@ -104,12 +105,16 @@ public class Robot extends LoggedRobot {
     // Update fuel simulation (only runs in SIM mode)
     robotContainer.updateFuelSim();
 
-    // Log hub shift info
-    HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getOfficialShiftInfo();
-    Logger.recordOutput("HubShift/CurrentShift", shiftInfo.currentShift().toString());
-    Logger.recordOutput("HubShift/Active", shiftInfo.active());
-    Logger.recordOutput("HubShift/ElapsedTime", shiftInfo.elapsedTime());
-    Logger.recordOutput("HubShift/RemainingTime", shiftInfo.remainingTime());
+    // Log hub shift info (throttled to every 50 cycles / ~1s — shift timing changes slowly)
+    hubShiftLogCounter++;
+    if (hubShiftLogCounter >= 50) {
+      hubShiftLogCounter = 0;
+      HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getOfficialShiftInfo();
+      Logger.recordOutput("HubShift/CurrentShift", shiftInfo.currentShift().toString());
+      Logger.recordOutput("HubShift/Active", shiftInfo.active());
+      Logger.recordOutput("HubShift/ElapsedTime", shiftInfo.elapsedTime());
+      Logger.recordOutput("HubShift/RemainingTime", shiftInfo.remainingTime());
+    }
 
     // Return to non-RT thread priority (do not modify the first argument)
     // Threads.setCurrentThreadPriority(false, 10);
