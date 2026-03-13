@@ -69,7 +69,8 @@ public interface LauncherIO {
   public default void notifyBallFired() {}
 
   /** Configure PID gains and IZone for velocity control. */
-  default void configurePID(double kP, double kI, double kD, double recoveryKpBoost, double iZone) {}
+  default void configurePID(
+      double kP, double kI, double kD, double recoveryKpBoost, double iZone) {}
 
   /** Configure feedforward gains for velocity control. */
   default void configureFeedforward(double kS, double kV, double kA) {}

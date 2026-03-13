@@ -106,15 +106,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .pid(initKp, initKi, initKd)
         .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot1)
         .iZone(config.getLauncherIZone());
-    leaderConfig
-        .closedLoop
-        .feedForward
-        .kS(config.getLauncherKs())
-        .kV(config.getLauncherKv());
-    leaderConfig
-        .closedLoop
-        .maxMotion
-        .maxAcceleration(config.getLauncherMaxAcceleration());
+    leaderConfig.closedLoop.feedForward.kS(config.getLauncherKs()).kV(config.getLauncherKv());
+    leaderConfig.closedLoop.maxMotion.maxAcceleration(config.getLauncherMaxAcceleration());
 
     // Signal update rates
     leaderConfig
@@ -272,11 +265,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // MAXMotion velocity control: kS, kV, PID all run onboard at 1kHz.
     // Only pass recovery boost as arbitrary FF (0V during normal operation).
     leaderController.setSetpoint(
-        motorRPM,
-        ControlType.kMAXMotionVelocityControl,
-        slot,
-        boostVolts,
-        ArbFFUnits.kVoltage);
+        motorRPM, ControlType.kMAXMotionVelocityControl, slot, boostVolts, ArbFFUnits.kVoltage);
   }
 
   @Override
@@ -299,8 +288,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
   }
 
   @Override
-  public void configurePID(
-      double kP, double kI, double kD, double recoveryKpBoost, double iZone) {
+  public void configurePID(double kP, double kI, double kD, double recoveryKpBoost, double iZone) {
     var pidConfig = new SparkFlexConfig();
     pidConfig
         .closedLoop
