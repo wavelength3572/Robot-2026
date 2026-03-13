@@ -701,23 +701,31 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Reload LUT data from the recorder (disk). Call after recording new shots or at startup.
+   * Reload LUT data. Loads the hardcoded baseline table first, then overlays any field-recorded
+   * entries on top (field data overrides baseline at matching distances).
    *
-   * <p>Loads only empirical data — no parametric seeding, no efficiency fitting. The LUT is
-   * completely independent from parametric.
+   * <p>To update the baseline: edit {@link ShotTableConstants#BASELINE_TABLE} and push code. To add
+   * data on the fly: use the batch recorder during practice.
    */
   public void reloadLUTData() {
-    var empiricalEntries = batchRecorder.getLUTEntries();
-
-    // Pure empirical LUT — no parametric seeding
     lookupTable.clear();
+
+    // 1. Load hardcoded baseline (version-controlled, easy to edit)
+    int baselineCount = ShotTableConstants.loadBaseline(lookupTable);
+
+    // 2. Overlay field-recorded entries (overrides baseline at same/close distances)
+    var empiricalEntries = batchRecorder.getLUTEntries();
     lookupTable.addFromLUTEntries(empiricalEntries);
 
     // Log full table to AdvantageKit for live dashboard viewing
     lookupTable.logTable("LUTDev/Table");
 
     frc.robot.util.StartupLogger.log(
-        "[ShootingCoordinator] LUT reloaded: " + empiricalEntries.size() + " empirical entries");
+        "[ShootingCoordinator] LUT reloaded: "
+            + baselineCount
+            + " baseline + "
+            + empiricalEntries.size()
+            + " field entries");
   }
 
   /** Get the batch recorder for recording new data collection sessions. */
