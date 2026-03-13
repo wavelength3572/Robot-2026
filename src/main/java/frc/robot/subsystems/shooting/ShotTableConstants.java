@@ -8,8 +8,8 @@ package frc.robot.subsystems.shooting;
  * <pre>{distance_m, rpm, hood_angle_deg, motivator_rpm, spindexer_rpm}</pre>
  *
  * <p>At startup, these are loaded into the LUT first. Field-recorded entries (from the batch
- * recorder) then overlay on top — if a field entry is within 0.15m of a baseline entry, it
- * replaces it; otherwise it's added as a new point.
+ * recorder) then overlay on top — if a field entry is within 0.15m of a baseline entry, it replaces
+ * it; otherwise it's added as a new point.
  *
  * <p>After a good practice session, promote your field-recorded values here so they persist across
  * code deploys. The JSON file on the robot is ephemeral; this file is the source of truth.
@@ -33,19 +33,19 @@ public final class ShotTableConstants {
   public static final double MOTIVATOR_SPEED_RATIO = 0.565;
 
   public static final double[][] BASELINE_TABLE = {
-      // Close range
-      {1.16, 2372, 13.0, 1340, 325},
-      {1.75, 2558, 14.1, 1445, 325},
+    // Close range
+    {1.16, 2372, 13.0, 1340, 325},
+    {1.75, 2558, 14.1, 1445, 325},
 
-      // Mid range
-      {2.818, 2894, 15.5, 1635, 325},
-      {3.07, 2974, 16.0, 1680, 325},
-      {3.25, 3031, 16.5, 1712, 325},
+    // Mid range
+    {2.818, 2894, 15.5, 1635, 325},
+    {3.07, 2974, 16.0, 1680, 325},
+    {3.25, 3031, 16.5, 1712, 325},
 
-      // Long range
-      {3.63, 3150, 18.0, 1780, 325},
-      {3.85, 3220, 20.0, 1819, 275},
-      {5.347, 3692, 39.0, 2086, 225},
+    // Long range
+    {3.63, 3150, 18.0, 1780, 325},
+    {3.85, 3220, 20.0, 1819, 275},
+    {5.347, 3692, 39.0, 2086, 225},
   };
   // clang-format on
 

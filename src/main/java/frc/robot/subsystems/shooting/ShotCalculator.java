@@ -129,7 +129,6 @@ public final class ShotCalculator {
     return (surfaceVelocity * 60.0) / (2.0 * Math.PI * WHEEL_RADIUS_METERS);
   }
 
-
   // ========== Physics Utilities ==========
 
   /**

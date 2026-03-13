@@ -49,8 +49,7 @@ public class LUTShotStrategy implements ShotStrategy {
     // If not enough LUT data, return non-achievable — don't silently fall back to parametric
     if (!lookupTable.hasEnoughData()) {
       Logger.recordOutput("Shots/Strategy/LUT/Status", "NO_DATA");
-      return new ShotCalculator.ShotResult(
-          0.0, 0.0, 0.0, 0.0, 0.0, target, false, 0.0, 0.0);
+      return new ShotCalculator.ShotResult(0.0, 0.0, 0.0, 0.0, 0.0, target, false, 0.0, 0.0);
     }
 
     Logger.recordOutput("Shots/Strategy/LUT/Status", "OK");
@@ -99,8 +98,7 @@ public class LUTShotStrategy implements ShotStrategy {
     // Look up shot params at the final distance (clamps at boundaries)
     ShotLookupTable.ShotEntry entry = lookupTable.lookup(finalDistance);
     if (entry == null) {
-      return new ShotCalculator.ShotResult(
-          0.0, 0.0, 0.0, 0.0, 0.0, target, false, 0.0, 0.0);
+      return new ShotCalculator.ShotResult(0.0, 0.0, 0.0, 0.0, 0.0, target, false, 0.0, 0.0);
     }
 
     // Calculate turret angle to aim at the target

@@ -780,11 +780,10 @@ public class ShootingCommands {
                     if (hood != null) {
                       hood.setHoodAngle(getEffectiveHoodDeg(shot));
                     }
-                  }
-
-                  if (motivator != null) {
-                    double motRPM = getMotivatorRPM(shot, rpm);
-                    motivator.setMotivatorVelocity(motRPM);
+                    if (motivator != null) {
+                      double motRPM = getMotivatorRPM(shot, rpm);
+                      motivator.setMotivatorVelocity(motRPM);
+                    }
                   }
 
                   // Start a LUT batch — captures fuel count for batch tracking

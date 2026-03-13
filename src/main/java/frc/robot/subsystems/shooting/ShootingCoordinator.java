@@ -361,12 +361,26 @@ public class ShootingCoordinator extends SubsystemBase {
 
       ShotCalculator.ShotResult parametricResult =
           parametricStrategy.calculateShot(
-              robotPose, fieldSpeeds, target, turretConfig,
-              currentAngle, turretMin, turretMax, hoodMin, hoodMax);
+              robotPose,
+              fieldSpeeds,
+              target,
+              turretConfig,
+              currentAngle,
+              turretMin,
+              turretMax,
+              hoodMin,
+              hoodMax);
       ShotCalculator.ShotResult lutResult =
           lutStrategy.calculateShot(
-              robotPose, fieldSpeeds, target, turretConfig,
-              currentAngle, turretMin, turretMax, hoodMin, hoodMax);
+              robotPose,
+              fieldSpeeds,
+              target,
+              turretConfig,
+              currentAngle,
+              turretMin,
+              turretMax,
+              hoodMin,
+              hoodMax);
 
       // Distance for context
       double robotHeadingRad = robotPose.getRotation().getRadians();
@@ -393,8 +407,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
       // Deltas — how much the two models disagree
       Logger.recordOutput(
-          "Shots/Compare/Delta/RPM",
-          parametricResult.launcherRPM() - lutResult.launcherRPM());
+          "Shots/Compare/Delta/RPM", parametricResult.launcherRPM() - lutResult.launcherRPM());
       Logger.recordOutput(
           "Shots/Compare/Delta/HoodAngleDeg",
           parametricResult.hoodAngleDeg() - lutResult.hoodAngleDeg());

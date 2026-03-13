@@ -236,7 +236,6 @@ public class ShotLookupTable {
     }
   }
 
-
   /**
    * Log the full table contents to AdvantageKit as parallel arrays. Call after any table
    * modification (reload, seed, add) to keep the dashboard view in sync.
@@ -278,5 +277,4 @@ public class ShotLookupTable {
     Logger.recordOutput(prefix + "/SpindexerRPMs", spindexerRPMs);
     Logger.recordOutput(prefix + "/EntryCount", n);
   }
-
 }
