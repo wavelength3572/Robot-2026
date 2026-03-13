@@ -144,7 +144,7 @@ public class ShootingCommands {
   // launcherRPM * ratio instead of being an independent LUT/tunable value. Set to 0 to
   // disable and fall back to the old per-shot motivator RPM behavior.
   private static final LoggedTunableNumber motivatorLauncherRatio =
-      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorLauncherRatio", 0.6);
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorLauncherRatio", 0.565);
 
   // Max drive speed (m/s) while smart launch speed-limit mode is active
   private static final LoggedTunableNumber smartLaunchSpeedLimitCapMps =

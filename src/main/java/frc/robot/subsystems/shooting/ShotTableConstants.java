@@ -27,21 +27,26 @@ public final class ShotTableConstants {
   // Format: {distance_m, rpm, hood_angle_deg, motivator_rpm, spindexer_rpm}
   //
   // clang-format off
+  // Motivator speed ratio: motivator RPM = launcher RPM × 0.565
+  // (derived from practice data 2025-03-12). The ratio tunable in ShootingCommands takes
+  // priority at runtime; these values are fallback-only.
+  public static final double MOTIVATOR_SPEED_RATIO = 0.565;
+
   public static final double[][] BASELINE_TABLE = {
       // Close range
       {1.15, 2300, 13.0, 1300, 325},
-      {1.75, 2550, 14.0, 1350, 325},
+      {1.75, 2550, 14.0, 1441, 325},
 
       // Mid range
-      {2.50, 2650, 22.0, 1400, 325},
-      {2.75, 2700, 22.0, 1500, 325},
-      {3.00, 2650, 23.5, 1500, 325},
-      {3.25, 2700, 19.0, 1550, 325},
+      {2.50, 2650, 22.0, 1497, 325},
+      {2.75, 2700, 22.0, 1526, 325},
+      {3.00, 2650, 23.5, 1497, 325},
+      {3.25, 2700, 19.0, 1526, 325},
 
       // Long range
-      {3.60, 3170, 18.0, 1800, 325},
-      {3.85, 2950, 20.0, 1550, 325},
-      {5.35, 3700, 39.0, 1800, 225},
+      {3.60, 3170, 18.0, 1791, 325},
+      {3.85, 2950, 20.0, 1667, 325},
+      {5.35, 3700, 39.0, 2091, 225},
   };
   // clang-format on
 
