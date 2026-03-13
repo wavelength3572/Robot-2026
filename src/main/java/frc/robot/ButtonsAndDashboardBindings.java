@@ -5,7 +5,6 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
@@ -519,7 +518,6 @@ public class ButtonsAndDashboardBindings {
       // Only commands deploy motion if not already deployed (avoids re-deploying causing a
       // retract-then-extend glitch when the intake is already out).
       oi.getButtonBox1Button4()
-          .and(() -> CommandScheduler.getInstance().requiring(intake) == null)
           .whileTrue(
               Commands.startEnd(
                   () -> {
@@ -533,7 +531,6 @@ public class ButtonsAndDashboardBindings {
 
       // Button 3: Retract and run rollers while held; on release, stop rollers but stay retracted
       oi.getButtonBox1Button3()
-          .and(() -> CommandScheduler.getInstance().requiring(intake) == null)
           .whileTrue(
               Commands.startEnd(
                   () -> {
