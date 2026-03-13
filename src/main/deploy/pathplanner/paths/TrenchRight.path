@@ -57,7 +57,7 @@
       },
       "nextControl": {
         "x": 6.3414454701716005,
-        "y": 0.5704180112290558
+        "y": 0.5704180112290559
       },
       "isLocked": false,
       "linkedName": null
@@ -90,11 +90,15 @@
       "rotationDegrees": 110.0
     },
     {
-      "waypointRelativePos": 2.415094339622646,
+      "waypointRelativePos": 1.6521739130434783,
       "rotationDegrees": 110.0
     },
     {
-      "waypointRelativePos": 2.628930817610063,
+      "waypointRelativePos": 2.415094339622646,
+      "rotationDegrees": -90.0
+    },
+    {
+      "waypointRelativePos": 3.159420289855072,
       "rotationDegrees": 0.0
     }
   ],

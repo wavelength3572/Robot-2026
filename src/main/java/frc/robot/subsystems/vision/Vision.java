@@ -26,6 +26,7 @@ import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.util.RobotStatus;
 import java.util.ArrayList;
@@ -49,6 +50,14 @@ public class Vision extends SubsystemBase {
   private Supplier<Double> robotSpeedSupplier = () -> 0.0;
 
   private final Map<Integer, Double> aprilTagTimestamps = new ConcurrentHashMap<>();
+
+  // Debug toggle: when true, per-observation rejection and std dev diagnostics are logged.
+  // Default false for competition performance; enable via SmartDashboard for debugging.
+  private static final String VERBOSE_VISION_KEY = "Debug/VerboseVisionLogging";
+
+  static {
+    SmartDashboard.putBoolean(VERBOSE_VISION_KEY, false);
+  }
 
   // Pre-allocated lists to reduce GC pressure (cleared each cycle)
   private final List<Pose3d> allTagPoses = new ArrayList<>(32);
@@ -168,6 +177,9 @@ public class Vision extends SubsystemBase {
     tagPosesAccepted.clear();
     tagPosesRejected.clear();
 
+    // Read debug toggle once per cycle
+    boolean verboseLogging = SmartDashboard.getBoolean(VERBOSE_VISION_KEY, false);
+
     // Loop over cameras
     for (int cameraIndex = 0; cameraIndex < io.length; cameraIndex++) {
       disconnectedAlerts[cameraIndex].set(!inputs[cameraIndex].connected);
@@ -224,21 +236,22 @@ public class Vision extends SubsystemBase {
                 || singleTagTooFar
                 || multiTagTooFar;
 
-        // Log rejection reasons per camera
-        String rejKey = "Vision/" + cameraNames[cameraIndex] + "/Rejection/";
-        Logger.recordOutput(rejKey + "NoTags", noTags);
-        Logger.recordOutput(rejKey + "TooAmbiguous", tooAmbiguous);
-        Logger.recordOutput(rejKey + "ZError", zError);
-        Logger.recordOutput(rejKey + "OutsideFieldX", outsideFieldX);
-        Logger.recordOutput(rejKey + "OutsideFieldY", outsideFieldY);
-        Logger.recordOutput(rejKey + "SingleTagTooFar", singleTagTooFar);
-        Logger.recordOutput(rejKey + "MultiTagTooFar", multiTagTooFar);
-        Logger.recordOutput(rejKey + "Rejected", rejectPose);
-        // Log raw values for debugging thresholds
-        Logger.recordOutput(rejKey + "Ambiguity", observation.ambiguity());
-        Logger.recordOutput(rejKey + "TagCount", observation.tagCount());
-        Logger.recordOutput(rejKey + "ClosestTagDist", observation.closestTagDistance());
-        Logger.recordOutput(rejKey + "PoseZ", observation.pose().getZ());
+        // Log rejection reasons per camera (verbose — gated for performance)
+        if (verboseLogging) {
+          String rejKey = "Vision/" + cameraNames[cameraIndex] + "/Rejection/";
+          Logger.recordOutput(rejKey + "NoTags", noTags);
+          Logger.recordOutput(rejKey + "TooAmbiguous", tooAmbiguous);
+          Logger.recordOutput(rejKey + "ZError", zError);
+          Logger.recordOutput(rejKey + "OutsideFieldX", outsideFieldX);
+          Logger.recordOutput(rejKey + "OutsideFieldY", outsideFieldY);
+          Logger.recordOutput(rejKey + "SingleTagTooFar", singleTagTooFar);
+          Logger.recordOutput(rejKey + "MultiTagTooFar", multiTagTooFar);
+          Logger.recordOutput(rejKey + "Rejected", rejectPose);
+          Logger.recordOutput(rejKey + "Ambiguity", observation.ambiguity());
+          Logger.recordOutput(rejKey + "TagCount", observation.tagCount());
+          Logger.recordOutput(rejKey + "ClosestTagDist", observation.closestTagDistance());
+          Logger.recordOutput(rejKey + "PoseZ", observation.pose().getZ());
+        }
 
         // Add pose to log
         robotPoses.add(observation.pose());
@@ -291,13 +304,16 @@ public class Vision extends SubsystemBase {
           angularStdDev *= cameraStdDevFactors[cameraIndex];
         }
 
-        Logger.recordOutput("Vision/" + cameraNames[cameraIndex] + "/StdDev/Linear", linearStdDev);
-        Logger.recordOutput(
-            "Vision/" + cameraNames[cameraIndex] + "/StdDev/Angular", angularStdDev);
-        Logger.recordOutput(
-            "Vision/" + cameraNames[cameraIndex] + "/StdDev/AmbiguityScale", ambiguityScale);
-        Logger.recordOutput(
-            "Vision/" + cameraNames[cameraIndex] + "/StdDev/SpeedScale", speedScale);
+        if (verboseLogging) {
+          Logger.recordOutput(
+              "Vision/" + cameraNames[cameraIndex] + "/StdDev/Linear", linearStdDev);
+          Logger.recordOutput(
+              "Vision/" + cameraNames[cameraIndex] + "/StdDev/Angular", angularStdDev);
+          Logger.recordOutput(
+              "Vision/" + cameraNames[cameraIndex] + "/StdDev/AmbiguityScale", ambiguityScale);
+          Logger.recordOutput(
+              "Vision/" + cameraNames[cameraIndex] + "/StdDev/SpeedScale", speedScale);
+        }
 
         // Send vision observation
         consumer.accept(
@@ -338,13 +354,15 @@ public class Vision extends SubsystemBase {
         "Vision/Summary/RobotPosesRejected",
         allRobotPosesRejected.toArray(new Pose3d[allRobotPosesRejected.size()]));
 
-    // Log contributing tags per camera
-    for (int i = 0; i < io.length; i++) {
-      Logger.recordOutput(
-          "Vision/Summary/" + cameraNames[i] + "/ContributingTags",
-          perCameraContributingTags
-              .get(i)
-              .toArray(new Pose3d[perCameraContributingTags.get(i).size()]));
+    // Log contributing tags per camera (verbose — gated for performance)
+    if (verboseLogging) {
+      for (int i = 0; i < io.length; i++) {
+        Logger.recordOutput(
+            "Vision/Summary/" + cameraNames[i] + "/ContributingTags",
+            perCameraContributingTags
+                .get(i)
+                .toArray(new Pose3d[perCameraContributingTags.get(i).size()]));
+      }
     }
 
     // New logging: Tags used for accepted/rejected poses

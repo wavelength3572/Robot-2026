@@ -38,7 +38,8 @@ public class StationaryShotBatchRecorder {
       double timeOfFlightTheoreticalS,
       double timeOfFlightMeasuredS,
       double motivatorRPM,
-      double spindexerRPM) {
+      double spindexerRPM,
+      double timestamp) {
 
     /** Returns measured TOF if available (> 0), otherwise theoretical. */
     public double getEffectiveTOF() {
@@ -71,6 +72,12 @@ public class StationaryShotBatchRecorder {
   private int fuelCountAtBatchStart = -1;
   private boolean batchActive = false;
 
+  // Cached shot parameters — updated during firing so they survive SmartLaunch cleanup
+  private double cachedRPM = 0.0;
+  private double cachedHoodAngleDeg = 0.0;
+  private double cachedMotivatorRPM = 0.0;
+  private double cachedSpindexerRPM = 0.0;
+
   public StationaryShotBatchRecorder() {
     File dir = new File(Filesystem.getOperatingDirectory(), DATA_DIR);
     if (!dir.exists()) {
@@ -88,6 +95,34 @@ public class StationaryShotBatchRecorder {
    * Call when a shooting sequence starts (smart launch begins). Captures the fuel count so we can
    * calculate how many were fired when the batch ends.
    */
+  /**
+   * Cache the current shot parameters during firing. Call this every cycle while SmartLaunch is
+   * active so that the values survive after the command ends.
+   */
+  public void cacheParams(
+      double rpm, double hoodAngleDeg, double motivatorRPM, double spindexerRPM) {
+    this.cachedRPM = rpm;
+    this.cachedHoodAngleDeg = hoodAngleDeg;
+    this.cachedMotivatorRPM = motivatorRPM;
+    this.cachedSpindexerRPM = spindexerRPM;
+  }
+
+  public double getCachedRPM() {
+    return cachedRPM;
+  }
+
+  public double getCachedHoodAngleDeg() {
+    return cachedHoodAngleDeg;
+  }
+
+  public double getCachedMotivatorRPM() {
+    return cachedMotivatorRPM;
+  }
+
+  public double getCachedSpindexerRPM() {
+    return cachedSpindexerRPM;
+  }
+
   public void startBatch(int currentFuelCount) {
     fuelCountAtBatchStart = currentFuelCount;
     batchActive = true;
@@ -151,7 +186,8 @@ public class StationaryShotBatchRecorder {
               timeOfFlightTheoreticalS,
               timeOfFlightMeasuredS,
               motivatorRPM,
-              spindexerRPM));
+              spindexerRPM,
+              timestamp));
       saveLUTToFile();
     }
 
@@ -190,6 +226,40 @@ public class StationaryShotBatchRecorder {
   }
 
   /**
+   * Get human-readable summaries of all LUT entries (successful recordings only).
+   *
+   * @return Array of summary strings, sorted by distance
+   */
+  public String[] getLUTSummaries() {
+    // Build index-tagged list so user can identify entries for removal
+    List<int[]> indexMap = new ArrayList<>();
+    for (int i = 0; i < lutEntries.size(); i++) {
+      indexMap.add(new int[] {i});
+    }
+    // Sort by distance but keep original index
+    indexMap.sort(
+        (a, b) ->
+            Double.compare(lutEntries.get(a[0]).distanceM(), lutEntries.get(b[0]).distanceM()));
+
+    String[] summaries = new String[indexMap.size()];
+    for (int i = 0; i < indexMap.size(); i++) {
+      int origIdx = indexMap.get(i)[0];
+      LUTEntry e = lutEntries.get(origIdx);
+      summaries[i] =
+          String.format(
+              "[%d] %.2fm | RPM=%.0f | Hood=%.1f° | TOF=%.3fs | Mot=%.0f | Spx=%.0f",
+              origIdx,
+              e.distanceM(),
+              e.rpm(),
+              e.hoodAngleDeg(),
+              e.getEffectiveTOF(),
+              e.motivatorRPM(),
+              e.spindexerRPM());
+    }
+    return summaries;
+  }
+
+  /**
    * Get human-readable summaries of all batches for AdvantageKit display.
    *
    * @return Array of summary strings
@@ -209,6 +279,35 @@ public class StationaryShotBatchRecorder {
               b.successful() ? "HIT" : "MISS");
     }
     return summaries;
+  }
+
+  /**
+   * Remove the last LUT entry and re-save. Returns a description of the removed entry, or null if
+   * empty.
+   */
+  public String removeLastLUTEntry() {
+    if (lutEntries.isEmpty()) {
+      return null;
+    }
+    LUTEntry removed = lutEntries.remove(lutEntries.size() - 1);
+    saveLUTToFile();
+    return String.format(
+        "%.2fm | RPM=%.0f | Hood=%.1f°",
+        removed.distanceM(), removed.rpm(), removed.hoodAngleDeg());
+  }
+
+  /**
+   * Remove a LUT entry by index. Returns a description of the removed entry, or null if invalid.
+   */
+  public String removeLUTEntry(int index) {
+    if (index < 0 || index >= lutEntries.size()) {
+      return null;
+    }
+    LUTEntry removed = lutEntries.remove(index);
+    saveLUTToFile();
+    return String.format(
+        "[%d] %.2fm | RPM=%.0f | Hood=%.1f°",
+        index, removed.distanceM(), removed.rpm(), removed.hoodAngleDeg());
   }
 
   /** Clear all data and delete both files. */
@@ -240,6 +339,7 @@ public class StationaryShotBatchRecorder {
         w.print(",\"timeOfFlightMeasuredS\":" + e.timeOfFlightMeasuredS());
         w.print(",\"motivatorRPM\":" + e.motivatorRPM());
         w.print(",\"spindexerRPM\":" + e.spindexerRPM());
+        w.print(",\"timestamp\":" + e.timestamp());
         w.print("}");
         if (i < lutEntries.size() - 1) w.print(",");
         w.println();
@@ -284,7 +384,8 @@ public class StationaryShotBatchRecorder {
                 theoreticalTOF,
                 measuredTOF,
                 getDouble(obj, "motivatorRPM"),
-                getDouble(obj, "spindexerRPM")));
+                getDouble(obj, "spindexerRPM"),
+                getDouble(obj, "timestamp")));
       } catch (Exception e) {
         System.err.println(
             "[StationaryShotBatchRecorder] Skipping malformed LUT entry: " + e.getMessage());

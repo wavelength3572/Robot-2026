@@ -27,6 +27,12 @@ public class IntakeIOSim implements IntakeIO {
   private final PIDController deployController;
   private double deployTargetPosition = 0.0;
   private double deployAppliedVolts = 0.0;
+  private boolean deployEnabled = true;
+
+  // Simulated gravity: pulls arm toward extended/down position when disabled/coast
+  private static final double SIM_GRAVITY_VOLTS = 0.4;
+  // How far past the extended position gravity can pull the arm (simulates real-world sag)
+  private static final double SIM_GRAVITY_EXTRA_TRAVEL = 0.03;
 
   // MAXMotion simulation (trapezoidal profiling)
   private TrapezoidProfile deployProfile;
@@ -84,17 +90,26 @@ public class IntakeIOSim implements IntakeIO {
 
   @Override
   public void updateInputs(IntakeIOInputs inputs) {
-    // Run deploy through trapezoidal profile then PID
-    TrapezoidProfile.State goal = new TrapezoidProfile.State(deployTargetPosition, 0.0);
-    deployProfileState = deployProfile.calculate(0.02, deployProfileState, goal);
-    deployAppliedVolts =
-        deployController.calculate(
-            deploySim.getAngularPositionRotations(), deployProfileState.position);
+    // Run deploy through trapezoidal profile then PID (only when enabled)
+    if (deployEnabled) {
+      TrapezoidProfile.State goal = new TrapezoidProfile.State(deployTargetPosition, 0.0);
+      deployProfileState = deployProfile.calculate(0.02, deployProfileState, goal);
+      deployAppliedVolts =
+          deployController.calculate(
+              deploySim.getAngularPositionRotations(), deployProfileState.position);
+    } else {
+      // Disabled: simulate gravity pulling arm down toward retracted position
+      deployAppliedVolts = SIM_GRAVITY_VOLTS;
+    }
 
     // Simulate soft limits for deploy
+    // When disabled (coasting), allow extra travel past extended to simulate gravity sag
     double currentPosition = deploySim.getAngularPositionRotations();
     double maxPos =
         Math.max(deployStowedPosition, Math.max(deployExtendedPosition, deployRetractedPosition));
+    if (!deployEnabled) {
+      maxPos += SIM_GRAVITY_EXTRA_TRAVEL;
+    }
     double minPos =
         Math.min(deployStowedPosition, Math.min(deployExtendedPosition, deployRetractedPosition));
     if ((currentPosition >= maxPos && deployAppliedVolts > 0)
@@ -137,6 +152,24 @@ public class IntakeIOSim implements IntakeIO {
   }
 
   @Override
+  public void setDeployDutyCycle(double dutyCycle) {
+    deployEnabled = false;
+    deployAppliedVolts = dutyCycle * 12.0;
+  }
+
+  @Override
+  public void disableDeploy() {
+    deployEnabled = false;
+    deployAppliedVolts = 0.0;
+  }
+
+  @Override
+  public void setDeployBrakeMode(boolean brake) {
+    // In sim, brake mode holds position; coast lets gravity pull the arm down.
+    // When transitioning from disabled+coast back to enabled, this is handled by setDeployPosition.
+  }
+
+  @Override
   public void setDeployPosition(double positionRotations) {
     // Clamp to valid range (includes stowed, retracted, and extended positions)
     double minPos =
@@ -145,6 +178,9 @@ public class IntakeIOSim implements IntakeIO {
         Math.max(deployStowedPosition, Math.max(deployRetractedPosition, deployExtendedPosition));
     deployTargetPosition = Math.max(minPos, Math.min(maxPos, positionRotations));
     deployController.setSetpoint(deployTargetPosition);
+    // Re-enable PID and sync profile state to current position for smooth start
+    deployEnabled = true;
+    deployProfileState = new TrapezoidProfile.State(deploySim.getAngularPositionRotations(), 0.0);
   }
 
   @Override
@@ -174,6 +210,7 @@ public class IntakeIOSim implements IntakeIO {
 
   @Override
   public void stopDeploy() {
+    deployEnabled = true;
     deployTargetPosition = deploySim.getAngularPositionRotations();
     deployAppliedVolts = 0.0;
     deployProfileState = new TrapezoidProfile.State(deploySim.getAngularPositionRotations(), 0.0);

@@ -22,6 +22,15 @@ public class Spindexer extends SubsystemBase {
   // Used by the driver to temporarily suppress feeding without interrupting shooting commands.
   private boolean feedingSuppressed = false;
 
+  // When true, setSpindexerVelocity() reverses the spindexer at unclogRPM instead of the
+  // requested RPM. Used to unclog without interrupting shooting commands — on release the
+  // shooting command resumes feeding instantly.
+  private boolean unclogActive = false;
+  private boolean wasUnclogActive = false;
+
+  private static final LoggedTunableNumber unclogRPM =
+      new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", 1000.0);
+
   // Tunable PID gains
   private static final LoggedTunableNumber kP;
   private static final LoggedTunableNumber kI;
@@ -54,6 +63,17 @@ public class Spindexer extends SubsystemBase {
     io.updateInputs(spindexerInputs);
     Logger.processInputs("Spindexer", spindexerInputs);
     Logger.recordOutput("Spindexer/FeedingSuppressed", feedingSuppressed);
+    Logger.recordOutput("Spindexer/UnclogActive", unclogActive);
+
+    // When no shooting command is running, drive unclog directly from periodic
+    if (getCurrentCommand() == null) {
+      if (unclogActive) {
+        io.setSpindexerVelocity(-Math.abs(unclogRPM.get()));
+      } else if (wasUnclogActive) {
+        io.stopSpindexer();
+      }
+    }
+    wasUnclogActive = unclogActive;
 
     // Push tunable changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
@@ -72,7 +92,13 @@ public class Spindexer extends SubsystemBase {
    * @param velocityRPM Target velocity in RPM
    */
   public void setSpindexerVelocity(double velocityRPM) {
-    io.setSpindexerVelocity(feedingSuppressed ? 0.0 : velocityRPM);
+    if (unclogActive) {
+      io.setSpindexerVelocity(-Math.abs(unclogRPM.get()));
+    } else if (feedingSuppressed) {
+      io.setSpindexerVelocity(0.0);
+    } else {
+      io.setSpindexerVelocity(velocityRPM);
+    }
   }
 
   /**
@@ -144,6 +170,25 @@ public class Spindexer extends SubsystemBase {
    */
   public boolean isFeedingSuppressed() {
     return feedingSuppressed;
+  }
+
+  // ========== Unclog Override ==========
+
+  /** Activate unclog — setSpindexerVelocity will reverse the spindexer while active. */
+  public void activateUnclog() {
+    unclogActive = true;
+  }
+
+  /** Deactivate unclog — setSpindexerVelocity resumes normal behavior. */
+  public void deactivateUnclog() {
+    unclogActive = false;
+  }
+
+  /**
+   * @return true if unclog is currently active
+   */
+  public boolean isUnclogActive() {
+    return unclogActive;
   }
 
   // ========== Commands ==========
