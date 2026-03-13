@@ -140,6 +140,12 @@ public class ShootingCommands {
   private static final LoggedTunableNumber smartShotSpindexerRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerRPM", 325.0);
 
+  // Motivator RPM as a ratio of launcher RPM. When > 0, motivator RPM is derived from
+  // launcherRPM * ratio instead of being an independent LUT/tunable value. Set to 0 to
+  // disable and fall back to the old per-shot motivator RPM behavior.
+  private static final LoggedTunableNumber motivatorLauncherRatio =
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorLauncherRatio", 0.6);
+
   // Max drive speed (m/s) while smart launch speed-limit mode is active
   private static final LoggedTunableNumber smartLaunchSpeedLimitCapMps =
       new LoggedTunableNumber("Shots/SmartLaunch/SpeedLimitCapMps", 0.5);
@@ -182,6 +188,22 @@ public class ShootingCommands {
 
   private ShootingCommands() {
     // Static factory class
+  }
+
+  /**
+   * Derive motivator RPM from launcher RPM using the configured ratio. When the ratio tunable is >
+   * 0, motivator RPM = launcherRPM * ratio. Otherwise falls back to the shot's motivator RPM (if
+   * available) or the smartShotMotivatorRPM tunable.
+   */
+  private static double getMotivatorRPM(ShotCalculator.ShotResult shot, double launcherRPM) {
+    double ratio = motivatorLauncherRatio.get();
+    if (ratio > 0) {
+      return launcherRPM * ratio;
+    }
+    // Fallback: use shot's stored motivator RPM or the tunable default
+    return (shot != null && shot.motivatorRPM() > 0)
+        ? shot.motivatorRPM()
+        : smartShotMotivatorRPM.get();
   }
 
   /** Initialize tunables so they appear in the dashboard immediately. */
@@ -761,10 +783,7 @@ public class ShootingCommands {
                   }
 
                   if (motivator != null) {
-                    double motRPM =
-                        (shot != null && shot.motivatorRPM() > 0)
-                            ? shot.motivatorRPM()
-                            : smartShotMotivatorRPM.get();
+                    double motRPM = getMotivatorRPM(shot, rpm);
                     motivator.setMotivatorVelocity(motRPM);
                   }
 
@@ -901,7 +920,7 @@ public class ShootingCommands {
                             .cacheParams(
                                 rpm,
                                 hoodDeg,
-                                smartShotMotivatorRPM.get(),
+                                getMotivatorRPM(shot, rpm),
                                 smartShotSpindexerRPM.get());
                       }
                     },
@@ -938,11 +957,8 @@ public class ShootingCommands {
                     ? Commands.run(
                         () -> {
                           ShotCalculator.ShotResult s = coordinator.getCurrentShot();
-                          double motRPM =
-                              (s != null && s.motivatorRPM() > 0)
-                                  ? s.motivatorRPM()
-                                  : smartShotMotivatorRPM.get();
-                          motivator.setMotivatorVelocity(motRPM);
+                          double launcherRPM = getEffectiveRPM(s);
+                          motivator.setMotivatorVelocity(getMotivatorRPM(s, launcherRPM));
                         },
                         motivator)
                     : Commands.none(),
@@ -1208,10 +1224,7 @@ public class ShootingCommands {
               double hoodAngle = recorder.getCachedHoodAngleDeg();
               double turretAngle = turret.getOutsideCurrentAngle();
               ShotCalculator.ShotResult currentShot = coordinator.getCurrentShot();
-              double motivatorRPM =
-                  (currentShot != null && currentShot.motivatorRPM() > 0)
-                      ? currentShot.motivatorRPM()
-                      : smartShotMotivatorRPM.get();
+              double motivatorRPM = getMotivatorRPM(currentShot, rpm);
               double spindexerRPM =
                   (currentShot != null && currentShot.spindexerRPM() > 0)
                       ? currentShot.spindexerRPM()
