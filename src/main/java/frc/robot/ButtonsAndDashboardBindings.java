@@ -509,15 +509,11 @@ public class ButtonsAndDashboardBindings {
     // Intake controls
     if (intake != null) {
       // Button 4: Deploy and run rollers while held; on release, stop rollers but stay deployed.
-      // Only commands deploy motion if not already deployed (avoids re-deploying causing a
-      // retract-then-extend glitch when the intake is already out).
       oi.getButtonBox1Button4()
           .whileTrue(
               Commands.startEnd(
                   () -> {
-                    if (!intake.isDeployed()) {
-                      intake.deploy();
-                    }
+                    intake.deploy();
                     intake.setRollerVelocityWhenDeployed(tuningIntakeDeployedVelocity.get());
                   },
                   intake::stopRollers,
@@ -599,6 +595,17 @@ public class ButtonsAndDashboardBindings {
             rightTrenchCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
       }
       oi.getButtonBox1Button6().whileTrue(rightTrenchCmd);
+    }
+
+    // Turret lock — hold button 1 to lock turret in place (brake mode, no movement commands)
+    // Also check initial state so a held button at boot immediately locks the turret.
+    if (turret != null) {
+      Trigger turretLockTrigger = oi.getButtonBox1Button1();
+      turretLockTrigger.onTrue(Commands.runOnce(turret::lock));
+      turretLockTrigger.onFalse(Commands.runOnce(turret::unlock));
+      if (turretLockTrigger.getAsBoolean()) {
+        turret.lock();
+      }
     }
 
     // Spindexer feeding suppress - operator can hold to prevent feeding/launching.

@@ -45,6 +45,9 @@ public class Turret extends SubsystemBase {
   // How close to a limit (degrees) before safety indicators fire
   private static final double WARNING_ZONE_DEG = 20.0;
 
+  // Turret lock — when true, all movement commands are blocked and motor is in brake hold
+  private boolean locked = false;
+
   /**
    * Creates a new Turret subsystem.
    *
@@ -84,6 +87,27 @@ public class Turret extends SubsystemBase {
 
     Logger.recordOutput("Turret/AngleError", getOutsideTargetAngle() - getOutsideCurrentAngle());
     Logger.recordOutput("Turret/AtTarget", atTarget());
+    Logger.recordOutput("Turret/Locked", locked);
+  }
+
+  // ========== Turret Lock ==========
+
+  /** Lock the turret — cuts motor output and blocks all movement commands. */
+  public void lock() {
+    locked = true;
+    io.stop();
+  }
+
+  /** Unlock the turret — allows movement commands again. */
+  public void unlock() {
+    locked = false;
+  }
+
+  /**
+   * @return true if the turret is locked
+   */
+  public boolean isLocked() {
+    return locked;
   }
 
   // ========== Angle Control ==========
@@ -95,6 +119,7 @@ public class Turret extends SubsystemBase {
    * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
   public void setOutsideTurretAngle(double angleDegrees) {
+    if (locked) return;
     double clampedAngle = Math.max(outsideAngleMin, Math.min(outsideAngleMax, angleDegrees));
 
     if (clampedAngle != angleDegrees) {
@@ -111,6 +136,7 @@ public class Turret extends SubsystemBase {
    * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
   public void holdOutsideTurretAngle(double angleDegrees, double robotOmega) {
+    if (locked) return;
 
     // Normalize robotOmega to -180 to +180 range
     // This code actually probably doesn't do anything
@@ -166,10 +192,12 @@ public class Turret extends SubsystemBase {
    * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
   public void setInsideTurretAngle_ONLY_FOR_TESTING(double angleDegrees) {
+    if (locked) return;
     io.setInsideTurretAngle_ONLY_FOR_TESTING(angleDegrees);
   }
 
   public void setTurretVolts(double volts) {
+    if (locked) return;
     io.setTurretVolts(volts);
   }
 
@@ -184,6 +212,7 @@ public class Turret extends SubsystemBase {
    */
   public void aimAtFieldPosition(
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
+    if (locked) return;
     double turretAngle =
         calculateOutsideTurretAngleFromTurret(robotX, robotY, robotOmega, targetX, targetY);
     setOutsideTurretAngle(turretAngle);
@@ -317,6 +346,7 @@ public class Turret extends SubsystemBase {
    * @return True if at target
    */
   public boolean atTarget() {
+    if (locked) return true;
     return Math.abs(getOutsideCurrentAngle() - getOutsideTargetAngle())
         <= readyToleranceAngleDeg.get();
   }

@@ -44,4 +44,7 @@ public interface TurretIO {
    * @param kD Derivative gain
    */
   public default void configurePID(double kP, double kD) {}
+
+  /** Stop motor output. Motor idle mode (brake) will hold position passively. */
+  public default void stop() {}
 }

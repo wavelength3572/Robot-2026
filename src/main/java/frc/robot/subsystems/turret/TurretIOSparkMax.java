@@ -265,6 +265,11 @@ public class TurretIOSparkMax implements TurretIO {
     motorController.setSetpoint(volts, ControlType.kVoltage);
   }
 
+  @Override
+  public void stop() {
+    motorSpark.stopMotor();
+  }
+
   // --- Conversion helpers ---
   // All conversions between raw motor rotations and turret degrees happen here.
 

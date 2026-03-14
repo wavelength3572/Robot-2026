@@ -102,6 +102,12 @@ public class TurretIOSim implements TurretIO {
   }
 
   @Override
+  public void stop() {
+    // Stop sim motion — hold current position
+    goalState = new TrapezoidProfile.State(currentState.position, 0);
+  }
+
+  @Override
   public void setOutsideTurretAngle(double rotation) {
     // Clamp the target angle to valid range
     double clampedDegrees = MathUtil.clamp(rotation, minAngleDegrees, maxAngleDegrees);
