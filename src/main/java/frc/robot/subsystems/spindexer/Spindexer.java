@@ -19,6 +19,17 @@ public class Spindexer extends SubsystemBase {
   private final SpindexerIO io;
   private final MotorInputsAutoLogged spindexerInputs = new MotorInputsAutoLogged();
 
+  // Spindexer state — tracks what the motor is actually doing, logged for observability
+  private enum SpindexerState {
+    STOPPED, // Motor off
+    FEEDING, // Running at commanded velocity to deliver fuel
+    SUPPRESSED, // Feeding suppressed by operator (motor held at 0)
+    UNCLOGGING, // Reversed to clear a jam
+    RECIPROCATING // Gentle back-and-forth jostle to keep fuel loose
+  }
+
+  private SpindexerState state = SpindexerState.STOPPED;
+
   // When true, setSpindexerVelocity() sends 0 instead of the requested RPM.
   // Used by the driver to temporarily suppress feeding without interrupting shooting commands.
   private boolean feedingSuppressed = false;
@@ -73,15 +84,16 @@ public class Spindexer extends SubsystemBase {
   public void periodic() {
     io.updateInputs(spindexerInputs);
     Logger.processInputs("Spindexer", spindexerInputs);
-    Logger.recordOutput("Spindexer/FeedingSuppressed", feedingSuppressed);
-    Logger.recordOutput("Spindexer/UnclogActive", unclogActive);
+    Logger.recordOutput("Spindexer/State", state.name());
 
     // When no command owns the spindexer, handle unclog and idle reciprocation directly
     if (getCurrentCommand() == null) {
       if (unclogActive) {
         io.setSpindexerVelocity(-Math.abs(unclogRPM.get()));
+        state = SpindexerState.UNCLOGGING;
       } else if (wasUnclogActive) {
         io.stopSpindexer();
+        state = SpindexerState.STOPPED;
       } else {
         reciprocate();
       }
@@ -107,10 +119,13 @@ public class Spindexer extends SubsystemBase {
   public void setSpindexerVelocity(double velocityRPM) {
     if (unclogActive) {
       io.setSpindexerVelocity(-Math.abs(unclogRPM.get()));
+      state = SpindexerState.UNCLOGGING;
     } else if (feedingSuppressed) {
       io.setSpindexerVelocity(0.0);
+      state = SpindexerState.SUPPRESSED;
     } else {
       io.setSpindexerVelocity(velocityRPM);
+      state = SpindexerState.FEEDING;
     }
   }
 
@@ -121,11 +136,13 @@ public class Spindexer extends SubsystemBase {
    */
   public void reverseSpindexer(double velocityRPM) {
     io.setSpindexerVelocity(-Math.abs(velocityRPM));
+    state = SpindexerState.FEEDING;
   }
 
   /** Stop only Spindexer motor 1. */
   public void stopSpindexer() {
     io.stopSpindexer();
+    state = SpindexerState.STOPPED;
   }
 
   // ========== Status Methods ==========
@@ -221,11 +238,7 @@ public class Spindexer extends SubsystemBase {
     }
     double rpm = reciprocateRPM.get();
     io.setSpindexerVelocity(reciprocateForward ? rpm : -rpm);
-  }
-
-  /** Stop reciprocation and reset the timer. Called implicitly when feeding or stopping. */
-  public void stopReciprocate() {
-    reciprocateTimer.stop();
+    state = SpindexerState.RECIPROCATING;
   }
 
   // ========== Commands ==========
