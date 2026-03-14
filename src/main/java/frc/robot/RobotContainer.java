@@ -133,8 +133,10 @@ public class RobotContainer {
                 ? new Vision(
                     drive::addVisionMeasurement,
                     new String[] {"CenterRear", "RightFront", "LeftRear", "RightRear"},
-                    new VisionIO() {},
-                    new VisionIO() {},
+                    new VisionIODoubleVision(
+                        VisionConstants.centerRearCam, VisionConstants.mainBotToCenterRearCam),
+                    new VisionIODoubleVision(
+                        VisionConstants.rightFrontCam, VisionConstants.mainBotToRightFrontCam),
                     new VisionIODoubleVision(
                         VisionConstants.leftRearCam, VisionConstants.mainBotToLeftRearCam),
                     new VisionIODoubleVision(
