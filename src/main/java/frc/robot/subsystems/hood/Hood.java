@@ -24,9 +24,8 @@ public class Hood extends SubsystemBase {
   private static final LoggedTunableNumber kD =
       new LoggedTunableNumber("Tuning/Hood/kD", Constants.getRobotConfig().getHoodKd());
 
-  // TODO: Hood uses PD-only control (no kI, no feedforward). This causes steady-state error
-  // where the motor can't push through friction/gravity at small errors. Consider adding kI and/or
-  // kS.
+  // Note: Hood uses PD-only control (no kI, no feedforward). If steady-state error from
+  // friction/gravity becomes a problem, consider adding kI and/or kS.
 
   // Tunable ready-gate tolerance for atTarget() — does NOT affect motor control
   private static final LoggedTunableNumber readyToleranceAngleDeg =

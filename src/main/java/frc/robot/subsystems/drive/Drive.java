@@ -182,41 +182,6 @@ public class Drive extends SubsystemBase {
       poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, odometryPositions);
     }
 
-    // Update turret to aim based on zone: shoot in alliance zone, pass otherwise.
-    // Project robot position forward by phase delay to compensate for control latency.
-    // TODO: Re-enable turret aiming after turret bringup is complete
-    // if (turret != null) {
-    //   Pose2d currentPose = getPose();
-    //   Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
-    //
-    //   // Project pose forward using Twist2d to account for phase delay.
-    //   // This compensates for the time between computing the aim angle and the ball leaving.
-    //   ChassisSpeeds speeds = getChassisSpeeds();
-    //   Twist2d twist =
-    //       new Twist2d(
-    //           speeds.vxMetersPerSecond * AIM_PHASE_DELAY_SECONDS,
-    //           speeds.vyMetersPerSecond * AIM_PHASE_DELAY_SECONDS,
-    //           speeds.omegaRadiansPerSecond * AIM_PHASE_DELAY_SECONDS);
-    //   Pose2d projectedPose = currentPose.exp(twist);
-    //
-    //   TurretAimingHelper.AimResult aimResult =
-    //       TurretAimingHelper.getAimTarget(projectedPose.getX(), projectedPose.getY(), alliance);
-    //
-    //   // Log aiming data for AdvantageScope (zone-based target selection)
-    //   Logger.recordOutput("Turret/Aim/Mode", aimResult.mode().toString());
-    //   Logger.recordOutput(
-    //       "Turret/Aim/Target",
-    //       new Pose2d(aimResult.target(), new edu.wpi.first.math.geometry.Rotation2d()));
-    //   Logger.recordOutput("Turret/Aim/ProjectedPose", projectedPose);
-    //
-    //   turret.aimAtFieldPosition(
-    //       projectedPose.getX(),
-    //       projectedPose.getY(),
-    //       projectedPose.getRotation().getDegrees(),
-    //       aimResult.target().getX(),
-    //       aimResult.target().getY());
-    // }
-
     // Log robot speed for easy access in AdvantageScope
     ChassisSpeeds measuredSpeeds = getChassisSpeeds();
     Logger.recordOutput(
