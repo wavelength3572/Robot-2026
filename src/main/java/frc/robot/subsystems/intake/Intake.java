@@ -144,6 +144,7 @@ public class Intake extends SubsystemBase {
     DEPLOY_SETTLING, // At extended target: brake mode, settling before coast
     DEPLOYED, // At extended position, settled: coast mode, no active control
     RETRACTING, // Moving toward retracted/stowed position: brake mode, MAXMotion driving
+    AGITATING, // Actively shaking arm: agitate command owns motor control
     AGITATE_SETTLING // Post-agitate: brake for fall time, then re-deploy
   }
 
@@ -254,6 +255,9 @@ public class Intake extends SubsystemBase {
         break;
       case RETRACTED:
         // Brake mode + MAXMotion maintains position via onboard 1kHz PID — no action needed
+        break;
+      case AGITATING:
+        // Agitate command owns motor control — no action needed from state machine
         break;
       case AGITATE_SETTLING:
         // Post-agitate: brake briefly, then return to deployed position
@@ -571,7 +575,7 @@ public class Intake extends SubsystemBase {
                                   applyAgitationConfig();
                                   io.setDeployBrakeMode(false);
                                   io.setDeployPosition(agitationRetractTarget.get());
-                                  deployState = DeployState.DEPLOYED;
+                                  deployState = DeployState.AGITATING;
                                   setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
                                   agitationTimer.restart();
                                 }),
