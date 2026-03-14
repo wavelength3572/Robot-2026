@@ -4,7 +4,6 @@ import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -224,9 +223,8 @@ public class IndicatorLight extends SubsystemBase {
     Logger.recordOutput("LED/Pattern", LED_State.toString());
   }
 
-  /** Publish LED colors to NetworkTables for Elastic Multi Color View widget (sim only). */
+  /** Publish LED colors to NetworkTables for Elastic Multi Color View widget. */
   private void publishLEDColors() {
-    if (!RobotBase.isSimulation()) return;
     int len = currentActiveBuffer.getLength();
     String[] colors = new String[len];
     for (int i = 0; i < len; i++) {
