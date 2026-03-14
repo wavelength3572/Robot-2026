@@ -9,12 +9,10 @@ import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.FeedbackSensor;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkClosedLoopController;
-import com.revrobotics.spark.SparkClosedLoopController.ArbFFUnits;
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkFlexConfig;
-import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.wpilibj.PowerDistribution;
 import frc.robot.Constants;
@@ -46,9 +44,6 @@ public class LauncherIOSparkFlex implements LauncherIO {
   // Configuration
   private final double gearRatio; // 1 motor rotation = gearRatio wheel rotations
 
-  // Feedforward controller (runs on roboRIO, passed as arbFF to SparkFlex)
-  private SimpleMotorFeedforward feedforward;
-
   // Connection debouncers
   private final Debouncer leaderConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
@@ -77,9 +72,6 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Store gear ratio from config
     gearRatio = config.getLauncherGearRatio();
 
-    // Create feedforward controller (runs on roboRIO, passed as arbFF voltage)
-    feedforward = new SimpleMotorFeedforward(config.getLauncherKs(), config.getLauncherKv());
-
     // Create PDH for independent current monitoring
     pdh = new PowerDistribution();
 
@@ -100,8 +92,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .smartCurrentLimit(config.getLauncherCurrentLimitAmps())
         .voltageCompensation(12.0);
 
-    // PID runs onboard the SparkFlex at 1kHz.
-    // Feedforward (kS/kV) runs on the roboRIO and is passed as arbitrary FF voltage.
+    // PID + feedforward all run onboard the SparkFlex at 1kHz — no CAN latency.
+    // kS/kV applied automatically in kVelocity mode (per REV 2026 API).
     // Slot 0: Normal PID gains
     // Slot 1: Recovery PID gains (higher kP for faster recovery during shooting)
     double initKp = config.getLauncherKp();
@@ -113,6 +105,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .pid(initKp, initKi, initKd)
         .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot1)
         .iZone(config.getLauncherIZone());
+    leaderConfig.closedLoop.feedForward.kS(config.getLauncherKs()).kV(config.getLauncherKv());
 
     // Signal update rates
     leaderConfig
@@ -250,32 +243,19 @@ public class LauncherIOSparkFlex implements LauncherIO {
   }
 
   @Override
-  public void setVelocity(double velocityRPM) {
-    setVelocityWithBoost(velocityRPM, 0.0, false);
-  }
-
-  @Override
-  public void setVelocityWithBoost(double velocityRPM, double boostVolts, boolean recoveryActive) {
+  public void setVelocity(double velocityRPM, boolean recoveryActive) {
     // Clamp to max velocity (wheel RPM)
     currentTargetWheelRPM = Math.min(Math.abs(velocityRPM), MAX_VELOCITY_RPM);
 
     // Convert wheel RPM to motor RPM for the SparkFlex PID controller
     double motorRPM = wheelToMotorRPM(currentTargetWheelRPM);
 
-    // Calculate feedforward on roboRIO using target motor RPM
-    double arbFFVolts = feedforward.calculate(motorRPM);
-    double totalFFVolts = arbFFVolts + boostVolts;
-    Logger.recordOutput("Launcher/FeedforwardVolts", arbFFVolts);
-    Logger.recordOutput("Launcher/TotalFeedforwardVolts", totalFFVolts);
-
-    // Select PID slot: Slot 1 has boosted P for faster recovery during shooting
+    // Select PID slot: Slot 1 has boosted kP for faster recovery during shooting
     ClosedLoopSlot slot = recoveryActive ? ClosedLoopSlot.kSlot1 : ClosedLoopSlot.kSlot0;
     Logger.recordOutput("Launcher/UsingRecoveryPID", recoveryActive);
-    Logger.recordOutput("Launcher/RecoveryBoostVolts", boostVolts);
 
-    // Command leader with PID + feedforward - follower follows automatically in hardware
-    leaderController.setSetpoint(
-        motorRPM, ControlType.kVelocity, slot, totalFFVolts, ArbFFUnits.kVoltage);
+    // kVelocity with onboard kS/kV: PID + FF all run at 1kHz on SparkFlex.
+    leaderController.setSetpoint(motorRPM, ControlType.kVelocity, slot);
   }
 
   @Override
@@ -308,13 +288,10 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
   @Override
   public void configureFeedforward(double kS, double kV, double kA) {
-    // Update roboRIO-side feedforward (no CAN call, no PID state reset)
-    feedforward = new SimpleMotorFeedforward(kS, kV);
-  }
-
-  @Override
-  public void configureMaxMotion(double maxAcceleration) {
-    // No-op: not using MAXMotion velocity control
+    var ffConfig = new SparkFlexConfig();
+    ffConfig.closedLoop.feedForward.kS(kS).kV(kV);
+    leaderMotor.configure(
+        ffConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 
   @Override

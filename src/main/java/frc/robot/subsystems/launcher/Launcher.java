@@ -34,24 +34,19 @@ public class Launcher extends SubsystemBase {
   private static final LoggedTunableNumber kA;
 
   private static final LoggedTunableNumber recoveryKpBoost =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.0);
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.00012);
 
   // IZone: integral only accumulates when error is below this threshold (motor RPM).
   // Prevents windup during spin-up while allowing kI to eliminate steady-state error.
   private static final LoggedTunableNumber iZone;
 
-  // MAXMotion max acceleration (motor RPM/s) for smooth velocity profiling
-  private static final LoggedTunableNumber maxAcceleration;
-
   // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control
   private static final LoggedTunableNumber velocityToleranceRPM =
       new LoggedTunableNumber("Tuning/Launcher/ReadyToleranceRPM", 100.0);
 
-  // Recovery boost tunables
+  // Recovery: threshold error (wheel RPM) to activate Slot 1 (boosted kP)
   private static final LoggedTunableNumber recoveryBoostThresholdRPM =
       new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostThresholdRPM", 50.0);
-  private static final LoggedTunableNumber recoveryBoostVolts =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostVolts", 0.0);
 
   static {
     RobotConfig config = Constants.getRobotConfig();
@@ -62,9 +57,6 @@ public class Launcher extends SubsystemBase {
     kV = new LoggedTunableNumber("Tuning/Launcher/kV", config.getLauncherKv());
     kA = new LoggedTunableNumber("Tuning/Launcher/kA", 0.0);
     iZone = new LoggedTunableNumber("Tuning/Launcher/IZone", config.getLauncherIZone());
-    maxAcceleration =
-        new LoggedTunableNumber(
-            "Tuning/Launcher/MaxAcceleration", config.getLauncherMaxAcceleration());
   }
 
   // Feeding flag - set by ShootingCommands when prefeed starts
@@ -159,9 +151,6 @@ public class Launcher extends SubsystemBase {
     if (LoggedTunableNumber.hasChanged(kS, kV, kA)) {
       io.configureFeedforward(kS.get(), kV.get(), kA.get());
     }
-    if (LoggedTunableNumber.hasChanged(maxAcceleration)) {
-      io.configureMaxMotion(maxAcceleration.get());
-    }
     if (LoggedTunableNumber.hasChanged(velocityToleranceRPM)) {
       io.setVelocityTolerance(velocityToleranceRPM.get());
     }
@@ -185,7 +174,6 @@ public class Launcher extends SubsystemBase {
     // Determine if recovery is active with hysteresis:
     // - Activate when error exceeds threshold
     // - Deactivate only when error drops below half the threshold
-    double boost = 0.0;
     if (feedingActive && velocityRPM > 100.0) {
       double error = velocityRPM - inputs.wheelVelocityRPM;
       double threshold = recoveryBoostThresholdRPM.get();
@@ -194,17 +182,12 @@ public class Launcher extends SubsystemBase {
       } else if (recoveryActive && error < threshold * 0.5) {
         recoveryActive = false;
       }
-      if (recoveryActive) {
-        boost = recoveryBoostVolts.get();
-      }
     } else {
       recoveryActive = false;
     }
-    Logger.recordOutput("Launcher/RecoveryBoostActive", recoveryActive);
-    Logger.recordOutput("Launcher/RecoveryBoostVolts", boost);
+    Logger.recordOutput("Launcher/RecoveryActive", recoveryActive);
 
-    io.setVelocityWithBoost(velocityRPM, boost, recoveryActive);
-    // Update ShotCalculator with target RPM for setpoint trajectory
+    io.setVelocity(velocityRPM, recoveryActive);
     ShotCalculator.setTargetLauncherRPM(velocityRPM);
   }
 
