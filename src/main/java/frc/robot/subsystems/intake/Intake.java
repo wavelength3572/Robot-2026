@@ -36,18 +36,19 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber deployExtendedPos;
   private static final LoggedTunableNumber deployRetractedPos;
   private static final LoggedTunableNumber deployTolerance;
+  private static final LoggedTunableNumber holdTolerance;
 
   // Tunable feedforward gains for deploy MAXMotion
   private static final LoggedTunableNumber deployKS;
   private static final LoggedTunableNumber deployKV;
 
-  // Tunable MAXMotion parameters for smooth deploy/retract
+  // Tunable MAXMotion parameters — separate sets for deploy vs retract
   private static final LoggedTunableNumber deployMaxVelocity;
   private static final LoggedTunableNumber deployMaxAcceleration;
+  private static final LoggedTunableNumber retractMaxVelocity;
+  private static final LoggedTunableNumber retractMaxAcceleration;
 
-  // Tunable output range limits (caps deploy PID duty cycle for safe tuning)
-  // Separate limits for deploy (forward) and retract (reverse) allow asymmetric control
-  // to account for gravity effects on the arm
+  // Output range safety limits (caps deploy PID duty cycle)
   private static final LoggedTunableNumber deployOutputLimit;
   private static final LoggedTunableNumber retractOutputLimit;
 
@@ -63,6 +64,9 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber agitationRetractTarget;
   private static final LoggedTunableNumber agitationTimeoutSec;
   private static final LoggedTunableNumber agitationCoastTimeSec;
+  private static final LoggedTunableNumber agitationRetractOutputLimit;
+  private static final LoggedTunableNumber agitationMaxVelocity;
+  private static final LoggedTunableNumber agitationMaxAcceleration;
 
   static {
     RobotConfig config = Constants.getRobotConfig();
@@ -81,6 +85,7 @@ public class Intake extends SubsystemBase {
             "Tuning/Intake/IntakeDeploy/RetractedPosition",
             config.getIntakeDeployRetractedPosition());
     deployTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/Tolerance", 0.02);
+    holdTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/HoldTolerance", 0.0005);
     rollerKP =
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kP", config.getIntakeRollerKp());
     rollerKI =
@@ -91,29 +96,38 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kFF", config.getIntakeRollerKff());
     deployKS = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kS", config.getIntakeDeployKs());
     deployKV = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kV", config.getIntakeDeployKv());
+    // Deploy motion profile
     deployMaxVelocity =
         new LoggedTunableNumber(
-            "Tuning/Intake/IntakeDeploy/MaxVelocity", config.getIntakeDeployMaxVelocity());
+            "Tuning/Intake/Deploy/MaxVelocity", config.getIntakeDeployMaxVelocity());
     deployMaxAcceleration =
         new LoggedTunableNumber(
-            "Tuning/Intake/IntakeDeploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
-    deployOutputLimit =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/DeployOutputLimit", 0.10);
-    retractOutputLimit =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", .5);
-    rollerMinDeployPosition =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", 0.015);
-    deployBrakeTime = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/BrakeTimeSec", 0.5);
-    agitationFallTime =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationFallTimeSec", 0.6);
-    agitationSpeedThreshold =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationSpeedThresholdMps", 0.3);
+            "Tuning/Intake/Deploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
+    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/Deploy/OutputLimit", 0.25);
+    deployBrakeTime = new LoggedTunableNumber("Tuning/Intake/Deploy/BrakeTimeSec", 0.5);
+    // Retract motion profile
+    retractMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Retract/MaxVelocity", 30);
+    retractMaxAcceleration = new LoggedTunableNumber("Tuning/Intake/Retract/MaxAcceleration", 50);
+    retractOutputLimit = new LoggedTunableNumber("Tuning/Intake/Retract/OutputLimit", .5);
+    // Agitation motion profile
+    agitationMaxVelocity =
+        new LoggedTunableNumber(
+            "Tuning/Intake/Agitation/MaxVelocity", config.getIntakeDeployMaxVelocity());
+    agitationMaxAcceleration =
+        new LoggedTunableNumber(
+            "Tuning/Intake/Agitation/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
+    agitationRetractOutputLimit =
+        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractOutputLimit", 1.0);
     agitationRetractTarget =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationRetractTarget", 0.035);
-    agitationTimeoutSec =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationTimeoutSec", 0.4);
-    agitationCoastTimeSec =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationCoastTimeSec", 0.15);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractTarget", 0.035);
+    agitationTimeoutSec = new LoggedTunableNumber("Tuning/Intake/Agitation/TimeoutSec", 0.6);
+    agitationCoastTimeSec = new LoggedTunableNumber("Tuning/Intake/Agitation/CoastTimeSec", 0.15);
+    agitationFallTime = new LoggedTunableNumber("Tuning/Intake/Agitation/FallTimeSec", 0.6);
+    agitationSpeedThreshold =
+        new LoggedTunableNumber("Tuning/Intake/Agitation/SpeedThresholdMps", 0.3);
+    // Shared
+    rollerMinDeployPosition =
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", 0.05);
   }
 
   // Deploy positions (from config, used for soft limit init)
@@ -123,6 +137,8 @@ public class Intake extends SubsystemBase {
 
   // Tracks whether we've commanded deploy (true) or retract (false)
   private boolean deployCommanded = false;
+  private boolean movingFirstCycle =
+      false; // Skip deployAtTarget check on first cycle (stale inputs)
 
   // Deploy settle state machine
   private enum DeployState {
@@ -133,8 +149,9 @@ public class Intake extends SubsystemBase {
     AGITATE_SETTLING // Post-agitate: brake for fall time, then coast
   }
 
-  private DeployState deployState = DeployState.IDLE;
+  private DeployState deployState = DeployState.HOLDING;
   private final Timer brakeTimer = new Timer();
+  private double holdPosition = -0.005; // Slightly past stowed — pushes arm into hard stop
 
   // Operational constants (not robot-specific)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
@@ -166,6 +183,11 @@ public class Intake extends SubsystemBase {
     deployStowedPosition = config.getIntakeDeployStowedPosition();
     deployRetractedPosition = config.getIntakeDeployRetractedPosition();
     deployExtendedPosition = config.getIntakeDeployExtendedPosition();
+
+    // Command stowed position at startup so SparkMax has an active hold target
+    applyRetractMotionConfig();
+    io.setDeployBrakeMode(true);
+    io.setDeployPosition(deployStowedPosition);
   }
 
   /**
@@ -192,10 +214,6 @@ public class Intake extends SubsystemBase {
     if (LoggedTunableNumber.hasChanged(rollerKP, rollerKI, rollerKD, rollerKFF)) {
       io.configureRollerPID(rollerKP.get(), rollerKI.get(), rollerKD.get(), rollerKFF.get());
     }
-    if (LoggedTunableNumber.hasChanged(deployMaxVelocity, deployMaxAcceleration)) {
-      io.configureDeployMaxMotion(
-          deployMaxVelocity.get(), deployMaxAcceleration.get(), deployTolerance.get());
-    }
     if (LoggedTunableNumber.hasChanged(deployOutputLimit, retractOutputLimit)) {
       io.configureDeployOutputRange(
           -Math.abs(retractOutputLimit.get()), Math.abs(deployOutputLimit.get()));
@@ -204,16 +222,22 @@ public class Intake extends SubsystemBase {
     // Deploy settle state machine
     switch (deployState) {
       case MOVING:
+        // Skip first cycle — inputs.deployTargetPosition is stale from before the command
+        if (movingFirstCycle) {
+          movingFirstCycle = false;
+          break;
+        }
         if (deployAtTarget()) {
-          // Arrived at target — kill PID, switch to brake mode to settle
-          io.disableDeploy();
-          io.setDeployBrakeMode(true);
           if (deployCommanded) {
-            // Deploy: brake for 1 second then coast
+            // Deploy: kill PID, brake for 1 second then coast
+            io.disableDeploy();
+            io.setDeployBrakeMode(true);
             brakeTimer.restart();
             deployState = DeployState.BRAKING;
           } else {
-            // Retract: just brake, no active hold needed at target
+            // Retract: SparkMax MAXMotion is already holding at retract target from MOVING.
+            // Just add brake mode as backstop — don't reconfigure or re-command anything.
+            io.setDeployBrakeMode(true);
             deployState = DeployState.HOLDING;
           }
         }
@@ -228,7 +252,8 @@ public class Intake extends SubsystemBase {
         }
         break;
       case HOLDING:
-        // Retract hold: brake mode only. If knocked out, driver can re-press retract.
+        // SparkMax MAXMotion maintains position via onboard 1kHz PID — no action needed.
+        // Brake mode provides additional resistance as backstop.
         break;
       case AGITATE_SETTLING:
         // Post-agitate: brake for fall duration, then switch to coast
@@ -250,11 +275,10 @@ public class Intake extends SubsystemBase {
     }
 
     // Safety interlock: force rollers off when deploy is too close to stowed
-    // (but preserve rollersPending so they activate once deploy reaches position)
+    // Preserve rollersPending so they re-activate once deploy reaches position
     boolean rollersSafetyLocked = inputs.deployPositionRotations < rollerMinDeployPosition.get();
     if (rollersSafetyLocked) {
       io.stopRollerMotor();
-      rollersPending = false;
     }
 
     // Log deploy state machine
@@ -264,18 +288,25 @@ public class Intake extends SubsystemBase {
 
   // ========== DEPLOY CONTROL ==========
 
+  /** Apply deploy (extend) MAXMotion profile to the motor. */
+  private void applyDeployMotionConfig() {
+    io.configureDeployMaxMotion(
+        deployMaxVelocity.get(), deployMaxAcceleration.get(), deployTolerance.get());
+  }
+
+  /** Apply retract/stow MAXMotion profile to the motor. */
+  private void applyRetractMotionConfig() {
+    io.configureDeployMaxMotion(
+        retractMaxVelocity.get(), retractMaxAcceleration.get(), deployTolerance.get());
+  }
+
   /** Deploy the intake (extend). Stops motor first for clean retarget. */
   public void deploy() {
-    // Skip motion if already at or past the deployed position
-    if (isDeployed()) {
-      deployCommanded = true;
-      deployState = DeployState.IDLE;
-      io.setDeployBrakeMode(false);
-      return;
-    }
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     io.setDeployBrakeMode(false); // Coast mode while PID is driving
+    applyDeployMotionConfig();
     deployCommanded = true;
+    movingFirstCycle = true;
     deployState = DeployState.MOVING;
     io.setDeployPosition(deployExtendedPos.get());
   }
@@ -284,8 +315,10 @@ public class Intake extends SubsystemBase {
   public void retract() {
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     io.setDeployBrakeMode(false); // Coast mode while PID is driving
+    applyRetractMotionConfig();
     deployCommanded = false;
     rollersPending = false;
+    movingFirstCycle = true;
     deployState = DeployState.MOVING;
     io.setDeployPosition(deployRetractedPos.get());
   }
@@ -297,7 +330,9 @@ public class Intake extends SubsystemBase {
   public void stow() {
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     io.setDeployBrakeMode(false); // Coast mode while PID is driving
+    applyRetractMotionConfig();
     deployCommanded = false;
+    movingFirstCycle = true;
     deployState = DeployState.MOVING;
     io.setDeployPosition(deployStowedPos.get());
   }
@@ -505,6 +540,20 @@ public class Intake extends SubsystemBase {
    * @param rollerRPM Supplier for roller velocity in RPM
    * @return Command that agitates until cancelled
    */
+  /** Apply agitation-specific output range and acceleration to the deploy motor. */
+  private void applyAgitationConfig() {
+    io.configureDeployOutputRange(
+        -Math.abs(agitationRetractOutputLimit.get()), Math.abs(deployOutputLimit.get()));
+    io.configureDeployMaxMotion(
+        agitationMaxVelocity.get(), agitationMaxAcceleration.get(), deployTolerance.get());
+  }
+
+  /** Restore normal output range after agitation. */
+  private void restoreNormalDeployConfig() {
+    io.configureDeployOutputRange(
+        -Math.abs(retractOutputLimit.get()), Math.abs(deployOutputLimit.get()));
+  }
+
   public Command agitateCommand(DoubleSupplier rollerRPM) {
     Timer agitationTimer = new Timer();
     return Commands.waitUntil(
@@ -514,6 +563,7 @@ public class Intake extends SubsystemBase {
                     // UP phase: MAXMotion position control retracts against gravity
                     runOnce(
                         () -> {
+                          applyAgitationConfig();
                           io.setDeployBrakeMode(false);
                           io.setDeployPosition(agitationRetractTarget.get());
                           deployState = DeployState.IDLE;
@@ -537,6 +587,7 @@ public class Intake extends SubsystemBase {
                     // DOWN phase — coast sub-phase: motor off, coast mode, gravity gets arm moving
                     runOnce(
                         () -> {
+                          restoreNormalDeployConfig();
                           io.disableDeploy();
                           io.setDeployBrakeMode(false);
                         }),
@@ -551,6 +602,7 @@ public class Intake extends SubsystemBase {
                 .repeatedly())
         .finallyDo(
             () -> {
+              restoreNormalDeployConfig();
               io.disableDeploy();
               io.setDeployBrakeMode(true);
               stopRollers();
