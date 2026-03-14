@@ -129,7 +129,6 @@ public final class Constants {
      */
     public static final double LOB_STATION_1_2_TARGET_Y = 1.5;
 
-    public static final double LOB_STATION_3_TARGET_Y =
-        FieldConstants.Outpost.centerPoint.getY();
+    public static final double LOB_STATION_3_TARGET_Y = FieldConstants.Outpost.centerPoint.getY();
   }
 }

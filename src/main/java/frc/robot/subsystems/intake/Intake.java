@@ -101,7 +101,7 @@ public class Intake extends SubsystemBase {
     retractOutputLimit =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", .5);
     rollerMinDeployPosition =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", 0.15);
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", 0.015);
     deployBrakeTime = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/BrakeTimeSec", 0.5);
     agitationFallTime =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationFallTimeSec", 0.6);
@@ -247,10 +247,10 @@ public class Intake extends SubsystemBase {
     }
 
     // Safety interlock: force rollers off when deploy is too close to stowed
+    // (but preserve rollersPending so they activate once deploy reaches position)
     boolean rollersSafetyLocked = inputs.deployPositionRotations < rollerMinDeployPosition.get();
     if (rollersSafetyLocked) {
       io.setRollerDutyCycle(0.0);
-      rollersPending = false;
     }
 
     // Log deploy state machine
@@ -263,7 +263,7 @@ public class Intake extends SubsystemBase {
   /** Deploy the intake (extend). Stops motor first for clean retarget. */
   public void deploy() {
     // Skip motion if already at or past the deployed position
-    if (isAtOrPastDeployed()) {
+    if (isDeployed()) {
       deployCommanded = true;
       deployState = DeployState.IDLE;
       io.setDeployBrakeMode(false);
@@ -332,16 +332,9 @@ public class Intake extends SubsystemBase {
     io.setDeployPosition(positionRotations);
   }
 
-  /** Check if the intake is fully deployed. */
+  /** Check if the intake is at or past the deployed position (accepts overshoot from gravity). */
   @AutoLogOutput(key = "Intake/IsDeployed")
   public boolean isDeployed() {
-    return Math.abs(inputs.deployPositionRotations - deployExtendedPos.get())
-        <= deployTolerance.get();
-  }
-
-  /** Check if the intake is at or past the deployed position (handles overshoot). */
-  @AutoLogOutput(key = "Intake/IsAtOrPastDeployed")
-  public boolean isAtOrPastDeployed() {
     return inputs.deployPositionRotations >= deployExtendedPos.get() - deployTolerance.get();
   }
 
@@ -400,7 +393,15 @@ public class Intake extends SubsystemBase {
 
   /** Run rollers to intake game pieces. RPM varies based on deploy state. */
   public void runIntake() {
-    if (isRollerSafetyLocked()) return;
+    if (isRollerSafetyLocked()) {
+      // Defer roller start until deploy reaches safe position
+      if (useVelocityControl) {
+        double rpm = deployCommanded ? ROLLER_INTAKE_RPM_DEPLOYED : ROLLER_INTAKE_RPM_RETRACTED;
+        pendingRollerRPM = rpm;
+        rollersPending = true;
+      }
+      return;
+    }
     if (useVelocityControl) {
       double rpm = deployCommanded ? ROLLER_INTAKE_RPM_DEPLOYED : ROLLER_INTAKE_RPM_RETRACTED;
       io.setRollerVelocity(rpm);
@@ -452,7 +453,6 @@ public class Intake extends SubsystemBase {
    * @param rpm Target roller velocity in RPM
    */
   public void setRollerVelocityWhenDeployed(double rpm) {
-    if (isRollerSafetyLocked()) return;
     if (inputs.deployPositionRotations >= rollerMinDeployPosition.get()) {
       io.setRollerVelocity(rpm);
       rollersPending = false;

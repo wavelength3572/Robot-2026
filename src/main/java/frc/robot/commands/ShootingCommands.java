@@ -124,17 +124,7 @@ public class ShootingCommands {
 
   // ===== Robot Tuning (affects real robot behavior) =====
 
-  // Target velocities for the basic launch command
-  private static final LoggedTunableNumber launchVelocityRPM =
-      new LoggedTunableNumber("Match/Shooting/LaunchVelocityRPM", 1700.0);
-
-  private static final LoggedTunableNumber motivatorVelocityRPM =
-      new LoggedTunableNumber("Match/Shooting/MotivatorVelocityRPM", 1100.0);
-
-  private static final LoggedTunableNumber spindexerFeedRPM =
-      new LoggedTunableNumber("Match/Shooting/SpindexerFeedRPM", 750.0);
-
-  // Smart shot motivator/spindexer speeds (separate from basic launch)
+  // Smart shot motivator/spindexer speeds
   private static final LoggedTunableNumber smartShotMotivatorRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/MotivatorRPM", 1500.0);
   private static final LoggedTunableNumber smartShotSpindexerRPM =
@@ -195,24 +185,16 @@ public class ShootingCommands {
    * 0, motivator RPM = launcherRPM * ratio. Otherwise falls back to the shot's motivator RPM (if
    * available) or the smartShotMotivatorRPM tunable.
    */
-  private static double getMotivatorRPM(ShotCalculator.ShotResult shot, double launcherRPM) {
+  private static double getMotivatorRPM(double launcherRPM) {
     double ratio = motivatorLauncherRatio.get();
     if (ratio > 0) {
       return launcherRPM * ratio;
     }
-    // Fallback: use shot's stored motivator RPM or the tunable default
-    return (shot != null && shot.motivatorRPM() > 0)
-        ? shot.motivatorRPM()
-        : smartShotMotivatorRPM.get();
+    return smartShotMotivatorRPM.get();
   }
 
   /** Initialize tunables so they appear in the dashboard immediately. */
   public static void initTunables() {
-    // Basic launch tunables
-    launchVelocityRPM.get();
-    motivatorVelocityRPM.get();
-    spindexerFeedRPM.get();
-
     // Fixed shot preset tunables
     hubShotLauncherRPM.get();
     hubShotHoodAngleDeg.get();
@@ -289,129 +271,8 @@ public class ShootingCommands {
   }
 
   /**
-   * Main launch command. Spins up, waits for setpoint, then fires repeatedly.
-   *
-   * @param launcher The launcher subsystem
-   * @param coordinator The shooting coordinator
-   * @param motivator The motivator subsystem (can be null if not present)
-   * @return Command that launches while held
-   */
-  public static Command launchCommand(
-      Launcher launcher, ShootingCoordinator coordinator, Motivator motivator) {
-    return Commands.sequence(
-            // Set competition mode for auto-calculated trajectories
-            Commands.runOnce(() -> setMode(ShootingMode.COMPETITION)),
-
-            // Phase 1: Spin up launcher and motivator feeder wheels (NO prefeed yet)
-            Commands.runOnce(
-                () -> {
-                  double targetRPM = launchVelocityRPM.get();
-                  launcher.setVelocity(targetRPM);
-
-                  if (motivator != null) {
-                    motivator.setMotivatorVelocity(motivatorVelocityRPM.get());
-                  }
-                  SmartDashboard.putString("Match/Status/State", "Spinning Up");
-                  Logger.recordOutput("Match/ShotLog/TargetRPM", targetRPM);
-                  System.out.println("[Launch] Spinning up launcher to " + targetRPM + " RPM");
-                }),
-
-            // Phase 2: Wait for launcher AND motivator feeders to reach setpoint
-            Commands.race(
-                Commands.sequence(
-                    Commands.waitUntil(
-                        () -> {
-                          boolean launcherReady = launcher.atSetpoint();
-                          boolean motivatorReady =
-                              motivator == null || motivator.isMotivatorAtSetpoint();
-                          return launcherReady && motivatorReady;
-                        }),
-                    Commands.waitSeconds(0.1),
-                    Commands.waitUntil(
-                        () -> {
-                          boolean launcherReady = launcher.atSetpoint();
-                          boolean motivatorReady =
-                              motivator == null || motivator.isMotivatorAtSetpoint();
-                          return launcherReady && motivatorReady;
-                        })),
-                Commands.sequence(
-                    Commands.waitSeconds(3.0),
-                    Commands.runOnce(
-                        () -> System.out.println("[Launch] Spinup timeout - continuing anyway")))),
-
-            // Log that we're ready to fire
-            Commands.runOnce(
-                () -> {
-                  SmartDashboard.putString("Match/Status/State", "Firing");
-                  System.out.println("[Launch] At setpoint, starting prefeed and firing");
-                  launcher.setFeedingActive(true);
-                }),
-
-            // Phase 3: Start prefeed and fire repeatedly
-            Commands.parallel(
-                // Keep launcher at speed continuously
-                Commands.run(() -> launcher.setVelocity(launchVelocityRPM.get()), launcher),
-
-                // Keep motivator feeders running AND now add prefeed
-                motivator != null
-                    ? Commands.run(
-                        () -> motivator.setMotivatorVelocity(motivatorVelocityRPM.get()), motivator)
-                    : Commands.none(),
-
-                // Fire balls repeatedly in simulation
-                createFiringLoop(coordinator, launcher)))
-        .finallyDo(
-            () -> {
-              launcher.setFeedingActive(false);
-              launcher.stop();
-              if (motivator != null) {
-                motivator.stopMotivator();
-              }
-              SmartDashboard.putString("Match/Status/State", "Stopped");
-              System.out.println("[Launch] Stopped");
-            })
-        .withName("Launch");
-  }
-
-  /**
-   * Creates the firing loop that repeatedly launches fuel balls.
-   *
-   * @param coordinator The shooting coordinator
-   * @param launcher The launcher subsystem (for recovery notification in sim)
-   * @return Command that fires repeatedly until out of fuel
-   */
-  private static Command createFiringLoop(ShootingCoordinator coordinator, Launcher launcher) {
-    return Commands.sequence(
-            WAIT_FOR_RECOVERY
-                ? Commands.waitUntil(launcher::atSetpoint)
-                : Commands.waitSeconds(MIN_SHOT_INTERVAL_SECONDS),
-            Commands.runOnce(
-                () -> {
-                  coordinator.launchFuel();
-                  Logger.recordOutput("Match/ShotLog/LastShotTime", Timer.getFPGATimestamp());
-
-                  launcher.notifyBallFired();
-
-                  ShotVisualizer visualizer = coordinator.getVisualizer();
-                  int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
-                  Logger.recordOutput("Match/ShotLog/FuelRemaining", fuelRemaining);
-                }),
-            Commands.waitSeconds(MIN_SHOT_INTERVAL_SECONDS))
-        .repeatedly()
-        .until(
-            () -> {
-              ShotVisualizer visualizer = coordinator.getVisualizer();
-              boolean outOfFuel = visualizer == null || visualizer.getFuelCount() <= 0;
-              if (outOfFuel) {
-                Logger.recordOutput("Match/ShotLog/Status", "Out of Fuel");
-                System.out.println("[Launch] Out of fuel");
-              }
-              return outOfFuel;
-            });
-  }
-
-  /**
-   * Command to reset the simulation for testing.
+   * Main launch command. Spins up, waits for setpoint, then fires repeatedly. /** Command to reset
+   * the simulation for testing.
    *
    * @param coordinator The shooting coordinator
    * @return Command that resets simulation state
@@ -781,7 +642,7 @@ public class ShootingCommands {
                       hood.setHoodAngle(getEffectiveHoodDeg(shot));
                     }
                     if (motivator != null) {
-                      double motRPM = getMotivatorRPM(shot, rpm);
+                      double motRPM = getMotivatorRPM(rpm);
                       motivator.setMotivatorVelocity(motRPM);
                     }
                   }
@@ -813,8 +674,6 @@ public class ShootingCommands {
                             if (hood != null) {
                               hood.setHoodAngle(hoodDeg);
                             }
-                            coordinator.setManualShotParameters(
-                                rpm, hoodDeg, shot.turretAngleDeg());
                           }
 
                           boolean launcherReady = launcher.atSetpoint();
@@ -912,15 +771,8 @@ public class ShootingCommands {
                         double rpm = getEffectiveRPM(shot);
                         double hoodDeg = getEffectiveHoodDeg(shot);
                         launcher.setVelocity(rpm);
-                        coordinator.setManualShotParameters(rpm, hoodDeg, shot.turretAngleDeg());
                         // Cache params so recordBatchCommand can read them after SmartLaunch ends
-                        coordinator
-                            .getBatchRecorder()
-                            .cacheParams(
-                                rpm,
-                                hoodDeg,
-                                getMotivatorRPM(shot, rpm),
-                                smartShotSpindexerRPM.get());
+                        coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
                       }
                     },
                     launcher),
@@ -957,7 +809,7 @@ public class ShootingCommands {
                         () -> {
                           ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                           double launcherRPM = getEffectiveRPM(s);
-                          motivator.setMotivatorVelocity(getMotivatorRPM(s, launcherRPM));
+                          motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
                         },
                         motivator)
                     : Commands.none(),
@@ -970,11 +822,7 @@ public class ShootingCommands {
                               turret.atTarget()
                                   && (!gateOnSpeed || isRobotSlowEnoughToFeed(coordinator));
                           if (feedOk) {
-                            ShotCalculator.ShotResult s = coordinator.getCurrentShot();
-                            double spnRPM =
-                                (s != null && s.spindexerRPM() > 0)
-                                    ? s.spindexerRPM()
-                                    : smartShotSpindexerRPM.get();
+                            double spnRPM = smartShotSpindexerRPM.get();
                             spindexer.setSpindexerVelocity(spnRPM);
                           } else {
                             spindexer.stopSpindexer();
@@ -1223,11 +1071,6 @@ public class ShootingCommands {
               double hoodAngle = recorder.getCachedHoodAngleDeg();
               double turretAngle = turret.getOutsideCurrentAngle();
               ShotCalculator.ShotResult currentShot = coordinator.getCurrentShot();
-              double motivatorRPM = getMotivatorRPM(currentShot, rpm);
-              double spindexerRPM =
-                  (currentShot != null && currentShot.spindexerRPM() > 0)
-                      ? currentShot.spindexerRPM()
-                      : smartShotSpindexerRPM.get();
 
               // Calculate theoretical TOF
               double exitVelocity = ShotCalculator.calculateExitVelocityFromRPM(rpm);
@@ -1258,8 +1101,6 @@ public class ShootingCommands {
                       turretAngle,
                       theoreticalTOF,
                       measuredTOF,
-                      motivatorRPM,
-                      spindexerRPM,
                       currentFuel,
                       successful);
 
@@ -1277,8 +1118,6 @@ public class ShootingCommands {
               Logger.recordOutput("LUTDev/LastHoodDeg", hoodAngle);
               Logger.recordOutput("LUTDev/LastTheoreticalTOF", theoreticalTOF);
               Logger.recordOutput("LUTDev/LastMeasuredTOF", measuredTOF);
-              Logger.recordOutput("LUTDev/LastMotivatorRPM", motivatorRPM);
-              Logger.recordOutput("LUTDev/LastSpindexerRPM", spindexerRPM);
               Logger.recordOutput("LUTDev/LastFuelFired", fuelFired);
               Logger.recordOutput("LUTDev/LastSuccessful", successful);
               Logger.recordOutput("LUTDev/LUTEntries", recorder.getLUTEntryCount());
@@ -1296,10 +1135,6 @@ public class ShootingCommands {
                       + String.format("%.0f", rpm)
                       + " | Hood="
                       + String.format("%.1f°", hoodAngle)
-                      + " | Mot="
-                      + String.format("%.0f", motivatorRPM)
-                      + " | Spx="
-                      + String.format("%.0f", spindexerRPM)
                       + " | TOF="
                       + String.format("%.3fs", measuredTOF > 0 ? measuredTOF : theoreticalTOF);
               SmartDashboard.putString("LUTDev/LastEntry", summary);

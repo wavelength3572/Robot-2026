@@ -30,6 +30,7 @@ import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.units.measure.Angle;
 import frc.robot.util.SparkConnection;
+import java.util.Arrays;
 import java.util.Queue;
 import java.util.function.DoubleSupplier;
 
@@ -58,6 +59,12 @@ public class ModuleIOSpark implements ModuleIO {
   private final Queue<Double> timestampQueue;
   private final Queue<Double> drivePositionQueue;
   private final Queue<Double> turnPositionQueue;
+
+  // Pre-allocated arrays for odometry drain (avoids stream boxing + allocation each cycle)
+  private static final int ODOMETRY_QUEUE_CAPACITY = 20;
+  private double[] odometryTimestampsBuf = new double[ODOMETRY_QUEUE_CAPACITY];
+  private double[] odometryDrivePosBuf = new double[ODOMETRY_QUEUE_CAPACITY];
+  private Rotation2d[] odometryTurnPosBuf = new Rotation2d[ODOMETRY_QUEUE_CAPACITY];
 
   // Connection debouncers
   private final Debouncer driveConnectedDebounce =
@@ -270,15 +277,40 @@ public class ModuleIOSpark implements ModuleIO {
       inputs.turnConnected = false;
     }
 
-    // Update odometry inputs
+    // Update odometry inputs — drain queues into pre-allocated arrays (no boxing/streams)
+    int size = timestampQueue.size();
+    if (size > odometryTimestampsBuf.length) {
+      odometryTimestampsBuf = new double[size];
+      odometryDrivePosBuf = new double[size];
+      odometryTurnPosBuf = new Rotation2d[size];
+    }
+    int idx = 0;
+    for (Double v : timestampQueue) {
+      odometryTimestampsBuf[idx++] = v;
+    }
     inputs.odometryTimestamps =
-        timestampQueue.stream().mapToDouble((Double value) -> value).toArray();
+        (idx == odometryTimestampsBuf.length)
+            ? odometryTimestampsBuf
+            : Arrays.copyOf(odometryTimestampsBuf, idx);
+
+    idx = 0;
+    for (Double v : drivePositionQueue) {
+      odometryDrivePosBuf[idx++] = v;
+    }
     inputs.odometryDrivePositionsRad =
-        drivePositionQueue.stream().mapToDouble((Double value) -> value).toArray();
+        (idx == odometryDrivePosBuf.length)
+            ? odometryDrivePosBuf
+            : Arrays.copyOf(odometryDrivePosBuf, idx);
+
+    idx = 0;
+    for (Double v : turnPositionQueue) {
+      odometryTurnPosBuf[idx++] = new Rotation2d(v);
+    }
     inputs.odometryTurnPositions =
-        turnPositionQueue.stream()
-            .map((Double value) -> new Rotation2d(value))
-            .toArray(Rotation2d[]::new);
+        (idx == odometryTurnPosBuf.length)
+            ? odometryTurnPosBuf
+            : Arrays.copyOf(odometryTurnPosBuf, idx);
+
     timestampQueue.clear();
     drivePositionQueue.clear();
     turnPositionQueue.clear();

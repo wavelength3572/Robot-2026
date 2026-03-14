@@ -6,7 +6,7 @@ import org.littletonrobotics.junction.Logger;
 
 /**
  * Interpolating lookup table for shot parameters. Maps distance (meters) to shot parameters (RPM,
- * hood angle, TOF, motivator RPM, spindexer RPM). Uses linear interpolation between entries.
+ * hood angle, TOF). Uses linear interpolation between entries.
  *
  * <p>Usage: populate with empirically measured shots at known distances, then query for any
  * distance. Entries outside the table range clamp to the nearest entry.
@@ -24,9 +24,7 @@ public class ShotLookupTable {
       double rpm,
       double hoodAngleDeg,
       double timeOfFlightTheoreticalS,
-      double timeOfFlightMeasuredS,
-      double motivatorRPM,
-      double spindexerRPM) {
+      double timeOfFlightMeasuredS) {
 
     /** Returns measured TOF if available (> 0), otherwise theoretical. */
     public double getEffectiveTOF() {
@@ -52,8 +50,6 @@ public class ShotLookupTable {
    * @param hoodAngleDeg Hood angle that worked at this distance
    * @param timeOfFlightTheoreticalS Theoretical (physics-based) time of flight in seconds
    * @param timeOfFlightMeasuredS Measured time of flight in seconds (0.0 if not measured)
-   * @param motivatorRPM Motivator RPM used for this shot
-   * @param spindexerRPM Spindexer RPM used for this shot
    * @return this (for chaining)
    */
   public ShotLookupTable addEntry(
@@ -61,18 +57,10 @@ public class ShotLookupTable {
       double rpm,
       double hoodAngleDeg,
       double timeOfFlightTheoreticalS,
-      double timeOfFlightMeasuredS,
-      double motivatorRPM,
-      double spindexerRPM) {
+      double timeOfFlightMeasuredS) {
     table.put(
         distanceMeters,
-        new ShotEntry(
-            rpm,
-            hoodAngleDeg,
-            timeOfFlightTheoreticalS,
-            timeOfFlightMeasuredS,
-            motivatorRPM,
-            spindexerRPM));
+        new ShotEntry(rpm, hoodAngleDeg, timeOfFlightTheoreticalS, timeOfFlightMeasuredS));
     return this;
   }
 
@@ -87,7 +75,7 @@ public class ShotLookupTable {
   public ShotLookupTable addEntry(double distanceMeters, double rpm, double hoodAngleDeg) {
     // Estimate TOF from distance assuming ~10 m/s horizontal velocity
     double estimatedTOF = distanceMeters / 10.0;
-    return addEntry(distanceMeters, rpm, hoodAngleDeg, estimatedTOF, 0.0, 1800.0, 325.0);
+    return addEntry(distanceMeters, rpm, hoodAngleDeg, estimatedTOF, 0.0);
   }
 
   /**
@@ -128,9 +116,7 @@ public class ShotLookupTable {
         lerp(lo.rpm(), hi.rpm(), t),
         lerp(lo.hoodAngleDeg(), hi.hoodAngleDeg(), t),
         theoreticalTOF,
-        measuredTOF,
-        lerp(lo.motivatorRPM(), hi.motivatorRPM(), t),
-        lerp(lo.spindexerRPM(), hi.spindexerRPM(), t));
+        measuredTOF);
   }
 
   /**
@@ -211,8 +197,6 @@ public class ShotLookupTable {
     double[] theoreticalTOFs = new double[n];
     double[] measuredTOFs = new double[n];
     double[] effectiveTOFs = new double[n];
-    double[] motivatorRPMs = new double[n];
-    double[] spindexerRPMs = new double[n];
 
     int i = 0;
     for (Map.Entry<Double, ShotEntry> e : table.entrySet()) {
@@ -223,8 +207,6 @@ public class ShotLookupTable {
       theoreticalTOFs[i] = v.timeOfFlightTheoreticalS();
       measuredTOFs[i] = v.timeOfFlightMeasuredS();
       effectiveTOFs[i] = v.getEffectiveTOF();
-      motivatorRPMs[i] = v.motivatorRPM();
-      spindexerRPMs[i] = v.spindexerRPM();
       i++;
     }
 
@@ -234,8 +216,6 @@ public class ShotLookupTable {
     Logger.recordOutput(prefix + "/TheoreticalTOFs", theoreticalTOFs);
     Logger.recordOutput(prefix + "/MeasuredTOFs", measuredTOFs);
     Logger.recordOutput(prefix + "/EffectiveTOFs", effectiveTOFs);
-    Logger.recordOutput(prefix + "/MotivatorRPMs", motivatorRPMs);
-    Logger.recordOutput(prefix + "/SpindexerRPMs", spindexerRPMs);
     Logger.recordOutput(prefix + "/EntryCount", n);
   }
 }

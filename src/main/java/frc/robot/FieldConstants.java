@@ -353,23 +353,10 @@ public class FieldConstants {
       return isInZone(
               x, y, BLUE_LEFT_MIN_X, BLUE_LEFT_MAX_X, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y, margin)
           || isInZone(
-              x,
-              y,
-              BLUE_RIGHT_MIN_X,
-              BLUE_RIGHT_MAX_X,
-              BLUE_RIGHT_MIN_Y,
-              BLUE_RIGHT_MAX_Y,
-              margin)
+              x, y, BLUE_RIGHT_MIN_X, BLUE_RIGHT_MAX_X, BLUE_RIGHT_MIN_Y, BLUE_RIGHT_MAX_Y, margin)
+          || isInZone(x, y, RED_LEFT_MIN_X, RED_LEFT_MAX_X, RED_LEFT_MIN_Y, RED_LEFT_MAX_Y, margin)
           || isInZone(
-              x, y, RED_LEFT_MIN_X, RED_LEFT_MAX_X, RED_LEFT_MIN_Y, RED_LEFT_MAX_Y, margin)
-          || isInZone(
-              x,
-              y,
-              RED_RIGHT_MIN_X,
-              RED_RIGHT_MAX_X,
-              RED_RIGHT_MIN_Y,
-              RED_RIGHT_MAX_Y,
-              margin);
+              x, y, RED_RIGHT_MIN_X, RED_RIGHT_MAX_X, RED_RIGHT_MIN_Y, RED_RIGHT_MAX_Y, margin);
     }
 
     /**
@@ -385,35 +372,18 @@ public class FieldConstants {
           x, y, BLUE_LEFT_MIN_X, BLUE_LEFT_MAX_X, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y, margin))
         return "BLUE_LEFT";
       if (isInZone(
-          x,
-          y,
-          BLUE_RIGHT_MIN_X,
-          BLUE_RIGHT_MAX_X,
-          BLUE_RIGHT_MIN_Y,
-          BLUE_RIGHT_MAX_Y,
-          margin)) return "BLUE_RIGHT";
-      if (isInZone(
-          x, y, RED_LEFT_MIN_X, RED_LEFT_MAX_X, RED_LEFT_MIN_Y, RED_LEFT_MAX_Y, margin))
+          x, y, BLUE_RIGHT_MIN_X, BLUE_RIGHT_MAX_X, BLUE_RIGHT_MIN_Y, BLUE_RIGHT_MAX_Y, margin))
+        return "BLUE_RIGHT";
+      if (isInZone(x, y, RED_LEFT_MIN_X, RED_LEFT_MAX_X, RED_LEFT_MIN_Y, RED_LEFT_MAX_Y, margin))
         return "RED_LEFT";
       if (isInZone(
-          x,
-          y,
-          RED_RIGHT_MIN_X,
-          RED_RIGHT_MAX_X,
-          RED_RIGHT_MIN_Y,
-          RED_RIGHT_MAX_Y,
-          margin)) return "RED_RIGHT";
+          x, y, RED_RIGHT_MIN_X, RED_RIGHT_MAX_X, RED_RIGHT_MIN_Y, RED_RIGHT_MAX_Y, margin))
+        return "RED_RIGHT";
       return "";
     }
 
     private static boolean isInZone(
-        double x,
-        double y,
-        double minX,
-        double maxX,
-        double minY,
-        double maxY,
-        double margin) {
+        double x, double y, double minX, double maxX, double minY, double maxY, double margin) {
       return x >= (minX - margin)
           && x <= (maxX + margin)
           && y >= (minY - margin)

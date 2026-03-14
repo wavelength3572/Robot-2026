@@ -68,7 +68,6 @@ public interface LauncherIO {
   /** Configure feedforward gains for velocity control. */
   default void configureFeedforward(double kS, double kV, double kA) {}
 
-
   /** Set the velocity tolerance for atSetpoint checks. */
   default void setVelocityTolerance(double toleranceRPM) {}
 

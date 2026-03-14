@@ -217,6 +217,12 @@ public class Drive extends SubsystemBase {
     //       aimResult.target().getY());
     // }
 
+    // Log robot speed for easy access in AdvantageScope
+    ChassisSpeeds measuredSpeeds = getChassisSpeeds();
+    Logger.recordOutput(
+        "Drive/RobotSpeedMps",
+        Math.hypot(measuredSpeeds.vxMetersPerSecond, measuredSpeeds.vyMetersPerSecond));
+
     // Update gyro alert
     gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
   }

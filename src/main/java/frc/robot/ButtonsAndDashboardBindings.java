@@ -166,12 +166,6 @@ public class ButtonsAndDashboardBindings {
     // immediately
     ShootingCommands.initTunables();
 
-    // === Auto Launch Command ===
-    // Auto-calculated trajectory - works for both sim and physical
-    SmartDashboard.putData(
-        "Match/SmartLaunch",
-        ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
-
     // === Shot Preset Fire Buttons (mirrors button box, usable from dashboard) ===
     if (turret != null) {
       SmartDashboard.putData(
@@ -521,7 +515,7 @@ public class ButtonsAndDashboardBindings {
           .whileTrue(
               Commands.startEnd(
                   () -> {
-                    if (!intake.isAtOrPastDeployed()) {
+                    if (!intake.isDeployed()) {
                       intake.deploy();
                     }
                     intake.setRollerVelocityWhenDeployed(tuningIntakeDeployedVelocity.get());

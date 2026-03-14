@@ -55,8 +55,7 @@ public class ShootingCoordinator extends SubsystemBase {
     DRIVER_STATION
   }
 
-  private final SendableChooser<PassingStrategy> passingStrategyChooser =
-      new SendableChooser<>();
+  private final SendableChooser<PassingStrategy> passingStrategyChooser = new SendableChooser<>();
   private final ShotLookupTable lookupTable = new ShotLookupTable();
   private final StationaryShotBatchRecorder batchRecorder = new StationaryShotBatchRecorder();
   private final ParametricShotStrategy parametricStrategy = new ParametricShotStrategy();
@@ -82,6 +81,10 @@ public class ShootingCoordinator extends SubsystemBase {
           "Shots/TrenchMode/MarginMeters", FieldConstants.TrenchZones.DEFAULT_MARGIN_METERS);
   private boolean trenchModeEnabled = false;
   private boolean trenchModeActive = false; // true when robot is currently in a trench zone
+
+  // Visualizer throttle — run at 10Hz instead of 50Hz (pure display, not control)
+  private int visualizerCounter = 0;
+  private static final int VISUALIZER_DIVISOR = 5; // 50Hz / 5 = 10Hz
 
   // Current shot data
   private ShotCalculator.ShotResult currentShot = null;
@@ -205,9 +208,14 @@ public class ShootingCoordinator extends SubsystemBase {
     DriverStation.Alliance alliance = RobotStatus.getAlliance();
     boolean isBlueAlliance = RobotStatus.isBlueAlliance();
 
+    // Advance visualizer throttle counter
+    visualizerCounter++;
+
     // Never command actuators while disabled — only run visualization
     if (DriverStation.isDisabled()) {
-      if (visualizer != null && robotPoseSupplier != null) {
+      if (visualizerCounter % VISUALIZER_DIVISOR == 0
+          && visualizer != null
+          && robotPoseSupplier != null) {
         visualizer.update(createVisualizerSnapshot(isBlueAlliance));
       }
       return;
@@ -230,8 +238,10 @@ public class ShootingCoordinator extends SubsystemBase {
       logShotState();
     }
 
-    // Visualization runs AFTER all control logic (passive observer)
-    if (visualizer != null && robotPoseSupplier != null) {
+    // Visualization runs AFTER all control logic (passive observer, throttled to 10Hz)
+    if (visualizerCounter % VISUALIZER_DIVISOR == 0
+        && visualizer != null
+        && robotPoseSupplier != null) {
       visualizer.update(createVisualizerSnapshot(isBlueAlliance));
     }
   }
@@ -365,7 +375,8 @@ public class ShootingCoordinator extends SubsystemBase {
               (station <= 2) ? cachedLobStation12Target : cachedLobStation3Target;
           Logger.recordOutput(
               "Turret/Pass/Active", (station <= 2) ? "LOB_STATION_1_2" : "LOB_STATION_3");
-          calculatePassToTarget(robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
+          calculatePassToTarget(
+              robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
         } else {
           // Symmetric pass: pick target based on robot Y position
           boolean isLeftTrench = selectIsLeftTrench(robotPose);
@@ -584,7 +595,9 @@ public class ShootingCoordinator extends SubsystemBase {
       // LOB: clearance point is at the hub net
       boolean isBlue = RobotStatus.isBlueAlliance();
       double hubCenterX =
-          isBlue ? FieldConstants.LinesVertical.hubCenter : FieldConstants.LinesVertical.oppHubCenter;
+          isBlue
+              ? FieldConstants.LinesVertical.hubCenter
+              : FieldConstants.LinesVertical.oppHubCenter;
 
       // Project hub center onto the shot line to get distance along shot direction
       // Shot direction vector from turret to target
@@ -797,12 +810,9 @@ public class ShootingCoordinator extends SubsystemBase {
       Translation3d target = currentShot.aimTarget();
       double azimuthAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
 
-      // Use RPM-derived exit velocity with distance-dependent efficiency so the sim ball
-      // matches the trajectory visualization.
-      double launchDist =
-          Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
-      double actualExitVelocity =
-          ShotCalculator.calculateExitVelocityFromRPM(currentShot.launcherRPM(), launchDist);
+      // Use the pre-computed exit velocity from the shot result — it was calculated with
+      // the correct distance at strategy time, avoiding stale/manual distance mismatches.
+      double actualExitVelocity = currentShot.exitVelocityMps();
       visualizer.launchFuel(actualExitVelocity, currentShot.launchAngleRad(), azimuthAngle);
 
       // Track shot counts (auto vs teleop)
@@ -864,27 +874,10 @@ public class ShootingCoordinator extends SubsystemBase {
   public void setManualShotParameters(
       double launcherRPM, double hoodAngleDeg, double targetTurretAngleDeg) {
     if (robotPoseSupplier != null) {
-      // Preserve motivator/spindexer RPM from the strategy-calculated shot
-      double prevMotivatorRPM = currentShot != null ? currentShot.motivatorRPM() : 0.0;
-      double prevSpindexerRPM = currentShot != null ? currentShot.spindexerRPM() : 0.0;
-
       Pose2d robotPose = robotPoseSupplier.get();
-      ShotCalculator.ShotResult manualShot =
+      currentShot =
           ShotCalculator.calculateManualShot(
               robotPose, turretConfig, launcherRPM, hoodAngleDeg, targetTurretAngleDeg);
-
-      // Re-create with preserved feed speeds so LUT motivator/spindexer values aren't lost
-      currentShot =
-          new ShotCalculator.ShotResult(
-              manualShot.exitVelocityMps(),
-              manualShot.launcherRPM(),
-              manualShot.launchAngleRad(),
-              manualShot.hoodAngleDeg(),
-              manualShot.turretAngleDeg(),
-              manualShot.aimTarget(),
-              manualShot.achievable(),
-              prevMotivatorRPM,
-              prevSpindexerRPM);
 
       // Update the ShotCalculator's target RPM for consistency
       ShotCalculator.setTargetLauncherRPM(launcherRPM);
