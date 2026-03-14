@@ -105,7 +105,10 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .pid(initKp, initKi, initKd)
         .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot1)
         .iZone(config.getLauncherIZone());
-    leaderConfig.closedLoop.feedForward.kS(config.getLauncherKs()).kV(config.getLauncherKv());
+    leaderConfig.closedLoop.feedForward
+        .kS(config.getLauncherKs())
+        .kV(config.getLauncherKv())
+        .kA(0.0);
 
     // Signal update rates
     leaderConfig
@@ -289,7 +292,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
   @Override
   public void configureFeedforward(double kS, double kV, double kA) {
     var ffConfig = new SparkFlexConfig();
-    ffConfig.closedLoop.feedForward.kS(kS).kV(kV);
+    ffConfig.closedLoop.feedForward.kS(kS).kV(kV).kA(kA);
     leaderMotor.configure(
         ffConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }
