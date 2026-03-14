@@ -303,6 +303,124 @@ public class FieldConstants {
         new Translation2d(0, AprilTagLayoutType.OFFICIAL.getLayout().getTagPose(29).get().getY());
   }
 
+  /**
+   * Trench avoidance zones — rectangular regions where the robot must keep the hood low to fit
+   * under the trench structure. All 4 trenches (both sides, both alliances) are defined here.
+   *
+   * <p>Each zone is defined by X and Y bounds. The robot's pose is checked against all 4 zones
+   * every cycle; if inside any of them, the hood max angle is clamped.
+   *
+   * <p>The margin is added to all edges to account for robot size and pose uncertainty.
+   */
+  public static class TrenchZones {
+    /** Safety margin added to each edge of the trench zone (meters). */
+    public static final double DEFAULT_MARGIN_METERS = 0.4;
+
+    // X extent: trench depth centered on hub center line
+    private static final double halfDepth = LeftTrench.depth / 2.0;
+
+    // ---- Blue-side trenches (centered on hubCenter) ----
+    public static final double BLUE_LEFT_MIN_X = LinesVertical.hubCenter - halfDepth;
+    public static final double BLUE_LEFT_MAX_X = LinesVertical.hubCenter + halfDepth;
+    public static final double BLUE_LEFT_MIN_Y = fieldWidth - LeftTrench.openingWidth;
+    public static final double BLUE_LEFT_MAX_Y = fieldWidth;
+
+    public static final double BLUE_RIGHT_MIN_X = LinesVertical.hubCenter - halfDepth;
+    public static final double BLUE_RIGHT_MAX_X = LinesVertical.hubCenter + halfDepth;
+    public static final double BLUE_RIGHT_MIN_Y = 0;
+    public static final double BLUE_RIGHT_MAX_Y = RightTrench.openingWidth;
+
+    // ---- Red-side trenches (centered on oppHubCenter) ----
+    public static final double RED_LEFT_MIN_X = LinesVertical.oppHubCenter - halfDepth;
+    public static final double RED_LEFT_MAX_X = LinesVertical.oppHubCenter + halfDepth;
+    public static final double RED_LEFT_MIN_Y = fieldWidth - LeftTrench.openingWidth;
+    public static final double RED_LEFT_MAX_Y = fieldWidth;
+
+    public static final double RED_RIGHT_MIN_X = LinesVertical.oppHubCenter - halfDepth;
+    public static final double RED_RIGHT_MAX_X = LinesVertical.oppHubCenter + halfDepth;
+    public static final double RED_RIGHT_MIN_Y = 0;
+    public static final double RED_RIGHT_MAX_Y = RightTrench.openingWidth;
+
+    /**
+     * Check if a point (robot pose) is inside any of the 4 trench zones, with margin applied.
+     *
+     * @param x Robot X position (field coordinates)
+     * @param y Robot Y position (field coordinates)
+     * @param margin Extra margin in meters added to each edge
+     * @return true if inside any trench zone
+     */
+    public static boolean isInAnyTrenchZone(double x, double y, double margin) {
+      return isInZone(
+              x, y, BLUE_LEFT_MIN_X, BLUE_LEFT_MAX_X, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y, margin)
+          || isInZone(
+              x,
+              y,
+              BLUE_RIGHT_MIN_X,
+              BLUE_RIGHT_MAX_X,
+              BLUE_RIGHT_MIN_Y,
+              BLUE_RIGHT_MAX_Y,
+              margin)
+          || isInZone(
+              x, y, RED_LEFT_MIN_X, RED_LEFT_MAX_X, RED_LEFT_MIN_Y, RED_LEFT_MAX_Y, margin)
+          || isInZone(
+              x,
+              y,
+              RED_RIGHT_MIN_X,
+              RED_RIGHT_MAX_X,
+              RED_RIGHT_MIN_Y,
+              RED_RIGHT_MAX_Y,
+              margin);
+    }
+
+    /**
+     * Get the name of the trench zone the point is in (for logging), or empty string if none.
+     *
+     * @param x Robot X position (field coordinates)
+     * @param y Robot Y position (field coordinates)
+     * @param margin Extra margin in meters added to each edge
+     * @return Name of the trench zone, or "" if not in any
+     */
+    public static String getActiveTrenchZone(double x, double y, double margin) {
+      if (isInZone(
+          x, y, BLUE_LEFT_MIN_X, BLUE_LEFT_MAX_X, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y, margin))
+        return "BLUE_LEFT";
+      if (isInZone(
+          x,
+          y,
+          BLUE_RIGHT_MIN_X,
+          BLUE_RIGHT_MAX_X,
+          BLUE_RIGHT_MIN_Y,
+          BLUE_RIGHT_MAX_Y,
+          margin)) return "BLUE_RIGHT";
+      if (isInZone(
+          x, y, RED_LEFT_MIN_X, RED_LEFT_MAX_X, RED_LEFT_MIN_Y, RED_LEFT_MAX_Y, margin))
+        return "RED_LEFT";
+      if (isInZone(
+          x,
+          y,
+          RED_RIGHT_MIN_X,
+          RED_RIGHT_MAX_X,
+          RED_RIGHT_MIN_Y,
+          RED_RIGHT_MAX_Y,
+          margin)) return "RED_RIGHT";
+      return "";
+    }
+
+    private static boolean isInZone(
+        double x,
+        double y,
+        double minX,
+        double maxX,
+        double minY,
+        double maxY,
+        double margin) {
+      return x >= (minX - margin)
+          && x <= (maxX + margin)
+          && y >= (minY - margin)
+          && y <= (maxY + margin);
+    }
+  }
+
   public enum AprilTagLayoutType {
     OFFICIAL(AprilTagFields.k2026RebuiltWelded);
 
