@@ -275,12 +275,14 @@ public class LauncherIOSparkFlex implements LauncherIO {
   }
 
   @Override
-  public void configurePID(double kP, double kI, double kD, double recoveryKpBoost, double iZone) {
+  public void configurePID(
+      double kP, double kI, double kD, double recoveryKpBoost, double recoveryKdBoost,
+      double iZone) {
     var pidConfig = new SparkFlexConfig();
     pidConfig
         .closedLoop
         .pid(kP, kI, kD)
-        .pid(kP + recoveryKpBoost, kI, kD, ClosedLoopSlot.kSlot1)
+        .pid(kP + recoveryKpBoost, kI, kD + recoveryKdBoost, ClosedLoopSlot.kSlot1)
         .iZone(iZone);
     leaderMotor.configure(
         pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);

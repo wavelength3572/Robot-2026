@@ -136,6 +136,12 @@ public class ShootingCommands {
   private static final LoggedTunableNumber motivatorLauncherRatio =
       new LoggedTunableNumber("Shots/SmartLaunch/MotivatorLauncherRatio", 0.565);
 
+  // Spindexer RPM as a ratio of launcher RPM. When > 0, spindexer RPM is derived from
+  // launcherRPM * ratio instead of the fixed per-shot tunable. Set to 0 to disable and
+  // fall back to the old independent spindexer RPM behavior.
+  private static final LoggedTunableNumber spindexerLauncherRatio =
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerLauncherRatio", 0.0);
+
   // Max drive speed (m/s) while smart launch speed-limit mode is active
   private static final LoggedTunableNumber smartLaunchSpeedLimitCapMps =
       new LoggedTunableNumber("Shots/SmartLaunch/SpeedLimitCapMps", 0.5);
@@ -193,6 +199,19 @@ public class ShootingCommands {
     return smartShotMotivatorRPM.get();
   }
 
+  /**
+   * Derive spindexer RPM from launcher RPM using the configured ratio. When the ratio tunable is >
+   * 0, spindexer RPM = launcherRPM * ratio. Otherwise falls back to the smartShotSpindexerRPM
+   * tunable.
+   */
+  private static double getSpindexerRPM(double launcherRPM) {
+    double ratio = spindexerLauncherRatio.get();
+    if (ratio > 0) {
+      return launcherRPM * ratio;
+    }
+    return smartShotSpindexerRPM.get();
+  }
+
   /** Initialize tunables so they appear in the dashboard immediately. */
   public static void initTunables() {
     // Fixed shot preset tunables
@@ -217,6 +236,7 @@ public class ShootingCommands {
     // Smart shot tunables
     smartShotMotivatorRPM.get();
     smartShotSpindexerRPM.get();
+    spindexerLauncherRatio.get();
 
     // LUT Dev override tunables
     lutDevOverrideRPM.get();
@@ -822,7 +842,9 @@ public class ShootingCommands {
                               turret.atTarget()
                                   && (!gateOnSpeed || isRobotSlowEnoughToFeed(coordinator));
                           if (feedOk) {
-                            double spnRPM = smartShotSpindexerRPM.get();
+                            ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                            double launcherRPM = getEffectiveRPM(shot);
+                            double spnRPM = getSpindexerRPM(launcherRPM);
                             spindexer.setSpindexerVelocity(spnRPM);
                           } else {
                             spindexer.stopSpindexer();

@@ -3,6 +3,7 @@ package frc.robot.subsystems.launcher;
 import static edu.wpi.first.units.Units.*;
 
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
@@ -36,6 +37,11 @@ public class Launcher extends SubsystemBase {
   private static final LoggedTunableNumber recoveryKpBoost =
       new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.00012);
 
+  // Extra D gain for recovery slot. Higher damping during recovery prevents overshoot
+  // when the boosted kP drives RPM back up aggressively.
+  private static final LoggedTunableNumber recoveryKdBoost =
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryKdBoost", 0.0);
+
   // IZone: integral only accumulates when error is below this threshold (motor RPM).
   // Prevents windup during spin-up while allowing kI to eliminate steady-state error.
   private static final LoggedTunableNumber iZone;
@@ -47,6 +53,16 @@ public class Launcher extends SubsystemBase {
   // Recovery: threshold error (wheel RPM) to activate Slot 1 (boosted kP)
   private static final LoggedTunableNumber recoveryBoostThresholdRPM =
       new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostThresholdRPM", 50.0);
+
+  // Minimum time (seconds) to hold recovery mode once activated.
+  // Prevents the boost from cutting in and out rapidly during multi-ball feeding.
+  private static final LoggedTunableNumber recoveryMinHoldTimeSec =
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryMinHoldTimeSec", 0.0);
+
+  // Deactivation hysteresis band as a fraction of the threshold (0.5 = deactivate at 50% of
+  // threshold). Lower values hold recovery longer; higher values release sooner.
+  private static final LoggedTunableNumber recoveryHysteresisRatio =
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryHysteresisRatio", 0.5);
 
   static {
     RobotConfig config = Constants.getRobotConfig();
@@ -64,6 +80,9 @@ public class Launcher extends SubsystemBase {
 
   // Tracks whether recovery mode is currently active (for hysteresis)
   private boolean recoveryActive = false;
+
+  // Timestamp when recovery was last activated (for minimum hold time)
+  private double recoveryActivatedTimestamp = 0.0;
 
   // Safety threshold for velocity mismatch between motors
   private static final double VELOCITY_MISMATCH_THRESHOLD_RPM = 200.0;
@@ -145,8 +164,9 @@ public class Launcher extends SubsystemBase {
     }
 
     // Push tunable changes to IO
-    if (LoggedTunableNumber.hasChanged(kP, kI, kD, recoveryKpBoost, iZone)) {
-      io.configurePID(kP.get(), kI.get(), kD.get(), recoveryKpBoost.get(), iZone.get());
+    if (LoggedTunableNumber.hasChanged(kP, kI, kD, recoveryKpBoost, recoveryKdBoost, iZone)) {
+      io.configurePID(
+          kP.get(), kI.get(), kD.get(), recoveryKpBoost.get(), recoveryKdBoost.get(), iZone.get());
     }
     if (LoggedTunableNumber.hasChanged(kS, kV, kA)) {
       io.configureFeedforward(kS.get(), kV.get(), kA.get());
@@ -173,14 +193,19 @@ public class Launcher extends SubsystemBase {
   public void setVelocity(double velocityRPM) {
     // Determine if recovery is active with hysteresis:
     // - Activate when error exceeds threshold
-    // - Deactivate only when error drops below half the threshold
+    // - Deactivate only when error drops below hysteresis band AND min hold time has elapsed
     if (feedingActive && velocityRPM > 100.0) {
       double error = velocityRPM - inputs.wheelVelocityRPM;
       double threshold = recoveryBoostThresholdRPM.get();
       if (!recoveryActive && error > threshold) {
         recoveryActive = true;
-      } else if (recoveryActive && error < threshold * 0.5) {
-        recoveryActive = false;
+        recoveryActivatedTimestamp = Timer.getFPGATimestamp();
+      } else if (recoveryActive) {
+        double deactivateThreshold = threshold * recoveryHysteresisRatio.get();
+        double elapsed = Timer.getFPGATimestamp() - recoveryActivatedTimestamp;
+        if (error < deactivateThreshold && elapsed >= recoveryMinHoldTimeSec.get()) {
+          recoveryActive = false;
+        }
       }
     } else {
       recoveryActive = false;

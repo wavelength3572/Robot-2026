@@ -63,7 +63,8 @@ public interface LauncherIO {
 
   /** Configure PID gains and IZone for velocity control. */
   default void configurePID(
-      double kP, double kI, double kD, double recoveryKpBoost, double iZone) {}
+      double kP, double kI, double kD, double recoveryKpBoost, double recoveryKdBoost,
+      double iZone) {}
 
   /** Configure feedforward gains for velocity control. */
   default void configureFeedforward(double kS, double kV, double kA) {}

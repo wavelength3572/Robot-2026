@@ -1,10 +1,12 @@
 package frc.robot.subsystems.spindexer;
 
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
+import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -30,6 +32,16 @@ public class Spindexer extends SubsystemBase {
 
   private static final LoggedTunableNumber unclogRPM =
       new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", 1000.0);
+
+  // Agitation tunables — back-and-forth oscillation to shake balls loose
+  private static final LoggedTunableNumber agitateForwardRPM =
+      new LoggedTunableNumber("Tuning/Spindexer/AgitateForwardRPM", 400.0);
+  private static final LoggedTunableNumber agitateReverseRPM =
+      new LoggedTunableNumber("Tuning/Spindexer/AgitateReverseRPM", 300.0);
+  private static final LoggedTunableNumber agitateForwardTimeSec =
+      new LoggedTunableNumber("Tuning/Spindexer/AgitateForwardTimeSec", 0.3);
+  private static final LoggedTunableNumber agitateReverseTimeSec =
+      new LoggedTunableNumber("Tuning/Spindexer/AgitateReverseTimeSec", 0.2);
 
   // Tunable PID gains
   private static final LoggedTunableNumber kP;
@@ -192,6 +204,42 @@ public class Spindexer extends SubsystemBase {
   }
 
   // ========== Commands ==========
+
+  /**
+   * Command that agitates the spindexer back and forth to shake balls loose. Alternates between
+   * forward and reverse at tunable RPM/duration. Useful during intake to prevent jamming.
+   *
+   * @return Command that oscillates the spindexer until cancelled
+   */
+  public Command agitateCommand() {
+    return Commands.sequence(
+            runOnce(() -> setSpindexerVelocity(agitateForwardRPM.get())),
+            Commands.waitSeconds(agitateForwardTimeSec.get()),
+            runOnce(() -> reverseSpindexer(agitateReverseRPM.get())),
+            Commands.waitSeconds(agitateReverseTimeSec.get()))
+        .repeatedly()
+        .finallyDo(this::stopSpindexer)
+        .withName("Spindexer: Agitate");
+  }
+
+  /**
+   * Command that agitates with a net-forward bias by running forward at the supplied feeding RPM
+   * and periodically reversing briefly. The forward RPM is read from the supplier each cycle so
+   * dashboard tunables or launcher-ratio values take effect live.
+   *
+   * @param forwardRPM Supplier for the forward (feeding) RPM
+   * @return Command that agitates with forward bias until cancelled
+   */
+  public Command agitateWithFeedCommand(DoubleSupplier forwardRPM) {
+    return Commands.sequence(
+            run(() -> setSpindexerVelocity(forwardRPM.getAsDouble()))
+                .withTimeout(agitateForwardTimeSec.get()),
+            runOnce(() -> reverseSpindexer(agitateReverseRPM.get())),
+            Commands.waitSeconds(agitateReverseTimeSec.get()))
+        .repeatedly()
+        .finallyDo(this::stopSpindexer)
+        .withName("Spindexer: Agitate+Feed");
+  }
 
   /**
    * Command to stop all motors.
