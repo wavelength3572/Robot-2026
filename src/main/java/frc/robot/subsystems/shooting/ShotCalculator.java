@@ -553,6 +553,219 @@ public final class ShotCalculator {
   }
 
   /**
+   * Calculate pass shot using two-point trajectory math (same approach as TrajectoryOptimizer).
+   * Solves for the unique parabola through a clearance point and the landing target, then validates
+   * hood angle, RPM, and peak height.
+   *
+   * @param robotPose Current robot pose
+   * @param fieldSpeeds Field-relative chassis speeds
+   * @param passTarget Landing target (ground level)
+   * @param config Turret geometry config
+   * @param constraintX Horizontal distance along shot line to clearance point (meters)
+   * @param constraintH Required height above ground at clearance point (meters)
+   * @param maxPeakHeightM Maximum allowed peak height (meters)
+   * @param currentTurretAngleDeg Current turret angle for wrapping
+   * @param effectiveMinDeg Turret min limit
+   * @param effectiveMaxDeg Turret max limit
+   * @param hoodMinAngleDeg Hood mechanical min (e.g. 16)
+   * @param hoodMaxAngleDeg Hood mechanical max (e.g. 46)
+   */
+  public static ShotResult calculatePassShotTwoPoint(
+      Pose2d robotPose,
+      ChassisSpeeds fieldSpeeds,
+      Translation3d passTarget,
+      TurretConfig config,
+      double constraintX,
+      double constraintH,
+      double maxPeakHeightM,
+      double currentTurretAngleDeg,
+      double effectiveMinDeg,
+      double effectiveMaxDeg,
+      double hoodMinAngleDeg,
+      double hoodMaxAngleDeg) {
+
+    double robotHeadingRad = robotPose.getRotation().getRadians();
+    double[] turretFieldPos =
+        getTurretFieldPosition(robotPose.getX(), robotPose.getY(), robotHeadingRad, config);
+    double turretX = turretFieldPos[0];
+    double turretY = turretFieldPos[1];
+
+    double horizontalDist =
+        Math.sqrt(
+            Math.pow(passTarget.getX() - turretX, 2) + Math.pow(passTarget.getY() - turretY, 2));
+
+    // Two constraint points relative to turret launch height:
+    //   Point 1 (clearance): (x1, y1) where y1 = constraintH - turretHeight
+    //   Point 2 (landing):   (x2, y2) where y2 = passTarget.getZ() - turretHeight
+    double x1 = constraintX;
+    double y1 = constraintH - config.heightMeters();
+    double x2 = horizontalDist;
+    double y2 = passTarget.getZ() - config.heightMeters();
+
+    // Log constraint points for debugging
+    Logger.recordOutput("Turret/Pass/TwoPoint/ConstraintX", x1);
+    Logger.recordOutput("Turret/Pass/TwoPoint/ConstraintH", constraintH);
+    Logger.recordOutput("Turret/Pass/TwoPoint/HorizontalDist", horizontalDist);
+
+    // Solve for launch angle: tanTheta = (y1*x2^2 - y2*x1^2) / (x1*x2*(x2 - x1))
+    double denominator = x1 * x2 * (x2 - x1);
+    if (Math.abs(denominator) < 0.001) {
+      return unachievablePassResult(robotPose, passTarget, config, currentTurretAngleDeg,
+          effectiveMinDeg, effectiveMaxDeg);
+    }
+
+    double tanTheta = (y1 * x2 * x2 - y2 * x1 * x1) / denominator;
+    double theta = Math.atan(tanTheta);
+    double thetaDeg = Math.toDegrees(theta);
+    double hoodAngleDeg = 90.0 - thetaDeg;
+
+    // Check hood limits
+    if (hoodAngleDeg < hoodMinAngleDeg || hoodAngleDeg > hoodMaxAngleDeg) {
+      Logger.recordOutput("Turret/Pass/TwoPoint/RejectReason", String.format(
+          "Hood %.1f outside [%.0f-%.0f]", hoodAngleDeg, hoodMinAngleDeg, hoodMaxAngleDeg));
+      return unachievablePassResult(robotPose, passTarget, config, currentTurretAngleDeg,
+          effectiveMinDeg, effectiveMaxDeg);
+    }
+
+    // Solve for K
+    double K = (x1 * tanTheta - y1) / (x1 * x1);
+    if (K <= 0) {
+      Logger.recordOutput("Turret/Pass/TwoPoint/RejectReason", "K <= 0");
+      return unachievablePassResult(robotPose, passTarget, config, currentTurretAngleDeg,
+          effectiveMinDeg, effectiveMaxDeg);
+    }
+
+    // Solve for velocity
+    double cosTheta = Math.cos(theta);
+    double vSquared = GRAVITY / (2 * K * cosTheta * cosTheta);
+    if (vSquared <= 0) {
+      Logger.recordOutput("Turret/Pass/TwoPoint/RejectReason", "v^2 <= 0");
+      return unachievablePassResult(robotPose, passTarget, config, currentTurretAngleDeg,
+          effectiveMinDeg, effectiveMaxDeg);
+    }
+    double exitVelocity = Math.sqrt(vSquared);
+
+    // Check RPM limits
+    double rpm = calculateRPMForVelocity(exitVelocity, horizontalDist);
+    if (rpm < 1500 || rpm > 5000) {
+      Logger.recordOutput("Turret/Pass/TwoPoint/RejectReason",
+          String.format("RPM %.0f outside [1500-5000]", rpm));
+      return unachievablePassResult(robotPose, passTarget, config, currentTurretAngleDeg,
+          effectiveMinDeg, effectiveMaxDeg);
+    }
+
+    // Check peak height
+    double sinTheta = Math.sin(theta);
+    double vy0 = exitVelocity * sinTheta;
+    double peakHeight = config.heightMeters() + (vy0 * vy0) / (2 * GRAVITY);
+    if (peakHeight > maxPeakHeightM) {
+      Logger.recordOutput("Turret/Pass/TwoPoint/RejectReason",
+          String.format("Peak %.1fm > max %.1fm", peakHeight, maxPeakHeightM));
+      return unachievablePassResult(robotPose, passTarget, config, currentTurretAngleDeg,
+          effectiveMinDeg, effectiveMaxDeg);
+    }
+
+    // Check that ball is descending at clearance point (peak before x1)
+    double vx = exitVelocity * cosTheta;
+    double timeToPeak = vy0 / GRAVITY;
+    double distanceToPeak = vx * timeToPeak;
+    if (distanceToPeak >= x1) {
+      Logger.recordOutput("Turret/Pass/TwoPoint/RejectReason",
+          String.format("Peak at %.2fm, constraint at %.2fm", distanceToPeak, x1));
+      return unachievablePassResult(robotPose, passTarget, config, currentTurretAngleDeg,
+          effectiveMinDeg, effectiveMaxDeg);
+    }
+
+    Logger.recordOutput("Turret/Pass/TwoPoint/RejectReason", "OK");
+    Logger.recordOutput("Turret/Pass/TwoPoint/PeakHeightM", peakHeight);
+    Logger.recordOutput("Turret/Pass/TwoPoint/HoodAngleDeg", hoodAngleDeg);
+    Logger.recordOutput("Turret/Pass/TwoPoint/RPM", rpm);
+
+    // Velocity compensation: re-solve with adjusted aim target, keeping clearance point fixed
+    Translation3d aimTarget = passTarget;
+    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+    if (robotSpeed > 0.1) {
+      double tof = calculateTimeOfFlight(exitVelocity, theta, horizontalDist);
+      for (int i = 0; i < 3; i++) {
+        Translation3d candidate =
+            clampAimOffset(predictTargetPos(passTarget, fieldSpeeds, tof), passTarget);
+        double aimDist =
+            Math.sqrt(
+                Math.pow(candidate.getX() - turretX, 2)
+                    + Math.pow(candidate.getY() - turretY, 2));
+
+        // Re-solve two-point with updated x2
+        double newX2 = aimDist;
+        double newY2 = candidate.getZ() - config.heightMeters();
+        double newDenom = x1 * newX2 * (newX2 - x1);
+        if (Math.abs(newDenom) < 0.001) break;
+
+        double newTanTheta = (y1 * newX2 * newX2 - newY2 * x1 * x1) / newDenom;
+        double newTheta = Math.atan(newTanTheta);
+        double newCosTheta = Math.cos(newTheta);
+        double newK = (x1 * newTanTheta - y1) / (x1 * x1);
+        if (newK <= 0) break;
+
+        double newVSquared = GRAVITY / (2 * newK * newCosTheta * newCosTheta);
+        if (newVSquared <= 0) break;
+
+        exitVelocity = Math.sqrt(newVSquared);
+        theta = newTheta;
+        thetaDeg = Math.toDegrees(theta);
+        hoodAngleDeg = 90.0 - thetaDeg;
+        rpm = calculateRPMForVelocity(exitVelocity, aimDist);
+        aimTarget = candidate;
+        tof = calculateTimeOfFlight(exitVelocity, theta, aimDist);
+      }
+    }
+
+    double turretAngleDeg =
+        calculateOutsideTurretAngle(
+            robotPose.getX(),
+            robotPose.getY(),
+            robotPose.getRotation().getDegrees(),
+            aimTarget.getX(),
+            aimTarget.getY(),
+            currentTurretAngleDeg,
+            effectiveMinDeg,
+            effectiveMaxDeg,
+            config);
+
+    return new ShotResult(
+        exitVelocity,
+        rpm,
+        Math.toRadians(thetaDeg),
+        hoodAngleDeg,
+        turretAngleDeg,
+        aimTarget,
+        true,
+        0.0,
+        0.0);
+  }
+
+  /** Helper to build an unachievable pass result with valid turret angle. */
+  private static ShotResult unachievablePassResult(
+      Pose2d robotPose,
+      Translation3d passTarget,
+      TurretConfig config,
+      double currentTurretAngleDeg,
+      double effectiveMinDeg,
+      double effectiveMaxDeg) {
+    double turretAngleDeg =
+        calculateOutsideTurretAngle(
+            robotPose.getX(),
+            robotPose.getY(),
+            robotPose.getRotation().getDegrees(),
+            passTarget.getX(),
+            passTarget.getY(),
+            currentTurretAngleDeg,
+            effectiveMinDeg,
+            effectiveMaxDeg,
+            config);
+    return new ShotResult(0, 0, 0, 0, turretAngleDeg, passTarget, false, 0.0, 0.0);
+  }
+
+  /**
    * Calculate shot parameters for test mode using manual RPM, hood angle, and turret angle.
    * Projects a target 5m in the aim direction for trajectory visualization.
    */

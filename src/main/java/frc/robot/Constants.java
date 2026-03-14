@@ -120,5 +120,16 @@ public final class Constants {
         FieldConstants.fieldWidth / 2 - PASS_TARGET_Y_OFFSET;
     public static final double LEFT_PASS_TARGET_Y =
         FieldConstants.fieldWidth / 2 + PASS_TARGET_Y_OFFSET;
+
+    /**
+     * Lob pass target Y positions for driver-station strategy. Station 1/2 target is far from the
+     * outpost; station 3 target is near the outpost.
+     *
+     * <p>Defined in blue-alliance coordinates: station 1 is low Y, outpost is high Y.
+     */
+    public static final double LOB_STATION_1_2_TARGET_Y = 1.5;
+
+    public static final double LOB_STATION_3_TARGET_Y =
+        FieldConstants.Outpost.centerPoint.getY();
   }
 }
