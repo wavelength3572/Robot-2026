@@ -99,7 +99,7 @@ public class IntakeIOSparkMax implements IntakeIO {
         .forwardSoftLimitEnabled(true)
         .forwardSoftLimit((float) maxPos)
         .reverseSoftLimitEnabled(true)
-        .reverseSoftLimit((float) (minPos - 0.01));
+        .reverseSoftLimit((float) minPos);
     deployConfig
         .signals
         .primaryEncoderPositionAlwaysOn(true)

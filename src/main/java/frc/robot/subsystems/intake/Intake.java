@@ -103,26 +103,23 @@ public class Intake extends SubsystemBase {
     deployMaxAcceleration =
         new LoggedTunableNumber(
             "Tuning/Intake/Deploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
-    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/Deploy/OutputLimit", 0.25);
+    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/Deploy/OutputLimit", 0.5);
     deployBrakeTime = new LoggedTunableNumber("Tuning/Intake/Deploy/BrakeTimeSec", 0.5);
     // Retract motion profile
     retractMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Retract/MaxVelocity", 30);
     retractMaxAcceleration = new LoggedTunableNumber("Tuning/Intake/Retract/MaxAcceleration", 50);
     retractOutputLimit = new LoggedTunableNumber("Tuning/Intake/Retract/OutputLimit", .5);
     // Agitation motion profile
-    agitationMaxVelocity =
-        new LoggedTunableNumber(
-            "Tuning/Intake/Agitation/MaxVelocity", config.getIntakeDeployMaxVelocity());
+    agitationMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Agitation/MaxVelocity", 25);
     agitationMaxAcceleration =
-        new LoggedTunableNumber(
-            "Tuning/Intake/Agitation/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
+        new LoggedTunableNumber("Tuning/Intake/Agitation/MaxAcceleration", 40);
     agitationRetractOutputLimit =
         new LoggedTunableNumber("Tuning/Intake/Agitation/RetractOutputLimit", 1.0);
     agitationRetractTarget =
         new LoggedTunableNumber("Tuning/Intake/Agitation/RetractTarget", 0.035);
     agitationTimeoutSec = new LoggedTunableNumber("Tuning/Intake/Agitation/TimeoutSec", 0.6);
-    agitationCoastTimeSec = new LoggedTunableNumber("Tuning/Intake/Agitation/CoastTimeSec", 0.15);
-    agitationFallTime = new LoggedTunableNumber("Tuning/Intake/Agitation/FallTimeSec", 0.6);
+    agitationCoastTimeSec = new LoggedTunableNumber("Tuning/Intake/Agitation/CoastTimeSec", 0.1);
+    agitationFallTime = new LoggedTunableNumber("Tuning/Intake/Agitation/FallTimeSec", 0.2);
     agitationSpeedThreshold =
         new LoggedTunableNumber("Tuning/Intake/Agitation/SpeedThresholdMps", 0.3);
     // Shared
@@ -151,7 +148,7 @@ public class Intake extends SubsystemBase {
 
   private DeployState deployState = DeployState.HOLDING;
   private final Timer brakeTimer = new Timer();
-  private double holdPosition = -0.005; // Slightly past stowed — pushes arm into hard stop
+  private double holdPosition = 0.0; // Position to hold in HOLDING state (starts at stowed)
 
   // Operational constants (not robot-specific)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
@@ -236,8 +233,7 @@ public class Intake extends SubsystemBase {
             deployState = DeployState.BRAKING;
           } else {
             // Retract: SparkMax MAXMotion is already holding at retract target from MOVING.
-            // Just add brake mode as backstop — don't reconfigure or re-command anything.
-            io.setDeployBrakeMode(true);
+            // Don't call configure() — it can corrupt the active MAXMotion session.
             deployState = DeployState.HOLDING;
           }
         }
@@ -256,11 +252,10 @@ public class Intake extends SubsystemBase {
         // Brake mode provides additional resistance as backstop.
         break;
       case AGITATE_SETTLING:
-        // Post-agitate: brake for fall duration, then switch to coast
+        // Post-agitate: brake briefly, then return to deployed position
         if (brakeTimer.hasElapsed(agitationFallTime.get())) {
           brakeTimer.stop();
-          io.setDeployBrakeMode(false);
-          deployState = DeployState.IDLE;
+          deploy();
         }
         break;
       case IDLE:
@@ -302,6 +297,10 @@ public class Intake extends SubsystemBase {
 
   /** Deploy the intake (extend). Stops motor first for clean retarget. */
   public void deploy() {
+    // Already at or very near extended — just mark state, don't disrupt motor
+    if (deployState == DeployState.IDLE && deployCommanded) {
+      return;
+    }
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     io.setDeployBrakeMode(false); // Coast mode while PID is driving
     applyDeployMotionConfig();
@@ -556,58 +555,76 @@ public class Intake extends SubsystemBase {
 
   public Command agitateCommand(DoubleSupplier rollerRPM) {
     Timer agitationTimer = new Timer();
-    return Commands.waitUntil(
-            () -> inputs.deployPositionRotations >= deployExtendedPos.get() - deployTolerance.get())
+    // Remember pre-agitation state so we can restore it when done
+    boolean[] wasDeployed = {false};
+    return runOnce(() -> wasDeployed[0] = deployCommanded)
         .andThen(
-            Commands.sequence(
-                    // UP phase: MAXMotion position control retracts against gravity
-                    runOnce(
-                        () -> {
-                          applyAgitationConfig();
-                          io.setDeployBrakeMode(false);
-                          io.setDeployPosition(agitationRetractTarget.get());
-                          deployState = DeployState.IDLE;
-                          setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
-                          agitationTimer.restart();
-                        }),
-                    Commands.waitUntil(
-                        () ->
-                            Math.abs(inputs.deployPositionRotations - agitationRetractTarget.get())
-                                    <= deployTolerance.get()
-                                || agitationTimer.hasElapsed(agitationTimeoutSec.get())),
-                    // Log whether UP phase reached target or timed out
-                    runOnce(
-                        () -> {
-                          boolean reached =
-                              Math.abs(
-                                      inputs.deployPositionRotations - agitationRetractTarget.get())
-                                  <= deployTolerance.get();
-                          Logger.recordOutput("Intake/AgitationReachedTarget", reached);
-                        }),
-                    // DOWN phase — coast sub-phase: motor off, coast mode, gravity gets arm moving
-                    runOnce(
-                        () -> {
-                          restoreNormalDeployConfig();
-                          io.disableDeploy();
-                          io.setDeployBrakeMode(false);
-                        }),
-                    Commands.waitSeconds(agitationCoastTimeSec.get()),
-                    // DOWN phase — brake sub-phase: back-EMF braking decelerates the arm
-                    runOnce(() -> io.setDeployBrakeMode(true)),
-                    Commands.waitSeconds(
-                        Math.max(0, agitationFallTime.get() - agitationCoastTimeSec.get())))
-                .repeatedly()
-                .onlyWhile(
-                    () -> robotVelocitySupplier.getAsDouble() < agitationSpeedThreshold.get())
-                .repeatedly())
+            Commands.waitUntil(
+                    () ->
+                        inputs.deployPositionRotations
+                            >= deployExtendedPos.get() - deployTolerance.get())
+                .andThen(
+                    Commands.sequence(
+                            // UP phase: MAXMotion position control retracts against gravity
+                            runOnce(
+                                () -> {
+                                  applyAgitationConfig();
+                                  io.setDeployBrakeMode(false);
+                                  io.setDeployPosition(agitationRetractTarget.get());
+                                  deployState = DeployState.IDLE;
+                                  setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
+                                  agitationTimer.restart();
+                                }),
+                            Commands.waitUntil(
+                                () ->
+                                    Math.abs(
+                                                inputs.deployPositionRotations
+                                                    - agitationRetractTarget.get())
+                                            <= deployTolerance.get()
+                                        || agitationTimer.hasElapsed(agitationTimeoutSec.get())),
+                            // Log whether UP phase reached target or timed out
+                            runOnce(
+                                () -> {
+                                  boolean reached =
+                                      Math.abs(
+                                              inputs.deployPositionRotations
+                                                  - agitationRetractTarget.get())
+                                          <= deployTolerance.get();
+                                  Logger.recordOutput("Intake/AgitationReachedTarget", reached);
+                                }),
+                            // DOWN phase — coast sub-phase: motor off, coast mode, gravity gets arm
+                            // moving
+                            runOnce(
+                                () -> {
+                                  restoreNormalDeployConfig();
+                                  io.disableDeploy();
+                                  io.setDeployBrakeMode(false);
+                                }),
+                            Commands.waitSeconds(agitationCoastTimeSec.get()),
+                            // DOWN phase — brake sub-phase: back-EMF braking decelerates the arm
+                            runOnce(() -> io.setDeployBrakeMode(true)),
+                            Commands.waitSeconds(
+                                Math.max(0, agitationFallTime.get() - agitationCoastTimeSec.get())))
+                        .repeatedly()
+                        .onlyWhile(
+                            () ->
+                                robotVelocitySupplier.getAsDouble() < agitationSpeedThreshold.get())
+                        .repeatedly()))
         .finallyDo(
             () -> {
               restoreNormalDeployConfig();
-              io.disableDeploy();
+              io.stopDeploy(); // Anchor target to current pos before configure() calls
               io.setDeployBrakeMode(true);
               stopRollers();
-              brakeTimer.restart();
-              deployState = DeployState.AGITATE_SETTLING;
+              if (wasDeployed[0]) {
+                brakeTimer.restart();
+                deployState = DeployState.AGITATE_SETTLING;
+              } else {
+                // Was retracted before agitation — go straight to retract hold
+                applyRetractMotionConfig();
+                io.setDeployPosition(deployStowedPosition);
+                deployState = DeployState.HOLDING;
+              }
             })
         .withName("Intake: Agitate");
   }

@@ -181,9 +181,9 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeRollerGearRatio = 2.0;
   private static final boolean intakeDeployMotorInverted = false;
   private static final boolean intakeRollerMotorInverted = true;
-  // 80A through 20:1 gearbox is enormous torque - lower limit for safer tuning.
-  // Can increase once PID is tuned and mechanism moves smoothly.
-  private static final int intakeDeployCurrentLimit = 40;
+  // 100A is safe for short bursts (agitation UP phase is capped at 0.4s by timeout).
+  // NEO stall current is ~105A; 40A breaker won't trip on sub-second spikes.
+  private static final int intakeDeployCurrentLimit = 100;
   private static final int intakeRollerCurrentLimit = 40;
   private static final double intakeDeployStowedPosition = 0.0;
   private static final double intakeDeployRetractedPosition = 0.0;
