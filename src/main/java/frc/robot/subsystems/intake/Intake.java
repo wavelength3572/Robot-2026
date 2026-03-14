@@ -297,10 +297,6 @@ public class Intake extends SubsystemBase {
 
   /** Deploy the intake (extend). Stops motor first for clean retarget. */
   public void deploy() {
-    // Already at or very near extended — just mark state, don't disrupt motor
-    if (deployState == DeployState.IDLE && deployCommanded) {
-      return;
-    }
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     io.setDeployBrakeMode(false); // Coast mode while PID is driving
     applyDeployMotionConfig();
@@ -313,7 +309,7 @@ public class Intake extends SubsystemBase {
   /** Retract the intake. Stops motor first for clean retarget. */
   public void retract() {
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
-    io.setDeployBrakeMode(false); // Coast mode while PID is driving
+    io.setDeployBrakeMode(true); // Brake mode for retract — provides backstop during and after motion
     applyRetractMotionConfig();
     deployCommanded = false;
     rollersPending = false;
@@ -328,7 +324,7 @@ public class Intake extends SubsystemBase {
    */
   public void stow() {
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
-    io.setDeployBrakeMode(false); // Coast mode while PID is driving
+    io.setDeployBrakeMode(true); // Brake mode for stow — provides backstop during and after motion
     applyRetractMotionConfig();
     deployCommanded = false;
     movingFirstCycle = true;

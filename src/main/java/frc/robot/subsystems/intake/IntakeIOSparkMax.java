@@ -78,7 +78,7 @@ public class IntakeIOSparkMax implements IntakeIO {
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(config.getIntakeDeployKp(), config.getIntakeDeployKi(), config.getIntakeDeployKd());
-    deployConfig.closedLoop.outputRange(-0.25, 0.25);
+    deployConfig.closedLoop.outputRange(-0.5, 0.5);
     deployConfig
         .closedLoop
         .feedForward
