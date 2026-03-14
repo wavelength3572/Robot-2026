@@ -35,6 +35,9 @@ public interface IntakeIO {
   /** Set the roller motor target velocity in RPM (closed-loop). */
   public default void setRollerVelocity(double rpm) {}
 
+  /** Stop the roller motor completely (clears velocity PID setpoint). */
+  public default void stopRollerMotor() {}
+
   /** Stop both motors. */
   public default void stop() {}
 

@@ -38,6 +38,8 @@ public class Motivator extends SubsystemBase {
   private static final LoggedTunableNumber motivatorToleranceRPM =
       new LoggedTunableNumber("Tuning/Motivator/ReadyToleranceRPM", 100.0);
 
+  private boolean motivatorRunning = false;
+
   public Motivator(MotivatorIO io) {
     this.io = io;
 
@@ -50,8 +52,8 @@ public class Motivator extends SubsystemBase {
     io.updateInputs(motor1Inputs);
     Logger.processInputs("Motivator", motor1Inputs);
 
-    // Push tunable changes to IO
-    if (LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
+    // Push tunable changes to IO only when motor is running to avoid re-enabling old setpoints
+    if (motivatorRunning && LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
       io.configureMotivatorPID(kP.get(), kI.get(), kD.get(), kS.get(), kV.get());
     }
     if (LoggedTunableNumber.hasChanged(motivatorToleranceRPM)) {
@@ -67,11 +69,13 @@ public class Motivator extends SubsystemBase {
    * @param velocityRPM Target velocity in RPM
    */
   public void setMotivatorVelocity(double velocityRPM) {
+    motivatorRunning = true;
     io.setMotivatorVelocity(velocityRPM);
   }
 
   /** Stop only motivator motor 1. */
   public void stopMotivator() {
+    motivatorRunning = false;
     io.stopMotivator();
   }
 

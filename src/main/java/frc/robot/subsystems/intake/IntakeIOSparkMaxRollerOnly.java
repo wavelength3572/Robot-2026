@@ -115,6 +115,12 @@ public class IntakeIOSparkMaxRollerOnly implements IntakeIO {
   }
 
   @Override
+  public void stopRollerMotor() {
+    rollerTargetSpeed = 0.0;
+    rollerMotor.stopMotor();
+  }
+
+  @Override
   public void stop() {
     rollerMotor.stopMotor();
     rollerTargetSpeed = 0.0;

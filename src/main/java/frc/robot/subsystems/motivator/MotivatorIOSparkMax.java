@@ -184,6 +184,7 @@ public class MotivatorIOSparkMax implements MotivatorIO {
   public void stopMotivator() {
     motivatorVelocityMode = false;
     wheelTargetRPM = 0.0;
+    motivatorController.setSetpoint(0.0, ControlType.kVelocity);
     motivator.stopMotor();
   }
 

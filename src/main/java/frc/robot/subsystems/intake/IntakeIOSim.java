@@ -198,6 +198,14 @@ public class IntakeIOSim implements IntakeIO {
   }
 
   @Override
+  public void stopRollerMotor() {
+    rollerVelocityMode = false;
+    rollerTargetSpeed = 0.0;
+    rollerTargetRPM = 0.0;
+    rollerAppliedVolts = 0.0;
+  }
+
+  @Override
   public void stop() {
     deployTargetPosition = deploySim.getAngularPositionRotations();
     deployAppliedVolts = 0.0;
