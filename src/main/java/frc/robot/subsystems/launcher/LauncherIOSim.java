@@ -128,7 +128,7 @@ public class LauncherIOSim implements LauncherIO {
   }
 
   @Override
-  public void setVelocity(double velocityRPM, boolean recoveryActive) {
+  public void setVelocity(double velocityRPM, boolean recoveryActive, double recoveryArbFF) {
     voltageMode = false;
     double newTarget = Math.abs(velocityRPM);
 

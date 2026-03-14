@@ -34,7 +34,9 @@ public class Launcher extends SubsystemBase {
   private static final LoggedTunableNumber kA;
 
   private static final LoggedTunableNumber recoveryKpBoost =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.0006);
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.0);
+  private static final LoggedTunableNumber recoveryArbFF =
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryArbFFVolts", 3.2);
 
   // IZone: integral only accumulates when error is below this threshold (motor RPM).
   // Prevents windup during spin-up while allowing kI to eliminate steady-state error.
@@ -42,11 +44,11 @@ public class Launcher extends SubsystemBase {
 
   // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control
   private static final LoggedTunableNumber velocityToleranceRPM =
-      new LoggedTunableNumber("Tuning/Launcher/ReadyToleranceRPM", 100.0);
+      new LoggedTunableNumber("Tuning/Launcher/ReadyToleranceRPM", 35.0);
 
   // Recovery: threshold error (wheel RPM) to activate Slot 1 (boosted kP)
   private static final LoggedTunableNumber recoveryBoostThresholdRPM =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostThresholdRPM", 50.0);
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostThresholdRPM", 5.0);
 
   static {
     RobotConfig config = Constants.getRobotConfig();
@@ -187,7 +189,7 @@ public class Launcher extends SubsystemBase {
     }
     Logger.recordOutput("Launcher/RecoveryActive", recoveryActive);
 
-    io.setVelocity(velocityRPM, recoveryActive);
+    io.setVelocity(velocityRPM, recoveryActive, recoveryArbFF.get());
     ShotCalculator.setTargetLauncherRPM(velocityRPM);
   }
 

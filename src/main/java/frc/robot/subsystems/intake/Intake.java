@@ -317,7 +317,8 @@ public class Intake extends SubsystemBase {
   /** Retract the intake. Stops motor first for clean retarget. */
   public void retract() {
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
-    io.setDeployBrakeMode(true); // Brake mode for retract — provides backstop during and after motion
+    io.setDeployBrakeMode(
+        true); // Brake mode for retract — provides backstop during and after motion
     applyRetractMotionConfig();
     deployCommanded = false;
     rollersPending = false;

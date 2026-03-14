@@ -1,6 +1,7 @@
 package frc.robot.subsystems.spindexer;
 
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
@@ -98,6 +99,9 @@ public class Spindexer extends SubsystemBase {
 
     // Push initial velocity tolerances to IO
     io.setVelocityTolerance(spindexerToleranceRPM.get());
+
+    // Default reciprocation on — toggle from Elastic dashboard
+    SmartDashboard.putBoolean("Tuning/Spindexer/Reciprocate/Enabled", true);
   }
 
   @Override
@@ -105,6 +109,9 @@ public class Spindexer extends SubsystemBase {
     io.updateInputs(spindexerInputs);
     Logger.processInputs("Spindexer", spindexerInputs);
     Logger.recordOutput("Spindexer/State", state.name());
+    Logger.recordOutput(
+        "Spindexer/Reciprocate/Enabled",
+        SmartDashboard.getBoolean("Tuning/Spindexer/Reciprocate/Enabled", true));
     Logger.recordOutput("Spindexer/AutoUnclog/Enabled", autoUnclogEnabled);
     Logger.recordOutput("Spindexer/AutoUnclog/Attempts", autoUnclogAttempts);
 
@@ -316,6 +323,14 @@ public class Spindexer extends SubsystemBase {
    * commands during the "waiting for systems to spin up" gap, and by periodic() when fully idle.
    */
   public void reciprocate() {
+    if (!SmartDashboard.getBoolean("Tuning/Spindexer/Reciprocate/Enabled", true)) {
+      // Reciprocation disabled — stop the motor and stay stopped
+      if (state == SpindexerState.RECIPROCATING) {
+        io.stopSpindexer();
+        state = SpindexerState.STOPPED;
+      }
+      return;
+    }
     if (!reciprocateTimer.isRunning()) {
       reciprocateTimer.restart();
     }
