@@ -51,8 +51,8 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber deployOutputLimit;
   private static final LoggedTunableNumber retractOutputLimit;
 
-  // Deploy position at which rollers are allowed to turn on (before full deploy)
-  private static final LoggedTunableNumber rollerActivationPosition;
+  // Minimum deploy position for rollers to run (below this, rollers are blocked)
+  private static final LoggedTunableNumber rollerMinDeployPosition;
 
   // How long to brake after deploy reaches target before switching to coast
   private static final LoggedTunableNumber deployBrakeTime;
@@ -100,8 +100,8 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/DeployOutputLimit", 0.10);
     retractOutputLimit =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", .5);
-    rollerActivationPosition =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerActivationPosition", 0.05);
+    rollerMinDeployPosition =
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", 0.15);
     deployBrakeTime = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/BrakeTimeSec", 0.5);
     agitationFallTime =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationFallTimeSec", 0.6);
@@ -241,13 +241,21 @@ public class Intake extends SubsystemBase {
     }
 
     // Activate pending rollers once deploy reaches the activation position
-    if (rollersPending && inputs.deployPositionRotations >= rollerActivationPosition.get()) {
+    if (rollersPending && inputs.deployPositionRotations >= rollerMinDeployPosition.get()) {
       io.setRollerVelocity(pendingRollerRPM);
+      rollersPending = false;
+    }
+
+    // Safety interlock: force rollers off when deploy is too close to stowed
+    boolean rollersSafetyLocked = inputs.deployPositionRotations < rollerMinDeployPosition.get();
+    if (rollersSafetyLocked) {
+      io.setRollerDutyCycle(0.0);
       rollersPending = false;
     }
 
     // Log deploy state machine
     Logger.recordOutput("Intake/DeployState", deployState.name());
+    Logger.recordOutput("Intake/RollersSafetyLocked", rollersSafetyLocked);
   }
 
   // ========== DEPLOY CONTROL ==========
@@ -364,6 +372,11 @@ public class Intake extends SubsystemBase {
 
   // ========== ROLLER CONTROL ==========
 
+  /** Returns true if rollers are blocked by the deploy safety interlock. */
+  private boolean isRollerSafetyLocked() {
+    return inputs.deployPositionRotations < rollerMinDeployPosition.get();
+  }
+
   /** Returns whether velocity control is active. */
   @AutoLogOutput(key = "Intake/UseVelocityControl")
   public boolean isVelocityControlEnabled() {
@@ -387,6 +400,7 @@ public class Intake extends SubsystemBase {
 
   /** Run rollers to intake game pieces. RPM varies based on deploy state. */
   public void runIntake() {
+    if (isRollerSafetyLocked()) return;
     if (useVelocityControl) {
       double rpm = deployCommanded ? ROLLER_INTAKE_RPM_DEPLOYED : ROLLER_INTAKE_RPM_RETRACTED;
       io.setRollerVelocity(rpm);
@@ -397,6 +411,7 @@ public class Intake extends SubsystemBase {
 
   /** Run rollers to eject game pieces. */
   public void runEject() {
+    if (isRollerSafetyLocked()) return;
     if (useVelocityControl) {
       io.setRollerVelocity(ROLLER_EJECT_RPM);
     } else {
@@ -416,6 +431,7 @@ public class Intake extends SubsystemBase {
    * @param dutyCycle Duty cycle from -1 to 1
    */
   public void setRollerSpeed(double dutyCycle) {
+    if (isRollerSafetyLocked()) return;
     io.setRollerDutyCycle(dutyCycle);
   }
 
@@ -425,6 +441,7 @@ public class Intake extends SubsystemBase {
    * @param rpm Target roller velocity in RPM
    */
   public void setRollerVelocity(double rpm) {
+    if (isRollerSafetyLocked()) return;
     io.setRollerVelocity(rpm);
   }
 
@@ -435,7 +452,8 @@ public class Intake extends SubsystemBase {
    * @param rpm Target roller velocity in RPM
    */
   public void setRollerVelocityWhenDeployed(double rpm) {
-    if (inputs.deployPositionRotations >= rollerActivationPosition.get()) {
+    if (isRollerSafetyLocked()) return;
+    if (inputs.deployPositionRotations >= rollerMinDeployPosition.get()) {
       io.setRollerVelocity(rpm);
       rollersPending = false;
     } else {
@@ -452,6 +470,7 @@ public class Intake extends SubsystemBase {
    * @param velocityFactor How much robot velocity affects roller speed (duty cycle per m/s)
    */
   public void runIntakeWithVelocityCompensation(double baseSpeed, double velocityFactor) {
+    if (isRollerSafetyLocked()) return;
     double robotVelocity = Math.abs(robotVelocitySupplier.getAsDouble());
     double compensatedSpeed = baseSpeed + (robotVelocity * velocityFactor);
     compensatedSpeed = Math.min(1.0, Math.max(-1.0, compensatedSpeed)); // Clamp to valid range
@@ -527,7 +546,7 @@ public class Intake extends SubsystemBase {
    */
   public Command deployAndRunCommand(DoubleSupplier rollerRPM) {
     return runOnce(this::deploy)
-        .andThen(run(() -> io.setRollerVelocity(rollerRPM.getAsDouble())))
+        .andThen(run(() -> setRollerVelocity(rollerRPM.getAsDouble())))
         .finallyDo(
             () -> {
               stopRollers();
