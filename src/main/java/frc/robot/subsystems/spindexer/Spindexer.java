@@ -1,5 +1,6 @@
 package frc.robot.subsystems.spindexer;
 
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
@@ -30,6 +31,19 @@ public class Spindexer extends SubsystemBase {
 
   private static final LoggedTunableNumber unclogRPM =
       new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", 1000.0);
+
+  // Reciprocation — gentle back-and-forth jostle to keep fuel loose when not actively feeding
+  private boolean reciprocateEnabled = true;
+  private boolean reciprocateForward = true; // Current direction of reciprocation
+  private final Timer reciprocateTimer = new Timer();
+
+  private static final LoggedTunableNumber reciprocateRPM =
+      new LoggedTunableNumber("Tuning/Spindexer/Reciprocate/RPM", 200.0);
+  private static final LoggedTunableNumber reciprocateIntervalSec =
+      new LoggedTunableNumber("Tuning/Spindexer/Reciprocate/IntervalSec", 0.5);
+
+  // Tracks whether any external code is actively commanding a non-zero velocity this cycle
+  private boolean activeVelocityThisCycle = false;
 
   // Tunable PID gains
   private static final LoggedTunableNumber kP;
@@ -69,11 +83,35 @@ public class Spindexer extends SubsystemBase {
     if (getCurrentCommand() == null) {
       if (unclogActive) {
         io.setSpindexerVelocity(-Math.abs(unclogRPM.get()));
+        activeVelocityThisCycle = true;
       } else if (wasUnclogActive) {
         io.stopSpindexer();
       }
     }
     wasUnclogActive = unclogActive;
+
+    // Reciprocation: gentle back-and-forth jostle when not actively feeding.
+    // Runs whenever no code has commanded a non-zero velocity this cycle — covers both
+    // idle (no command) and "command owns subsystem but waiting to feed" (calling stop each cycle).
+    boolean reciprocating = false;
+    if (reciprocateEnabled && !unclogActive && !activeVelocityThisCycle) {
+      if (!reciprocateTimer.isRunning()) {
+        reciprocateTimer.restart();
+      }
+      if (reciprocateTimer.hasElapsed(reciprocateIntervalSec.get())) {
+        reciprocateForward = !reciprocateForward;
+        reciprocateTimer.restart();
+      }
+      double rpm = reciprocateRPM.get();
+      io.setSpindexerVelocity(reciprocateForward ? rpm : -rpm);
+      reciprocating = true;
+    } else {
+      reciprocateTimer.stop();
+    }
+    Logger.recordOutput("Spindexer/Reciprocating", reciprocating);
+
+    // Reset per-cycle tracking for next cycle
+    activeVelocityThisCycle = false;
 
     // Push tunable changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
@@ -94,10 +132,14 @@ public class Spindexer extends SubsystemBase {
   public void setSpindexerVelocity(double velocityRPM) {
     if (unclogActive) {
       io.setSpindexerVelocity(-Math.abs(unclogRPM.get()));
+      activeVelocityThisCycle = true;
     } else if (feedingSuppressed) {
       io.setSpindexerVelocity(0.0);
     } else {
       io.setSpindexerVelocity(velocityRPM);
+      if (velocityRPM != 0.0) {
+        activeVelocityThisCycle = true;
+      }
     }
   }
 
@@ -108,6 +150,7 @@ public class Spindexer extends SubsystemBase {
    */
   public void reverseSpindexer(double velocityRPM) {
     io.setSpindexerVelocity(-Math.abs(velocityRPM));
+    activeVelocityThisCycle = true;
   }
 
   /** Stop only Spindexer motor 1. */
@@ -189,6 +232,25 @@ public class Spindexer extends SubsystemBase {
    */
   public boolean isUnclogActive() {
     return unclogActive;
+  }
+
+  // ========== Reciprocation ==========
+
+  /** Enable idle reciprocation (gentle back-and-forth jostle to keep fuel loose). */
+  public void enableReciprocate() {
+    reciprocateEnabled = true;
+  }
+
+  /** Disable idle reciprocation. */
+  public void disableReciprocate() {
+    reciprocateEnabled = false;
+  }
+
+  /**
+   * @return true if reciprocation is enabled
+   */
+  public boolean isReciprocateEnabled() {
+    return reciprocateEnabled;
   }
 
   // ========== Commands ==========
