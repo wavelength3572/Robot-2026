@@ -41,20 +41,13 @@ public interface LauncherIO {
   /** Updates the set of loggable inputs. */
   public default void updateInputs(LauncherIOInputs inputs) {}
 
-  /** Set the target velocity in wheel RPM. */
-  public default void setVelocity(double velocityRPM) {}
-
   /**
-   * Set the target velocity with recovery boost parameters.
+   * Set the target velocity in wheel RPM.
    *
    * @param velocityRPM Target velocity in wheel RPM
-   * @param boostVolts Extra feedforward voltage to add during recovery
-   * @param recoveryActive True to use recovery PID gains (higher P for faster response)
+   * @param recoveryActive True to use recovery PID gains (higher kP for faster response)
    */
-  public default void setVelocityWithBoost(
-      double velocityRPM, double boostVolts, boolean recoveryActive) {
-    setVelocity(velocityRPM);
-  }
+  public default void setVelocity(double velocityRPM, boolean recoveryActive) {}
 
   /** Run the launcher at the specified voltage (for characterization). */
   public default void setLauncherVoltage(double volts) {}
@@ -75,8 +68,6 @@ public interface LauncherIO {
   /** Configure feedforward gains for velocity control. */
   default void configureFeedforward(double kS, double kV, double kA) {}
 
-  /** Configure MAXMotion acceleration limit. */
-  default void configureMaxMotion(double maxAcceleration) {}
 
   /** Set the velocity tolerance for atSetpoint checks. */
   default void setVelocityTolerance(double toleranceRPM) {}

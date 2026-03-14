@@ -313,11 +313,6 @@ public interface RobotConfig {
     return 200.0;
   }
 
-  /** Launcher MAXMotion max acceleration (motor RPM/s). */
-  default double getLauncherMaxAcceleration() {
-    return 10000.0;
-  }
-
   // ========== Hood Configuration ==========
   // Default implementations return 0/false for robots without hoods
 
