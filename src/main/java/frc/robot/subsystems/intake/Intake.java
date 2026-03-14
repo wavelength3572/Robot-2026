@@ -132,23 +132,23 @@ public class Intake extends SubsystemBase {
   private final double deployRetractedPosition;
   private final double deployExtendedPosition;
 
-  // Tracks whether we've commanded deploy (true) or retract (false)
+  // Tracks whether we've commanded deploy (true) or retract (false) — used for roller RPM selection
   private boolean deployCommanded = false;
   private boolean movingFirstCycle =
       false; // Skip deployAtTarget check on first cycle (stale inputs)
 
-  // Deploy settle state machine
+  // Deploy state machine — states describe the intake's intent, not motor control phase
   private enum DeployState {
-    IDLE, // No motion in progress
-    MOVING, // PID driving to target
-    BRAKING, // At target, brake mode on for settling (deploy only)
-    HOLDING, // Retract: brake + small hold voltage; Deploy: coast, fully settled
-    AGITATE_SETTLING // Post-agitate: brake for fall time, then coast
+    RETRACTED, // Stowed/retracted: brake mode + MAXMotion holding position
+    DEPLOYING, // Moving toward extended position: coast mode, MAXMotion driving
+    DEPLOY_SETTLING, // At extended target: brake mode, settling before coast
+    DEPLOYED, // At extended position, settled: coast mode, no active control
+    RETRACTING, // Moving toward retracted/stowed position: brake mode, MAXMotion driving
+    AGITATE_SETTLING // Post-agitate: brake for fall time, then re-deploy
   }
 
-  private DeployState deployState = DeployState.HOLDING;
+  private DeployState deployState = DeployState.RETRACTED;
   private final Timer brakeTimer = new Timer();
-  private double holdPosition = 0.0; // Position to hold in HOLDING state (starts at stowed)
 
   // Operational constants (not robot-specific)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
@@ -216,40 +216,44 @@ public class Intake extends SubsystemBase {
           -Math.abs(retractOutputLimit.get()), Math.abs(deployOutputLimit.get()));
     }
 
-    // Deploy settle state machine
+    // Deploy state machine
     switch (deployState) {
-      case MOVING:
+      case DEPLOYING:
         // Skip first cycle — inputs.deployTargetPosition is stale from before the command
         if (movingFirstCycle) {
           movingFirstCycle = false;
           break;
         }
         if (deployAtTarget()) {
-          if (deployCommanded) {
-            // Deploy: kill PID, brake for 1 second then coast
-            io.disableDeploy();
-            io.setDeployBrakeMode(true);
-            brakeTimer.restart();
-            deployState = DeployState.BRAKING;
-          } else {
-            // Retract: SparkMax MAXMotion is already holding at retract target from MOVING.
-            // Don't call configure() — it can corrupt the active MAXMotion session.
-            deployState = DeployState.HOLDING;
-          }
+          // At extended position — brake to settle, then coast
+          io.disableDeploy();
+          io.setDeployBrakeMode(true);
+          brakeTimer.restart();
+          deployState = DeployState.DEPLOY_SETTLING;
         }
         break;
-      case BRAKING:
-        // Deploy only: after brake time elapses, switch to coast and go idle
+      case RETRACTING:
+        // Skip first cycle — inputs.deployTargetPosition is stale from before the command
+        if (movingFirstCycle) {
+          movingFirstCycle = false;
+          break;
+        }
+        if (deployAtTarget()) {
+          // At retracted position — MAXMotion continues holding, brake mode already set
+          deployState = DeployState.RETRACTED;
+        }
+        break;
+      case DEPLOY_SETTLING:
+        // At deployed position: after brake time elapses, switch to coast
         if (brakeTimer.hasElapsed(deployBrakeTime.get())) {
           brakeTimer.stop();
           io.disableDeploy();
           io.setDeployBrakeMode(false);
-          deployState = DeployState.IDLE;
+          deployState = DeployState.DEPLOYED;
         }
         break;
-      case HOLDING:
-        // SparkMax MAXMotion maintains position via onboard 1kHz PID — no action needed.
-        // Brake mode provides additional resistance as backstop.
+      case RETRACTED:
+        // Brake mode + MAXMotion maintains position via onboard 1kHz PID — no action needed
         break;
       case AGITATE_SETTLING:
         // Post-agitate: brake briefly, then return to deployed position
@@ -258,7 +262,7 @@ public class Intake extends SubsystemBase {
           deploy();
         }
         break;
-      case IDLE:
+      case DEPLOYED:
       default:
         break;
     }
@@ -302,7 +306,7 @@ public class Intake extends SubsystemBase {
     applyDeployMotionConfig();
     deployCommanded = true;
     movingFirstCycle = true;
-    deployState = DeployState.MOVING;
+    deployState = DeployState.DEPLOYING;
     io.setDeployPosition(deployExtendedPos.get());
   }
 
@@ -314,7 +318,7 @@ public class Intake extends SubsystemBase {
     deployCommanded = false;
     rollersPending = false;
     movingFirstCycle = true;
-    deployState = DeployState.MOVING;
+    deployState = DeployState.RETRACTING;
     io.setDeployPosition(deployRetractedPos.get());
   }
 
@@ -328,7 +332,7 @@ public class Intake extends SubsystemBase {
     applyRetractMotionConfig();
     deployCommanded = false;
     movingFirstCycle = true;
-    deployState = DeployState.MOVING;
+    deployState = DeployState.RETRACTING;
     io.setDeployPosition(deployStowedPos.get());
   }
 
@@ -338,7 +342,7 @@ public class Intake extends SubsystemBase {
     io.setDeployBrakeMode(true);
     deployCommanded = false;
     rollersPending = false;
-    deployState = DeployState.IDLE;
+    deployState = DeployState.RETRACTED;
     brakeTimer.stop();
   }
 
@@ -521,9 +525,9 @@ public class Intake extends SubsystemBase {
     return inputs.rollerCurrentAmps;
   }
 
-  /** Check if the deploy state machine is idle (no motion in progress). */
-  public boolean isDeployIdle() {
-    return deployState == DeployState.IDLE;
+  /** Check if the deploy is settled (deployed or retracted, no motion in progress). */
+  public boolean isDeploySettled() {
+    return deployState == DeployState.DEPLOYED || deployState == DeployState.RETRACTED;
   }
 
   /**
@@ -567,7 +571,7 @@ public class Intake extends SubsystemBase {
                                   applyAgitationConfig();
                                   io.setDeployBrakeMode(false);
                                   io.setDeployPosition(agitationRetractTarget.get());
-                                  deployState = DeployState.IDLE;
+                                  deployState = DeployState.DEPLOYED;
                                   setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
                                   agitationTimer.restart();
                                 }),
@@ -619,7 +623,7 @@ public class Intake extends SubsystemBase {
                 // Was retracted before agitation — go straight to retract hold
                 applyRetractMotionConfig();
                 io.setDeployPosition(deployStowedPosition);
-                deployState = DeployState.HOLDING;
+                deployState = DeployState.RETRACTED;
               }
             })
         .withName("Intake: Agitate");
