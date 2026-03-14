@@ -544,14 +544,14 @@ public class ShootingCommands {
                         motivator)
                     : Commands.none(),
 
-                // Run spindexer to feed fuel (gated on turret alignment)
+                // Run spindexer to feed fuel (gated on turret alignment, reciprocate while waiting)
                 spindexer != null
                     ? Commands.run(
                         () -> {
                           if (turret.atTarget()) {
                             spindexer.setSpindexerVelocity(spindexerRPMSupplier.getAsDouble());
                           } else {
-                            spindexer.stopSpindexer();
+                            spindexer.reciprocate();
                           }
                           Logger.recordOutput("FixedShot/FeedingSuppressed", !turret.atTarget());
                         },
@@ -814,7 +814,8 @@ public class ShootingCommands {
                         motivator)
                     : Commands.none(),
 
-                // Run spindexer to feed fuel (gated on turret alignment + optionally robot speed)
+                // Run spindexer to feed fuel (gated on turret alignment + optionally robot speed,
+                // reciprocate while waiting)
                 spindexer != null
                     ? Commands.run(
                         () -> {
@@ -825,7 +826,7 @@ public class ShootingCommands {
                             double spnRPM = smartShotSpindexerRPM.get();
                             spindexer.setSpindexerVelocity(spnRPM);
                           } else {
-                            spindexer.stopSpindexer();
+                            spindexer.reciprocate();
                           }
                           Logger.recordOutput("SmartLaunch/FeedingSuppressed", !feedOk);
                         },
