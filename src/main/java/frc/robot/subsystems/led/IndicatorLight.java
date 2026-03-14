@@ -60,6 +60,7 @@ public class IndicatorLight extends SubsystemBase {
   private int currentSaturation = 100;
   private boolean forward = true;
   private int counter = 0;
+  private int periodicCycleCount = 0;
   private double lastTime = 0.0;
   private double blinkTime = 0.0;
   private boolean on = false;
@@ -162,28 +163,36 @@ public class IndicatorLight extends SubsystemBase {
     LightMode mode = lightModeChooser.getSelected();
     if (mode == null) mode = LightMode.MATCH;
 
+    periodicCycleCount++;
+
     // Disabled RSL shows in all modes
     if (DriverStation.isDisabled()) {
       LED_State = LED_EFFECTS.RSL;
       doRsl();
-      publishLEDColors();
-      Logger.recordOutput("LED/Pattern", LED_State.toString());
+      if (periodicCycleCount % 10 == 0) {
+        publishLEDColors();
+        Logger.recordOutput("LED/Pattern", LED_State.toString());
+      }
       return;
     }
 
     if (mode == LightMode.OFF) {
       LED_State = LED_EFFECTS.BLACK;
       setActiveBuffer(wlBlackLEDBuffer);
-      publishLEDColors();
-      Logger.recordOutput("LED/Pattern", LED_State.toString());
+      if (periodicCycleCount % 10 == 0) {
+        publishLEDColors();
+        Logger.recordOutput("LED/Pattern", LED_State.toString());
+      }
       return;
     }
 
     if (mode == LightMode.PIT) {
       LED_State = LED_EFFECTS.BLUEOMBRE;
       doBlueOmbre();
-      publishLEDColors();
-      Logger.recordOutput("LED/Pattern", LED_State.toString());
+      if (periodicCycleCount % 10 == 0) {
+        publishLEDColors();
+        Logger.recordOutput("LED/Pattern", LED_State.toString());
+      }
       return;
     }
 
@@ -219,8 +228,11 @@ public class IndicatorLight extends SubsystemBase {
       default -> {}
     }
 
-    publishLEDColors();
-    Logger.recordOutput("LED/Pattern", LED_State.toString());
+    // Throttle dashboard publishing to ~5Hz to reduce loop time
+    if (periodicCycleCount % 10 == 0) {
+      publishLEDColors();
+      Logger.recordOutput("LED/Pattern", LED_State.toString());
+    }
   }
 
   /** Publish LED colors to NetworkTables for Elastic Multi Color View widget. */

@@ -35,8 +35,8 @@ public class Launcher extends SubsystemBase {
 
   private static final LoggedTunableNumber recoveryKpBoost =
       new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.0);
-  private static final LoggedTunableNumber recoveryArbFF =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryArbFFVolts", 3.2);
+  private static final LoggedTunableNumber recoveryArbFFPct =
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryArbFFPct", 1.0);
 
   // IZone: integral only accumulates when error is below this threshold (motor RPM).
   // Prevents windup during spin-up while allowing kI to eliminate steady-state error.
@@ -189,7 +189,15 @@ public class Launcher extends SubsystemBase {
     }
     Logger.recordOutput("Launcher/RecoveryActive", recoveryActive);
 
-    io.setVelocity(velocityRPM, recoveryActive, recoveryArbFF.get());
+    // Compute recovery arbFF voltage proportional to target RPM's steady-state FF.
+    // FF voltage ≈ kS + kV * motorRPM. Scale by tunable percentage.
+    double gearRatio = Constants.getRobotConfig().getLauncherGearRatio();
+    double motorRPM = velocityRPM / gearRatio;
+    double steadyStateFF = kS.get() + kV.get() * motorRPM;
+    double recoveryArbFFVolts = recoveryActive ? recoveryArbFFPct.get() * steadyStateFF : 0.0;
+    Logger.recordOutput("Launcher/RecoveryArbFF", recoveryArbFFVolts);
+
+    io.setVelocity(velocityRPM, recoveryActive, recoveryArbFFVolts);
     ShotCalculator.setTargetLauncherRPM(velocityRPM);
   }
 

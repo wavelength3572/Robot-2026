@@ -259,13 +259,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
     ClosedLoopSlot slot = recoveryActive ? ClosedLoopSlot.kSlot1 : ClosedLoopSlot.kSlot0;
     Logger.recordOutput("Launcher/UsingRecoveryPID", recoveryActive);
 
-    // Arbitrary feedforward: raw voltage added on top of PID+FF output.
-    // Applied when recovery is active to give a flat voltage kick without kP oscillation.
-    double arbFF = recoveryActive ? recoveryArbFF : 0.0;
-    Logger.recordOutput("Launcher/RecoveryArbFF", arbFF);
-
     // kVelocity with onboard kS/kV: PID + FF + arbFF all run at 1kHz on SparkFlex.
-    leaderController.setSetpoint(motorRPM, ControlType.kVelocity, slot, arbFF);
+    // recoveryArbFF is pre-computed by Launcher.java proportional to target RPM.
+    leaderController.setSetpoint(motorRPM, ControlType.kVelocity, slot, recoveryArbFF);
   }
 
   @Override
