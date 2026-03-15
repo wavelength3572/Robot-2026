@@ -146,7 +146,7 @@ public class ShootingCommands {
   // ===== Launcher RPM Trim =====
 
   // Trim value added to all launcher RPM targets. Adjusted via button box 1 axis knob.
-  // Knob positions: (0,-1)=neutral, (0,1)=-100, (-1,1)=+100, (1,1)=+300
+  // Knob positions: (0,-1)=neutral, (0,1)=-50, (-1,1)=+50, (1,1)=+100
   private static double launcherTrimRPM = 0.0;
 
   /**

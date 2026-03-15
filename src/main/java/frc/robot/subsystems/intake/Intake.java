@@ -9,6 +9,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
+import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -67,6 +68,7 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber agitationRetractOutputLimit;
   private static final LoggedTunableNumber agitationMaxVelocity;
   private static final LoggedTunableNumber agitationMaxAcceleration;
+  private static final LoggedTunableNumber agitationStationaryDwellSec;
 
   static {
     RobotConfig config = Constants.getRobotConfig();
@@ -122,6 +124,8 @@ public class Intake extends SubsystemBase {
     agitationFallTime = new LoggedTunableNumber("Tuning/Intake/Agitation/FallTimeSec", 0.2);
     agitationSpeedThreshold =
         new LoggedTunableNumber("Tuning/Intake/Agitation/SpeedThresholdMps", 0.3);
+    agitationStationaryDwellSec =
+        new LoggedTunableNumber("Tuning/Intake/Agitation/StationaryDwellSec", 0.5);
     // Shared
     rollerMinDeployPosition =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", 0.05);
@@ -324,6 +328,12 @@ public class Intake extends SubsystemBase {
 
   /** Deploy the intake (extend). Stops motor first for clean retarget. */
   public void deploy() {
+    // Already deployed or deploying — don't restart the sequence
+    if (deployState == DeployState.DEPLOYING
+        || deployState == DeployState.DEPLOY_SETTLING
+        || deployState == DeployState.DEPLOYED) {
+      return;
+    }
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
     io.setDeployBrakeMode(false); // Coast mode while PID is driving
     applyDeployMotionConfig();
@@ -573,11 +583,28 @@ public class Intake extends SubsystemBase {
         -Math.abs(retractOutputLimit.get()), Math.abs(deployOutputLimit.get()));
   }
 
-  public Command agitateCommand(DoubleSupplier rollerRPM) {
+  /**
+   * @param rollerRPM Supplier for roller velocity in RPM
+   * @param intakeActive Supplier that returns true when the deploy button is held (actively
+   *     intaking). While true, agitation is suppressed — the arm stays put and only rollers run.
+   * @return Command that agitates until cancelled
+   */
+  public Command agitateCommand(DoubleSupplier rollerRPM, BooleanSupplier intakeActive) {
     Timer agitationTimer = new Timer();
+    Timer stationaryTimer = new Timer();
     // Remember pre-agitation state so we can restore it when done
     boolean[] wasDeployed = {false};
-    return runOnce(() -> wasDeployed[0] = deployCommanded)
+    // NOTE: This command intentionally does NOT require the intake subsystem
+    // (uses Commands.runOnce/run instead of this.runOnce/run) so it can coexist
+    // with Button 4's deploy+roller command. When intakeActive is true, this
+    // command idles in Phase 1 without touching any motors, letting Button 4
+    // retain full control. When intakeActive becomes false, this command takes
+    // over the deploy motor for agitation.
+    return Commands.runOnce(
+            () -> {
+              wasDeployed[0] = deployCommanded;
+              stationaryTimer.restart();
+            })
         .andThen(
             Commands.waitUntil(
                     () ->
@@ -585,40 +612,71 @@ public class Intake extends SubsystemBase {
                             >= deployExtendedPos.get() - deployTolerance.get())
                 .andThen(
                     Commands.sequence(
-                            // UP phase: MAXMotion position control retracts against gravity
-                            runOnce(
-                                () -> {
-                                  applyAgitationConfig();
-                                  io.setDeployBrakeMode(false);
-                                  io.setDeployPosition(agitationRetractTarget.get());
-                                  deployState = DeployState.AGITATING;
-                                  setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
-                                  agitationTimer.restart();
-                                }),
-                            Commands.waitUntil(
-                                () ->
-                                    Math.abs(
-                                                inputs.deployPositionRotations
-                                                    - agitationRetractTarget.get())
-                                            <= deployTolerance.get()
-                                        || agitationTimer.hasElapsed(agitationTimeoutSec.get())),
-                            // DOWN phase — coast sub-phase: motor off, coast mode, gravity gets arm
-                            // moving
-                            runOnce(
-                                () -> {
-                                  restoreNormalDeployConfig();
-                                  io.disableDeploy();
-                                  io.setDeployBrakeMode(false);
-                                }),
-                            Commands.waitSeconds(agitationCoastTimeSec.get()),
-                            // DOWN phase — brake sub-phase: back-EMF braking decelerates the arm
-                            runOnce(() -> io.setDeployBrakeMode(true)),
-                            Commands.waitSeconds(
-                                Math.max(0, agitationFallTime.get() - agitationCoastTimeSec.get())))
-                        .repeatedly()
-                        .onlyWhile(
-                            () ->
-                                robotVelocitySupplier.getAsDouble() < agitationSpeedThreshold.get())
+                            // Phase 1: Wait until intake button is released AND robot has been
+                            // stationary for the dwell period. Any movement or active intaking
+                            // resets the timer.
+                            Commands.runOnce(stationaryTimer::restart),
+                            Commands.run(
+                                    () -> {
+                                      if (intakeActive.getAsBoolean()
+                                          || Math.abs(robotVelocitySupplier.getAsDouble())
+                                              >= agitationSpeedThreshold.get()) {
+                                        stationaryTimer.restart();
+                                      }
+                                    })
+                                .until(
+                                    () ->
+                                        stationaryTimer.hasElapsed(
+                                            agitationStationaryDwellSec.get())),
+                            // Phase 2: Agitation cycles — run while stationary and not intaking
+                            Commands.sequence(
+                                    // UP phase: MAXMotion position control retracts against gravity
+                                    Commands.runOnce(
+                                        () -> {
+                                          applyAgitationConfig();
+                                          io.setDeployBrakeMode(false);
+                                          io.setDeployPosition(agitationRetractTarget.get());
+                                          deployState = DeployState.AGITATING;
+                                          setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
+                                          agitationTimer.restart();
+                                        }),
+                                    Commands.waitUntil(
+                                        () ->
+                                            Math.abs(
+                                                        inputs.deployPositionRotations
+                                                            - agitationRetractTarget.get())
+                                                    <= deployTolerance.get()
+                                                || agitationTimer.hasElapsed(
+                                                    agitationTimeoutSec.get())),
+                                    // DOWN phase — coast: motor off, coast mode, gravity pulls arm
+                                    Commands.runOnce(
+                                        () -> {
+                                          restoreNormalDeployConfig();
+                                          io.disableDeploy();
+                                          io.setDeployBrakeMode(false);
+                                        }),
+                                    Commands.waitSeconds(agitationCoastTimeSec.get()),
+                                    // DOWN phase — brake: back-EMF braking decelerates the arm
+                                    Commands.runOnce(() -> io.setDeployBrakeMode(true)),
+                                    Commands.waitSeconds(
+                                        Math.max(
+                                            0,
+                                            agitationFallTime.get() - agitationCoastTimeSec.get())))
+                                .repeatedly()
+                                .onlyWhile(
+                                    () ->
+                                        !intakeActive.getAsBoolean()
+                                            && Math.abs(robotVelocitySupplier.getAsDouble())
+                                                < agitationSpeedThreshold.get())
+                                .finallyDo(
+                                    () -> {
+                                      // Agitation interrupted — send arm back to deployed position
+                                      // so it's not left dangling mid-cycle
+                                      restoreNormalDeployConfig();
+                                      deploy();
+                                    }))
+                        // Repeat: if robot moves or intake button pressed mid-agitation,
+                        // go back to waiting for release + full stationary dwell
                         .repeatedly()))
         .finallyDo(
             () -> {

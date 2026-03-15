@@ -40,13 +40,16 @@ public final class ShotTableConstants {
     {2.200, 2600, 15.5, 1.161},
     {2.500, 2750, 15.5, 1.175},
     {2.818, 2894, 15.5, 1.19}, // interpolated
-    {3.07, 2974, 16.0, 1.22}, // measured
-    {3.25, 3031, 16.5, 1.23}, // smoothed (measured 1.133)
+    {3.07, 2875, 16.0, 1.22}, // measured
+    {3.25, 2984, 16.5, 1.23}, // smoothed (measured 1.133)
 
     // Long range
-    {3.63, 3150, 18.0, 1.26}, // smoothed (measured 1.509)
-    {3.85, 3220, 20.0, 1.28}, // smoothed (measured 1.127)
-    {5.347, 3692, 39.0, 1.41}, // measured
+    {3.63, 3200, 17.0, 1.26}, // smoothed (measured 1.509)
+    {3.9, 2950, 20.0, 1.28}, // smoothed (measured 1.127)
+    {4.28, 2950, 25.0, 1.28}, // smoothed (measured 1.127)
+    {4.615, 3000, 29.0, 1.28}, // smoothed (measured 1.127)
+    {5.025, 3000, 35.0, 1.28}, // smoothed (measured 1.127)
+    {5.355, 3000, 38.0, 1.41}, // measured
   };
   // clang-format on
 

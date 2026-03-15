@@ -133,25 +133,25 @@ public class ButtonsAndDashboardBindings {
 
     // Launcher RPM trim buttons (mirrors button box axis knob positions)
     SmartDashboard.putData(
-        "Trim/SetMinus100",
-        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(-100.0))
+        "Trim/SetMinus50",
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(-50.0))
             .ignoringDisable(true)
-            .withName("Trim -100"));
+            .withName("Trim -50"));
     SmartDashboard.putData(
         "Trim/SetZero",
         Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(0.0))
             .ignoringDisable(true)
             .withName("Trim 0"));
     SmartDashboard.putData(
+        "Trim/SetPlus50",
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(50.0))
+            .ignoringDisable(true)
+            .withName("Trim +50"));
+    SmartDashboard.putData(
         "Trim/SetPlus100",
         Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(100.0))
             .ignoringDisable(true)
             .withName("Trim +100"));
-    SmartDashboard.putData(
-        "Trim/SetPlus300",
-        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(300.0))
-            .ignoringDisable(true)
-            .withName("Trim +300"));
 
     // Coordinated shooting controls (requires coordinator and launcher)
     if (shootingCoordinator != null && launcher != null) {
@@ -430,7 +430,9 @@ public class ButtonsAndDashboardBindings {
               smartLaunchReqs);
       if (intake != null) {
         smartLaunchCmd =
-            smartLaunchCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
+            smartLaunchCmd.alongWith(
+                intake.agitateCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
       oi.getButtonBox1Button12().whileTrue(smartLaunchCmd);
 
@@ -441,31 +443,31 @@ public class ButtonsAndDashboardBindings {
     }
 
     // Launcher RPM trim — button box 1 axis knob (4 positions)
-    // Axis values: -100 = (0,1), neutral = (0,-1), +100 = (-1,1), +300 = (1,1)
+    // Axis values: -50 = (0,1), neutral = (0,-1), +50 = (-1,1), +100 = (1,1)
     // Three positions share Y+=1, so we use combo triggers to distinguish them.
     Trigger yPos = oi.getButtonBox1YAxisPositive();
     Trigger yNeg = oi.getButtonBox1YAxisNegative();
     Trigger xNeg = oi.getButtonBox1XAxisNegative();
     Trigger xPos = oi.getButtonBox1XAxisPositive();
 
-    // -100 RPM: axis (0, 1) — Y+ without X
+    // -50 RPM: axis (0, 1) — Y+ without X
     yPos.and(xNeg.negate())
         .and(xPos.negate())
         .onTrue(
-            Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(-100.0))
+            Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(-50.0))
                 .ignoringDisable(true));
     // 0 (neutral): axis (0, -1) — Y- only
     yNeg.onTrue(
         Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(0.0)).ignoringDisable(true));
-    // +100 RPM: axis (-1, 1) — X- and Y+
+    // +50 RPM: axis (-1, 1) — X- and Y+
     xNeg.and(yPos)
         .onTrue(
-            Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(100.0))
+            Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(50.0))
                 .ignoringDisable(true));
-    // +300 RPM: axis (1, 1) — X+ and Y+
+    // +100 RPM: axis (1, 1) — X+ and Y+
     xPos.and(yPos)
         .onTrue(
-            Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(300.0))
+            Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(100.0))
                 .ignoringDisable(true));
 
     // Hub shot: Button 8 — fixed position launch for close-range hub shots
@@ -474,7 +476,10 @@ public class ButtonsAndDashboardBindings {
           ShootingCommands.hubShotCommand(
               launcher, shootingCoordinator, motivator, turret, hood, spindexer);
       if (intake != null) {
-        hubShotCmd = hubShotCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
+        hubShotCmd =
+            hubShotCmd.alongWith(
+                intake.agitateCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
       oi.getButtonBox1Button8().whileTrue(hubShotCmd);
 
@@ -484,7 +489,9 @@ public class ButtonsAndDashboardBindings {
               launcher, shootingCoordinator, motivator, turret, hood, spindexer);
       if (intake != null) {
         leftTrenchCmd =
-            leftTrenchCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
+            leftTrenchCmd.alongWith(
+                intake.agitateCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
       oi.getButtonBox1Button5().whileTrue(leftTrenchCmd);
 
@@ -494,7 +501,9 @@ public class ButtonsAndDashboardBindings {
               launcher, shootingCoordinator, motivator, turret, hood, spindexer);
       if (intake != null) {
         rightTrenchCmd =
-            rightTrenchCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
+            rightTrenchCmd.alongWith(
+                intake.agitateCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
       oi.getButtonBox1Button6().whileTrue(rightTrenchCmd);
     }
