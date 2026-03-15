@@ -179,44 +179,22 @@ aren't already exposed in inputs.
 
 ---
 
-## Change 5: Launcher Position Transform
+## ~~Change 5: Launcher Position Transform~~ — ALREADY IMPLEMENTED
 
-**Problem:** Your shot calculator computes distance from the robot center to the
-hub. The ball actually launches from the turret/launcher, which is offset from
-center and moves with turret rotation. At close range this offset matters —
-it's potentially 8+ inches of error.
+**Status:** Your code already does this. `ShotCalculator.getTurretFieldPosition()`
+(line 267) and `Turret.calculateOutsideTurretAngleFromTurret()` (line 233) both
+rotate `xOffset/yOffset` by robot heading. The `TurretConfig` record carries
+`heightMeters`, `xOffset`, and `yOffset`, and every distance calculation in
+`ShotCalculator` uses the transformed turret position, not robot center.
 
-**What 5962 does:** Rotates the launcher offset by robot heading and adds to pose:
-```java
-launcherX = robotX + offsetX*cos(h) - offsetY*sin(h);
-launcherY = robotY + offsetX*sin(h) + offsetY*cos(h);
-```
-They also compute the launcher's velocity including the rotational component:
-```java
-vx += (-offsetY_field) * omega;
-vy += (+offsetX_field) * omega;
-```
-
-**Proposed change in `ShotCalculator`:**
-
-1. Add launcher offset constants to `RobotConfig`:
-   ```java
-   double getLauncherOffsetX(); // meters forward of center
-   double getLauncherOffsetY(); // meters left of center
-   ```
-2. In `calculateShotToHub()`, transform robot pose to launcher pose using
-   heading + turret angle
-3. Add rotational velocity component to the field velocity used for compensation
-4. Use the transformed position for distance calculation and aim angle
-
-**Files touched:** `ShotCalculator.java`, `RobotConfig.java`, `MainBotConfig.java`
-**Risk:** Low-medium — changes distance calculation. Easy to A/B test by toggling
-the offset to zero.
-**Tuning:** Two constants from CAD measurements. Not runtime-tunable (fixed geometry).
+**One minor gap:** 5962 also adds the rotational velocity component to the field
+velocity (`vx += -offsetY_field * omega`). This is a small effect at typical
+offsets and will be naturally incorporated as part of the Newton solver work
+(Change 3) if you choose to include it there. Not worth a separate change.
 
 ---
 
-## Change 6: Speed Gate for Shot Validity
+## Change 5: Speed Gate for Shot Validity
 
 **Problem:** Your auto-shoot has a single speed gate (`maxFeedSpeedMps = 1.75 m/s`)
 that suppresses feeding. But there's no upper bound that invalidates the shot
@@ -249,56 +227,49 @@ This creates three zones:
 
 ---
 
-## Change 7: Angular Velocity Feedforward for Drive Heading
+## ~~Change 7: Angular Velocity Feedforward for Turret~~ — DROPPED (Safety Concern)
 
-**Problem:** When shooting on the move, the robot needs to maintain a specific
-field-relative heading (aim angle). Your swerve heading controller reacts to
-error, but doesn't anticipate the rate at which the aim angle changes as the
-robot moves past the hub.
+**Why it's dropped:** On closer inspection, this is the riskiest proposed change:
 
-**What 5962 does:** Computes the angular rate of the aim angle geometrically:
-```java
-// tangentialVel = cross product of relative position and velocity, divided by distance
-tangentialVel = (ry*vx - rx*vy) / distance;
-aimAngularRate = tangentialVel / distance;
-```
-This is output alongside the aim angle so the swerve heading controller can
-use it as a feedforward term.
+1. **5962 doesn't actually do turret FF either.** Their `driveAngularVelocityRadPerSec`
+   is a feedforward for the *swerve heading controller* (whole robot rotation),
+   not an independent turret motor. Their turret aiming is position-only, same as yours.
 
-**Proposed change:**
+2. **Turret FF failure modes are dangerous.** Your `setOutsideTurretAngle()` sends
+   position commands with soft-limit clamping. A velocity feedforward bypasses that
+   protection — if the FF calculation spikes (noisy velocity data, sign error, NaN),
+   it commands the turret to spin into the hard stops, potentially damaging wiring,
+   the slip ring, or the frame.
 
-1. Compute `aimAngularVelocityRadPerSec` in `ShotCalculator` alongside the
-   turret angle
-2. Pass it through `ShotResult` to `ShootingCoordinator`
-3. Feed it to the turret as a velocity feedforward term (supplement PD control)
+3. **The real gains come from better target prediction.** Changes 1 (second-order
+   latency comp) and 3 (Newton solver) reduce the *error* the PD loop needs to
+   chase. Your PD loop tracks position well enough — the problem is predicting the
+   *right* position, not tracking faster.
 
-This is especially valuable for your turret — PD-only control (no integral,
-no feedforward) means you're always chasing the target. A feedforward term
-lets the turret lead the target during SOTM.
-
-**Files touched:** `ShotCalculator.java`, `ShootingCoordinator.java`, `Turret.java`
-**Risk:** Low — feedforward is additive to existing PD. Set coefficient to 0 to disable.
-**Tuning:** Feedforward gain as `LoggedTunableNumber`.
+**If you revisit this later:** The safe way would be to compute the expected
+turret angular rate and feed it as an *additive voltage* (not velocity command)
+with a hard clamp (e.g., ±1V max). But that's a future experiment, not something
+to ship alongside the other changes.
 
 ---
 
-## Implementation Priority
+## Implementation Priority (Revised)
 
 | Priority | Change | Impact | Risk | Effort |
 |----------|--------|--------|------|--------|
 | **1** | Tilt gate (#4) | Safety | Very low | Small |
-| **2** | Speed gate (#6) | Safety + reliability | Very low | Small |
+| **2** | Speed gate (#5) | Safety + reliability | Very low | Small |
 | **3** | Confidence scoring (#2) | Shot selection quality | Low | Medium |
 | **4** | Second-order latency comp (#1) | Accuracy during accel/decel | Low | Small |
-| **5** | Launcher position transform (#5) | Close-range accuracy | Low-med | Small |
-| **6** | Angular velocity feedforward (#7) | Turret tracking during SOTM | Low | Medium |
-| **7** | Newton-Raphson solver (#3) | SOTM convergence + drag modeling | Medium | Large |
+| **5** | Newton-Raphson solver (#3) | SOTM convergence + drag modeling | Medium | Large |
+
+~~#5 (Launcher position transform)~~ — Already implemented in your codebase.
+~~#7 (Turret angular velocity FF)~~ — Dropped due to safety risk.
 
 Recommended approach: Ship changes 1–2 immediately (safety nets, minimal risk).
 Develop 3–4 together (they complement each other — confidence scoring uses the
-improved pose prediction). Changes 5–7 are the SOTM accuracy package and should
-be developed and tested as a group, ideally with the old 3-iteration solver
-available as a fallback toggle.
+improved pose prediction). Change 5 (Newton solver) is the big accuracy win and
+should be developed with the old 3-iteration solver available as a fallback toggle.
 
 ---
 
