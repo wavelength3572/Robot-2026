@@ -58,6 +58,9 @@ public class Vision extends SubsystemBase {
 
   private final Map<Integer, Double> aprilTagTimestamps = new ConcurrentHashMap<>();
 
+  // Throttle counter for summary/camera viz logging (visualization only, not control)
+  private int visionLogCounter = 0;
+
   // Debug toggle: when true, per-observation rejection and std dev diagnostics are logged.
   // Default false for competition performance; enable via SmartDashboard for debugging.
   private static final String VERBOSE_VISION_KEY = "Debug/VerboseVisionLogging";
@@ -360,69 +363,73 @@ public class Vision extends SubsystemBase {
       allRobotPosesRejected.addAll(robotPosesRejected);
     }
 
-    // Log summary data
-    Logger.recordOutput(
-        "Vision/Summary/TagPoses", allTagPoses.toArray(new Pose3d[allTagPoses.size()]));
-    Logger.recordOutput(
-        "Vision/Summary/RobotPoses", allRobotPoses.toArray(new Pose3d[allRobotPoses.size()]));
-    Logger.recordOutput(
-        "Vision/Summary/RobotPosesAccepted",
-        allRobotPosesAccepted.toArray(new Pose3d[allRobotPosesAccepted.size()]));
-    Logger.recordOutput(
-        "Vision/Summary/RobotPosesRejected",
-        allRobotPosesRejected.toArray(new Pose3d[allRobotPosesRejected.size()]));
+    // Throttle summary + camera viz logging to ~10Hz (pure visualization, not control)
+    visionLogCounter++;
+    if (visionLogCounter % 5 == 0) {
+      // Log summary data
+      Logger.recordOutput(
+          "Vision/Summary/TagPoses", allTagPoses.toArray(new Pose3d[allTagPoses.size()]));
+      Logger.recordOutput(
+          "Vision/Summary/RobotPoses", allRobotPoses.toArray(new Pose3d[allRobotPoses.size()]));
+      Logger.recordOutput(
+          "Vision/Summary/RobotPosesAccepted",
+          allRobotPosesAccepted.toArray(new Pose3d[allRobotPosesAccepted.size()]));
+      Logger.recordOutput(
+          "Vision/Summary/RobotPosesRejected",
+          allRobotPosesRejected.toArray(new Pose3d[allRobotPosesRejected.size()]));
 
-    // Log contributing tags per camera (verbose — gated for performance)
-    if (verboseLogging) {
-      for (int i = 0; i < io.length; i++) {
-        Logger.recordOutput(
-            "Vision/Summary/" + cameraNames[i] + "/ContributingTags",
-            perCameraContributingTags
-                .get(i)
-                .toArray(new Pose3d[perCameraContributingTags.get(i).size()]));
+      // Log contributing tags per camera (verbose — gated for performance)
+      if (verboseLogging) {
+        for (int i = 0; i < io.length; i++) {
+          Logger.recordOutput(
+              "Vision/Summary/" + cameraNames[i] + "/ContributingTags",
+              perCameraContributingTags
+                  .get(i)
+                  .toArray(new Pose3d[perCameraContributingTags.get(i).size()]));
+        }
       }
-    }
 
-    // New logging: Tags used for accepted/rejected poses (gated for performance)
-    if (verboseLogging) {
+      // Tags used for accepted/rejected poses (verbose — gated for performance)
+      if (verboseLogging) {
+        Logger.recordOutput(
+            "Vision/Summary/TagPosesAccepted",
+            tagPosesAccepted.toArray(new Pose3d[tagPosesAccepted.size()]));
+        Logger.recordOutput(
+            "Vision/Summary/TagPosesRejected",
+            tagPosesRejected.toArray(new Pose3d[tagPosesRejected.size()]));
+      }
+
+      // Camera visualization (transforms cameras to world coordinates)
+      Pose2d currentRobotPose = RobotStatus.getRobotPose();
+      Pose3d robotPose3d = new Pose3d(currentRobotPose);
+
+      // Select camera transforms based on robot type
+      Transform3d centerRearCamTransform;
+      Transform3d rightFrontCamTransform;
+      Transform3d leftRearCamTransform;
+      Transform3d rightRearCamTransform;
+      if (frc.robot.Constants.currentRobot == frc.robot.Constants.RobotType.MAINBOT) {
+        centerRearCamTransform = VisionConstants.mainBotToCenterRearCam;
+        rightFrontCamTransform = VisionConstants.mainBotToRightFrontCam;
+        leftRearCamTransform = VisionConstants.mainBotToLeftRearCam;
+        rightRearCamTransform = VisionConstants.mainBotToRightRearCam;
+      } else {
+        centerRearCamTransform = robotToCenterRearCam;
+        rightFrontCamTransform = robotToRightFrontCam;
+        leftRearCamTransform = robotToLeftRearCam;
+        rightRearCamTransform = robotToRightRearCam;
+      }
+
+      // Log all cameras as array for combined visualization
+      Pose3d centerRearPose = robotPose3d.transformBy(centerRearCamTransform);
+      Pose3d rightFrontPose = robotPose3d.transformBy(rightFrontCamTransform);
+      Pose3d leftRearPose = robotPose3d.transformBy(leftRearCamTransform);
+      Pose3d rightRearPose = robotPose3d.transformBy(rightRearCamTransform);
+
       Logger.recordOutput(
-          "Vision/Summary/TagPosesAccepted",
-          tagPosesAccepted.toArray(new Pose3d[tagPosesAccepted.size()]));
-      Logger.recordOutput(
-          "Vision/Summary/TagPosesRejected",
-          tagPosesRejected.toArray(new Pose3d[tagPosesRejected.size()]));
+          "Vision/CameraViz/AllCameras",
+          new Pose3d[] {centerRearPose, rightFrontPose, leftRearPose, rightRearPose});
     }
-
-    // Get robot pose for camera visualization (transforms cameras to world coordinates)
-    Pose2d currentRobotPose = RobotStatus.getRobotPose();
-    Pose3d robotPose3d = new Pose3d(currentRobotPose);
-
-    // Select camera transforms based on robot type
-    Transform3d centerRearCamTransform;
-    Transform3d rightFrontCamTransform;
-    Transform3d leftRearCamTransform;
-    Transform3d rightRearCamTransform;
-    if (frc.robot.Constants.currentRobot == frc.robot.Constants.RobotType.MAINBOT) {
-      centerRearCamTransform = VisionConstants.mainBotToCenterRearCam;
-      rightFrontCamTransform = VisionConstants.mainBotToRightFrontCam;
-      leftRearCamTransform = VisionConstants.mainBotToLeftRearCam;
-      rightRearCamTransform = VisionConstants.mainBotToRightRearCam;
-    } else {
-      centerRearCamTransform = robotToCenterRearCam;
-      rightFrontCamTransform = robotToRightFrontCam;
-      leftRearCamTransform = robotToLeftRearCam;
-      rightRearCamTransform = robotToRightRearCam;
-    }
-
-    // Log all cameras as array for combined visualization
-    Pose3d centerRearPose = robotPose3d.transformBy(centerRearCamTransform);
-    Pose3d rightFrontPose = robotPose3d.transformBy(rightFrontCamTransform);
-    Pose3d leftRearPose = robotPose3d.transformBy(leftRearCamTransform);
-    Pose3d rightRearPose = robotPose3d.transformBy(rightRearCamTransform);
-
-    Logger.recordOutput(
-        "Vision/CameraViz/AllCameras",
-        new Pose3d[] {centerRearPose, rightFrontPose, leftRearPose, rightRearPose});
   }
 
   @FunctionalInterface

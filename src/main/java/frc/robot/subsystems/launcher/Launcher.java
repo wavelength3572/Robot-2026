@@ -113,6 +113,8 @@ public class Launcher extends SubsystemBase {
     io.setVelocityTolerance(velocityToleranceRPM.get());
   }
 
+  private int launcherLogCounter = 0;
+
   @Override
   public void periodic() {
     io.updateInputs(inputs);
@@ -121,29 +123,27 @@ public class Launcher extends SubsystemBase {
     // Update ShotCalculator with current wheel RPM for trajectory calculations
     ShotCalculator.setLauncherRPM(inputs.wheelVelocityRPM);
 
-    // Log velocity error
-    double velocityError = inputs.targetVelocityRPM - inputs.wheelVelocityRPM;
-    Logger.recordOutput("Launcher/velocityError", velocityError);
-
     // Safety: detect velocity mismatch between motors
-    // Both encoders read motor RPM, so compare directly
     double velocityMismatch =
         Math.abs(Math.abs(inputs.leaderVelocityRPM) - Math.abs(inputs.followerVelocityRPM));
-    Logger.recordOutput("Launcher/velocityMismatch", velocityMismatch);
-
-    // Alert if mismatch exceeds threshold while running
     boolean mismatchAlert =
         velocityMismatch > VELOCITY_MISMATCH_THRESHOLD_RPM && inputs.targetVelocityRPM > 100;
-    Logger.recordOutput("Launcher/velocityMismatchAlert", mismatchAlert);
 
-    if (mismatchAlert) {
-      Logger.recordOutput(
-          "Launcher/velocityMismatchMessage",
-          "Velocity mismatch! Leader: "
-              + inputs.leaderVelocityRPM
-              + " RPM, Follower: "
-              + inputs.followerVelocityRPM
-              + " RPM");
+    // Throttle diagnostic logging to ~10Hz to reduce NT traffic
+    if (++launcherLogCounter % 5 == 0) {
+      double velocityError = inputs.targetVelocityRPM - inputs.wheelVelocityRPM;
+      Logger.recordOutput("Launcher/velocityError", velocityError);
+      Logger.recordOutput("Launcher/velocityMismatch", velocityMismatch);
+      Logger.recordOutput("Launcher/velocityMismatchAlert", mismatchAlert);
+      if (mismatchAlert) {
+        Logger.recordOutput(
+            "Launcher/velocityMismatchMessage",
+            "Velocity mismatch! Leader: "
+                + inputs.leaderVelocityRPM
+                + " RPM, Follower: "
+                + inputs.followerVelocityRPM
+                + " RPM");
+      }
     }
 
     // Push tunable changes to IO

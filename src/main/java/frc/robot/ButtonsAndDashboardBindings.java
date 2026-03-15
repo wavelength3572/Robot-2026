@@ -18,7 +18,6 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.shooting.ShotCalculator;
-import frc.robot.subsystems.shooting.ShotVisualizer;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.vision.Vision;
@@ -359,9 +358,6 @@ public class ButtonsAndDashboardBindings {
         intake.deployAndRunCommand(testIntakeRPM::get));
   }
 
-  /** Whether the what-if trajectory arc is currently displayed. */
-  private static boolean whatIfVisible = false;
-
   /**
    * Configure trajectory calculator controls on the dashboard. Two independent tools:
    *
@@ -372,33 +368,6 @@ public class ButtonsAndDashboardBindings {
    * loop auto-computes the optimized trajectory, then read back the resulting RPM and hood angle.
    */
   private static void configureShotCalculator() {
-    // === What-If: hypothetical trajectory for arbitrary RPM + hood angle ===
-    SmartDashboard.putNumber("TrajectoryCalculators/WhatIf/RPM", 2500.0);
-    SmartDashboard.putNumber("TrajectoryCalculators/WhatIf/HoodAngleDeg", 13);
-
-    SmartDashboard.putData(
-        "TrajectoryCalculators/WhatIf/Toggle",
-        Commands.runOnce(
-                () -> {
-                  ShotVisualizer vis = shootingCoordinator.getVisualizer();
-                  if (vis == null) return;
-                  whatIfVisible = !whatIfVisible;
-                  if (whatIfVisible) {
-                    double rpm =
-                        SmartDashboard.getNumber("TrajectoryCalculators/WhatIf/RPM", 2500.0);
-                    double angleDeg =
-                        SmartDashboard.getNumber("TrajectoryCalculators/WhatIf/HoodAngleDeg", 45.0);
-                    double exitVelocity = ShotCalculator.calculateExitVelocityFromRPM(rpm);
-                    double launchAngleRad = Math.toRadians(angleDeg);
-                    double azimuth = vis.getCurrentAzimuthAngle();
-                    vis.updateWhatIfTrajectory(exitVelocity, launchAngleRad, azimuth);
-                  } else {
-                    vis.clearWhatIfTrajectory();
-                  }
-                })
-            .ignoringDisable(true)
-            .withName("Toggle What-If"));
-
     // === Distance: move robot to a distance from hub, read back the optimized shot
     // ===
     SmartDashboard.putNumber("TrajectoryCalculators/Distance/Inches", 118.0);

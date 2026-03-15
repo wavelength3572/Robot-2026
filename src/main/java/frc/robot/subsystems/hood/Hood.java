@@ -51,10 +51,7 @@ public class Hood extends SubsystemBase {
       io.setAngleTolerance(readyToleranceAngleDeg.get());
     }
 
-    // Log additional useful values
     Logger.recordOutput("Hood/AngleError", inputs.targetAngleDeg - inputs.currentAngleDeg);
-    Logger.recordOutput("Hood/MinLimit", config.getHoodMinAngleDegrees());
-    Logger.recordOutput("Hood/MaxLimit", config.getHoodMaxAngleDegrees());
   }
 
   /**

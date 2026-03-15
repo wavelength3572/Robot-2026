@@ -57,9 +57,11 @@ public class ShootingCoordinator extends SubsystemBase {
 
   private final SendableChooser<PassingStrategy> passingStrategyChooser = new SendableChooser<>();
   private final ShotLookupTable lookupTable = new ShotLookupTable();
+  private final ShotLookupTable practiceRoomLookupTable = new ShotLookupTable();
   private final StationaryShotBatchRecorder batchRecorder = new StationaryShotBatchRecorder();
   private final ParametricShotStrategy parametricStrategy = new ParametricShotStrategy();
   private final LUTShotStrategy lutStrategy;
+  private final LUTShotStrategy practiceRoomLutStrategy;
   private ShotStrategy activeStrategy;
 
   // Visualizer (created during initialize)
@@ -84,7 +86,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Visualizer throttle — run at 10Hz instead of 50Hz (pure display, not control)
   private int visualizerCounter = 0;
-  private static final int VISUALIZER_DIVISOR = 5; // 50Hz / 5 = 10Hz
+  private static final int VISUALIZER_DIVISOR = 10; // 50Hz / 10 = 5Hz
 
   // Current shot data
   private ShotCalculator.ShotResult currentShot = null;
@@ -152,11 +154,13 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Initialize shot strategies — completely independent, no shared efficiency model
     this.lutStrategy = new LUTShotStrategy(lookupTable);
+    this.practiceRoomLutStrategy = new LUTShotStrategy(practiceRoomLookupTable);
     this.activeStrategy = parametricStrategy;
 
-    // Strategy dropdown on dashboard — just two clean options
+    // Strategy dropdown on dashboard — three options
     strategyChooser.setDefaultOption("Parametric", "Parametric");
     strategyChooser.addOption("LUT (Lookup Table)", "LUT");
+    strategyChooser.addOption("LUT Practice Room", "LUT_PRACTICE");
     SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
 
     // Passing strategy chooser — how to pick left vs right pass target
@@ -221,20 +225,12 @@ public class ShootingCoordinator extends SubsystemBase {
       return;
     }
 
-    // Always log robot speed for shoot-on-the-move tuning
-    if (fieldSpeedsSupplier != null) {
-      ChassisSpeeds speeds = fieldSpeedsSupplier.get();
-      Logger.recordOutput(
-          "SmartLaunch/RobotSpeedMps",
-          Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond));
-    }
-
     updateShotCalculation(alliance, isBlueAlliance);
     runAutoShoot(alliance);
 
-    // Throttle non-critical logging to every other cycle to reduce loop time
+    // Throttle non-critical logging to ~10Hz to reduce NT traffic
     periodicCounter++;
-    if (periodicCounter % 2 == 0) {
+    if (periodicCounter % 5 == 0) {
       logShotState();
     }
 
@@ -265,18 +261,8 @@ public class ShootingCoordinator extends SubsystemBase {
           trenchModeEnabled
               && FieldConstants.TrenchZones.isInAnyTrenchZone(
                   robotPose.getX(), robotPose.getY(), trenchMarginMeters.get());
-      Logger.recordOutput("Shots/TrenchMode/Enabled", trenchModeEnabled);
-      Logger.recordOutput("Shots/TrenchMode/Active", trenchModeActive);
-      if (trenchModeActive) {
-        Logger.recordOutput(
-            "Shots/TrenchMode/Zone",
-            FieldConstants.TrenchZones.getActiveTrenchZone(
-                robotPose.getX(), robotPose.getY(), trenchMarginMeters.get()));
-      }
-
       TurretAimingHelper.AimResult aimResult =
           TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
-      Logger.recordOutput("Turret/Aim/Mode", aimResult.mode().name());
 
       // Shared alliance-zone X bounds (used by both strategies)
       double allianceZoneX = FieldConstants.LinesVertical.allianceZone;
@@ -451,8 +437,8 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Shot parameters are calculated only — commands use getCurrentShot() to drive actuators
 
-    // Throttle shot diagnostics logging to every other cycle
-    if (periodicCounter % 2 == 0) {
+    // Throttle shot diagnostics logging to ~10Hz
+    if (periodicCounter % 5 == 0) {
       Logger.recordOutput("Shots/Strategy/Active", activeStrategy.getName());
       Logger.recordOutput("Shots/Strategy/LUTDataPoints", lookupTable.size());
 
@@ -492,75 +478,6 @@ public class ShootingCoordinator extends SubsystemBase {
       double distanceToTarget =
           Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
       Logger.recordOutput("Turret/Shot/DistanceToTargetM", distanceToTarget);
-    }
-
-    // === Side-by-side comparison: run BOTH strategies and log under Shots/Compare/ ===
-    // Throttled to every 10th cycle (~200ms) to minimize CPU cost.
-    if (periodicCounter % 10 == 0 && lookupTable.hasEnoughData()) {
-      double currentAngle = turret.getOutsideCurrentAngle();
-      double turretMin = turret.getMinAngle();
-      double turretMax = turret.getMaxAngle();
-      double compareHoodMin = hood != null ? hood.getMinAngle() : 16.0;
-      double compareHoodMax = hood != null ? hood.getMaxAngle() : 46.0;
-      if (trenchModeActive) {
-        compareHoodMax = Math.min(compareHoodMax, trenchHoodMaxDeg.get());
-      }
-
-      ShotCalculator.ShotResult parametricResult =
-          parametricStrategy.calculateShot(
-              robotPose,
-              fieldSpeeds,
-              target,
-              turretConfig,
-              currentAngle,
-              turretMin,
-              turretMax,
-              compareHoodMin,
-              compareHoodMax);
-      ShotCalculator.ShotResult lutResult =
-          lutStrategy.calculateShot(
-              robotPose,
-              fieldSpeeds,
-              target,
-              turretConfig,
-              currentAngle,
-              turretMin,
-              turretMax,
-              compareHoodMin,
-              compareHoodMax);
-
-      // Distance for context
-      double robotHeadingRad = robotPose.getRotation().getRadians();
-      double[] tPos =
-          ShotCalculator.getTurretFieldPosition(
-              robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
-      double dist =
-          Math.sqrt(Math.pow(target.getX() - tPos[0], 2) + Math.pow(target.getY() - tPos[1], 2));
-      Logger.recordOutput("Shots/Compare/DistanceM", dist);
-      Logger.recordOutput("Shots/Compare/InLUTRange", lookupTable.isInRange(dist));
-
-      // Parametric side
-      Logger.recordOutput("Shots/Compare/Parametric/RPM", parametricResult.launcherRPM());
-      Logger.recordOutput("Shots/Compare/Parametric/HoodAngleDeg", parametricResult.hoodAngleDeg());
-      Logger.recordOutput(
-          "Shots/Compare/Parametric/ExitVelocityMps", parametricResult.exitVelocityMps());
-      Logger.recordOutput("Shots/Compare/Parametric/Achievable", parametricResult.achievable());
-
-      // LUT side
-      Logger.recordOutput("Shots/Compare/LUT/RPM", lutResult.launcherRPM());
-      Logger.recordOutput("Shots/Compare/LUT/HoodAngleDeg", lutResult.hoodAngleDeg());
-      Logger.recordOutput("Shots/Compare/LUT/ExitVelocityMps", lutResult.exitVelocityMps());
-      Logger.recordOutput("Shots/Compare/LUT/Achievable", lutResult.achievable());
-
-      // Deltas — how much the two models disagree
-      Logger.recordOutput(
-          "Shots/Compare/Delta/RPM", parametricResult.launcherRPM() - lutResult.launcherRPM());
-      Logger.recordOutput(
-          "Shots/Compare/Delta/HoodAngleDeg",
-          parametricResult.hoodAngleDeg() - lutResult.hoodAngleDeg());
-      Logger.recordOutput(
-          "Shots/Compare/Delta/ExitVelocityMps",
-          parametricResult.exitVelocityMps() - lutResult.exitVelocityMps());
     }
   }
 
@@ -649,32 +566,22 @@ public class ShootingCoordinator extends SubsystemBase {
 
     currentShot = result;
 
-    // Log pass shot data
-    double azimuthDeg =
-        Math.toDegrees(
-            Math.atan2(result.aimTarget().getY() - turretY, result.aimTarget().getX() - turretX));
+    // Throttle pass shot logging to ~10Hz
+    if (periodicCounter % 5 == 0) {
+      double azimuthDeg =
+          Math.toDegrees(
+              Math.atan2(result.aimTarget().getY() - turretY, result.aimTarget().getX() - turretX));
 
-    Logger.recordOutput("Turret/Shot/ExitVelocityMps", result.exitVelocityMps());
-    Logger.recordOutput("Turret/Shot/HoodAngleDeg", result.hoodAngleDeg());
-    Logger.recordOutput("Turret/Shot/LaunchAngleDeg", result.getLaunchAngleDegrees());
-    Logger.recordOutput("Turret/Shot/IdealRPM", result.launcherRPM());
-    Logger.recordOutput("Turret/Shot/Achievable", result.achievable());
-    Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
-    Logger.recordOutput("Turret/Shot/RelativeAngleDeg", result.turretAngleDeg());
-
-    Logger.recordOutput("Turret/Shot/DistanceToTargetM", horizontalDist);
-
-    // Log pass target marker
-    Logger.recordOutput("Turret/Shot/Hub", new Pose3d(target, Rotation3d.kZero));
-
-    // Log velocity compensation
-    double aimOffsetM =
-        Math.sqrt(
-            Math.pow(result.aimTarget().getX() - target.getX(), 2)
-                + Math.pow(result.aimTarget().getY() - target.getY(), 2));
-    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-    Logger.recordOutput("Turret/Shot/VelocityCompensation/AimOffsetM", aimOffsetM);
-    Logger.recordOutput("Turret/Shot/VelocityCompensation/RobotSpeedMps", robotSpeed);
+      Logger.recordOutput("Turret/Shot/ExitVelocityMps", result.exitVelocityMps());
+      Logger.recordOutput("Turret/Shot/HoodAngleDeg", result.hoodAngleDeg());
+      Logger.recordOutput("Turret/Shot/LaunchAngleDeg", result.getLaunchAngleDegrees());
+      Logger.recordOutput("Turret/Shot/IdealRPM", result.launcherRPM());
+      Logger.recordOutput("Turret/Shot/Achievable", result.achievable());
+      Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
+      Logger.recordOutput("Turret/Shot/RelativeAngleDeg", result.turretAngleDeg());
+      Logger.recordOutput("Turret/Shot/DistanceToTargetM", horizontalDist);
+      Logger.recordOutput("Turret/Shot/Hub", new Pose3d(target, Rotation3d.kZero));
+    }
   }
 
   // ========== Shot State Logging ==========
@@ -692,39 +599,16 @@ public class ShootingCoordinator extends SubsystemBase {
     boolean hoodReady = hood == null || hood.atTarget();
     boolean achievable = currentShot != null && currentShot.achievable();
 
-    Logger.recordOutput("SmartLaunch/Ready/Launcher", launcherReady);
-    Logger.recordOutput("SmartLaunch/Ready/Motivator", motivatorReady);
-    Logger.recordOutput("SmartLaunch/Ready/Turret", turretReady);
-    Logger.recordOutput("SmartLaunch/Ready/Hood", hoodReady);
-    Logger.recordOutput("SmartLaunch/Ready/Achievable", achievable);
     Logger.recordOutput(
         "SmartLaunch/Ready/All",
         launcherReady && motivatorReady && turretReady && hoodReady && achievable);
 
-    // --- Efficiency constant ---
-    Logger.recordOutput("SmartLaunch/Efficiency/Value", ShotCalculator.getEfficiency());
-
     if (currentShot != null) {
-      double targetRPM = currentShot.launcherRPM();
-
-      // --- Commanded targets ---
-      Logger.recordOutput("SmartLaunch/Target/RPM", targetRPM);
-      Logger.recordOutput("SmartLaunch/Target/TurretDeg", currentShot.turretAngleDeg());
+      Logger.recordOutput("SmartLaunch/Target/RPM", currentShot.launcherRPM());
       Logger.recordOutput("SmartLaunch/Target/HoodDeg", currentShot.hoodAngleDeg());
-      Logger.recordOutput("SmartLaunch/Target/ExitVelocityMps", currentShot.exitVelocityMps());
-
-      // --- Tracking errors ---
-      double turretError = turret.getOutsideCurrentAngle() - currentShot.turretAngleDeg();
-      Logger.recordOutput("SmartLaunch/Error/TurretDeg", turretError);
-
-      if (launcher != null) {
-        Logger.recordOutput("SmartLaunch/Error/LauncherRPM", launcher.getVelocity() - targetRPM);
-      }
-
-      if (hood != null) {
-        double hoodError = hood.getCurrentAngle() - currentShot.hoodAngleDeg();
-        Logger.recordOutput("SmartLaunch/Error/HoodDeg", hoodError);
-      }
+      Logger.recordOutput(
+          "SmartLaunch/Error/TurretDeg",
+          turret.getOutsideCurrentAngle() - currentShot.turretAngleDeg());
     }
   }
 
@@ -732,7 +616,6 @@ public class ShootingCoordinator extends SubsystemBase {
 
   /** Check auto-shoot conditions and fire when all criteria are met. */
   private void runAutoShoot(DriverStation.Alliance alliance) {
-    Logger.recordOutput("Turret/AutoShootEnabled", autoShootEnabled);
     if (!autoShootEnabled || launcher == null || robotPoseSupplier == null) return;
 
     boolean launcherReady = launcher.atSetpoint();
@@ -753,15 +636,6 @@ public class ShootingCoordinator extends SubsystemBase {
     ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
     double robotSpeedMps = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     boolean robotSlow = !inAllianceZone || robotSpeedMps <= maxFeedSpeedMps.get();
-
-    Logger.recordOutput("Turret/AutoShoot/LauncherReady", launcherReady);
-    Logger.recordOutput("Turret/AutoShoot/Aimed", aimed);
-    Logger.recordOutput("Turret/AutoShoot/HasFuel", hasFuel);
-    Logger.recordOutput("Turret/AutoShoot/AimMode", aimResult.mode().name());
-    Logger.recordOutput("Turret/AutoShoot/RobotSpeedMps", robotSpeedMps);
-    Logger.recordOutput("Turret/AutoShoot/RobotSlow", robotSlow);
-    Logger.recordOutput(
-        "Turret/AutoShoot/FuelRemaining", visualizer != null ? visualizer.getFuelCount() : 0);
 
     if (launcherReady && hasShot && aimed && hasFuel && intervalElapsed && robotSlow) {
       // Snapshot key calibration data at the instant of firing
@@ -971,7 +845,12 @@ public class ShootingCoordinator extends SubsystemBase {
     String selected = strategyChooser.getSelected();
     if (selected == null) selected = "Parametric";
 
-    ShotStrategy newStrategy = "LUT".equals(selected) ? lutStrategy : parametricStrategy;
+    ShotStrategy newStrategy;
+    switch (selected) {
+      case "LUT" -> newStrategy = lutStrategy;
+      case "LUT_PRACTICE" -> newStrategy = practiceRoomLutStrategy;
+      default -> newStrategy = parametricStrategy;
+    }
 
     if (newStrategy != activeStrategy) {
       System.out.println("[ShootingCoordinator] Strategy changed to: " + newStrategy.getName());
@@ -988,16 +867,23 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   public void reloadLUTData() {
     lookupTable.clear();
+    practiceRoomLookupTable.clear();
 
     // Load hardcoded baseline only — field-recorded data is for offline review,
     // not runtime use. To update shots, edit ShotTableConstants and redeploy.
     int baselineCount = ShotTableConstants.loadBaseline(lookupTable);
+    int practiceCount = ShotTableConstants.loadPracticeRoom(practiceRoomLookupTable);
 
     // Log full table to AdvantageKit for live dashboard viewing
     lookupTable.logTable("LUTDev/Table");
+    practiceRoomLookupTable.logTable("LUTDev/PracticeRoomTable");
 
     frc.robot.util.StartupLogger.log(
-        "[ShootingCoordinator] LUT loaded: " + baselineCount + " baseline entries");
+        "[ShootingCoordinator] LUT loaded: "
+            + baselineCount
+            + " baseline, "
+            + practiceCount
+            + " practice room entries");
   }
 
   /** Get the batch recorder for recording new data collection sessions. */

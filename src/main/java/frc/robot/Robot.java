@@ -107,6 +107,9 @@ public class Robot extends LoggedRobot {
     // Suppress CommandScheduler's own loop overrun warnings during startup
     CommandScheduler.getInstance().setPeriod(Double.MAX_VALUE);
 
+    // DEBUG: Active command logging removed — was running every cycle for every command,
+    // contributing to loop overruns via string allocation + NT traffic.
+
     // Print all buffered startup messages together
     frc.robot.util.StartupLogger.flush();
   }
@@ -120,8 +123,8 @@ public class Robot extends LoggedRobot {
 
     // Re-enable loop overrun warnings after startup settles
     if (watchdog != null && startupTimer.hasElapsed(STARTUP_SUPPRESSION_SECONDS)) {
-      watchdog.setTimeout(0.02); // Restore IterativeRobotBase 20ms overrun detection
-      CommandScheduler.getInstance().setPeriod(0.02); // Restore CommandScheduler overrun detection
+      watchdog.setTimeout(0.025); // Allow 25ms before warning (5ms headroom over 20ms period)
+      CommandScheduler.getInstance().setPeriod(0.025); // Match watchdog tolerance
       startupTimer.stop();
       watchdog = null; // Skip this check on future loops
       System.out.println("[Robot] Loop overrun warnings re-enabled");

@@ -13,7 +13,6 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.subsystems.led.IndicatorLightConstants.LED_EFFECTS;
 import frc.robot.util.HubShiftUtil;
 import java.util.Random;
-import org.littletonrobotics.junction.Logger;
 
 public class IndicatorLight extends SubsystemBase {
 
@@ -60,7 +59,7 @@ public class IndicatorLight extends SubsystemBase {
   private int currentSaturation = 100;
   private boolean forward = true;
   private int counter = 0;
-  private int periodicCycleCount = 0;
+
   private double lastTime = 0.0;
   private double blinkTime = 0.0;
   private boolean on = false;
@@ -163,36 +162,22 @@ public class IndicatorLight extends SubsystemBase {
     LightMode mode = lightModeChooser.getSelected();
     if (mode == null) mode = LightMode.MATCH;
 
-    periodicCycleCount++;
-
     // Disabled RSL shows in all modes
     if (DriverStation.isDisabled()) {
       LED_State = LED_EFFECTS.RSL;
       doRsl();
-      if (periodicCycleCount % 10 == 0) {
-        publishLEDColors();
-        Logger.recordOutput("LED/Pattern", LED_State.toString());
-      }
       return;
     }
 
     if (mode == LightMode.OFF) {
       LED_State = LED_EFFECTS.BLACK;
       setActiveBuffer(wlBlackLEDBuffer);
-      if (periodicCycleCount % 10 == 0) {
-        publishLEDColors();
-        Logger.recordOutput("LED/Pattern", LED_State.toString());
-      }
       return;
     }
 
     if (mode == LightMode.PIT) {
       LED_State = LED_EFFECTS.BLUEOMBRE;
       doBlueOmbre();
-      if (periodicCycleCount % 10 == 0) {
-        publishLEDColors();
-        Logger.recordOutput("LED/Pattern", LED_State.toString());
-      }
       return;
     }
 
@@ -227,25 +212,6 @@ public class IndicatorLight extends SubsystemBase {
       case GREEN_RED_WARNING -> doGreenRedWarning();
       default -> {}
     }
-
-    // Throttle dashboard publishing to ~5Hz to reduce loop time
-    if (periodicCycleCount % 10 == 0) {
-      publishLEDColors();
-      Logger.recordOutput("LED/Pattern", LED_State.toString());
-    }
-  }
-
-  /** Publish LED colors to NetworkTables for Elastic Multi Color View widget. */
-  private void publishLEDColors() {
-    int len = currentActiveBuffer.getLength();
-    String[] colors = new String[len];
-    for (int i = 0; i < len; i++) {
-      Color c = currentActiveBuffer.getLED(i);
-      colors[i] =
-          String.format(
-              "#%02X%02X%02X", (int) (c.red * 255), (int) (c.green * 255), (int) (c.blue * 255));
-    }
-    SmartDashboard.putStringArray("LED/Colors", colors);
   }
 
   // ========== Public setters for LED effects ==========

@@ -104,16 +104,22 @@ public class Spindexer extends SubsystemBase {
     SmartDashboard.putBoolean("Tuning/Spindexer/Reciprocate/Enabled", true);
   }
 
+  private int spindexerLogCounter = 0;
+
   @Override
   public void periodic() {
     io.updateInputs(spindexerInputs);
     Logger.processInputs("Spindexer", spindexerInputs);
-    Logger.recordOutput("Spindexer/State", state.name());
-    Logger.recordOutput(
-        "Spindexer/Reciprocate/Enabled",
-        SmartDashboard.getBoolean("Tuning/Spindexer/Reciprocate/Enabled", true));
-    Logger.recordOutput("Spindexer/AutoUnclog/Enabled", autoUnclogEnabled);
-    Logger.recordOutput("Spindexer/AutoUnclog/Attempts", autoUnclogAttempts);
+
+    // Throttle diagnostic logging to ~10Hz to reduce NT traffic
+    if (++spindexerLogCounter % 5 == 0) {
+      Logger.recordOutput("Spindexer/State", state.name());
+      Logger.recordOutput(
+          "Spindexer/Reciprocate/Enabled",
+          SmartDashboard.getBoolean("Tuning/Spindexer/Reciprocate/Enabled", true));
+      Logger.recordOutput("Spindexer/AutoUnclog/Enabled", autoUnclogEnabled);
+      Logger.recordOutput("Spindexer/AutoUnclog/Attempts", autoUnclogAttempts);
+    }
 
     // Auto-unclog: detect stall during FEEDING and trigger a brief reverse burst.
     // Stall = high current + low velocity for a sustained period.
