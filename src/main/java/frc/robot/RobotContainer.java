@@ -268,6 +268,10 @@ public class RobotContainer {
             }
             return false;
           });
+      // Wire vision confidence into shooting trust — gates auto-shoot based on pose quality
+      if (vision != null) {
+        shootingCoordinator.setVisionConfidenceSupplier(vision::getVisionConfidence);
+      }
     } else {
       shootingCoordinator = null;
     }

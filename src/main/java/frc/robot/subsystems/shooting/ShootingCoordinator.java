@@ -128,7 +128,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final ShotConfidence shotConfidence = new ShotConfidence();
   private final LoggedTunableNumber minShootConfidence =
       new LoggedTunableNumber("Shots/Confidence/MinThreshold", 60.0);
-  private double visionConfidence = 1.0; // Updated externally
+  private Supplier<Double> visionConfidenceSupplier = () -> 1.0; // Updated externally
 
   // Auto-shoot: fires automatically when conditions are met (for autonomous)
   private boolean autoShootEnabled = false;
@@ -761,7 +761,7 @@ public class ShootingCoordinator extends SubsystemBase {
     }
     double confidence =
         shotConfidence.calculate(
-            robotSpeedMps, visionConfidence, turretErrorDeg, distAtFire, rpmError);
+            robotSpeedMps, visionConfidenceSupplier.get(), turretErrorDeg, distAtFire, rpmError);
     boolean confidentEnough = confidence >= minShootConfidence.get();
 
     if (hasShot && hasFuel && intervalElapsed && robotSlow && tiltSafe && confidentEnough) {
@@ -787,12 +787,11 @@ public class ShootingCoordinator extends SubsystemBase {
   // ========== Launch / Fuel Management ==========
 
   /**
-   * Set the vision confidence for shot scoring. Called by the vision subsystem each cycle.
-   *
-   * @param confidence Vision confidence [0, 1] where 0 = no tags, 1 = perfect
+   * Set the vision confidence supplier for shot scoring. Queried each cycle during auto-shoot
+   * evaluation. Confidence [0, 1] where 0 = no tags, 1 = perfect.
    */
-  public void setVisionConfidence(double confidence) {
-    this.visionConfidence = confidence;
+  public void setVisionConfidenceSupplier(Supplier<Double> supplier) {
+    this.visionConfidenceSupplier = supplier;
   }
 
   /** Set a supplier that, when true, prevents launchFuel() from firing. */

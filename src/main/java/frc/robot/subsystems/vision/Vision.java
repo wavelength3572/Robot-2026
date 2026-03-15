@@ -61,6 +61,14 @@ public class Vision extends SubsystemBase {
   // Throttle counter for summary/camera viz logging (visualization only, not control)
   private int visionLogCounter = 0;
 
+  // Vision confidence tracking for shooting trust.
+  // Updated each cycle based on accepted observations; decays when no tags are seen.
+  private double visionConfidence = 0.0;
+  private double lastAcceptedTagTimestamp = 0.0;
+  private static final double CONFIDENCE_DECAY_TIME_S = 0.5; // Full decay after 0.5s with no tags
+  private int cycleAcceptedTagCount = 0;
+  private double cycleClosestAcceptedDist = Double.MAX_VALUE;
+
   // Debug toggle: when true, per-observation rejection and std dev diagnostics are logged.
   // Default false for competition performance; enable via SmartDashboard for debugging.
   private static final String VERBOSE_VISION_KEY = "Debug/VerboseVisionLogging";
@@ -198,6 +206,10 @@ public class Vision extends SubsystemBase {
     tagPosesAccepted.clear();
     tagPosesRejected.clear();
 
+    // Reset per-cycle confidence accumulators
+    cycleAcceptedTagCount = 0;
+    cycleClosestAcceptedDist = Double.MAX_VALUE;
+
     // Read debug toggle once per cycle
     boolean verboseLogging = SmartDashboard.getBoolean(VERBOSE_VISION_KEY, false);
 
@@ -297,6 +309,11 @@ public class Vision extends SubsystemBase {
         }
         robotPosesAccepted.add(observation.pose());
 
+        // Track accepted observation quality for vision confidence
+        cycleAcceptedTagCount += observation.tagCount();
+        cycleClosestAcceptedDist =
+            Math.min(cycleClosestAcceptedDist, observation.closestTagDistance());
+
         // Calculate standard deviations using adaptive scaling:
         // - Base: distance² / tagCount (existing heuristic)
         // - Ambiguity: scale up for ambiguous single-tag observations
@@ -362,6 +379,9 @@ public class Vision extends SubsystemBase {
       allRobotPosesAccepted.addAll(robotPosesAccepted);
       allRobotPosesRejected.addAll(robotPosesRejected);
     }
+
+    // Update vision confidence for shooting trust
+    updateVisionConfidence();
 
     // Throttle summary + camera viz logging to ~10Hz (pure visualization, not control)
     visionLogCounter++;
@@ -430,6 +450,50 @@ public class Vision extends SubsystemBase {
           "Vision/CameraViz/AllCameras",
           new Pose3d[] {centerRearPose, rightFrontPose, leftRearPose, rightRearPose});
     }
+  }
+
+  /**
+   * Compute vision confidence [0, 1] based on this cycle's accepted observations. If tags were
+   * accepted this cycle, confidence is based on tag count and distance. If no tags were accepted,
+   * confidence decays over time from its last good value.
+   */
+  private void updateVisionConfidence() {
+    double now = Timer.getFPGATimestamp();
+
+    if (cycleAcceptedTagCount > 0) {
+      // Tags were accepted this cycle — compute fresh confidence
+      lastAcceptedTagTimestamp = now;
+
+      // Tag count factor: 1 tag → 0.6, 2 tags → 0.8, 3+ tags → 1.0
+      double tagFactor = Math.min(0.4 + 0.2 * cycleAcceptedTagCount, 1.0);
+
+      // Distance factor: closer is better, drops off quadratically
+      // 1m → 1.0, 2m → 0.7, 3m → 0.5, 4m+ → 0.3
+      double distFactor =
+          Math.max(0.3, 1.0 - 0.175 * (cycleClosestAcceptedDist * cycleClosestAcceptedDist));
+      distFactor = Math.min(distFactor, 1.0);
+
+      visionConfidence = tagFactor * distFactor;
+    } else {
+      // No accepted tags this cycle — decay confidence based on time since last accepted
+      double elapsed = now - lastAcceptedTagTimestamp;
+      if (elapsed > CONFIDENCE_DECAY_TIME_S) {
+        visionConfidence = 0.0;
+      } else {
+        // Linear decay from last value to 0
+        visionConfidence *= (1.0 - elapsed / CONFIDENCE_DECAY_TIME_S);
+      }
+    }
+
+    Logger.recordOutput("Vision/Confidence", visionConfidence);
+  }
+
+  /**
+   * Returns the current vision confidence [0, 1] for use by the shooting system. Higher values
+   * indicate more trustworthy pose estimates (more tags, closer, recent).
+   */
+  public double getVisionConfidence() {
+    return visionConfidence;
   }
 
   @FunctionalInterface
