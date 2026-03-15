@@ -92,6 +92,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Current shot data
   private ShotCalculator.ShotResult currentShot = null;
+  private double currentDistanceM = -1;
 
   // Pass target offset tunables — separate for left and right trench
   private final LoggedTunableNumber passLeftAdjustX =
@@ -160,11 +161,11 @@ public class ShootingCoordinator extends SubsystemBase {
     // Initialize shot strategies — completely independent, no shared efficiency model
     this.lutStrategy = new LUTShotStrategy(lookupTable);
     this.practiceRoomLutStrategy = new LUTShotStrategy(practiceRoomLookupTable);
-    this.activeStrategy = parametricStrategy;
+    this.activeStrategy = lutStrategy;
 
     // Strategy dropdown on dashboard — three options
-    strategyChooser.setDefaultOption("Parametric", "Parametric");
-    strategyChooser.addOption("LUT (Lookup Table)", "LUT");
+    strategyChooser.addOption("Parametric", "Parametric");
+    strategyChooser.setDefaultOption("LUT (Lookup Table)", "LUT");
     strategyChooser.addOption("LUT Practice Room", "LUT_PRACTICE");
     SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
 
@@ -453,8 +454,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
       // Log active strategy
       if (activeIsParametric) {
-        Logger.recordOutput(
-            "Shots/Strategy/Parametric/RecommendedRPM", activeResult.launcherRPM());
+        Logger.recordOutput("Shots/Strategy/Parametric/RecommendedRPM", activeResult.launcherRPM());
         Logger.recordOutput(
             "Shots/Strategy/Parametric/RecommendedHoodDeg", activeResult.hoodAngleDeg());
         Logger.recordOutput("Shots/Strategy/Parametric/Achievable", activeResult.achievable());
@@ -462,8 +462,15 @@ public class ShootingCoordinator extends SubsystemBase {
         // LUT is cheap (table lookup) — always compute it for comparison
         ShotCalculator.ShotResult lutResult =
             lutStrategy.calculateShot(
-                robotPose, fieldSpeeds, target, turretConfig,
-                currentTurretAngle, turretMin, turretMax, hoodMin, hoodMax);
+                robotPose,
+                fieldSpeeds,
+                target,
+                turretConfig,
+                currentTurretAngle,
+                turretMin,
+                turretMax,
+                hoodMin,
+                hoodMax);
         Logger.recordOutput("Shots/Strategy/LUT/RecommendedRPM", lutResult.launcherRPM());
         Logger.recordOutput("Shots/Strategy/LUT/RecommendedHoodDeg", lutResult.hoodAngleDeg());
       } else {
@@ -474,13 +481,21 @@ public class ShootingCoordinator extends SubsystemBase {
         if (DriverStation.isDisabled()) {
           ShotCalculator.ShotResult parametricResult =
               parametricStrategy.calculateShot(
-                  robotPose, fieldSpeeds, target, turretConfig,
-                  currentTurretAngle, turretMin, turretMax, hoodMin, hoodMax);
+                  robotPose,
+                  fieldSpeeds,
+                  target,
+                  turretConfig,
+                  currentTurretAngle,
+                  turretMin,
+                  turretMax,
+                  hoodMin,
+                  hoodMax);
           Logger.recordOutput(
               "Shots/Strategy/Parametric/RecommendedRPM", parametricResult.launcherRPM());
           Logger.recordOutput(
               "Shots/Strategy/Parametric/RecommendedHoodDeg", parametricResult.hoodAngleDeg());
-          Logger.recordOutput("Shots/Strategy/Parametric/Achievable", parametricResult.achievable());
+          Logger.recordOutput(
+              "Shots/Strategy/Parametric/Achievable", parametricResult.achievable());
         }
       }
 
@@ -493,6 +508,7 @@ public class ShootingCoordinator extends SubsystemBase {
       double turretY = turretFieldPos[1];
       double distanceToTarget =
           Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
+      currentDistanceM = distanceToTarget;
       Logger.recordOutput("Shots/Strategy/DistanceM", distanceToTarget);
     }
   }
@@ -581,6 +597,7 @@ public class ShootingCoordinator extends SubsystemBase {
             hoodMax);
 
     currentShot = result;
+    currentDistanceM = horizontalDist;
 
     // Pass shot distance logged at 10Hz (RPM/hood already covered by Shots/Status/)
     if (periodicCounter % 5 == 0) {
@@ -953,6 +970,16 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Get the lookup table (for dashboard display of entry count, etc.). */
   public ShotLookupTable getLookupTable() {
     return lookupTable;
+  }
+
+  /**
+   * Get the horizontal distance from the turret to the current aim target. Updated every cycle by
+   * the shot calculation — no redundant math, just reads the cached value.
+   *
+   * @return Distance in meters, or -1 if no shot has been calculated yet
+   */
+  public double getDistanceToTarget() {
+    return currentDistanceM;
   }
 
   /** Get the turret config (for external calculations like distance-to-target). */

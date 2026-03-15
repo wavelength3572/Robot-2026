@@ -95,7 +95,7 @@ public class ShootingCommands {
   private static final LoggedTunableNumber hubShotMotivatorRPM =
       new LoggedTunableNumber("Shots/HubShot/MotivatorRPM", 1300.0);
   private static final LoggedTunableNumber hubShotSpindexerRPM =
-      new LoggedTunableNumber("Shots/HubShot/SpindexerRPM", 325.0);
+      new LoggedTunableNumber("Shots/HubShot/SpindexerRPM", 500.0);
 
   // Left trench shot
   private static final LoggedTunableNumber leftTrenchLauncherRPM =
@@ -123,17 +123,15 @@ public class ShootingCommands {
 
   // ===== Robot Tuning (affects real robot behavior) =====
 
-  // Smart shot motivator/spindexer speeds
-  private static final LoggedTunableNumber smartShotMotivatorRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorRPM", 1500.0);
-  private static final LoggedTunableNumber smartShotSpindexerRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerRPM", 325.0);
-
-  // Motivator RPM as a ratio of launcher RPM. When > 0, motivator RPM is derived from
-  // launcherRPM * ratio instead of being an independent LUT/tunable value. Set to 0 to
-  // disable and fall back to the old per-shot motivator RPM behavior.
+  // Motivator RPM as a ratio of launcher RPM: motivatorRPM = launcherRPM * ratio
   private static final LoggedTunableNumber motivatorLauncherRatio =
       new LoggedTunableNumber("Shots/SmartLaunch/MotivatorLauncherRatio", 0.565);
+
+  // Spindexer RPM lerped by distance: close = max, far = min
+  private static final LoggedTunableNumber spindexerCloseRPM =
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 250.0);
+  private static final LoggedTunableNumber spindexerFarRPM =
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 100.0);
 
   // Max drive speed (m/s) while smart launch speed-limit mode is active
   private static final LoggedTunableNumber smartLaunchSpeedLimitCapMps =
@@ -147,8 +145,8 @@ public class ShootingCommands {
 
   // ===== Launcher RPM Trim =====
 
-  // Trim value added to all launcher RPM targets. Adjusted via button box axis positions.
-  // Down = -100, Left = 0 (neutral), Up = +100, Right = +300 ("goes to 11")
+  // Trim value added to all launcher RPM targets. Adjusted via button box 1 axis knob.
+  // Knob positions: (0,-1)=neutral, (0,1)=-100, (-1,1)=+100, (1,1)=+300
   private static double launcherTrimRPM = 0.0;
 
   /**
@@ -161,6 +159,7 @@ public class ShootingCommands {
     if (launcherTrimRPM != trimRPM) {
       launcherTrimRPM = trimRPM;
       SmartDashboard.putNumber("Trim/LauncherRPM", trimRPM);
+      Logger.recordOutput("Trim/LauncherRPM", trimRPM);
       System.out.println("[Trim] Launcher RPM trim set to " + trimRPM);
     }
   }
@@ -186,17 +185,16 @@ public class ShootingCommands {
     // Static factory class
   }
 
-  /**
-   * Derive motivator RPM from launcher RPM using the configured ratio. When the ratio tunable is >
-   * 0, motivator RPM = launcherRPM * ratio. Otherwise falls back to the shot's motivator RPM (if
-   * available) or the smartShotMotivatorRPM tunable.
-   */
+  /** Derive motivator RPM from launcher RPM: motivatorRPM = launcherRPM * ratio. */
   private static double getMotivatorRPM(double launcherRPM) {
-    double ratio = motivatorLauncherRatio.get();
-    if (ratio > 0) {
-      return launcherRPM * ratio;
-    }
-    return smartShotMotivatorRPM.get();
+    return launcherRPM * motivatorLauncherRatio.get();
+  }
+
+  /** Lerp spindexer RPM from distance — 350 RPM close (1.16m), 100 RPM far (5.35m). */
+  private static double getSpindexerRPM(double distanceM) {
+    double minDist = 1.16, maxDist = 5.35;
+    double t = Math.max(0, Math.min(1, (distanceM - minDist) / (maxDist - minDist)));
+    return spindexerCloseRPM.get() + t * (spindexerFarRPM.get() - spindexerCloseRPM.get());
   }
 
   /** Initialize tunables so they appear in the dashboard immediately. */
@@ -220,16 +218,13 @@ public class ShootingCommands {
     rightTrenchMotivatorRPM.get();
     rightTrenchSpindexerRPM.get();
 
-    // Smart shot tunables
-    smartShotMotivatorRPM.get();
-    smartShotSpindexerRPM.get();
-
     // LUT Dev override tunables
     lutDevOverrideRPM.get();
     lutDevOverrideHoodDeg.get();
 
     // Trim initial value on dashboard
     SmartDashboard.putNumber("Trim/LauncherRPM", launcherTrimRPM);
+    Logger.recordOutput("Trim/LauncherRPM", launcherTrimRPM);
 
     SmartDashboard.putString("Match/Status/Mode", currentMode.toString());
     SmartDashboard.putBoolean("Match/Status/Active", currentMode == ShootingMode.TEST);
@@ -802,7 +797,8 @@ public class ShootingCommands {
                               turret.atTarget()
                                   && (!gateOnSpeed || isRobotSlowEnoughToFeed(coordinator));
                           if (feedOk) {
-                            double spnRPM = smartShotSpindexerRPM.get();
+                            double dist = coordinator.getDistanceToTarget();
+                            double spnRPM = getSpindexerRPM(dist > 0 ? dist : 1.16);
                             spindexer.setSpindexerVelocity(spnRPM);
                           } else {
                             spindexer.reciprocate();
