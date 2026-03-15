@@ -70,9 +70,9 @@ public class Spindexer extends SubsystemBase {
   private final Timer reciprocateTimer = new Timer();
 
   private static final LoggedTunableNumber reciprocateRPM =
-      new LoggedTunableNumber("Tuning/Spindexer/Reciprocate/RPM", 200.0);
+      new LoggedTunableNumber("Tuning/Spindexer/Reciprocate/RPM", 50.0);
   private static final LoggedTunableNumber reciprocateIntervalSec =
-      new LoggedTunableNumber("Tuning/Spindexer/Reciprocate/IntervalSec", 0.5);
+      new LoggedTunableNumber("Tuning/Spindexer/Reciprocate/IntervalSec", 1.0);
 
   // Tunable PID gains
   private static final LoggedTunableNumber kP;

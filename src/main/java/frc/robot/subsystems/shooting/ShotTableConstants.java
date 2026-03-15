@@ -31,9 +31,13 @@ public final class ShotTableConstants {
   public static final double[][] BASELINE_TABLE = {
     // Close range                              // TOF source
     {1.16, 2372, 13.0, 1.05}, // measured
-    {1.75, 2558, 14.1, 1.15}, // smoothed (measured 1.25)
-
+    {1.75, 2400, 13.5, 1.15}, // smoothed (measured 1.25)
+    {1.88, 2400, 14.5, 1.15}, // smoothed (measured 1.25)
+   
     // Mid range
+    {1.963, 2400, 15.5, 1.15},
+    {2.200, 2550, 15.5, 1.161},
+    {2.500, 2750, 15.5, 1.175},
     {2.818, 2894, 15.5, 1.19}, // interpolated
     {3.07, 2974, 16.0, 1.22}, // measured
     {3.25, 3031, 16.5, 1.23}, // smoothed (measured 1.133)

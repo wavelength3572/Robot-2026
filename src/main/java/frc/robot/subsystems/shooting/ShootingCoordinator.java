@@ -610,6 +610,47 @@ public class ShootingCoordinator extends SubsystemBase {
           "SmartLaunch/Error/TurretDeg",
           turret.getOutsideCurrentAngle() - currentShot.turretAngleDeg());
     }
+
+    // --- Quick-glance panel: overrides, targets, and actuals in one place ---
+    boolean overridesActive = SmartDashboard.getBoolean("LUTDev/UseOverrides", false);
+    Logger.recordOutput("Shots/Status/OverridesActive", overridesActive);
+
+    // Effective targets (what's actually being commanded — respects overrides)
+    double targetRPM;
+    double targetHoodDeg;
+    if (overridesActive) {
+      targetRPM = SmartDashboard.getNumber("LUTDev/OverrideRPM", 0);
+      targetHoodDeg = SmartDashboard.getNumber("LUTDev/OverrideHoodDeg", 0);
+    } else if (currentShot != null) {
+      targetRPM = currentShot.launcherRPM();
+      targetHoodDeg = currentShot.hoodAngleDeg();
+    } else {
+      targetRPM = 0;
+      targetHoodDeg = 0;
+    }
+    Logger.recordOutput("Shots/Status/TargetRPM", targetRPM);
+    Logger.recordOutput("Shots/Status/TargetHoodDeg", targetHoodDeg);
+
+    // Actuals
+    double actualRPM = launcher != null ? launcher.getVelocity() : 0;
+    double actualHoodDeg = hood != null ? hood.getCurrentAngle() : 0;
+    Logger.recordOutput("Shots/Status/ActualRPM", actualRPM);
+    Logger.recordOutput("Shots/Status/ActualHoodDeg", actualHoodDeg);
+
+    // Distance and TOF — everything you need to build a LUT entry
+    if (currentShot != null && robotPoseSupplier != null) {
+      Pose2d robotPose = robotPoseSupplier.get();
+      double robotHeadingRad = robotPose.getRotation().getRadians();
+      double[] turretPos =
+          ShotCalculator.getTurretFieldPosition(
+              robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
+      Translation3d aim = currentShot.aimTarget();
+      double distance =
+          Math.sqrt(
+              Math.pow(aim.getX() - turretPos[0], 2) + Math.pow(aim.getY() - turretPos[1], 2));
+      Logger.recordOutput("Shots/Status/DistanceM", distance);
+      Logger.recordOutput("Shots/Status/EstimatedTOF", lookupTable.lookupTOF(distance));
+    }
   }
 
   // ========== Auto-Shoot ==========
