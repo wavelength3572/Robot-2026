@@ -75,6 +75,11 @@ public class ShootingCoordinator extends SubsystemBase {
   // Optional feeding suppression check — when true, launchFuel() is a no-op
   private BooleanSupplier feedingSuppressedSupplier = () -> false;
 
+  // Tilt gate — suppress shots when robot is tilted (bumps/ramps)
+  private Supplier<double[]> tiltSupplier = () -> new double[] {0.0, 0.0}; // {pitchDeg, rollDeg}
+  private final LoggedTunableNumber maxTiltDeg =
+      new LoggedTunableNumber("Shots/TiltGate/MaxTiltDeg", 5.0);
+
   // Trench avoidance — clamps hood angle when robot is under a trench
   private final LoggedTunableNumber trenchHoodMaxDeg =
       new LoggedTunableNumber("Shots/TrenchMode/HoodMaxDeg", 18.0);
@@ -119,6 +124,12 @@ public class ShootingCoordinator extends SubsystemBase {
   private Translation3d cachedLobStation12Target = null;
   private Translation3d cachedLobStation3Target = null;
 
+  // Shot confidence scoring
+  private final ShotConfidence shotConfidence = new ShotConfidence();
+  private final LoggedTunableNumber minShootConfidence =
+      new LoggedTunableNumber("Shots/Confidence/MinThreshold", 60.0);
+  private double visionConfidence = 1.0; // Updated externally
+
   // Auto-shoot: fires automatically when conditions are met (for autonomous)
   private boolean autoShootEnabled = false;
   private Runnable onShotFiredCallback = null;
@@ -132,6 +143,15 @@ public class ShootingCoordinator extends SubsystemBase {
       new LoggedTunableNumber("BenchTest/AutoShoot/MinInterval", 0.15);
   private final LoggedTunableNumber maxFeedSpeedMps =
       new LoggedTunableNumber("Shots/SmartLaunch/MaxFeedSpeedMps", 1.75);
+
+  // Speed gates: 3-zone model
+  // [0, minSOTM) = static shot (no velocity comp)
+  // [minSOTM, maxSOTM] = SOTM with velocity comp
+  // (maxSOTM, ∞) = shot invalid (too fast for reliable compensation)
+  private final LoggedTunableNumber minSOTMSpeed =
+      new LoggedTunableNumber("Shots/SpeedGate/MinSOTM", 0.1);
+  private final LoggedTunableNumber maxSOTMSpeed =
+      new LoggedTunableNumber("Shots/SpeedGate/MaxSOTM", 3.0);
 
   /**
    * Creates a new ShootingCoordinator.
@@ -182,6 +202,15 @@ public class ShootingCoordinator extends SubsystemBase {
    * @param poseSupplier Supplier for robot's 2D pose
    * @param speedsSupplier Supplier for field-relative chassis speeds
    */
+  /**
+   * Set the tilt supplier for bump/ramp rejection. Returns {pitchDeg, rollDeg}.
+   *
+   * @param supplier Supplier returning [pitchDeg, rollDeg] from the gyro
+   */
+  public void setTiltSupplier(Supplier<double[]> supplier) {
+    this.tiltSupplier = supplier;
+  }
+
   public void initialize(Supplier<Pose2d> poseSupplier, Supplier<ChassisSpeeds> speedsSupplier) {
     this.robotPoseSupplier = poseSupplier;
     this.fieldSpeedsSupplier = speedsSupplier;
@@ -415,6 +444,34 @@ public class ShootingCoordinator extends SubsystemBase {
     // Update active strategy based on tunable selector
     updateActiveStrategy();
 
+    // Speed gate: invalidate shot if robot is too fast for reliable SOTM
+    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+    if (robotSpeed > maxSOTMSpeed.get()) {
+      // Still calculate turret angle for tracking, but mark as non-achievable
+      double turretAngleDeg =
+          ShotCalculator.calculateOutsideTurretAngle(
+              robotPose.getX(),
+              robotPose.getY(),
+              robotPose.getRotation().getDegrees(),
+              target.getX(),
+              target.getY(),
+              turret.getOutsideCurrentAngle(),
+              turret.getMinAngle(),
+              turret.getMaxAngle(),
+              turretConfig);
+      currentShot =
+          new ShotCalculator.ShotResult(0, 0, 0, 0, turretAngleDeg, target, false);
+      Logger.recordOutput("Shots/SpeedGate/Rejected", true);
+      return;
+    }
+    Logger.recordOutput("Shots/SpeedGate/Rejected", false);
+
+    // Below minSOTMSpeed, zero out field speeds for a cleaner static shot
+    ChassisSpeeds effectiveSpeeds = fieldSpeeds;
+    if (robotSpeed < minSOTMSpeed.get()) {
+      effectiveSpeeds = new ChassisSpeeds(0, 0, fieldSpeeds.omegaRadiansPerSecond);
+    }
+
     double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
     double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
     if (trenchModeActive) {
@@ -424,7 +481,7 @@ public class ShootingCoordinator extends SubsystemBase {
     ShotCalculator.ShotResult result =
         activeStrategy.calculateShot(
             robotPose,
-            fieldSpeeds,
+            effectiveSpeeds,
             target,
             turretConfig,
             turret.getOutsideCurrentAngle(),
@@ -659,14 +716,18 @@ public class ShootingCoordinator extends SubsystemBase {
   private void runAutoShoot(DriverStation.Alliance alliance) {
     if (!autoShootEnabled || launcher == null || robotPoseSupplier == null) return;
 
-    boolean launcherReady = launcher.atSetpoint();
     boolean hasShot = currentShot != null && currentShot.exitVelocityMps() > 0;
-    boolean aimed = turret.atTarget();
     boolean hasFuel =
         Constants.currentMode != Constants.Mode.SIM
             || (visualizer != null && visualizer.getFuelCount() > 0);
     double now = Timer.getFPGATimestamp();
     boolean intervalElapsed = (now - lastShotTimestamp) >= autoShootMinInterval.get();
+
+    // Tilt gate — suppress shots when robot is tilted (bumps/ramps)
+    double[] tilt = tiltSupplier.get();
+    boolean tiltSafe =
+        Math.abs(tilt[0]) < maxTiltDeg.get() && Math.abs(tilt[1]) < maxTiltDeg.get();
+    Logger.recordOutput("Turret/AutoShoot/TiltSafe", tiltSafe);
 
     // Zone check for speed gating
     Pose2d robotPose = robotPoseSupplier.get();
@@ -678,14 +739,35 @@ public class ShootingCoordinator extends SubsystemBase {
     double robotSpeedMps = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     boolean robotSlow = !inAllianceZone || robotSpeedMps <= maxFeedSpeedMps.get();
 
-    if (launcherReady && hasShot && aimed && hasFuel && intervalElapsed && robotSlow) {
-      // Snapshot key calibration data at the instant of firing
-      double distAtFire =
+    // Shot confidence scoring — graduated measure of shot quality
+    double turretErrorDeg = hasShot
+        ? Math.abs(turret.getOutsideCurrentAngle() - currentShot.turretAngleDeg())
+        : 180.0;
+    double rpmError = launcher != null
+        ? Math.abs(launcher.getVelocity() - (hasShot ? currentShot.launcherRPM() : 0))
+        : 0;
+    double distAtFire = 0;
+    if (hasShot) {
+      double[] turretFieldPos =
+          ShotCalculator.getTurretFieldPosition(
+              robotPose.getX(),
+              robotPose.getY(),
+              robotPose.getRotation().getRadians(),
+              turretConfig);
+      distAtFire =
           Math.sqrt(
-              Math.pow(currentShot.aimTarget().getX() - robotPose.getX(), 2)
-                  + Math.pow(currentShot.aimTarget().getY() - robotPose.getY(), 2));
+              Math.pow(currentShot.aimTarget().getX() - turretFieldPos[0], 2)
+                  + Math.pow(currentShot.aimTarget().getY() - turretFieldPos[1], 2));
+    }
+    double confidence =
+        shotConfidence.calculate(
+            robotSpeedMps, visionConfidence, turretErrorDeg, distAtFire, rpmError);
+    boolean confidentEnough = confidence >= minShootConfidence.get();
+
+    if (hasShot && hasFuel && intervalElapsed && robotSlow && tiltSafe && confidentEnough) {
       Logger.recordOutput("Match/ShotLog/Timestamp", now);
       Logger.recordOutput("Match/ShotLog/DistanceM", distAtFire);
+      Logger.recordOutput("Match/ShotLog/Confidence", confidence);
       Logger.recordOutput("Match/ShotLog/RobotSpeedMps", robotSpeedMps);
       Logger.recordOutput("Match/ShotLog/ExitVelocityMps", currentShot.exitVelocityMps());
       Logger.recordOutput("Match/ShotLog/LaunchAngleDeg", currentShot.getLaunchAngleDegrees());
@@ -703,6 +785,15 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   // ========== Launch / Fuel Management ==========
+
+  /**
+   * Set the vision confidence for shot scoring. Called by the vision subsystem each cycle.
+   *
+   * @param confidence Vision confidence [0, 1] where 0 = no tags, 1 = perfect
+   */
+  public void setVisionConfidence(double confidence) {
+    this.visionConfidence = confidence;
+  }
 
   /** Set a supplier that, when true, prevents launchFuel() from firing. */
   public void setFeedingSuppressedSupplier(BooleanSupplier supplier) {

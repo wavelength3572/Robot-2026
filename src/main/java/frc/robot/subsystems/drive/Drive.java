@@ -386,6 +386,16 @@ public class Drive extends SubsystemBase {
         visionRobotPoseMeters, timestampSeconds, visionMeasurementStdDevs);
   }
 
+  /** Returns the gyro pitch in degrees. */
+  public double getPitchDeg() {
+    return gyroInputs.pitchDeg;
+  }
+
+  /** Returns the gyro roll in degrees. */
+  public double getRollDeg() {
+    return gyroInputs.rollDeg;
+  }
+
   /** Returns the maximum linear speed in meters per sec. */
   public double getMaxLinearSpeedMetersPerSec() {
     return maxSpeedMetersPerSec;

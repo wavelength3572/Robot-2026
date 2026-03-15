@@ -28,8 +28,6 @@ public class LUTShotStrategy implements ShotStrategy {
 
   private final ShotLookupTable lookupTable;
 
-  private static final int VELOCITY_COMP_ITERATIONS = 3;
-
   public LUTShotStrategy(ShotLookupTable lookupTable) {
     this.lookupTable = lookupTable;
   }
@@ -54,11 +52,15 @@ public class LUTShotStrategy implements ShotStrategy {
 
     Logger.recordOutput("Shots/Strategy/LUT/Status", "OK");
 
-    // Get turret field position
-    double robotHeadingRad = robotPose.getRotation().getRadians();
+    // Second-order latency compensation
+    edu.wpi.first.math.geometry.Pose2d compensatedPose =
+        ShotCalculator.compensatePoseForLatency(robotPose, fieldSpeeds);
+
+    // Get turret field position from compensated pose
+    double robotHeadingRad = compensatedPose.getRotation().getRadians();
     double[] turretFieldPos =
         ShotCalculator.getTurretFieldPosition(
-            robotPose.getX(), robotPose.getY(), robotHeadingRad, config);
+            compensatedPose.getX(), compensatedPose.getY(), robotHeadingRad, config);
     double turretX = turretFieldPos[0];
     double turretY = turretFieldPos[1];
 
@@ -66,27 +68,19 @@ public class LUTShotStrategy implements ShotStrategy {
     double staticDistance =
         Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
 
-    // Velocity compensation iteration using LUT TOF
-    // Outside the data range, lookup() clamps to nearest entry — no fallback needed
+    // Newton-Raphson SOTM velocity compensation using LUT TOF
     Translation3d aimTarget = target;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
 
     if (robotSpeed > 0.1) {
-      double tof = lookupTable.lookupTOF(staticDistance);
-      if (tof > 0) {
-        for (int i = 0; i < VELOCITY_COMP_ITERATIONS; i++) {
-          aimTarget =
-              ShotCalculator.clampAimOffset(
-                  ShotCalculator.predictTargetPos(target, fieldSpeeds, tof), target);
-          double aimDistance =
-              Math.sqrt(
-                  Math.pow(aimTarget.getX() - turretX, 2)
-                      + Math.pow(aimTarget.getY() - turretY, 2));
-          double newTof = lookupTable.lookupTOF(aimDistance);
-          if (newTof > 0) {
-            tof = newTof;
-          }
-        }
+      // TOF lookup function backed by the lookup table
+      java.util.function.DoubleUnaryOperator tofLookup =
+          (distance) -> lookupTable.lookupTOF(distance);
+
+      ShotCalculator.SOTMResult sotm =
+          ShotCalculator.solveSOTMNewton(target, turretX, turretY, fieldSpeeds, tofLookup);
+      if (sotm.converged()) {
+        aimTarget = sotm.aimTarget();
       }
     }
 
@@ -101,12 +95,12 @@ public class LUTShotStrategy implements ShotStrategy {
       return new ShotCalculator.ShotResult(0.0, 0.0, 0.0, 0.0, 0.0, target, false);
     }
 
-    // Calculate turret angle to aim at the target
+    // Calculate turret angle to aim at the target (from compensated pose)
     double turretAngleDeg =
         ShotCalculator.calculateOutsideTurretAngle(
-            robotPose.getX(),
-            robotPose.getY(),
-            robotPose.getRotation().getDegrees(),
+            compensatedPose.getX(),
+            compensatedPose.getY(),
+            compensatedPose.getRotation().getDegrees(),
             aimTarget.getX(),
             aimTarget.getY(),
             currentTurretAngleDeg,

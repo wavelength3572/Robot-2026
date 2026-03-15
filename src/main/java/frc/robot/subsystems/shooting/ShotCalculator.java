@@ -46,6 +46,17 @@ public final class ShotCalculator {
   private static final LoggedTunableNumber velocityCompY =
       new LoggedTunableNumber("Shots/VelocityComp/Y", 1.0);
 
+  // Second-order latency compensation: separate vision pipeline and mechanism delays
+  private static final LoggedTunableNumber visionLatencySec =
+      new LoggedTunableNumber("Shots/LatencyComp/VisionSec", 0.030);
+  private static final LoggedTunableNumber mechLatencySec =
+      new LoggedTunableNumber("Shots/LatencyComp/MechSec", 0.020);
+
+  // Previous-cycle velocities for finite-difference acceleration estimate
+  private static double prevFieldVx = 0.0;
+  private static double prevFieldVy = 0.0;
+  private static double prevOmega = 0.0;
+
   // ========== Launcher RPM Tracking ==========
   // currentLauncherRPM = what the launcher is actually doing right now
   // targetLauncherRPM = what we're commanding the launcher to do (setpoint)
@@ -248,6 +259,218 @@ public final class ShotCalculator {
     return new Translation3d(predictedX, predictedY, target.getZ());
   }
 
+  // ========== Newton-Raphson SOTM Solver ==========
+
+  // Solver tuning constants
+  private static final LoggedTunableNumber sotmDragCoeff =
+      new LoggedTunableNumber("Shots/SOTM/DragCoeff", 0.47);
+  private static final LoggedTunableNumber sotmMaxIterations =
+      new LoggedTunableNumber("Shots/SOTM/MaxIterations", 25);
+  private static final LoggedTunableNumber sotmConvergenceTol =
+      new LoggedTunableNumber("Shots/SOTM/ConvergenceTol", 0.001);
+  private static final LoggedTunableNumber sotmTofMin =
+      new LoggedTunableNumber("Shots/SOTM/TofMin", 0.05);
+  private static final LoggedTunableNumber sotmTofMax =
+      new LoggedTunableNumber("Shots/SOTM/TofMax", 5.0);
+
+  // Warm-start: reuse previous cycle's solved TOF as initial guess
+  private static double warmStartTOF = -1.0;
+
+  /** Reset the warm-start TOF (call after pose reseeding or mode transitions). */
+  public static void resetWarmStart() {
+    warmStartTOF = -1.0;
+  }
+
+  /**
+   * Result of the Newton-Raphson SOTM velocity compensation solver. Contains the compensated aim
+   * target, effective TOF, and diagnostics.
+   */
+  public record SOTMResult(
+      Translation3d aimTarget,
+      double effectiveTOF,
+      int iterationsUsed,
+      boolean converged,
+      boolean warmStartUsed) {}
+
+  /**
+   * Newton-Raphson solver for shoot-on-the-move velocity compensation. Solves for the correct aim
+   * point accounting for robot velocity and air drag on the inherited velocity component.
+   *
+   * <p>The ball inherits the robot's velocity at launch, but that component decays due to air drag.
+   * Instead of displacement = v * tof, the actual displacement is (1 - e^(-c*tof)) / c where c is
+   * the drag coefficient. The solver finds the TOF that is self-consistent with the LUT/parametric
+   * lookup at the drag-compensated distance.
+   *
+   * @param target Static target position
+   * @param turretX Turret X field position
+   * @param turretY Turret Y field position
+   * @param fieldSpeeds Field-relative chassis speeds
+   * @param tofLookup Function that returns TOF for a given distance (from LUT or parametric)
+   * @return SOTMResult with compensated aim target and diagnostics
+   */
+  public static SOTMResult solveSOTMNewton(
+      Translation3d target,
+      double turretX,
+      double turretY,
+      ChassisSpeeds fieldSpeeds,
+      java.util.function.DoubleUnaryOperator tofLookup) {
+
+    double vx = fieldSpeeds.vxMetersPerSecond * velocityCompX.get();
+    double vy = fieldSpeeds.vyMetersPerSecond * velocityCompY.get();
+    double c = sotmDragCoeff.get();
+    int maxIter = (int) sotmMaxIterations.get();
+    double convergenceTol = sotmConvergenceTol.get();
+    double tofMinVal = sotmTofMin.get();
+    double tofMaxVal = sotmTofMax.get();
+
+    // Relative position: target - turret
+    double rx = target.getX() - turretX;
+    double ry = target.getY() - turretY;
+
+    // Static distance for initial TOF estimate
+    double staticDist = Math.sqrt(rx * rx + ry * ry);
+
+    // Initialize TOF: warm-start from previous cycle or fresh lookup
+    boolean warmStartUsed = warmStartTOF > 0;
+    double tof = warmStartUsed ? warmStartTOF : tofLookup.applyAsDouble(staticDist);
+    if (tof <= 0) tof = staticDist / 10.0; // fallback estimate
+
+    boolean converged = false;
+    int iterations = 0;
+
+    for (int i = 0; i < maxIter; i++) {
+      iterations = i + 1;
+      double prevTof = tof;
+
+      // Drag-compensated drift: (1 - e^(-c*tof)) / c
+      double dragExp = Math.exp(-c * tof);
+      double driftTOF = c > 0.001 ? (1.0 - dragExp) / c : tof; // linear fallback for tiny drag
+
+      // Project target position with drag-compensated velocity offset
+      double prx = rx - vx * driftTOF;
+      double pry = ry - vy * driftTOF;
+      double projDist = Math.sqrt(prx * prx + pry * pry);
+      if (projDist < 0.01) projDist = 0.01; // avoid division by zero
+
+      // Look up TOF at projected distance
+      double lookupTOF = tofLookup.applyAsDouble(projDist);
+      if (lookupTOF <= 0) break; // LUT failure
+
+      // Residual: the TOF we're using should equal what the LUT says for that distance
+      double f = lookupTOF - tof;
+
+      // Check convergence
+      if (Math.abs(tof - prevTof) < convergenceTol && i > 0) {
+        converged = true;
+        break;
+      }
+      if (Math.abs(f) < convergenceTol) {
+        converged = true;
+        tof = lookupTOF; // snap to LUT value
+        break;
+      }
+
+      // Derivative via chain rule:
+      // d(projDist)/d(tof) = -e^(-c*tof) * (prx*vx + pry*vy) / projDist
+      // d(lookupTOF)/d(projDist) = central difference
+      // f'(tof) = d(lookupTOF)/d(projDist) * d(projDist)/d(tof) - 1.0
+      double dDistDtof = -dragExp * (prx * vx + pry * vy) / projDist;
+
+      // Central difference for LUT derivative
+      double h = 0.01; // 1cm step
+      double tofPlus = tofLookup.applyAsDouble(projDist + h);
+      double tofMinus = tofLookup.applyAsDouble(projDist - h);
+      double dTofDdist = (tofPlus > 0 && tofMinus > 0) ? (tofPlus - tofMinus) / (2.0 * h) : 0;
+
+      double fPrime = dTofDdist * dDistDtof - 1.0;
+
+      // Newton step with safeguards
+      if (Math.abs(fPrime) > 0.01) {
+        tof = tof - f / fPrime;
+      } else {
+        // Near-zero derivative: fall back to fixed-point iteration
+        tof = lookupTOF;
+      }
+
+      // Clamp per iteration
+      tof = Math.max(tofMinVal, Math.min(tofMaxVal, tof));
+    }
+
+    // Divergence guard
+    if (Double.isNaN(tof) || tof <= 0 || tof > tofMaxVal) {
+      tof = tofLookup.applyAsDouble(staticDist);
+      if (tof <= 0) tof = staticDist / 10.0;
+      converged = false;
+    }
+
+    // Save for warm-start next cycle
+    warmStartTOF = tof;
+
+    // Add mechanism latency to the effective TOF for aim target computation
+    double effectiveTOF = addMechLatency(tof);
+
+    // Compute final aim target using drag-compensated drift at the effective TOF
+    double dragExp = Math.exp(-c * effectiveTOF);
+    double driftFinal = c > 0.001 ? (1.0 - dragExp) / c : effectiveTOF;
+    Translation3d aimTarget =
+        new Translation3d(
+            target.getX() - vx * driftFinal,
+            target.getY() - vy * driftFinal,
+            target.getZ());
+
+    Logger.recordOutput("Shots/SOTM/Iterations", iterations);
+    Logger.recordOutput("Shots/SOTM/Converged", converged);
+    Logger.recordOutput("Shots/SOTM/WarmStartUsed", warmStartUsed);
+    Logger.recordOutput("Shots/SOTM/SolvedTOF", tof);
+
+    return new SOTMResult(aimTarget, effectiveTOF, iterations, converged, warmStartUsed);
+  }
+
+  // ========== Latency Compensation ==========
+
+  /**
+   * Compute a latency-compensated pose using second-order kinematics. Estimates acceleration via
+   * finite difference of velocity between cycles, then applies v*dt + 0.5*a*dt² through the Lie
+   * group exponential map.
+   *
+   * @param rawPose Current (uncompensated) robot pose
+   * @param fieldSpeeds Current field-relative chassis speeds
+   * @return Compensated pose projected forward by the vision latency
+   */
+  public static Pose2d compensatePoseForLatency(Pose2d rawPose, ChassisSpeeds fieldSpeeds) {
+    double dt = visionLatencySec.get();
+    if (dt <= 0) return rawPose;
+
+    double vx = fieldSpeeds.vxMetersPerSecond;
+    double vy = fieldSpeeds.vyMetersPerSecond;
+    double omega = fieldSpeeds.omegaRadiansPerSecond;
+
+    // Finite-difference acceleration estimate (50Hz cycle = 0.02s)
+    double ax = (vx - prevFieldVx) / 0.02;
+    double ay = (vy - prevFieldVy) / 0.02;
+    double alpha = (omega - prevOmega) / 0.02;
+
+    // Store for next cycle
+    prevFieldVx = vx;
+    prevFieldVy = vy;
+    prevOmega = omega;
+
+    // Second-order displacement through Lie group exponential
+    return rawPose.exp(
+        new edu.wpi.first.math.geometry.Twist2d(
+            vx * dt + 0.5 * ax * dt * dt,
+            vy * dt + 0.5 * ay * dt * dt,
+            omega * dt + 0.5 * alpha * dt * dt));
+  }
+
+  /**
+   * Get the total effective TOF including mechanism latency. The mechanism latency accounts for
+   * actuator response time between computing the solution and the ball leaving the launcher.
+   */
+  public static double addMechLatency(double tof) {
+    return tof + mechLatencySec.get();
+  }
+
   // ========== Field Position Helpers ==========
 
   /**
@@ -385,55 +608,45 @@ public final class ShotCalculator {
       double hoodMinAngleDeg,
       double hoodMaxAngleDeg) {
 
-    double robotHeadingRad = robotPose.getRotation().getRadians();
+    // Second-order latency compensation: project pose forward by vision pipeline delay
+    Pose2d compensatedPose = compensatePoseForLatency(robotPose, fieldSpeeds);
+
+    double robotHeadingRad = compensatedPose.getRotation().getRadians();
     double[] turretFieldPos =
-        getTurretFieldPosition(robotPose.getX(), robotPose.getY(), robotHeadingRad, config);
+        getTurretFieldPosition(
+            compensatedPose.getX(), compensatedPose.getY(), robotHeadingRad, config);
     double turretX = turretFieldPos[0];
     double turretY = turretFieldPos[1];
     Translation3d turretPos = new Translation3d(turretX, turretY, config.heightMeters());
 
     // Velocity compensation: adjust aim point to counteract robot movement during flight.
-    // Only apply when the initial shot is achievable — if the optimizer fails (returns
-    // exitVelocityMps=0), the ToF calculation produces Double.MAX_VALUE and predictTargetPos
-    // generates infinity coordinates, causing the turret to snap to a garbage angle.
+    // Uses Newton-Raphson solver with exponential drag model for accurate SOTM compensation.
     Translation3d aimTarget = hubTarget;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     if (robotSpeed > 0.1) {
-      TrajectoryOptimizer.OptimalShot initialShot =
-          TrajectoryOptimizer.calculateOptimalShot(
-              turretPos, hubTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+      // TOF lookup function using the parametric TrajectoryOptimizer
+      java.util.function.DoubleUnaryOperator tofLookup =
+          (distance) -> {
+            // Create a virtual target at the given distance along the shot line
+            double dx = hubTarget.getX() - turretX;
+            double dy = hubTarget.getY() - turretY;
+            double staticDist = Math.sqrt(dx * dx + dy * dy);
+            if (staticDist < 0.01) return 0.5;
+            double scale = distance / staticDist;
+            Translation3d virtualTarget =
+                new Translation3d(
+                    turretX + dx * scale, turretY + dy * scale, hubTarget.getZ());
+            TrajectoryOptimizer.OptimalShot shot =
+                TrajectoryOptimizer.calculateOptimalShot(
+                    turretPos, virtualTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+            if (!shot.achievable) return -1.0;
+            return calculateTimeOfFlight(
+                shot.exitVelocityMps, Math.toRadians(shot.launchAngleDeg), distance);
+          };
 
-      if (initialShot.achievable) {
-        double distanceToTarget =
-            Math.sqrt(
-                Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
-        double tof =
-            calculateTimeOfFlight(
-                initialShot.exitVelocityMps,
-                Math.toRadians(initialShot.launchAngleDeg),
-                distanceToTarget);
-
-        for (int i = 0; i < 3; i++) {
-          Translation3d candidate =
-              clampAimOffset(predictTargetPos(hubTarget, fieldSpeeds, tof), hubTarget);
-          double aimDistance =
-              Math.sqrt(
-                  Math.pow(candidate.getX() - turretX, 2)
-                      + Math.pow(candidate.getY() - turretY, 2));
-          TrajectoryOptimizer.OptimalShot refinedShot =
-              TrajectoryOptimizer.calculateOptimalShot(
-                  turretPos, candidate, hoodMinAngleDeg, hoodMaxAngleDeg);
-          if (!refinedShot.achievable) {
-            // Refinement diverged — keep last successful aimTarget
-            break;
-          }
-          aimTarget = candidate;
-          tof =
-              calculateTimeOfFlight(
-                  refinedShot.exitVelocityMps,
-                  Math.toRadians(refinedShot.launchAngleDeg),
-                  aimDistance);
-        }
+      SOTMResult sotm = solveSOTMNewton(hubTarget, turretX, turretY, fieldSpeeds, tofLookup);
+      if (sotm.converged()) {
+        aimTarget = sotm.aimTarget();
       }
     }
 
@@ -443,9 +656,9 @@ public final class ShotCalculator {
 
     double turretAngleDeg =
         calculateOutsideTurretAngle(
-            robotPose.getX(),
-            robotPose.getY(),
-            robotPose.getRotation().getDegrees(),
+            compensatedPose.getX(),
+            compensatedPose.getY(),
+            compensatedPose.getRotation().getDegrees(),
             aimTarget.getX(),
             aimTarget.getY(),
             currentTurretAngleDeg,
