@@ -168,6 +168,35 @@ public class ShootingCommands {
   private static final LoggedTunableNumber testSpindexerRPM =
       new LoggedTunableNumber("BenchTest/Shooting/SpindexerRPM", 1000.0);
 
+  // ===== Launcher RPM Trim =====
+
+  // Trim value added to all launcher RPM targets. Adjusted via button box axis positions.
+  // Down = -100, Left = 0 (neutral), Up = +100, Right = +300 ("goes to 11")
+  private static double launcherTrimRPM = 0.0;
+
+  /**
+   * Set the launcher RPM trim offset. This value is added to all launcher RPM targets (both smart
+   * launch and fixed shots).
+   *
+   * @param trimRPM The RPM offset to apply
+   */
+  public static void setLauncherTrimRPM(double trimRPM) {
+    if (launcherTrimRPM != trimRPM) {
+      launcherTrimRPM = trimRPM;
+      SmartDashboard.putNumber("Trim/LauncherRPM", trimRPM);
+      System.out.println("[Trim] Launcher RPM trim set to " + trimRPM);
+    }
+  }
+
+  /**
+   * Get the current launcher RPM trim offset.
+   *
+   * @return Current trim RPM value
+   */
+  public static double getLauncherTrimRPM() {
+    return launcherTrimRPM;
+  }
+
   // ===== Command Behavior Constants =====
 
   // Minimum time between shots (prevents multiple fires per frame)
@@ -229,6 +258,9 @@ public class ShootingCommands {
     testInsideTurretAngleDeg.get();
     testTurretVolts.get();
     testSpindexerRPM.get();
+
+    // Trim initial value on dashboard
+    SmartDashboard.putNumber("Trim/LauncherRPM", launcherTrimRPM);
 
     SmartDashboard.putString("Match/Status/Mode", currentMode.toString());
     SmartDashboard.putBoolean("Match/Status/Active", currentMode == ShootingMode.TEST);
@@ -426,6 +458,9 @@ public class ShootingCommands {
       DoubleSupplier turretAngleDegSupplier,
       DoubleSupplier motivatorRPMSupplier,
       DoubleSupplier spindexerRPMSupplier) {
+    // Wrap the launcher RPM supplier to include trim offset
+    DoubleSupplier trimmedLauncherRPM = () -> launcherRPMSupplier.getAsDouble() + launcherTrimRPM;
+
     return Commands.sequence(
             Commands.runOnce(() -> setMode(ShootingMode.TEST)),
             Commands.runOnce(() -> BenchTestMetrics.getInstance().reset()),
@@ -437,7 +472,7 @@ public class ShootingCommands {
 
                   double turretAngle = turretAngleDegSupplier.getAsDouble();
                   double hoodAngle = hoodAngleDegSupplier.getAsDouble();
-                  double launcherRPM = launcherRPMSupplier.getAsDouble();
+                  double launcherRPM = trimmedLauncherRPM.getAsDouble();
 
                   turret.setOutsideTurretAngle(turretAngle);
 
@@ -510,7 +545,7 @@ public class ShootingCommands {
                 // Keep launcher at speed (reads tunable each cycle)
                 Commands.run(
                     () -> {
-                      double rpm = launcherRPMSupplier.getAsDouble();
+                      double rpm = trimmedLauncherRPM.getAsDouble();
                       double hoodAngle = hoodAngleDegSupplier.getAsDouble();
                       double turretAngle = turretAngleDegSupplier.getAsDouble();
                       launcher.setVelocity(rpm);
@@ -983,9 +1018,9 @@ public class ShootingCommands {
 
   private static double getEffectiveRPM(ShotCalculator.ShotResult shot) {
     if (isLutDevOverrideActive()) {
-      return lutDevOverrideRPM.get();
+      return lutDevOverrideRPM.get() + launcherTrimRPM;
     }
-    return shot != null ? shot.launcherRPM() : 0.0;
+    return shot != null ? shot.launcherRPM() + launcherTrimRPM : 0.0;
   }
 
   private static double getEffectiveHoodDeg(ShotCalculator.ShotResult shot) {

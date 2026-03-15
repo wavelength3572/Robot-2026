@@ -529,11 +529,16 @@ public class ButtonsAndDashboardBindings {
       oi.getButtonBox1Button2().onFalse(Commands.runOnce(spindexer::deactivateUnclog));
     }
 
-    // Auto-tracking toggle: APAC right — turret/hood continuously track target
-    if (shootingCoordinator != null && turret != null) {
-      oi.getButtonBox1XAxisPositive()
-          .toggleOnTrue(ShootingCommands.autoTrackCommand(shootingCoordinator, turret, hood));
-    }
+    // Launcher RPM trim — button box 1 axis knob (4 positions)
+    // Down = -100 RPM, Up = +100 RPM, Left = 0 (neutral), Right = +300 ("goes to 11")
+    oi.getButtonBox1YAxisNegative()
+        .onTrue(Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(-100.0)));
+    oi.getButtonBox1YAxisPositive()
+        .onTrue(Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(100.0)));
+    oi.getButtonBox1XAxisNegative()
+        .onTrue(Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(0.0)));
+    oi.getButtonBox1XAxisPositive()
+        .onTrue(Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(300.0)));
 
     // Hub shot: Button 8 — fixed position launch for close-range hub shots
     if (launcher != null && turret != null) {
