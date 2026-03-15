@@ -250,7 +250,7 @@ public class RobotContainer {
     // Must be created BEFORE FuelSim so intake registration can reference the
     // coordinator
     if (turret != null) {
-      shootingCoordinator = new ShootingCoordinator(turret, hood, launcher, motivator);
+      shootingCoordinator = new ShootingCoordinator(turret, hood, launcher, motivator, spindexer);
       shootingCoordinator.initialize(drive::getPose, drive::getFieldRelativeSpeeds);
       // Gate launching: suppress if spindexer is suppressed OR hub shift is inactive
       // (unless "Ignore Hub State" dashboard toggle is on)

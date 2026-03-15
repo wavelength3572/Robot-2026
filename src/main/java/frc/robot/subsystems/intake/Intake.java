@@ -137,15 +137,23 @@ public class Intake extends SubsystemBase {
   private boolean movingFirstCycle =
       false; // Skip deployAtTarget check on first cycle (stale inputs)
 
-  // Deploy state machine — states describe the intake's intent, not motor control phase
+  // Deploy state machine
   private enum DeployState {
-    RETRACTED, // Stowed/retracted: brake mode + MAXMotion holding position
-    DEPLOYING, // Moving toward extended position: coast mode, MAXMotion driving
-    DEPLOY_SETTLING, // At extended target: brake mode, settling before coast
-    DEPLOYED, // At extended position, settled: coast mode, no active control
-    RETRACTING, // Moving toward retracted/stowed position: brake mode, MAXMotion driving
-    AGITATING, // Actively shaking arm: agitate command owns motor control
-    AGITATE_SETTLING // Post-agitate: brake for fall time, then re-deploy
+    RETRACTED,
+    DEPLOYING,
+    DEPLOY_SETTLING,
+    DEPLOYED,
+    RETRACTING,
+    AGITATING,
+    AGITATE_SETTLING
+  }
+
+  /** Roller operating state. */
+  public enum RollerState {
+    IDLE,
+    INTAKING,
+    EJECTING,
+    SAFETY_LOCKED
   }
 
   private DeployState deployState = DeployState.RETRACTED;
@@ -284,9 +292,20 @@ public class Intake extends SubsystemBase {
       io.stopRollerMotor();
     }
 
-    // Log deploy state machine
-    Logger.recordOutput("Intake/DeployState", deployState.name());
-    Logger.recordOutput("Intake/RollersSafetyLocked", rollersSafetyLocked);
+    // Log state machines
+    Logger.recordOutput("Subsystems/IntakeDeployState", deployState.name());
+
+    RollerState rollerState;
+    if (rollersSafetyLocked) {
+      rollerState = RollerState.SAFETY_LOCKED;
+    } else if (inputs.rollerVelocityRPM > 50) {
+      rollerState = RollerState.INTAKING;
+    } else if (inputs.rollerVelocityRPM < -50) {
+      rollerState = RollerState.EJECTING;
+    } else {
+      rollerState = RollerState.IDLE;
+    }
+    Logger.recordOutput("Subsystems/IntakeRollerState", rollerState.name());
   }
 
   // ========== DEPLOY CONTROL ==========
@@ -376,20 +395,17 @@ public class Intake extends SubsystemBase {
   }
 
   /** Check if the intake is at or past the deployed position (accepts overshoot from gravity). */
-  @AutoLogOutput(key = "Intake/IsDeployed")
   public boolean isDeployed() {
     return inputs.deployPositionRotations >= deployExtendedPos.get() - deployTolerance.get();
   }
 
   /** Check if the intake is fully retracted. */
-  @AutoLogOutput(key = "Intake/IsRetracted")
   public boolean isRetracted() {
     return Math.abs(inputs.deployPositionRotations - deployRetractedPos.get())
         <= deployTolerance.get();
   }
 
   /** Check if the intake is fully stowed. */
-  @AutoLogOutput(key = "Intake/IsStowed")
   public boolean isStowed() {
     return Math.abs(inputs.deployPositionRotations - deployStowedPos.get())
         <= deployTolerance.get();
@@ -414,7 +430,6 @@ public class Intake extends SubsystemBase {
   }
 
   /** Returns whether velocity control is active. */
-  @AutoLogOutput(key = "Intake/UseVelocityControl")
   public boolean isVelocityControlEnabled() {
     return useVelocityControl;
   }
@@ -587,16 +602,6 @@ public class Intake extends SubsystemBase {
                                                     - agitationRetractTarget.get())
                                             <= deployTolerance.get()
                                         || agitationTimer.hasElapsed(agitationTimeoutSec.get())),
-                            // Log whether UP phase reached target or timed out
-                            runOnce(
-                                () -> {
-                                  boolean reached =
-                                      Math.abs(
-                                              inputs.deployPositionRotations
-                                                  - agitationRetractTarget.get())
-                                          <= deployTolerance.get();
-                                  Logger.recordOutput("Intake/AgitationReachedTarget", reached);
-                                }),
                             // DOWN phase — coast sub-phase: motor off, coast mode, gravity gets arm
                             // moving
                             runOnce(

@@ -15,6 +15,7 @@ public interface TurretIO {
     public double currentAmps = 0.0;
     public double motorPosition = 0.0;
     public double absEncoder = 0.0;
+    public boolean connected = true;
   }
 
   /** Updates the set of loggable inputs. */

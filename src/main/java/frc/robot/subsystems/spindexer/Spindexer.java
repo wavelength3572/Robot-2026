@@ -104,22 +104,12 @@ public class Spindexer extends SubsystemBase {
     SmartDashboard.putBoolean("Tuning/Spindexer/Reciprocate/Enabled", true);
   }
 
-  private int spindexerLogCounter = 0;
-
   @Override
   public void periodic() {
     io.updateInputs(spindexerInputs);
     Logger.processInputs("Spindexer", spindexerInputs);
 
-    // Throttle diagnostic logging to ~10Hz to reduce NT traffic
-    if (++spindexerLogCounter % 5 == 0) {
-      Logger.recordOutput("Spindexer/State", state.name());
-      Logger.recordOutput(
-          "Spindexer/Reciprocate/Enabled",
-          SmartDashboard.getBoolean("Tuning/Spindexer/Reciprocate/Enabled", true));
-      Logger.recordOutput("Spindexer/AutoUnclog/Enabled", autoUnclogEnabled);
-      Logger.recordOutput("Spindexer/AutoUnclog/Attempts", autoUnclogAttempts);
-    }
+    Logger.recordOutput("Subsystems/SpindexerState", state.name());
 
     // Auto-unclog: detect stall during FEEDING and trigger a brief reverse burst.
     // Stall = high current + low velocity for a sustained period.
@@ -145,7 +135,6 @@ public class Spindexer extends SubsystemBase {
             autoUnclogInProgress = true;
             autoUnclogAttempts++;
             autoUnclogTimer.restart();
-            Logger.recordOutput("Spindexer/AutoUnclog/Triggered", true);
           }
         } else {
           stallTimer.stop();
@@ -232,6 +221,15 @@ public class Spindexer extends SubsystemBase {
    */
   public double getSpindexerWheelVelocity() {
     return spindexerInputs.wheelRPM;
+  }
+
+  /**
+   * Get spindexer target velocity.
+   *
+   * @return Target velocity in RPM
+   */
+  public double getSpindexerTargetRPM() {
+    return spindexerInputs.targetRPM;
   }
 
   /**

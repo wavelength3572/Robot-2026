@@ -3,7 +3,6 @@ package frc.robot.subsystems.hood;
 import edu.wpi.first.math.geometry.Translation3d;
 import frc.robot.subsystems.shooting.ShotCalculator;
 import frc.robot.util.LoggedTunableNumber;
-import org.littletonrobotics.junction.Logger;
 
 /**
  * Trajectory optimizer for hybrid RPM+hood control. Calculates the optimal combination of launcher
@@ -119,11 +118,6 @@ public class TrajectoryOptimizer {
     double R = HUB_ENTRY_RADIUS;
     double D_edge = D - R; // Distance to hub edge
 
-    // Log distance info (constant across attempts)
-    Logger.recordOutput("Match/Trajectory/Input/HorizontalDistanceM", D);
-    Logger.recordOutput("Match/Trajectory/Input/TurretHeightM", turretHeightM);
-    Logger.recordOutput("Match/Trajectory/Input/HubEdgeDistanceM", D_edge);
-
     // Try preferred descent angle first, then step down if hood limits prevent the shot
     double preferredDescent = descentAngleDeg.get();
     double minDescent = minDescentAngleDeg.get();
@@ -134,11 +128,6 @@ public class TrajectoryOptimizer {
           tryDescentAngle(descent, D, D_edge, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg);
 
       if (shot.achievable) {
-        // Log the descent angle actually used (may differ from preferred)
-        Logger.recordOutput("Match/Trajectory/Input/DescentAngleDeg", descent);
-        Logger.recordOutput("Match/Trajectory/Input/PreferredDescentDeg", preferredDescent);
-        Logger.recordOutput("Match/Trajectory/Input/DescentWasReduced", descent < preferredDescent);
-        logResult(shot);
         return shot;
       }
 
@@ -146,10 +135,6 @@ public class TrajectoryOptimizer {
     }
 
     // No descent angle worked — return the last failure
-    Logger.recordOutput("Match/Trajectory/Input/DescentAngleDeg", minDescent);
-    Logger.recordOutput("Match/Trajectory/Input/PreferredDescentDeg", preferredDescent);
-    Logger.recordOutput("Match/Trajectory/Input/DescentWasReduced", true);
-    logResult(lastFailure);
     return lastFailure;
   }
 
@@ -178,9 +163,6 @@ public class TrajectoryOptimizer {
     // Calculate clearance and check bounds
     double clearanceM = heightAtEdge - HUB_LIP_HEIGHT;
     double clearanceInchesComputed = clearanceM / 0.0254;
-
-    Logger.recordOutput("Match/Trajectory/Input/HeightAtEdgeM", heightAtEdge);
-    Logger.recordOutput("Match/Trajectory/Input/ClearanceInches", clearanceInchesComputed);
 
     if (clearanceInchesComputed < minClearanceInches.get()) {
       return new OptimalShot(
@@ -362,17 +344,6 @@ public class TrajectoryOptimizer {
         true,
         String.format(
             "OK - clearance %.1f in, descent %.1f deg", clearanceM / 0.0254, descentAngleDeg));
-  }
-
-  private static void logResult(OptimalShot shot) {
-    Logger.recordOutput("Match/Trajectory/Ideal/RPM", shot.rpm);
-    Logger.recordOutput("Match/Trajectory/Ideal/HoodAngleDeg", shot.hoodAngleDeg);
-    Logger.recordOutput("Match/Trajectory/Ideal/LaunchAngleDeg", shot.launchAngleDeg);
-    Logger.recordOutput("Match/Trajectory/Ideal/ExitVelocityMps", shot.exitVelocityMps);
-    Logger.recordOutput("Match/Trajectory/Ideal/PeakHeightM", shot.peakHeightM);
-    Logger.recordOutput("Match/Trajectory/Ideal/DescentAngleDeg", shot.descentAngleDeg);
-    Logger.recordOutput("Match/Trajectory/Ideal/Achievable", shot.achievable);
-    Logger.recordOutput("Match/Trajectory/Ideal/Notes", shot.notes);
   }
 
   /** Get the current descent angle setting in degrees. */

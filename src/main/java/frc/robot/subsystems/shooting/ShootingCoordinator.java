@@ -16,6 +16,7 @@ import frc.robot.FieldConstants;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
+import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.RobotStatus;
@@ -38,6 +39,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final Hood hood;
   private final Launcher launcher;
   private final Motivator motivator;
+  private final Spindexer spindexer;
 
   // Turret geometry config (immutable)
   private final ShotCalculator.TurretConfig turretConfig;
@@ -129,7 +131,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private int autoShots = 0;
   private int teleopShots = 0;
   private final LoggedTunableNumber autoShootMinInterval =
-      new LoggedTunableNumber("BenchTest/AutoShoot/MinInterval", 0.15);
+      new LoggedTunableNumber("Shots/AutoShoot/MinInterval", 0.15);
   private final LoggedTunableNumber maxFeedSpeedMps =
       new LoggedTunableNumber("Shots/SmartLaunch/MaxFeedSpeedMps", 1.75);
 
@@ -140,12 +142,15 @@ public class ShootingCoordinator extends SubsystemBase {
    * @param hood The hood subsystem (launch angle control), may be null
    * @param launcher The launcher subsystem (RPM control), may be null
    * @param motivator The motivator subsystem (ball feeder), may be null
+   * @param spindexer The spindexer subsystem (fuel indexer), may be null
    */
-  public ShootingCoordinator(Turret turret, Hood hood, Launcher launcher, Motivator motivator) {
+  public ShootingCoordinator(
+      Turret turret, Hood hood, Launcher launcher, Motivator motivator, Spindexer spindexer) {
     this.turret = turret;
     this.hood = hood;
     this.launcher = launcher;
     this.motivator = motivator;
+    this.spindexer = spindexer;
 
     var config = Constants.getRobotConfig();
     this.turretConfig =
@@ -215,6 +220,14 @@ public class ShootingCoordinator extends SubsystemBase {
     // Advance visualizer throttle counter
     visualizerCounter++;
 
+    // Shot calculation and logging run even while disabled so you can
+    // see strategy comparisons and shot parameters before enabling.
+    periodicCounter++;
+    updateShotCalculation(alliance, isBlueAlliance);
+    if (periodicCounter % 5 == 0) {
+      logShotState();
+    }
+
     // Never command actuators while disabled — only run visualization
     if (DriverStation.isDisabled()) {
       if (visualizerCounter % VISUALIZER_DIVISOR == 0
@@ -225,14 +238,7 @@ public class ShootingCoordinator extends SubsystemBase {
       return;
     }
 
-    updateShotCalculation(alliance, isBlueAlliance);
     runAutoShoot(alliance);
-
-    // Throttle non-critical logging to ~10Hz to reduce NT traffic
-    periodicCounter++;
-    if (periodicCounter % 5 == 0) {
-      logShotState();
-    }
 
     // Visualization runs AFTER all control logic (passive observer, throttled to 10Hz)
     if (visualizerCounter % VISUALIZER_DIVISOR == 0
@@ -421,63 +427,73 @@ public class ShootingCoordinator extends SubsystemBase {
       hoodMax = Math.min(hoodMax, trenchHoodMaxDeg.get());
     }
 
-    ShotCalculator.ShotResult result =
+    double currentTurretAngle = turret.getOutsideCurrentAngle();
+    double turretMin = turret.getMinAngle();
+    double turretMax = turret.getMaxAngle();
+
+    // Active strategy runs every cycle for control
+    ShotCalculator.ShotResult activeResult =
         activeStrategy.calculateShot(
             robotPose,
             fieldSpeeds,
             target,
             turretConfig,
-            turret.getOutsideCurrentAngle(),
-            turret.getMinAngle(),
-            turret.getMaxAngle(),
+            currentTurretAngle,
+            turretMin,
+            turretMax,
             hoodMin,
             hoodMax);
+    currentShot = activeResult;
 
-    currentShot = result;
-
-    // Shot parameters are calculated only — commands use getCurrentShot() to drive actuators
-
-    // Throttle shot diagnostics logging to ~10Hz
+    // Throttle logging to ~10Hz
     if (periodicCounter % 5 == 0) {
       Logger.recordOutput("Shots/Strategy/Active", activeStrategy.getName());
-      Logger.recordOutput("Shots/Strategy/LUTDataPoints", lookupTable.size());
 
-      // Log shot data
+      boolean activeIsParametric = (activeStrategy == parametricStrategy);
+
+      // Log active strategy
+      if (activeIsParametric) {
+        Logger.recordOutput(
+            "Shots/Strategy/Parametric/RecommendedRPM", activeResult.launcherRPM());
+        Logger.recordOutput(
+            "Shots/Strategy/Parametric/RecommendedHoodDeg", activeResult.hoodAngleDeg());
+        Logger.recordOutput("Shots/Strategy/Parametric/Achievable", activeResult.achievable());
+
+        // LUT is cheap (table lookup) — always compute it for comparison
+        ShotCalculator.ShotResult lutResult =
+            lutStrategy.calculateShot(
+                robotPose, fieldSpeeds, target, turretConfig,
+                currentTurretAngle, turretMin, turretMax, hoodMin, hoodMax);
+        Logger.recordOutput("Shots/Strategy/LUT/RecommendedRPM", lutResult.launcherRPM());
+        Logger.recordOutput("Shots/Strategy/LUT/RecommendedHoodDeg", lutResult.hoodAngleDeg());
+      } else {
+        Logger.recordOutput("Shots/Strategy/LUT/RecommendedRPM", activeResult.launcherRPM());
+        Logger.recordOutput("Shots/Strategy/LUT/RecommendedHoodDeg", activeResult.hoodAngleDeg());
+
+        // Parametric is expensive — only compute when disabled
+        if (DriverStation.isDisabled()) {
+          ShotCalculator.ShotResult parametricResult =
+              parametricStrategy.calculateShot(
+                  robotPose, fieldSpeeds, target, turretConfig,
+                  currentTurretAngle, turretMin, turretMax, hoodMin, hoodMax);
+          Logger.recordOutput(
+              "Shots/Strategy/Parametric/RecommendedRPM", parametricResult.launcherRPM());
+          Logger.recordOutput(
+              "Shots/Strategy/Parametric/RecommendedHoodDeg", parametricResult.hoodAngleDeg());
+          Logger.recordOutput("Shots/Strategy/Parametric/Achievable", parametricResult.achievable());
+        }
+      }
+
+      // Log distance to target
       double robotHeadingRad = robotPose.getRotation().getRadians();
       double[] turretFieldPos =
           ShotCalculator.getTurretFieldPosition(
               robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
       double turretX = turretFieldPos[0];
       double turretY = turretFieldPos[1];
-
-      double azimuthDeg =
-          Math.toDegrees(
-              Math.atan2(result.aimTarget().getY() - turretY, result.aimTarget().getX() - turretX));
-
-      Logger.recordOutput("Turret/Shot/ExitVelocityMps", result.exitVelocityMps());
-      Logger.recordOutput("Turret/Shot/HoodAngleDeg", result.hoodAngleDeg());
-      Logger.recordOutput("Turret/Shot/LaunchAngleDeg", result.getLaunchAngleDegrees());
-      Logger.recordOutput("Turret/Shot/IdealRPM", result.launcherRPM());
-      Logger.recordOutput("Turret/Shot/Achievable", result.achievable());
-      Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
-      Logger.recordOutput("Turret/Shot/RelativeAngleDeg", result.turretAngleDeg());
-
-      // Log velocity compensation
-      double aimOffsetM =
-          Math.sqrt(
-              Math.pow(result.aimTarget().getX() - target.getX(), 2)
-                  + Math.pow(result.aimTarget().getY() - target.getY(), 2));
-      double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-      Logger.recordOutput("Turret/Shot/VelocityCompensation/AimOffsetM", aimOffsetM);
-      Logger.recordOutput("Turret/Shot/VelocityCompensation/RobotSpeedMps", robotSpeed);
-
-      // Log real target position
-      Logger.recordOutput("Turret/Shot/Hub", new Pose3d(target, Rotation3d.kZero));
-
-      // Log distance to target
       double distanceToTarget =
           Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
-      Logger.recordOutput("Turret/Shot/DistanceToTargetM", distanceToTarget);
+      Logger.recordOutput("Shots/Strategy/DistanceM", distanceToTarget);
     }
   }
 
@@ -566,21 +582,9 @@ public class ShootingCoordinator extends SubsystemBase {
 
     currentShot = result;
 
-    // Throttle pass shot logging to ~10Hz
+    // Pass shot distance logged at 10Hz (RPM/hood already covered by Shots/Status/)
     if (periodicCounter % 5 == 0) {
-      double azimuthDeg =
-          Math.toDegrees(
-              Math.atan2(result.aimTarget().getY() - turretY, result.aimTarget().getX() - turretX));
-
-      Logger.recordOutput("Turret/Shot/ExitVelocityMps", result.exitVelocityMps());
-      Logger.recordOutput("Turret/Shot/HoodAngleDeg", result.hoodAngleDeg());
-      Logger.recordOutput("Turret/Shot/LaunchAngleDeg", result.getLaunchAngleDegrees());
-      Logger.recordOutput("Turret/Shot/IdealRPM", result.launcherRPM());
-      Logger.recordOutput("Turret/Shot/Achievable", result.achievable());
-      Logger.recordOutput("Turret/Shot/AzimuthDeg", azimuthDeg);
-      Logger.recordOutput("Turret/Shot/RelativeAngleDeg", result.turretAngleDeg());
-      Logger.recordOutput("Turret/Shot/DistanceToTargetM", horizontalDist);
-      Logger.recordOutput("Turret/Shot/Hub", new Pose3d(target, Rotation3d.kZero));
+      Logger.recordOutput("Shots/Strategy/DistanceM", horizontalDist);
     }
   }
 
@@ -600,22 +604,13 @@ public class ShootingCoordinator extends SubsystemBase {
     boolean achievable = currentShot != null && currentShot.achievable();
 
     Logger.recordOutput(
-        "SmartLaunch/Ready/All",
+        "Shots/Status/Ready",
         launcherReady && motivatorReady && turretReady && hoodReady && achievable);
 
-    if (currentShot != null) {
-      Logger.recordOutput("SmartLaunch/Target/RPM", currentShot.launcherRPM());
-      Logger.recordOutput("SmartLaunch/Target/HoodDeg", currentShot.hoodAngleDeg());
-      Logger.recordOutput(
-          "SmartLaunch/Error/TurretDeg",
-          turret.getOutsideCurrentAngle() - currentShot.turretAngleDeg());
-    }
-
-    // --- Quick-glance panel: overrides, targets, and actuals in one place ---
+    // --- Targets (what we're commanding) ---
     boolean overridesActive = SmartDashboard.getBoolean("LUTDev/UseOverrides", false);
     Logger.recordOutput("Shots/Status/OverridesActive", overridesActive);
 
-    // Effective targets (what's actually being commanded — respects overrides)
     double targetRPM;
     double targetHoodDeg;
     if (overridesActive) {
@@ -628,16 +623,31 @@ public class ShootingCoordinator extends SubsystemBase {
       targetRPM = 0;
       targetHoodDeg = 0;
     }
-    Logger.recordOutput("Shots/Status/TargetRPM", targetRPM);
-    Logger.recordOutput("Shots/Status/TargetHoodDeg", targetHoodDeg);
 
-    // Actuals
-    double actualRPM = launcher != null ? launcher.getVelocity() : 0;
-    double actualHoodDeg = hood != null ? hood.getCurrentAngle() : 0;
-    Logger.recordOutput("Shots/Status/ActualRPM", actualRPM);
-    Logger.recordOutput("Shots/Status/ActualHoodDeg", actualHoodDeg);
+    Logger.recordOutput("Shots/Status/Target/LauncherRPM", targetRPM);
+    Logger.recordOutput("Shots/Status/Target/HoodDeg", targetHoodDeg);
+    Logger.recordOutput(
+        "Shots/Status/Target/TurretDeg", currentShot != null ? currentShot.turretAngleDeg() : 0.0);
+    Logger.recordOutput(
+        "Shots/Status/Target/MotivatorRPM",
+        motivator != null ? motivator.getMotivatorTargetRPM() : 0.0);
+    Logger.recordOutput(
+        "Shots/Status/Target/SpindexerRPM",
+        spindexer != null ? spindexer.getSpindexerTargetRPM() : 0.0);
 
-    // Distance and TOF — everything you need to build a LUT entry
+    // --- Actuals (what hardware is doing) ---
+    Logger.recordOutput(
+        "Shots/Status/Actual/LauncherRPM", launcher != null ? launcher.getVelocity() : 0.0);
+    Logger.recordOutput("Shots/Status/Actual/HoodDeg", hood != null ? hood.getCurrentAngle() : 0.0);
+    Logger.recordOutput("Shots/Status/Actual/TurretDeg", turret.getOutsideCurrentAngle());
+    Logger.recordOutput(
+        "Shots/Status/Actual/MotivatorRPM",
+        motivator != null ? motivator.getMotivatorWheelVelocity() : 0.0);
+    Logger.recordOutput(
+        "Shots/Status/Actual/SpindexerRPM",
+        spindexer != null ? spindexer.getSpindexerWheelVelocity() : 0.0);
+
+    // Distance and TOF
     if (currentShot != null && robotPoseSupplier != null) {
       Pose2d robotPose = robotPoseSupplier.get();
       double robotHeadingRad = robotPose.getRotation().getRadians();
@@ -649,7 +659,15 @@ public class ShootingCoordinator extends SubsystemBase {
           Math.sqrt(
               Math.pow(aim.getX() - turretPos[0], 2) + Math.pow(aim.getY() - turretPos[1], 2));
       Logger.recordOutput("Shots/Status/DistanceM", distance);
-      Logger.recordOutput("Shots/Status/EstimatedTOF", lookupTable.lookupTOF(distance));
+
+      // Parametric TOF from physics (exit velocity + launch angle)
+      double parametricTOF =
+          ShotCalculator.calculateTimeOfFlight(
+              currentShot.exitVelocityMps(), currentShot.launchAngleRad(), distance);
+      Logger.recordOutput("Shots/Strategy/Parametric/TOF", parametricTOF);
+
+      // LUT TOF from empirical data
+      Logger.recordOutput("Shots/Strategy/LUT/TOF", lookupTable.lookupTOF(distance));
     }
   }
 
@@ -684,12 +702,12 @@ public class ShootingCoordinator extends SubsystemBase {
           Math.sqrt(
               Math.pow(currentShot.aimTarget().getX() - robotPose.getX(), 2)
                   + Math.pow(currentShot.aimTarget().getY() - robotPose.getY(), 2));
-      Logger.recordOutput("Match/ShotLog/Timestamp", now);
-      Logger.recordOutput("Match/ShotLog/DistanceM", distAtFire);
-      Logger.recordOutput("Match/ShotLog/RobotSpeedMps", robotSpeedMps);
-      Logger.recordOutput("Match/ShotLog/ExitVelocityMps", currentShot.exitVelocityMps());
-      Logger.recordOutput("Match/ShotLog/LaunchAngleDeg", currentShot.getLaunchAngleDegrees());
-      Logger.recordOutput("Match/ShotLog/TurretAngleDeg", turret.getOutsideCurrentAngle());
+      Logger.recordOutput("Shots/ShotLog/Timestamp", now);
+      Logger.recordOutput("Shots/ShotLog/DistanceM", distAtFire);
+      Logger.recordOutput("Shots/ShotLog/RobotSpeedMps", robotSpeedMps);
+      Logger.recordOutput("Shots/ShotLog/ExitVelocityMps", currentShot.exitVelocityMps());
+      Logger.recordOutput("Shots/ShotLog/LaunchAngleDeg", currentShot.getLaunchAngleDegrees());
+      Logger.recordOutput("Shots/ShotLog/TurretAngleDeg", turret.getOutsideCurrentAngle());
 
       launchFuel();
       lastShotTimestamp = now;
@@ -737,9 +755,9 @@ public class ShootingCoordinator extends SubsystemBase {
       } else {
         teleopShots++;
       }
-      Logger.recordOutput("Match/ShotLog/TotalShots", totalShots);
-      Logger.recordOutput("Match/ShotLog/AutoShots", autoShots);
-      Logger.recordOutput("Match/ShotLog/TeleopShots", teleopShots);
+      Logger.recordOutput("Shots/ShotLog/TotalShots", totalShots);
+      Logger.recordOutput("Shots/ShotLog/AutoShots", autoShots);
+      Logger.recordOutput("Shots/ShotLog/TeleopShots", teleopShots);
     }
   }
 
@@ -748,9 +766,9 @@ public class ShootingCoordinator extends SubsystemBase {
     totalShots = 0;
     autoShots = 0;
     teleopShots = 0;
-    Logger.recordOutput("Match/ShotLog/TotalShots", 0);
-    Logger.recordOutput("Match/ShotLog/AutoShots", 0);
-    Logger.recordOutput("Match/ShotLog/TeleopShots", 0);
+    Logger.recordOutput("Shots/ShotLog/TotalShots", 0);
+    Logger.recordOutput("Shots/ShotLog/AutoShots", 0);
+    Logger.recordOutput("Shots/ShotLog/TeleopShots", 0);
   }
 
   /**

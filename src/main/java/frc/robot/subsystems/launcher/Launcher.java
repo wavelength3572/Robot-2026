@@ -9,11 +9,9 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
 import frc.robot.subsystems.shooting.ShotCalculator;
-import frc.robot.util.BenchTestMetrics;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.ArrayList;
 import java.util.List;
-import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -21,6 +19,17 @@ import org.littletonrobotics.junction.Logger;
  * follower mode to ensure motors run in sync.
  */
 public class Launcher extends SubsystemBase {
+
+  /** Launcher operating state. */
+  public enum LauncherState {
+    IDLE,
+    SPINNING_UP,
+    READY,
+    FEEDING,
+    RECOVERING,
+    DISCONNECTED
+  }
+
   private final LauncherIO io;
   private final LauncherIOInputsAutoLogged inputs = new LauncherIOInputsAutoLogged();
   private final SysIdRoutine sysId;
@@ -67,9 +76,6 @@ public class Launcher extends SubsystemBase {
   // Tracks whether recovery mode is currently active (for hysteresis)
   private boolean recoveryActive = false;
 
-  // Safety threshold for velocity mismatch between motors
-  private static final double VELOCITY_MISMATCH_THRESHOLD_RPM = 200.0;
-
   // SysId safety: end test when velocity reaches this threshold
   private static final double SYSID_MAX_VELOCITY_RPM = 3000.0;
 
@@ -113,38 +119,30 @@ public class Launcher extends SubsystemBase {
     io.setVelocityTolerance(velocityToleranceRPM.get());
   }
 
-  private int launcherLogCounter = 0;
-
   @Override
   public void periodic() {
     io.updateInputs(inputs);
     Logger.processInputs("Launcher", inputs);
 
+    // Compute and log state
+    LauncherState state;
+    if (!isConnected()) {
+      state = LauncherState.DISCONNECTED;
+    } else if (inputs.targetVelocityRPM < 100.0) {
+      state = LauncherState.IDLE;
+    } else if (recoveryActive) {
+      state = LauncherState.RECOVERING;
+    } else if (feedingActive) {
+      state = LauncherState.FEEDING;
+    } else if (inputs.atSetpoint) {
+      state = LauncherState.READY;
+    } else {
+      state = LauncherState.SPINNING_UP;
+    }
+    Logger.recordOutput("Subsystems/LauncherState", state.name());
+
     // Update ShotCalculator with current wheel RPM for trajectory calculations
     ShotCalculator.setLauncherRPM(inputs.wheelVelocityRPM);
-
-    // Safety: detect velocity mismatch between motors
-    double velocityMismatch =
-        Math.abs(Math.abs(inputs.leaderVelocityRPM) - Math.abs(inputs.followerVelocityRPM));
-    boolean mismatchAlert =
-        velocityMismatch > VELOCITY_MISMATCH_THRESHOLD_RPM && inputs.targetVelocityRPM > 100;
-
-    // Throttle diagnostic logging to ~10Hz to reduce NT traffic
-    if (++launcherLogCounter % 5 == 0) {
-      double velocityError = inputs.targetVelocityRPM - inputs.wheelVelocityRPM;
-      Logger.recordOutput("Launcher/velocityError", velocityError);
-      Logger.recordOutput("Launcher/velocityMismatch", velocityMismatch);
-      Logger.recordOutput("Launcher/velocityMismatchAlert", mismatchAlert);
-      if (mismatchAlert) {
-        Logger.recordOutput(
-            "Launcher/velocityMismatchMessage",
-            "Velocity mismatch! Leader: "
-                + inputs.leaderVelocityRPM
-                + " RPM, Follower: "
-                + inputs.followerVelocityRPM
-                + " RPM");
-      }
-    }
 
     // Push tunable changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kI, kD, recoveryKpBoost, iZone)) {
@@ -156,14 +154,6 @@ public class Launcher extends SubsystemBase {
     if (LoggedTunableNumber.hasChanged(velocityToleranceRPM)) {
       io.setVelocityTolerance(velocityToleranceRPM.get());
     }
-
-    // Update bench test metrics with current state
-    BenchTestMetrics.getInstance()
-        .periodic(
-            inputs.wheelVelocityRPM,
-            inputs.targetVelocityRPM,
-            inputs.leaderTempCelsius,
-            inputs.followerTempCelsius);
   }
 
   /**
@@ -187,7 +177,6 @@ public class Launcher extends SubsystemBase {
     } else {
       recoveryActive = false;
     }
-    Logger.recordOutput("Launcher/RecoveryActive", recoveryActive);
 
     // Compute recovery arbFF voltage proportional to target RPM's steady-state FF.
     // FF voltage ≈ kS + kV * motorRPM. Scale by tunable percentage.
@@ -195,7 +184,6 @@ public class Launcher extends SubsystemBase {
     double motorRPM = velocityRPM / gearRatio;
     double steadyStateFF = kS.get() + kV.get() * motorRPM;
     double recoveryArbFFVolts = recoveryActive ? recoveryArbFFPct.get() * steadyStateFF : 0.0;
-    Logger.recordOutput("Launcher/RecoveryArbFF", recoveryArbFFVolts);
 
     io.setVelocity(velocityRPM, recoveryActive, recoveryArbFFVolts);
     ShotCalculator.setTargetLauncherRPM(velocityRPM);
@@ -232,7 +220,6 @@ public class Launcher extends SubsystemBase {
    *
    * @return Current velocity in wheel RPM
    */
-  @AutoLogOutput(key = "Launcher/currentVelocity")
   public double getVelocity() {
     return inputs.wheelVelocityRPM;
   }

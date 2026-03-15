@@ -5,7 +5,6 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
-import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -13,6 +12,15 @@ import org.littletonrobotics.junction.Logger;
  * ideal arc trajectories using hybrid RPM+hood control.
  */
 public class Hood extends SubsystemBase {
+
+  /** Hood operating state. */
+  public enum HoodState {
+    RAISING,
+    LOWERING,
+    READY,
+    DISCONNECTED
+  }
+
   private final HoodIO io;
   private final HoodIOInputsAutoLogged inputs = new HoodIOInputsAutoLogged();
 
@@ -43,6 +51,19 @@ public class Hood extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs("Hood", inputs);
 
+    // Compute and log state
+    HoodState state;
+    if (!inputs.connected) {
+      state = HoodState.DISCONNECTED;
+    } else if (inputs.atTarget) {
+      state = HoodState.READY;
+    } else if (inputs.targetAngleDeg > inputs.currentAngleDeg) {
+      state = HoodState.RAISING;
+    } else {
+      state = HoodState.LOWERING;
+    }
+    Logger.recordOutput("Subsystems/HoodState", state.name());
+
     // Push tunable PID changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kD)) {
       io.configurePID(kP.get(), kD.get());
@@ -50,8 +71,6 @@ public class Hood extends SubsystemBase {
     if (LoggedTunableNumber.hasChanged(readyToleranceAngleDeg)) {
       io.setAngleTolerance(readyToleranceAngleDeg.get());
     }
-
-    Logger.recordOutput("Hood/AngleError", inputs.targetAngleDeg - inputs.currentAngleDeg);
   }
 
   /**
@@ -62,10 +81,6 @@ public class Hood extends SubsystemBase {
   public void setHoodAngle(double angleDeg) {
     double clamped = clampToLimits(angleDeg);
     io.setAngle(clamped);
-
-    if (clamped != angleDeg) {
-      Logger.recordOutput("Hood/ClampedRequest", angleDeg);
-    }
   }
 
   /**
@@ -73,7 +88,6 @@ public class Hood extends SubsystemBase {
    *
    * @return Current angle in degrees
    */
-  @AutoLogOutput(key = "Hood/currentAngle")
   public double getCurrentAngle() {
     return inputs.currentAngleDeg;
   }

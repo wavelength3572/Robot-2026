@@ -15,6 +15,15 @@ import org.littletonrobotics.junction.Logger;
  * </ul>
  */
 public class Motivator extends SubsystemBase {
+
+  /** Motivator operating state. */
+  public enum MotivatorState {
+    IDLE,
+    SPINNING_UP,
+    READY,
+    DISCONNECTED
+  }
+
   private final MotivatorIO io;
   private final MotorInputsAutoLogged motor1Inputs = new MotorInputsAutoLogged();
 
@@ -52,6 +61,19 @@ public class Motivator extends SubsystemBase {
     io.updateInputs(motor1Inputs);
     Logger.processInputs("Motivator", motor1Inputs);
 
+    // Compute and log state
+    MotivatorState state;
+    if (!motor1Inputs.connected) {
+      state = MotivatorState.DISCONNECTED;
+    } else if (!motivatorRunning) {
+      state = MotivatorState.IDLE;
+    } else if (motor1Inputs.atSetpoint) {
+      state = MotivatorState.READY;
+    } else {
+      state = MotivatorState.SPINNING_UP;
+    }
+    Logger.recordOutput("Subsystems/MotivatorState", state.name());
+
     // Push tunable changes to IO only when motor is running to avoid re-enabling old setpoints
     if (motivatorRunning && LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
       io.configureMotivatorPID(kP.get(), kI.get(), kD.get(), kS.get(), kV.get());
@@ -88,6 +110,15 @@ public class Motivator extends SubsystemBase {
    */
   public double getMotivatorWheelVelocity() {
     return motor1Inputs.wheelRPM;
+  }
+
+  /**
+   * Get motivator target velocity.
+   *
+   * @return Target velocity in RPM
+   */
+  public double getMotivatorTargetRPM() {
+    return motor1Inputs.targetRPM;
   }
 
   /**

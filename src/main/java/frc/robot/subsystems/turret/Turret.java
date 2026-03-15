@@ -16,6 +16,16 @@ import org.littletonrobotics.junction.Logger;
  * visualization live in {@link frc.robot.subsystems.shooting.ShootingCoordinator}.
  */
 public class Turret extends SubsystemBase {
+
+  /** Turret operating state. */
+  public enum TurretState {
+    LOCKED,
+    ROTATING_CW,
+    ROTATING_CCW,
+    READY,
+    DISCONNECTED
+  }
+
   private final TurretIO io;
   private final TurretIOInputsAutoLogged inputs = new TurretIOInputsAutoLogged();
 
@@ -64,15 +74,6 @@ public class Turret extends SubsystemBase {
     outsideAngleMin = config.getTurretOutsideMinAngleDeg();
     outsideAngleMax = config.getTurretOutsideMaxAngleDeg();
     outsideCenterDeg = (outsideAngleMax + outsideAngleMin) / 2.0;
-
-    // Log turret configuration (logged once at startup)
-    Logger.recordOutput("Turret/Config/outsideAngleMin", outsideAngleMin);
-    Logger.recordOutput("Turret/Config/outsideAngleMax", outsideAngleMax);
-    Logger.recordOutput("Turret/Config/heightMeters", turretHeightMeters);
-    Logger.recordOutput("Turret/Config/gearRatio", config.getTurretGearRatio());
-    Logger.recordOutput("Turret/Config/kP", config.getTurretKp());
-    Logger.recordOutput("Turret/Config/kD", config.getTurretKd());
-    Logger.recordOutput("Turret/Config/currentLimitAmps", config.getTurretCurrentLimitAmps());
   }
 
   @Override
@@ -80,14 +81,25 @@ public class Turret extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs("Turret", inputs);
 
+    // Compute and log state
+    TurretState state;
+    if (!inputs.connected) {
+      state = TurretState.DISCONNECTED;
+    } else if (locked) {
+      state = TurretState.LOCKED;
+    } else if (atTarget()) {
+      state = TurretState.READY;
+    } else if (getOutsideTargetAngle() > getOutsideCurrentAngle()) {
+      state = TurretState.ROTATING_CW;
+    } else {
+      state = TurretState.ROTATING_CCW;
+    }
+    Logger.recordOutput("Subsystems/TurretState", state.name());
+
     // Push tunable PID changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kD)) {
       io.configurePID(kP.get(), kD.get());
     }
-
-    Logger.recordOutput("Turret/AngleError", getOutsideTargetAngle() - getOutsideCurrentAngle());
-    Logger.recordOutput("Turret/AtTarget", atTarget());
-    Logger.recordOutput("Turret/Locked", locked);
   }
 
   // ========== Turret Lock ==========
@@ -121,11 +133,6 @@ public class Turret extends SubsystemBase {
   public void setOutsideTurretAngle(double angleDegrees) {
     if (locked) return;
     double clampedAngle = Math.max(outsideAngleMin, Math.min(outsideAngleMax, angleDegrees));
-
-    if (clampedAngle != angleDegrees) {
-      Logger.recordOutput("Turret/Safety/ClampedRequestDeg", clampedAngle);
-    }
-
     io.setOutsideTurretAngle(clampedAngle);
   }
 
@@ -268,11 +275,6 @@ public class Turret extends SubsystemBase {
     // Calculate relative (desired) angle (turret angle relative to robot heading)
     double relativeAngle = absoluteAngle - robotOmega;
 
-    // Log calculation values
-    Logger.recordOutput("Turret/RobotOmegaNormalized", robotOmegaNormalized);
-    Logger.recordOutput("Turret/AbsoluteAngle", absoluteAngle);
-    Logger.recordOutput("Turret/RelativeAngle", relativeAngle);
-
     double bestOutsideAngle = flipOutsideAngle(relativeAngle);
 
     return bestOutsideAngle;
@@ -314,8 +316,6 @@ public class Turret extends SubsystemBase {
     } else if (bestOutsideAngle > outsideAngleMax) {
       bestOutsideAngle = outsideAngleMax;
     }
-
-    Logger.recordOutput("Turret/bestOutsideAngle", bestOutsideAngle);
 
     return bestOutsideAngle;
   }

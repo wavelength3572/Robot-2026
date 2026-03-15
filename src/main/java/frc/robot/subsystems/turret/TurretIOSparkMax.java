@@ -215,10 +215,13 @@ public class TurretIOSparkMax implements TurretIO {
       ifOk(motorSpark, motorSpark::getOutputCurrent, (value) -> inputs.currentAmps = value);
       boolean motorOk = motorConnectedDebounce.calculate(!sparkStickyFault);
       motorConnection.update(motorOk);
+      inputs.connected = motorOk;
 
       if (!motorOk) {
         System.err.println("[TurretIOSparkMax] Spark Max disconnected!");
       }
+    } else {
+      inputs.connected = false;
     }
   }
 

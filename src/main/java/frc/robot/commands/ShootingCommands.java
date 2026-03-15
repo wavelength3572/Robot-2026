@@ -14,7 +14,6 @@ import frc.robot.subsystems.shooting.ShotVisualizer;
 import frc.robot.subsystems.shooting.StationaryShotBatchRecorder;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
-import frc.robot.util.BenchTestMetrics;
 import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.function.DoubleSupplier;
@@ -28,7 +27,7 @@ import org.littletonrobotics.junction.Logger;
  *
  * <ul>
  *   <li>COMPETITION: Auto-calculates optimal trajectory to hub (Shots/*)
- *   <li>TEST: Uses manual BenchTest/Shooting/* dashboard values for controlled testing
+ *   <li>TEST: Uses fixed preset parameters (hub shot, trench shots)
  * </ul>
  *
  * <p>The launch command:
@@ -45,7 +44,7 @@ public class ShootingCommands {
   public enum ShootingMode {
     /** Auto-calculated trajectory to hub, optimized RPM/angle for distance (Shots/*). */
     COMPETITION,
-    /** Manual parameters from BenchTest/Shooting/* dashboard values. */
+    /** Fixed preset parameters (hub shot, trench shots). */
     TEST
   }
 
@@ -146,28 +145,6 @@ public class ShootingCommands {
   private static final LoggedTunableNumber lutDevOverrideHoodDeg =
       new LoggedTunableNumber("LUTDev/OverrideHoodDeg", 25.0);
 
-  // ===== BenchTest/Shooting/* Override Values (for controlled manual testing)
-  // =====
-
-  private static final LoggedTunableNumber testLauncherRPM =
-      new LoggedTunableNumber("BenchTest/Shooting/LauncherRPM", 1700.0);
-
-  private static final LoggedTunableNumber testMotivatorRPM =
-      new LoggedTunableNumber("BenchTest/Shooting/MotivatorRPM", 1000.0);
-
-  private static final LoggedTunableNumber testOutsideTurretAngleDeg =
-      new LoggedTunableNumber("BenchTest/Shooting/OutsideTurretAngleDeg", 0.0);
-
-  private static final LoggedTunableNumber testInsideTurretAngleDeg =
-      new LoggedTunableNumber("BenchTest/Shooting/InsideTurretAngleDeg", 0.0);
-
-  private static final LoggedTunableNumber testTurretVolts =
-      new LoggedTunableNumber("BenchTest/Shooting/TurretVolts", 0.0);
-
-  // Placeholder for future indexer subsystem
-  private static final LoggedTunableNumber testSpindexerRPM =
-      new LoggedTunableNumber("BenchTest/Shooting/SpindexerRPM", 1000.0);
-
   // ===== Launcher RPM Trim =====
 
   // Trim value added to all launcher RPM targets. Adjusted via button box axis positions.
@@ -251,14 +228,6 @@ public class ShootingCommands {
     lutDevOverrideRPM.get();
     lutDevOverrideHoodDeg.get();
 
-    // BenchTest tunables
-    testLauncherRPM.get();
-    testMotivatorRPM.get();
-    testOutsideTurretAngleDeg.get();
-    testInsideTurretAngleDeg.get();
-    testTurretVolts.get();
-    testSpindexerRPM.get();
-
     // Trim initial value on dashboard
     SmartDashboard.putNumber("Trim/LauncherRPM", launcherTrimRPM);
 
@@ -274,32 +243,6 @@ public class ShootingCommands {
 
     // Measured TOF input — students fill this in from slow-mo camera analysis (seconds)
     SmartDashboard.putNumber("LUTDev/MeasuredTOF_s", 0.0);
-  }
-
-  // ===== Public Getters for BenchTest Tunables =====
-
-  public static LoggedTunableNumber getTestLauncherRPM() {
-    return testLauncherRPM;
-  }
-
-  public static LoggedTunableNumber getTestMotivatorRPM() {
-    return testMotivatorRPM;
-  }
-
-  public static LoggedTunableNumber getTestSpindexerRPM() {
-    return testSpindexerRPM;
-  }
-
-  public static LoggedTunableNumber getOutsideTurretAngleDeg() {
-    return testOutsideTurretAngleDeg;
-  }
-
-  public static LoggedTunableNumber getInsideTurretAngleDeg() {
-    return testInsideTurretAngleDeg;
-  }
-
-  public static LoggedTunableNumber getTestTurretVolts() {
-    return testTurretVolts;
   }
 
   /**
@@ -321,10 +264,10 @@ public class ShootingCommands {
               ShotVisualizer visualizer = coordinator.getVisualizer();
               if (visualizer != null) {
                 visualizer.setFuelCount(40);
-                Logger.recordOutput("Match/ShotLog/FuelRemaining", 40);
+                Logger.recordOutput("Shots/ShotLog/FuelRemaining", 40);
               }
 
-              Logger.recordOutput("Match/ShotLog/SimReset", true);
+              Logger.recordOutput("Shots/ShotLog/SimReset", true);
               System.out.println("[Shooting] Simulation reset: field cleared, 40 balls in hopper");
             })
         .ignoringDisable(true)
@@ -351,10 +294,10 @@ public class ShootingCommands {
               ShotVisualizer visualizer = coordinator.getVisualizer();
               if (visualizer != null) {
                 visualizer.setFuelCount(40);
-                Logger.recordOutput("Match/ShotLog/FuelRemaining", 40);
+                Logger.recordOutput("Shots/ShotLog/FuelRemaining", 40);
               }
 
-              Logger.recordOutput("Match/ShotLog/SimReset", true);
+              Logger.recordOutput("Shots/ShotLog/SimReset", true);
               System.out.println(
                   "[Shooting] Field reset: all starting fuel spawned, 40 balls in hopper");
             })
@@ -463,7 +406,6 @@ public class ShootingCommands {
 
     return Commands.sequence(
             Commands.runOnce(() -> setMode(ShootingMode.TEST)),
-            Commands.runOnce(() -> BenchTestMetrics.getInstance().reset()),
 
             // Phase 1: Spin up and position all subsystems in parallel
             Commands.runOnce(
@@ -536,7 +478,8 @@ public class ShootingCommands {
             Commands.runOnce(
                 () -> {
                   SmartDashboard.putString("Match/Status/State", "Ready - Feeding");
-                  System.out.println("[FixedShot] All mechanisms ready, starting feed");
+                  logShotStatus(
+                      "FixedShot", launcher, hood, motivator, trimmedLauncherRPM.getAsDouble());
                   launcher.setFeedingActive(true);
                 }),
 
@@ -595,7 +538,7 @@ public class ShootingCommands {
 
                 // Fire balls in simulation
                 coordinator != null
-                    ? createBenchTestFiringLoop(coordinator, launcher, turret)
+                    ? createSimFiringLoop(coordinator, launcher, turret)
                     : Commands.none()))
         .finallyDo(
             () -> {
@@ -688,8 +631,7 @@ public class ShootingCommands {
                     coordinator.getBatchRecorder().startBatch(vis.getFuelCount());
                   }
 
-                  Logger.recordOutput("SmartLaunch/Active", true);
-                  Logger.recordOutput("SmartLaunch/Phase", "Positioning");
+                  Logger.recordOutput("SmartLaunch/Phase", "SPIN_UP");
                   SmartDashboard.putString("Match/Status/State", "Smart Launch - Positioning");
                   System.out.println("[SmartLaunch] Starting odometry-based launch");
                 }),
@@ -728,7 +670,7 @@ public class ShootingCommands {
                                   && hasShot
                                   && robotSlow;
 
-                          Logger.recordOutput("SmartLaunch/Ready/RobotSlow", robotSlow);
+                          Logger.recordOutput("SmartLaunch/RobotSlow", robotSlow);
                           return allReady;
                         }),
                     Commands.waitSeconds(0.1),
@@ -762,7 +704,7 @@ public class ShootingCommands {
                           boolean hoodReady = hood == null || hood.atTarget();
                           boolean hasShot =
                               shot != null && (isLutDevOverrideActive() || shot.achievable());
-                          Logger.recordOutput("SmartLaunch/Phase", "Timeout");
+                          Logger.recordOutput("SmartLaunch/Phase", "TIMED_OUT");
                           System.out.println(
                               "[SmartLaunch] WARNING: Setup timeout! Conditions: "
                                   + "launcher="
@@ -790,9 +732,11 @@ public class ShootingCommands {
             // Log ready state
             Commands.runOnce(
                 () -> {
-                  Logger.recordOutput("SmartLaunch/Phase", "Feeding");
+                  Logger.recordOutput("SmartLaunch/Phase", "FIRING");
                   SmartDashboard.putString("Match/Status/State", "Smart Launch - Feeding");
-                  System.out.println("[SmartLaunch] Ready, starting feed");
+                  ShotCalculator.ShotResult feedShot = coordinator.getCurrentShot();
+                  logShotStatus(
+                      "SmartLaunch", launcher, hood, motivator, getEffectiveRPM(feedShot));
                   launcher.setFeedingActive(true);
                 }),
 
@@ -869,7 +813,7 @@ public class ShootingCommands {
                     : Commands.none(),
 
                 // Fire balls in simulation (same feed conditions)
-                createBenchTestFiringLoop(coordinator, launcher, turret)))
+                createSimFiringLoop(coordinator, launcher, turret)))
         .finallyDo(
             () -> {
               launcher.setFeedingActive(false);
@@ -888,8 +832,7 @@ public class ShootingCommands {
               }
               coordinator.clearManualShotParameters();
               setMode(ShootingMode.COMPETITION);
-              Logger.recordOutput("SmartLaunch/Active", false);
-              Logger.recordOutput("SmartLaunch/Phase", "Idle");
+              Logger.recordOutput("SmartLaunch/Phase", "IDLE");
               SmartDashboard.putString("Match/Status/State", "Stopped");
               System.out.println("[SmartLaunch] Stopped");
             })
@@ -976,13 +919,14 @@ public class ShootingCommands {
   }
 
   /**
-   * Firing loop for bench testing with BenchTestMetrics integration.
+   * Simulation firing loop. Waits for alignment and setpoint, then launches fuel repeatedly.
    *
    * @param coordinator The shooting coordinator
    * @param launcher The launcher subsystem
-   * @return Command that fires repeatedly and records metrics
+   * @param turret The turret subsystem
+   * @return Command that fires repeatedly until out of fuel
    */
-  private static Command createBenchTestFiringLoop(
+  private static Command createSimFiringLoop(
       ShootingCoordinator coordinator, Launcher launcher, Turret turret) {
     return Commands.sequence(
             Commands.waitUntil(
@@ -994,12 +938,11 @@ public class ShootingCommands {
                 () -> {
                   coordinator.launchFuel();
                   launcher.notifyBallFired();
-                  BenchTestMetrics.getInstance().recordShot();
-                  Logger.recordOutput("Match/ShotLog/LastShotTime", Timer.getFPGATimestamp());
+                  Logger.recordOutput("Shots/ShotLog/LastShotTime", Timer.getFPGATimestamp());
 
                   ShotVisualizer visualizer = coordinator.getVisualizer();
                   int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
-                  Logger.recordOutput("Match/ShotLog/FuelRemaining", fuelRemaining);
+                  Logger.recordOutput("Shots/ShotLog/FuelRemaining", fuelRemaining);
                 }),
             Commands.waitSeconds(MIN_SHOT_INTERVAL_SECONDS))
         .repeatedly()
@@ -1008,6 +951,21 @@ public class ShootingCommands {
               ShotVisualizer visualizer = coordinator.getVisualizer();
               return visualizer == null || visualizer.getFuelCount() <= 0;
             });
+  }
+
+  // ===== Shot Logging =====
+
+  /** Log target vs actual for all subsystems when feeding starts. */
+  private static void logShotStatus(
+      String label, Launcher launcher, Hood hood, Motivator motivator, double targetRPM) {
+    double actualRPM = launcher != null ? launcher.getVelocity() : 0;
+    double hoodTarget = hood != null ? hood.getTargetAngle() : 0;
+    double hoodActual = hood != null ? hood.getCurrentAngle() : 0;
+    double motTarget = motivator != null ? motivator.getMotivatorTargetRPM() : 0;
+    double motActual = motivator != null ? motivator.getMotivatorWheelVelocity() : 0;
+    System.out.printf(
+        "[%s] Feeding — Launcher: %.0f/%.0f RPM | Hood: %.1f/%.1f° | Motivator: %.0f/%.0f RPM%n",
+        label, targetRPM, actualRPM, hoodTarget, hoodActual, motTarget, motActual);
   }
 
   // ===== LUT Dev Override Helpers =====

@@ -21,7 +21,6 @@ import frc.robot.subsystems.shooting.ShotCalculator;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.vision.Vision;
-import frc.robot.util.BenchTestMetrics;
 import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.HashSet;
@@ -39,13 +38,6 @@ public class ButtonsAndDashboardBindings {
   private static Spindexer spindexer;
   private static Hood hood;
   private static ShootingCoordinator shootingCoordinator;
-
-  // Intake bench test tunables
-  private static final LoggedTunableNumber testIntakeSpeed =
-      new LoggedTunableNumber("BenchTest/IntakePowerControl/Power", 0.8);
-  private static final LoggedTunableNumber testIntakeRPM =
-      new LoggedTunableNumber(
-          "BenchTest/IntakeVelocityControl/RollerRPM", Intake.ROLLER_INTAKE_RPM_DEPLOYED);
 
   // Per-subsystem tuning setpoints
   private static final LoggedTunableNumber tuningLauncherVelocity =
@@ -126,11 +118,6 @@ public class ButtonsAndDashboardBindings {
               .withName("Toggle Vision"));
     }
 
-    // Intake bench test area
-    if (intake != null) {
-      configureIntakeBenchTest();
-    }
-
     // Simulation fuel management (available for any robot with a coordinator)
     if (shootingCoordinator != null) {
       SmartDashboard.putData(
@@ -143,6 +130,28 @@ public class ButtonsAndDashboardBindings {
               .ignoringDisable(true)
               .withName("Toggle Outpost Barriers"));
     }
+
+    // Launcher RPM trim buttons (mirrors button box axis knob positions)
+    SmartDashboard.putData(
+        "Trim/SetMinus100",
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(-100.0))
+            .ignoringDisable(true)
+            .withName("Trim -100"));
+    SmartDashboard.putData(
+        "Trim/SetZero",
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(0.0))
+            .ignoringDisable(true)
+            .withName("Trim 0"));
+    SmartDashboard.putData(
+        "Trim/SetPlus100",
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(100.0))
+            .ignoringDisable(true)
+            .withName("Trim +100"));
+    SmartDashboard.putData(
+        "Trim/SetPlus300",
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(300.0))
+            .ignoringDisable(true)
+            .withName("Trim +300"));
 
     // Coordinated shooting controls (requires coordinator and launcher)
     if (shootingCoordinator != null && launcher != null) {
@@ -201,13 +210,6 @@ public class ButtonsAndDashboardBindings {
             .ignoringDisable(true)
             .withName("Set Fuel 8"));
 
-    // Reset metrics button (works while disabled)
-    SmartDashboard.putData(
-        "BenchTest/Shooting/ResetMetrics",
-        Commands.runOnce(() -> BenchTestMetrics.getInstance().reset())
-            .ignoringDisable(true)
-            .withName("Reset BenchTest Metrics"));
-
     System.out.println("[Shooting] Shooting controls configured on SmartDashboard");
   }
 
@@ -265,97 +267,6 @@ public class ButtonsAndDashboardBindings {
               .finallyDo(intake::stopRollers)
               .withName("Intake: Run at Tuning Velocity"));
     }
-
-    // Turret BenchTest buttons (kept separate from Tuning/)
-    if (turret != null) {
-      ShootingCommands.initTunables();
-      SmartDashboard.putData(
-          "BenchTest/Turret/SetOutsideAngle",
-          Commands.run(
-                  () ->
-                      turret.setOutsideTurretAngle(
-                          turret.flipOutsideAngle(
-                              ShootingCommands.getOutsideTurretAngleDeg().get())),
-                  turret)
-              .withName("Turret Outside SetAngle"));
-    }
-
-    if (turret != null) {
-      SmartDashboard.putData(
-          "BenchTest/Turret/HoldOutsideAngle",
-          Commands.run(
-                  () ->
-                      turret.holdOutsideTurretAngle(
-                          ShootingCommands.getOutsideTurretAngleDeg().get(),
-                          drive.getPose().getRotation().getDegrees()),
-                  turret)
-              .withName("Turret Outside SetAngle"));
-    }
-
-    if (turret != null) {
-      SmartDashboard.putData(
-          "BenchTest/Turret/SetInsideAngle",
-          Commands.run(
-                  () ->
-                      turret.setInsideTurretAngle_ONLY_FOR_TESTING(
-                          ShootingCommands.getInsideTurretAngleDeg().get()),
-                  turret)
-              .withName("Turret Inside SetAngle"));
-    }
-
-    if (turret != null) {
-      SmartDashboard.putData(
-          "BenchTest/Turret/SetVolts",
-          Commands.run(
-                  () -> turret.setTurretVolts(ShootingCommands.getTestTurretVolts().get()), turret)
-              .withName("Turret Set Volts"));
-    }
-  }
-
-  /** Configure BenchTest intake areas: deploy, power control, and velocity control. */
-  private static void configureIntakeBenchTest() {
-    // Deploy/Retract
-    SmartDashboard.putData(
-        "BenchTest/Intake/Deploy",
-        Commands.runOnce(intake::deploy, intake).withName("Deploy Intake"));
-    SmartDashboard.putData(
-        "BenchTest/Intake/Retract",
-        Commands.runOnce(intake::retract, intake).withName("Retract Intake"));
-    SmartDashboard.putData("BenchTest/Intake/STOP", intake.stopAllCommand());
-
-    // Open-loop power control (hold to run, release to stop)
-    // Run button reads the Power slider live — adjust slider while running to
-    // change speed
-    SmartDashboard.putData(
-        "BenchTest/IntakePowerControl/Run",
-        Commands.run(() -> intake.setRollerSpeed(testIntakeSpeed.get()), intake)
-            .finallyDo(intake::stopRollers)
-            .withName("Run at Power"));
-    SmartDashboard.putData(
-        "BenchTest/IntakePowerControl/Run80%",
-        Commands.run(() -> intake.setRollerSpeed(Intake.ROLLER_INTAKE_SPEED), intake)
-            .finallyDo(intake::stopRollers)
-            .withName("Run 80% Power"));
-    SmartDashboard.putData(
-        "BenchTest/IntakePowerControl/Reverse60%",
-        Commands.run(() -> intake.setRollerSpeed(Intake.ROLLER_EJECT_SPEED), intake)
-            .finallyDo(intake::stopRollers)
-            .withName("Reverse 60%"));
-    SmartDashboard.putData(
-        "BenchTest/IntakePowerControl/HoldSlow10%",
-        Commands.run(() -> intake.setRollerSpeed(Intake.ROLLER_HOLD_SPEED), intake)
-            .finallyDo(intake::stopRollers)
-            .withName("Hold Slow 10%"));
-
-    // Closed-loop velocity control (hold to run, release to stop)
-    SmartDashboard.putData(
-        "BenchTest/IntakeVelocityControl/Run",
-        Commands.run(() -> intake.setRollerVelocity(testIntakeRPM.get()), intake)
-            .finallyDo(intake::stopRollers)
-            .withName("Run Velocity Control"));
-    SmartDashboard.putData(
-        "BenchTest/IntakeVelocityControl/DeployAndRun",
-        intake.deployAndRunCommand(testIntakeRPM::get));
   }
 
   /**

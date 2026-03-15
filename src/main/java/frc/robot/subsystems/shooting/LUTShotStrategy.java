@@ -48,11 +48,8 @@ public class LUTShotStrategy implements ShotStrategy {
 
     // If not enough LUT data, return non-achievable — don't silently fall back to parametric
     if (!lookupTable.hasEnoughData()) {
-      Logger.recordOutput("Shots/Strategy/LUT/Status", "NO_DATA");
       return new ShotCalculator.ShotResult(0.0, 0.0, 0.0, 0.0, 0.0, target, false);
     }
-
-    Logger.recordOutput("Shots/Strategy/LUT/Status", "OK");
 
     // Get turret field position
     double robotHeadingRad = robotPose.getRotation().getRadians();
@@ -126,12 +123,7 @@ public class LUTShotStrategy implements ShotStrategy {
     boolean achievable =
         entry.hoodAngleDeg() >= hoodMinAngleDeg && entry.hoodAngleDeg() <= hoodMaxAngleDeg;
 
-    Logger.recordOutput("Shots/Strategy/LUT/StaticDistanceM", staticDistance);
-    Logger.recordOutput("Shots/Strategy/LUT/FinalDistanceM", finalDistance);
     Logger.recordOutput("Shots/Strategy/LUT/InRange", lookupTable.isInRange(finalDistance));
-    Logger.recordOutput("Shots/Strategy/LUT/LookupRPM", entry.rpm());
-    Logger.recordOutput("Shots/Strategy/LUT/LookupHoodDeg", entry.hoodAngleDeg());
-    Logger.recordOutput("Shots/Strategy/LUT/LookupTOF", entry.timeOfFlightS());
 
     return new ShotCalculator.ShotResult(
         exitVelocityMps,
