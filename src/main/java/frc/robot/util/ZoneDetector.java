@@ -4,7 +4,6 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
 import frc.robot.FieldConstants;
 
-
 /**
  * Detects which field zone the robot is in for auto-shoot purposes.
  *

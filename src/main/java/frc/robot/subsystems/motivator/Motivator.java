@@ -47,6 +47,9 @@ public class Motivator extends SubsystemBase {
   private static final LoggedTunableNumber motivatorToleranceRPM =
       new LoggedTunableNumber("Tuning/Motivator/ReadyToleranceRPM", 100.0);
 
+  // Current state — promoted from periodic() local for external readiness checks
+  private MotivatorState currentState = MotivatorState.IDLE;
+
   private boolean motivatorRunning = false;
 
   public Motivator(MotivatorIO io) {
@@ -62,17 +65,16 @@ public class Motivator extends SubsystemBase {
     Logger.processInputs("Motivator", motor1Inputs);
 
     // Compute and log state
-    MotivatorState state;
     if (!motor1Inputs.connected) {
-      state = MotivatorState.DISCONNECTED;
+      currentState = MotivatorState.DISCONNECTED;
     } else if (!motivatorRunning) {
-      state = MotivatorState.IDLE;
+      currentState = MotivatorState.IDLE;
     } else if (motor1Inputs.atSetpoint) {
-      state = MotivatorState.READY;
+      currentState = MotivatorState.READY;
     } else {
-      state = MotivatorState.SPINNING_UP;
+      currentState = MotivatorState.SPINNING_UP;
     }
-    Logger.recordOutput("Subsystems/MotivatorState", state.name());
+    Logger.recordOutput("Subsystems/MotivatorState", currentState.name());
 
     // Push tunable changes to IO only when motor is running to avoid re-enabling old setpoints
     if (motivatorRunning && LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
@@ -137,6 +139,15 @@ public class Motivator extends SubsystemBase {
    */
   public boolean isConnected() {
     return motor1Inputs.connected;
+  }
+
+  /**
+   * Get the current motivator operating state.
+   *
+   * @return Current MotivatorState
+   */
+  public MotivatorState getState() {
+    return currentState;
   }
 
   /**

@@ -57,7 +57,7 @@ public class Launcher extends SubsystemBase {
 
   // Recovery: threshold error (wheel RPM) to activate Slot 1 (boosted kP)
   private static final LoggedTunableNumber recoveryBoostThresholdRPM =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostThresholdRPM", 5.0);
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostThresholdRPM", 40.0);
 
   static {
     RobotConfig config = Constants.getRobotConfig();
@@ -69,6 +69,9 @@ public class Launcher extends SubsystemBase {
     kA = new LoggedTunableNumber("Tuning/Launcher/kA", 0.0);
     iZone = new LoggedTunableNumber("Tuning/Launcher/IZone", config.getLauncherIZone());
   }
+
+  // Current state — promoted from periodic() local for external readiness checks
+  private LauncherState currentState = LauncherState.IDLE;
 
   // Feeding flag - set by ShootingCommands when prefeed starts
   private boolean feedingActive = false;
@@ -125,21 +128,20 @@ public class Launcher extends SubsystemBase {
     Logger.processInputs("Launcher", inputs);
 
     // Compute and log state
-    LauncherState state;
     if (!isConnected()) {
-      state = LauncherState.DISCONNECTED;
+      currentState = LauncherState.DISCONNECTED;
     } else if (inputs.targetVelocityRPM < 100.0) {
-      state = LauncherState.IDLE;
+      currentState = LauncherState.IDLE;
     } else if (recoveryActive) {
-      state = LauncherState.RECOVERING;
+      currentState = LauncherState.RECOVERING;
     } else if (feedingActive) {
-      state = LauncherState.FEEDING;
+      currentState = LauncherState.FEEDING;
     } else if (inputs.atSetpoint) {
-      state = LauncherState.READY;
+      currentState = LauncherState.READY;
     } else {
-      state = LauncherState.SPINNING_UP;
+      currentState = LauncherState.SPINNING_UP;
     }
-    Logger.recordOutput("Subsystems/LauncherState", state.name());
+    Logger.recordOutput("Subsystems/LauncherState", currentState.name());
 
     // Update ShotCalculator with current wheel RPM for trajectory calculations
     ShotCalculator.setLauncherRPM(inputs.wheelVelocityRPM);
@@ -231,6 +233,15 @@ public class Launcher extends SubsystemBase {
    */
   public double getTargetVelocity() {
     return inputs.targetVelocityRPM;
+  }
+
+  /**
+   * Get the current launcher operating state.
+   *
+   * @return Current LauncherState
+   */
+  public LauncherState getState() {
+    return currentState;
   }
 
   /**

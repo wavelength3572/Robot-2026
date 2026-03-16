@@ -46,7 +46,7 @@ public class LauncherIOSim implements LauncherIO {
   // Tunable timing parameters - set these based on real robot observations
   // Prefixed with Sim to clearly indicate these only affect simulation
   private static final LoggedTunableNumber spinupTimeSeconds =
-      new LoggedTunableNumber("Sim/Launcher/SimSpinupTime", 1.5);
+      new LoggedTunableNumber("Sim/Launcher/SimSpinupTime", 0.75);
 
   private static final LoggedTunableNumber recoveryTimeSeconds =
       new LoggedTunableNumber("Sim/Launcher/SimRecoveryTime", 0.19);

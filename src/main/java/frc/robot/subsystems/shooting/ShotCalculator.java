@@ -632,9 +632,9 @@ public final class ShotCalculator {
 
     // Check RPM limits
     double rpm = calculateRPMForVelocity(exitVelocity, horizontalDist);
-    if (rpm < 1500 || rpm > 5000) {
+    if (rpm < 1500 || rpm > 3200) {
       Logger.recordOutput(
-          "Shots/Pass/TwoPoint/RejectReason", String.format("RPM %.0f outside [1500-5000]", rpm));
+          "Shots/Pass/TwoPoint/RejectReason", String.format("RPM %.0f outside [1500-3200]", rpm));
       return unachievablePassResult(
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
     }
@@ -695,11 +695,15 @@ public final class ShotCalculator {
         double newVSquared = GRAVITY / (2 * newK * newCosTheta * newCosTheta);
         if (newVSquared <= 0) break;
 
-        exitVelocity = Math.sqrt(newVSquared);
+        double newExitVelocity = Math.sqrt(newVSquared);
+        double newRPM = calculateRPMForVelocity(newExitVelocity, aimDist);
+        if (newRPM < 1500 || newRPM > 3200) break; // compensation pushed RPM out of bounds
+
+        exitVelocity = newExitVelocity;
         theta = newTheta;
         thetaDeg = Math.toDegrees(theta);
         hoodAngleDeg = 90.0 - thetaDeg;
-        rpm = calculateRPMForVelocity(exitVelocity, aimDist);
+        rpm = newRPM;
         aimTarget = candidate;
         tof = calculateTimeOfFlight(exitVelocity, theta, aimDist);
       }

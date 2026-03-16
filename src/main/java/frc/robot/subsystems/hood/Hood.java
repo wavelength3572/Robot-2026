@@ -39,6 +39,9 @@ public class Hood extends SubsystemBase {
   private static final LoggedTunableNumber readyToleranceAngleDeg =
       new LoggedTunableNumber("Tuning/Hood/ReadyToleranceAngleDeg", 1.0);
 
+  // Current state — promoted from periodic() local for external readiness checks
+  private HoodState currentState = HoodState.READY;
+
   public Hood(HoodIO io) {
     this.io = io;
 
@@ -52,17 +55,16 @@ public class Hood extends SubsystemBase {
     Logger.processInputs("Hood", inputs);
 
     // Compute and log state
-    HoodState state;
     if (!inputs.connected) {
-      state = HoodState.DISCONNECTED;
+      currentState = HoodState.DISCONNECTED;
     } else if (inputs.atTarget) {
-      state = HoodState.READY;
+      currentState = HoodState.READY;
     } else if (inputs.targetAngleDeg > inputs.currentAngleDeg) {
-      state = HoodState.RAISING;
+      currentState = HoodState.RAISING;
     } else {
-      state = HoodState.LOWERING;
+      currentState = HoodState.LOWERING;
     }
-    Logger.recordOutput("Subsystems/HoodState", state.name());
+    Logger.recordOutput("Subsystems/HoodState", currentState.name());
 
     // Push tunable PID changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kD)) {
@@ -99,6 +101,15 @@ public class Hood extends SubsystemBase {
    */
   public double getTargetAngle() {
     return inputs.targetAngleDeg;
+  }
+
+  /**
+   * Get the current hood operating state.
+   *
+   * @return Current HoodState
+   */
+  public HoodState getState() {
+    return currentState;
   }
 
   /**

@@ -41,7 +41,6 @@ public class Robot extends LoggedRobot {
   private final Timer startupTimer = new Timer();
   private Watchdog watchdog;
 
-
   public Robot() {
     super(0.02);
 
@@ -202,11 +201,6 @@ public class Robot extends LoggedRobot {
     // this line or comment it out.
     if (autonomousCommand != null) {
       autonomousCommand.cancel();
-    }
-
-    // Disable auto-shoot when entering teleop (safety: prevent autonomous firing)
-    if (robotContainer.getShootingCoordinator() != null) {
-      robotContainer.getShootingCoordinator().disableAutoShoot();
     }
 
     // Clear any stale speed limit from a previous command that didn't end cleanly

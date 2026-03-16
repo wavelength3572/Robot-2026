@@ -77,17 +77,19 @@ public class AutoWrapperFactory {
       steps.add(stowHood(hood));
     }
 
-    // Path shooting: enable auto-shoot before path if requested
+    // Path shooting: run continuous SmartLaunch in parallel with path if requested.
+    // SPRINT autos suppress feeding until the robot first enters a pass zone.
     if (pathStrategy == PathShootingStrategy.AUTO_SHOOT) {
-      steps.add(enableAutoShoot(launcher, motivator, coordinator));
-    }
-
-    // Always: run the path
-    steps.add(runPath(selectedAuto));
-
-    // Path shooting: disable auto-shoot after path if it was enabled
-    if (pathStrategy == PathShootingStrategy.AUTO_SHOOT) {
-      steps.add(disableAutoShoot(launcher, motivator, coordinator));
+      boolean armOnPassZone = (startStrategy == StartStrategy.SPRINT);
+      steps.add(
+          Commands.parallel(
+              runPath(selectedAuto),
+              ShootingCommands.continuousSmartLaunchCommand(
+                      launcher, coordinator, motivator, turret, hood, spindexer, armOnPassZone)
+                  .asProxy()));
+    } else {
+      // Always: run the path
+      steps.add(runPath(selectedAuto));
     }
 
     // Always: fire remaining balls after path
@@ -173,26 +175,6 @@ public class AutoWrapperFactory {
             launcher, coordinator, motivator, turret, hood, spindexer)
         .withTimeout(10.0)
         .asProxy();
-  }
-
-  private static Command enableAutoShoot(
-      Launcher launcher, Motivator motivator, ShootingCoordinator coordinator) {
-    return Commands.runOnce(
-        () -> {
-          if (launcher != null) launcher.setVelocity(1700.0);
-          if (motivator != null) motivator.setMotivatorVelocity(1000.0);
-          if (coordinator != null) coordinator.enableAutoShoot();
-        });
-  }
-
-  private static Command disableAutoShoot(
-      Launcher launcher, Motivator motivator, ShootingCoordinator coordinator) {
-    return Commands.runOnce(
-        () -> {
-          if (coordinator != null) coordinator.disableAutoShoot();
-          if (launcher != null) launcher.stop();
-          if (motivator != null) motivator.stopMotivator();
-        });
   }
 
   private static void teardown(Launcher launcher, Motivator motivator, Intake intake) {

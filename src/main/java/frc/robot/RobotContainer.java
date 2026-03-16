@@ -468,8 +468,7 @@ public class RobotContainer {
     pathShootingChooser.setDefaultOption("—", null);
     pathShootingChooser.addOption(
         "End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
-    pathShootingChooser.addOption(
-        "Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
+    pathShootingChooser.addOption("Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
     SmartDashboard.putData("Auton Path Shooting Strategy", pathShootingChooser);
   }
 
@@ -485,18 +484,22 @@ public class RobotContainer {
 
     // Determine the option name strings to select
     String startName = "—";
-    if (defaultStart == AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS) startName = "Shoot Preloads";
+    if (defaultStart == AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS)
+      startName = "Shoot Preloads";
     else if (defaultStart == AutoWrapperFactory.StartStrategy.SPRINT) startName = "Sprint";
 
     String pathName = "—";
-    if (defaultPath == AutoWrapperFactory.PathShootingStrategy.END_OF_PATH) pathName = "End of Path";
+    if (defaultPath == AutoWrapperFactory.PathShootingStrategy.END_OF_PATH)
+      pathName = "End of Path";
     else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT)
       pathName = "Auto Shoot";
 
     // Write the desired default into the NT "selected" key so the dashboard + getSelected() update
     var nt = NetworkTableInstance.getDefault();
     nt.getTable("SmartDashboard/Auton Start Strategy").getEntry("selected").setString(startName);
-    nt.getTable("SmartDashboard/Auton Path Shooting Strategy").getEntry("selected").setString(pathName);
+    nt.getTable("SmartDashboard/Auton Path Shooting Strategy")
+        .getEntry("selected")
+        .setString(pathName);
   }
 
   /**
@@ -640,27 +643,6 @@ public class RobotContainer {
 
   /** Register NamedCommands for PathPlanner autos. Must be called before buildAutoChooser. */
   private void registerNamedCommands() {
-    // Enable auto-shoot: spins up launcher + motivator, enables auto-shoot on
-    // turret
-    NamedCommands.registerCommand(
-        "enableAutoShoot",
-        Commands.runOnce(
-            () -> {
-              if (launcher != null) launcher.setVelocity(1700.0);
-              if (motivator != null) motivator.setMotivatorVelocity(1000.0);
-              if (shootingCoordinator != null) shootingCoordinator.enableAutoShoot();
-            }));
-
-    // Disable auto-shoot: stops auto-shoot and motors
-    NamedCommands.registerCommand(
-        "disableAutoShoot",
-        Commands.runOnce(
-            () -> {
-              if (shootingCoordinator != null) shootingCoordinator.disableAutoShoot();
-              if (launcher != null) launcher.stop();
-              if (motivator != null) motivator.stopMotivator();
-            }));
-
     // Set fuel count commands for testing
     NamedCommands.registerCommand(
         "setFuel40",
@@ -711,16 +693,6 @@ public class RobotContainer {
               },
               intake));
     }
-
-    // StartLauncher: spin up launcher + motivator + enable auto-shoot
-    NamedCommands.registerCommand(
-        "StartLauncher",
-        Commands.runOnce(
-            () -> {
-              if (launcher != null) launcher.setVelocity(1700.0);
-              if (motivator != null) motivator.setMotivatorVelocity(1000.0);
-              if (shootingCoordinator != null) shootingCoordinator.enableAutoShoot();
-            }));
 
     // SmartLaunch: full smartLaunch command for PathPlanner event zones
     NamedCommands.registerCommand(
@@ -985,10 +957,9 @@ public class RobotContainer {
     // Register the robot with the simulation
     fuelSim.registerRobot(
         robotWidth, robotLength, bumperHeight, drive::getPose, drive::getFieldRelativeSpeeds);
-    fuelSim.enableAirResistance();
+    // fuelSim.enableAirResistance();
     if (shootingCoordinator != null && shootingCoordinator.getVisualizer() != null) {
-      fuelSim.setRobotFuelStoredSupplier(
-          () -> shootingCoordinator.getVisualizer().getFuelCount());
+      fuelSim.setRobotFuelStoredSupplier(() -> shootingCoordinator.getVisualizer().getFuelCount());
     }
 
     // Register intake with fuel simulation for pickup collision detection

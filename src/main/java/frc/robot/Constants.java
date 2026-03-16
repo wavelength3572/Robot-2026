@@ -108,8 +108,8 @@ public final class Constants {
 
   /** Team-specific strategy constants (pass targets, trench positions). */
   public static final class StrategyConstants {
-    /** Pass target X positions (1/3 into alliance zone from wall). */
-    public static final double BLUE_PASS_TARGET_X = 2.0;
+    /** Pass target X positions (closer to neutral zone for achievable pass RPMs). */
+    public static final double BLUE_PASS_TARGET_X = 2.5;
 
     public static final double RED_PASS_TARGET_X = FieldConstants.fieldLength - BLUE_PASS_TARGET_X;
 

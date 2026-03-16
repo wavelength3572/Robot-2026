@@ -18,7 +18,8 @@ import frc.robot.FieldConstants;
  * <p>Delegates zone detection to {@link ZoneDetector} and maps zones to aim modes:
  *
  * <ul>
- *   <li>ALLIANCE / TRENCH_NEAR → SHOOT (aim at hub)
+ *   <li>ALLIANCE → SHOOT_ON_THE_MOVE (aim at hub, fire while driving)
+ *   <li>TRENCH_NEAR → SHOOT_STATIONARY (aim at hub, must be nearly stopped)
  *   <li>NEUTRAL → PASS (aim at pass target)
  *   <li>OPPONENT → LONG_PASS (aggressive pass back to alliance zone)
  *   <li>TRENCH_FAR / BUMP → NONE (suppress shooting, keep last aim target)
@@ -28,8 +29,10 @@ public class TurretAimingHelper {
 
   /** Aiming mode based on robot position. */
   public enum AimMode {
-    /** Aim at hub and shoot (alliance zone or trench near side). */
-    SHOOT,
+    /** Aim at hub and shoot while moving (alliance zone, open field). */
+    SHOOT_ON_THE_MOVE,
+    /** Aim at hub and shoot only when nearly stationary (trench near side). */
+    SHOOT_STATIONARY,
     /** Aim at pass target and fire (neutral zone). */
     PASS,
     /** Aggressive pass from opponent zone — longer distance, steeper trajectory. */
@@ -60,12 +63,19 @@ public class TurretAimingHelper {
 
     AimResult result =
         switch (zone) {
-          case ALLIANCE, TRENCH_NEAR -> {
+          case ALLIANCE -> {
             Translation2d hubTarget =
                 (alliance == Alliance.Blue)
                     ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()
                     : FieldConstants.Hub.oppInnerCenterPoint.toTranslation2d();
-            yield new AimResult(hubTarget, AimMode.SHOOT, zone);
+            yield new AimResult(hubTarget, AimMode.SHOOT_ON_THE_MOVE, zone);
+          }
+          case TRENCH_NEAR -> {
+            Translation2d hubTarget =
+                (alliance == Alliance.Blue)
+                    ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()
+                    : FieldConstants.Hub.oppInnerCenterPoint.toTranslation2d();
+            yield new AimResult(hubTarget, AimMode.SHOOT_STATIONARY, zone);
           }
           case NEUTRAL -> {
             double targetX =

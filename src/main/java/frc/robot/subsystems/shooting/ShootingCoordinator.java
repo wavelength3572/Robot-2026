@@ -6,7 +6,6 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -104,7 +103,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Two-point trajectory tunables for pass shots
   private final LoggedTunableNumber symmetricArcPeakHeightM =
-      new LoggedTunableNumber("Shots/Pass/Symmetric/ArcPeakHeightM", 3.0);
+      new LoggedTunableNumber("Shots/Pass/Symmetric/ArcPeakHeightM", 1.5);
   private final LoggedTunableNumber lobNetClearanceMarginM =
       new LoggedTunableNumber("Shots/Pass/Lob/NetClearanceMarginM", 0.3);
   private final LoggedTunableNumber lobMaxPeakHeightM =
@@ -120,36 +119,21 @@ public class ShootingCoordinator extends SubsystemBase {
   private Translation3d cachedLobStation12Target = null;
   private Translation3d cachedLobStation3Target = null;
 
-  // Auto-shoot: fires automatically when conditions are met (for autonomous)
-  private boolean autoShootEnabled = false;
-  private Runnable onShotFiredCallback = null;
-  private double lastShotTimestamp = 0.0;
-
-  // Auto-shoot distance gate: suppresses firing until the robot has moved this far from where
-  // auto-shoot was enabled.  Prevents accidental shots at the starting position when pre-shot
-  // is disabled but auto-shoot is on.
-  private final LoggedTunableNumber autoShootMinDistanceM =
-      new LoggedTunableNumber("Shots/AutoShoot/MinDistanceM", 0.5);
-  private Pose2d autoShootStartPose = null;
-
   // Match shot tracking (counts persist across auto→teleop transition)
   private int totalShots = 0;
   private int autoShots = 0;
   private int teleopShots = 0;
-  private final LoggedTunableNumber autoShootMinInterval =
-      new LoggedTunableNumber("Shots/AutoShoot/MinInterval", 0.15);
-  // Max robot speed for auto-shoot to fire when in SHOOT mode (alliance zone).
-  // Low threshold means robot must be nearly stationary before auto-shoot fires a hub shot.
-  // This lets the launcher spin up while decelerating so it fires the instant the robot stops.
-  private final LoggedTunableNumber autoShootHubMaxSpeedMps =
-      new LoggedTunableNumber("Shots/AutoShoot/HubMaxSpeedMps", 0.3);
-  // Max robot speed for auto-shoot to fire pass shots in the neutral zone.
-  // Set high (e.g. 3.0) to pass at full sprint, low (e.g. 0.5) to only pass when slow,
-  // or 0.0 to effectively disable passing on the move.
-  private final LoggedTunableNumber autoShootPassMaxSpeedMps =
-      new LoggedTunableNumber("Shots/AutoShoot/PassMaxSpeedMps", 3.0);
-  private final LoggedTunableNumber maxFeedSpeedMps =
-      new LoggedTunableNumber("Shots/SmartLaunch/MaxFeedSpeedMps", 1.75);
+  // Zone-aware speed thresholds for feeding and drive limiting.
+  // SHOOT_ON_THE_MOVE: max speed for hub shots in open alliance zone.
+  // Used for both spindexer gating and active drive speed limiting.
+  private final LoggedTunableNumber shootOnTheMoveSpeedMps =
+      new LoggedTunableNumber("Shots/SpeedLimits/ShootOnTheMoveSpeedMps", 1.25);
+  // SHOOT_STATIONARY: max speed for hub shots under trench (tight clearance, low hood).
+  private final LoggedTunableNumber stationarySpeedMps =
+      new LoggedTunableNumber("Shots/SpeedLimits/StationarySpeedMps", 0.3);
+  // PASS / LONG_PASS: max speed for pass shots in neutral/opponent zones.
+  private final LoggedTunableNumber passSpeedMps =
+      new LoggedTunableNumber("Shots/SpeedLimits/PassSpeedMps", 3.0);
 
   /**
    * Creates a new ShootingCoordinator.
@@ -218,11 +202,6 @@ public class ShootingCoordinator extends SubsystemBase {
             turretConfig.heightMeters(),
             turretConfig.xOffset(),
             turretConfig.yOffset());
-
-    // Configure auto-shoot callback (launcher recovery notification)
-    if (launcher != null) {
-      this.onShotFiredCallback = launcher::notifyBallFired;
-    }
   }
 
   @Override
@@ -250,8 +229,6 @@ public class ShootingCoordinator extends SubsystemBase {
       }
       return;
     }
-
-    runAutoShoot(alliance);
 
     // Visualization runs AFTER all control logic (passive observer, throttled to 10Hz)
     if (visualizerCounter % VISUALIZER_DIVISOR == 0
@@ -282,6 +259,12 @@ public class ShootingCoordinator extends SubsystemBase {
               || aimResult.zone() == ZoneDetector.Zone.TRENCH_FAR
               || aimResult.zone() == ZoneDetector.Zone.BUMP;
 
+      // Log zone and aim mode (throttled to 10Hz)
+      if (periodicCounter % 5 == 0) {
+        Logger.recordOutput("Shots/Zone", aimResult.zone().name());
+        Logger.recordOutput("Shots/AimMode", aimResult.mode().name());
+      }
+
       // Shared alliance-zone X bounds (used by both strategies)
       double allianceZoneX = FieldConstants.LinesVertical.allianceZone;
       double fieldW = FieldConstants.fieldWidth;
@@ -304,10 +287,10 @@ public class ShootingCoordinator extends SubsystemBase {
       if (cachedLeftTarget == null
           || LoggedTunableNumber.hasChanged(
               passLeftAdjustX, passLeftAdjustY, passRightAdjustX, passRightAdjustY)) {
-        // Left trench target (with offsets, clamped to alliance zone)
+        // Left trench target (high Y, with offsets, clamped to alliance zone)
         double leftRawX = baseX + passLeftAdjustX.get() * (maxX - minX) / 2.0;
         double leftRawY =
-            Constants.StrategyConstants.RIGHT_PASS_TARGET_Y
+            Constants.StrategyConstants.LEFT_PASS_TARGET_Y
                 + passLeftAdjustY.get() * (maxY - minY) / 2.0;
         cachedLeftTarget =
             new Translation3d(
@@ -317,10 +300,10 @@ public class ShootingCoordinator extends SubsystemBase {
         Logger.recordOutput(
             "Shots/Pass/Left/Target", new Pose3d(cachedLeftTarget, Rotation3d.kZero));
 
-        // Right trench target (with offsets, clamped to alliance zone)
+        // Right trench target (low Y, with offsets, clamped to alliance zone)
         double rightRawX = baseX + passRightAdjustX.get() * (maxX - minX) / 2.0;
         double rightRawY =
-            Constants.StrategyConstants.LEFT_PASS_TARGET_Y
+            Constants.StrategyConstants.RIGHT_PASS_TARGET_Y
                 + passRightAdjustY.get() * (maxY - minY) / 2.0;
         cachedRightTarget =
             new Translation3d(
@@ -366,7 +349,8 @@ public class ShootingCoordinator extends SubsystemBase {
       }
 
       switch (aimResult.mode()) {
-        case SHOOT -> calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
+        case SHOOT_ON_THE_MOVE, SHOOT_STATIONARY -> calculateShotToHub(
+            robotPose, fieldSpeeds, isBlueAlliance);
         case PASS -> {
           PassingStrategy strategy = passingStrategyChooser.getSelected();
           Logger.recordOutput("Shots/Pass/StrategyUsed", strategy.name());
@@ -382,11 +366,13 @@ public class ShootingCoordinator extends SubsystemBase {
             calculatePassToTarget(
                 robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
           } else {
-            // Symmetric pass: pick target based on robot Y position
+            // Symmetric pass: pick target based on robot Y position.
+            // Always use parametric strategy (physics solver) — the LUT has no pass data.
+            // The TrajectoryOptimizer handles ground-level targets natively.
             boolean isLeftTrench = selectIsLeftTrench(robotPose);
             Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
             Logger.recordOutput("Shots/Pass/Active", isLeftTrench ? "LEFT" : "RIGHT");
-            calculatePassToTarget(robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
+            calculateSymmetricPass(robotPose, fieldSpeeds, activeTarget);
           }
         }
         case LONG_PASS -> {
@@ -428,8 +414,135 @@ public class ShootingCoordinator extends SubsystemBase {
         if (station == 3) return !isBlue;
       }
     }
-    // Default: symmetric Y-based selection
-    return robotPose.getY() < FieldConstants.fieldWidth / 2.0;
+    // Default: symmetric Y-based selection (left trench = high Y)
+    return robotPose.getY() > FieldConstants.fieldWidth / 2.0;
+  }
+
+  // Tunable pass shot parameters
+  private final LoggedTunableNumber passHoodAngleDeg =
+      new LoggedTunableNumber("Shots/Pass/HoodAngleDeg", 46.0);
+  private final LoggedTunableNumber passMaxRPM =
+      new LoggedTunableNumber("Shots/Pass/MaxRPM", 4000.0);
+
+  /**
+   * Calculate symmetric pass using simple projectile physics. Uses a fixed hood angle (tunable) and
+   * solves for the RPM needed to reach the target distance at that angle. No hub geometry — just
+   * launch the ball to land at the target point on the ground.
+   *
+   * <p>The hood angle is the primary tuning knob: flatter (higher hood angle) = more range
+   * efficient, steeper (lower hood angle) = higher arc but shorter range for same RPM.
+   */
+  private void calculateSymmetricPass(
+      Pose2d robotPose, ChassisSpeeds fieldSpeeds, Translation3d passTarget) {
+    double robotHeadingRad = robotPose.getRotation().getRadians();
+    double[] turretFieldPos =
+        ShotCalculator.getTurretFieldPosition(
+            robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
+    double turretX = turretFieldPos[0];
+    double turretY = turretFieldPos[1];
+    double turretH = turretConfig.heightMeters();
+
+    double horizontalDist =
+        Math.sqrt(
+            Math.pow(passTarget.getX() - turretX, 2) + Math.pow(passTarget.getY() - turretY, 2));
+
+    // Fixed hood angle → launch angle
+    double hoodDeg = passHoodAngleDeg.get();
+    double launchAngleRad = Math.toRadians(90.0 - hoodDeg);
+    double cosTheta = Math.cos(launchAngleRad);
+    double sinTheta = Math.sin(launchAngleRad);
+    double tanTheta = Math.tan(launchAngleRad);
+
+    // Solve projectile equation for exit velocity:
+    //   0 = turretH + D*tan(θ) - (g*D²)/(2*v²*cos²(θ))
+    //   v² = (g*D²) / (2*cos²(θ) * (D*tan(θ) + turretH))
+    double targetRelativeH =
+        passTarget.getZ() - turretH; // typically negative (ground below turret)
+    double heightGain = horizontalDist * tanTheta + targetRelativeH;
+
+    // Velocity compensation: adjust aim point for robot movement
+    Translation3d aimTarget = passTarget;
+    double exitVelocity = 0;
+    double rpm = 0;
+    boolean achievable = false;
+
+    if (heightGain > 0.01) {
+      double vSquared =
+          (9.81 * horizontalDist * horizontalDist) / (2.0 * cosTheta * cosTheta * heightGain);
+      exitVelocity = Math.sqrt(vSquared);
+      rpm = ShotCalculator.calculateRPMForVelocity(exitVelocity, horizontalDist);
+
+      // Velocity compensation: iteratively adjust aim point
+      double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+      Logger.recordOutput("Shots/Pass/VelComp/RobotSpeedMps", robotSpeed);
+      Logger.recordOutput("Shots/Pass/VelComp/BaseRPM", rpm);
+      Logger.recordOutput("Shots/Pass/VelComp/BaseDist", horizontalDist);
+      if (robotSpeed > 0.1) {
+        double tof =
+            ShotCalculator.calculateTimeOfFlight(exitVelocity, launchAngleRad, horizontalDist);
+        Logger.recordOutput("Shots/Pass/VelComp/InitialTOF", tof);
+        for (int i = 0; i < 3; i++) {
+          Translation3d candidate =
+              ShotCalculator.clampAimOffset(
+                  ShotCalculator.predictTargetPos(passTarget, fieldSpeeds, tof), passTarget);
+          double aimDist =
+              Math.sqrt(
+                  Math.pow(candidate.getX() - turretX, 2)
+                      + Math.pow(candidate.getY() - turretY, 2));
+          double aimHeightGain = aimDist * tanTheta + (candidate.getZ() - turretH);
+          if (aimHeightGain <= 0.01) break;
+          double newVSquared =
+              (9.81 * aimDist * aimDist) / (2.0 * cosTheta * cosTheta * aimHeightGain);
+          double newVelocity = Math.sqrt(newVSquared);
+          double newRPM = ShotCalculator.calculateRPMForVelocity(newVelocity, aimDist);
+          if (newRPM > passMaxRPM.get()) {
+            // Clamp to max rather than discarding — avoids cliff when crossing the cap
+            exitVelocity = newVelocity;
+            rpm = passMaxRPM.get();
+            aimTarget = candidate;
+            break;
+          }
+          exitVelocity = newVelocity;
+          rpm = newRPM;
+          aimTarget = candidate;
+          tof = ShotCalculator.calculateTimeOfFlight(exitVelocity, launchAngleRad, aimDist);
+          Logger.recordOutput("Shots/Pass/VelComp/Iter" + i + "/AimDist", aimDist);
+          Logger.recordOutput("Shots/Pass/VelComp/Iter" + i + "/RPM", newRPM);
+          Logger.recordOutput("Shots/Pass/VelComp/Iter" + i + "/TOF", tof);
+        }
+      }
+
+      achievable = rpm >= 1500 && rpm <= passMaxRPM.get();
+      // Clamp RPM so the launcher never exceeds the pass limit — even if the physics
+      // says we need more, we'd rather undershoot than command unsafe RPM.
+      rpm = Math.min(rpm, passMaxRPM.get());
+    }
+
+    // Turret angle
+    double turretAngleDeg =
+        ShotCalculator.calculateOutsideTurretAngle(
+            robotPose.getX(),
+            robotPose.getY(),
+            robotPose.getRotation().getDegrees(),
+            aimTarget.getX(),
+            aimTarget.getY(),
+            turret.getOutsideCurrentAngle(),
+            turret.getMinAngle(),
+            turret.getMaxAngle(),
+            turretConfig);
+
+    currentShot =
+        new ShotCalculator.ShotResult(
+            exitVelocity, rpm, launchAngleRad, hoodDeg, turretAngleDeg, aimTarget, achievable);
+    currentDistanceM = horizontalDist;
+
+    // Log at 10Hz
+    if (periodicCounter % 5 == 0) {
+      Logger.recordOutput("Shots/Strategy/Active", "Pass (Symmetric)");
+      Logger.recordOutput("Shots/Strategy/DistanceM", horizontalDist);
+      Logger.recordOutput("Shots/Pass/Symmetric/RPM", rpm);
+      Logger.recordOutput("Shots/Pass/Symmetric/Achievable", achievable);
+    }
   }
 
   /** Calculate and apply hub shot. */
@@ -715,86 +828,6 @@ public class ShootingCoordinator extends SubsystemBase {
     }
   }
 
-  // ========== Auto-Shoot ==========
-
-  /** Check auto-shoot conditions and fire when all criteria are met. */
-  private void runAutoShoot(DriverStation.Alliance alliance) {
-    if (!autoShootEnabled || launcher == null || robotPoseSupplier == null) return;
-
-    boolean launcherReady = launcher.atSetpoint();
-    boolean hasShot = currentShot != null && currentShot.exitVelocityMps() > 0;
-    boolean aimed = turret.atTarget();
-    boolean hasFuel =
-        Constants.currentMode != Constants.Mode.SIM
-            || (visualizer != null && visualizer.getFuelCount() > 0);
-    double now = Timer.getFPGATimestamp();
-    boolean intervalElapsed = (now - lastShotTimestamp) >= autoShootMinInterval.get();
-
-    // Zone check for speed gating and shot suppression
-    Pose2d robotPose = robotPoseSupplier.get();
-    TurretAimingHelper.AimResult aimResult =
-        TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
-
-    // NONE mode (bump or far trench) — suppress all shooting
-    if (aimResult.mode() == TurretAimingHelper.AimMode.NONE) {
-      Logger.recordOutput("Shots/AutoShoot/Zone", aimResult.zone().name());
-      Logger.recordOutput("Shots/AutoShoot/Fired", false);
-      return;
-    }
-
-    ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
-    double robotSpeedMps = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-    // Zone-based speed gating:
-    // SHOOT (alliance/trench near): must be nearly stationary for accurate hub shots
-    // PASS (neutral): tunable speed gate — set high for full-sprint passes, low to restrict
-    // LONG_PASS (opponent): use pass speed gate (lob trajectory is more forgiving)
-    boolean robotSlow =
-        switch (aimResult.mode()) {
-          case SHOOT -> robotSpeedMps <= autoShootHubMaxSpeedMps.get();
-          case PASS, LONG_PASS -> robotSpeedMps <= autoShootPassMaxSpeedMps.get();
-          case NONE -> false; // unreachable, handled above
-        };
-    Logger.recordOutput("Shots/AutoShoot/Zone", aimResult.zone().name());
-    Logger.recordOutput("Shots/AutoShoot/RobotSpeedMps", robotSpeedMps);
-
-    // Distance gate: when a start pose is recorded, suppress firing until the robot has
-    // moved far enough.  Once cleared, null out the start pose so we don't re-check.
-    if (autoShootStartPose != null) {
-      double distFromStart =
-          robotPose.getTranslation().getDistance(autoShootStartPose.getTranslation());
-      if (distFromStart < autoShootMinDistanceM.get()) {
-        Logger.recordOutput("Shots/AutoShoot/DistanceGated", true);
-        Logger.recordOutput("Shots/AutoShoot/Fired", false);
-        return;
-      }
-      autoShootStartPose = null; // gate cleared — stop checking
-    }
-    Logger.recordOutput("Shots/AutoShoot/DistanceGated", false);
-
-    if (launcherReady && hasShot && aimed && hasFuel && intervalElapsed && robotSlow) {
-      // Snapshot key calibration data at the instant of firing
-      double distAtFire =
-          Math.sqrt(
-              Math.pow(currentShot.aimTarget().getX() - robotPose.getX(), 2)
-                  + Math.pow(currentShot.aimTarget().getY() - robotPose.getY(), 2));
-      Logger.recordOutput("Shots/ShotLog/Timestamp", now);
-      Logger.recordOutput("Shots/ShotLog/DistanceM", distAtFire);
-      Logger.recordOutput("Shots/ShotLog/RobotSpeedMps", robotSpeedMps);
-      Logger.recordOutput("Shots/ShotLog/ExitVelocityMps", currentShot.exitVelocityMps());
-      Logger.recordOutput("Shots/ShotLog/LaunchAngleDeg", currentShot.getLaunchAngleDegrees());
-      Logger.recordOutput("Shots/ShotLog/TurretAngleDeg", turret.getOutsideCurrentAngle());
-
-      launchFuel();
-      lastShotTimestamp = now;
-      if (onShotFiredCallback != null) {
-        onShotFiredCallback.run();
-      }
-      Logger.recordOutput("Shots/AutoShoot/Fired", true);
-    } else {
-      Logger.recordOutput("Shots/AutoShoot/Fired", false);
-    }
-  }
-
   // ========== Launch / Fuel Management ==========
 
   /** Set a supplier that, when true, prevents launchFuel() from firing. */
@@ -897,36 +930,48 @@ public class ShootingCoordinator extends SubsystemBase {
     currentShot = null;
   }
 
-  // ========== Auto-Shoot Mode ==========
-
-  /** Enable auto-shoot mode. Turret will fire automatically when all conditions are met. */
-  public void enableAutoShoot() {
-    autoShootEnabled = true;
-    autoShootStartPose = robotPoseSupplier != null ? robotPoseSupplier.get() : null;
-  }
+  // ========== Zone-Based Speed Check ==========
 
   /**
-   * Enable auto-shoot mode, skipping the minimum-distance gate. Use this when a pre-shot has
-   * already been taken, so auto-shoot should fire immediately when the coordinator is ready.
-   */
-  public void enableAutoShootImmediate() {
-    autoShootEnabled = true;
-    autoShootStartPose = null; // no distance gate
-  }
-
-  /** Disable auto-shoot mode. */
-  public void disableAutoShoot() {
-    autoShootEnabled = false;
-    autoShootStartPose = null;
-  }
-
-  /**
-   * Check if auto-shoot is currently enabled.
+   * Check if the robot is slow enough to fire in the current zone. Uses zone-aware speed
+   * thresholds: alliance zone allows shoot-on-the-move, trench requires stationary, pass zones
+   * allow high speed. Used by continuousSmartLaunch.
    *
-   * @return True if auto-shoot is active
+   * @return true if the robot speed is within the zone's firing threshold
    */
-  public boolean isAutoShootEnabled() {
-    return autoShootEnabled;
+  public boolean isRobotSlowEnoughForCurrentZone() {
+    if (fieldSpeedsSupplier == null || robotPoseSupplier == null) return true;
+
+    ChassisSpeeds speeds = fieldSpeedsSupplier.get();
+    double robotSpeedMps = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
+
+    Pose2d robotPose = robotPoseSupplier.get();
+    DriverStation.Alliance alliance = RobotStatus.getAlliance();
+    TurretAimingHelper.AimResult aimResult =
+        TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
+
+    return switch (aimResult.mode()) {
+      case SHOOT_ON_THE_MOVE -> robotSpeedMps <= shootOnTheMoveSpeedMps.get();
+      case SHOOT_STATIONARY -> robotSpeedMps <= stationarySpeedMps.get();
+      case PASS, LONG_PASS -> robotSpeedMps <= passSpeedMps.get();
+      case NONE -> false;
+    };
+  }
+
+  /**
+   * Check if the robot is currently in a pass zone (PASS or LONG_PASS aim mode). Used by
+   * continuousSmartLaunch to arm feeding only after reaching the pass zone during sprint autos.
+   *
+   * @return true if the robot is in a zone where passing is the aim mode
+   */
+  public boolean isInPassZone() {
+    if (robotPoseSupplier == null) return false;
+    Pose2d robotPose = robotPoseSupplier.get();
+    DriverStation.Alliance alliance = RobotStatus.getAlliance();
+    TurretAimingHelper.AimResult aimResult =
+        TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
+    return aimResult.mode() == TurretAimingHelper.AimMode.PASS
+        || aimResult.mode() == TurretAimingHelper.AimMode.LONG_PASS;
   }
 
   // ========== Trench Avoidance Mode ==========
@@ -1046,9 +1091,9 @@ public class ShootingCoordinator extends SubsystemBase {
     return fieldSpeedsSupplier;
   }
 
-  /** Get the max robot speed for smart launch and auto-shoot feeding. */
-  public double getMaxFeedSpeedMps() {
-    return maxFeedSpeedMps.get();
+  /** Get the shoot-on-the-move speed limit (for active drive speed capping). */
+  public double getShootOnTheMoveSpeedMps() {
+    return shootOnTheMoveSpeedMps.get();
   }
 
   // ========== Snapshot Creation ==========
@@ -1065,10 +1110,12 @@ public class ShootingCoordinator extends SubsystemBase {
     if (currentShot == null) {
       readiness = ShotSnapshot.TrajectoryReadiness.NOT_ACTIVE;
     } else {
-      boolean launcherReady = launcher != null && launcher.atSetpoint();
-      boolean motivatorReady = motivator == null || motivator.isMotivatorAtSetpoint();
-      boolean turretReady = turret.atTarget();
-      boolean hoodReady = hood == null || hood.atTarget();
+      boolean launcherReady =
+          launcher != null && launcher.getState() == Launcher.LauncherState.READY;
+      boolean motivatorReady =
+          motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
+      boolean turretReady = turret.getState() == Turret.TurretState.READY;
+      boolean hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
       boolean achievable = currentShot.achievable();
       readiness =
           (launcherReady && motivatorReady && turretReady && hoodReady && achievable)

@@ -55,6 +55,9 @@ public class Turret extends SubsystemBase {
   // How close to a limit (degrees) before safety indicators fire
   private static final double WARNING_ZONE_DEG = 20.0;
 
+  // Current state — promoted from periodic() local for external readiness checks
+  private TurretState currentState = TurretState.LOCKED;
+
   // Turret lock — when true, all movement commands are blocked and motor is in brake hold
   private boolean locked = false;
 
@@ -82,19 +85,18 @@ public class Turret extends SubsystemBase {
     Logger.processInputs("Turret", inputs);
 
     // Compute and log state
-    TurretState state;
     if (!inputs.connected) {
-      state = TurretState.DISCONNECTED;
+      currentState = TurretState.DISCONNECTED;
     } else if (locked) {
-      state = TurretState.LOCKED;
+      currentState = TurretState.LOCKED;
     } else if (atTarget()) {
-      state = TurretState.READY;
+      currentState = TurretState.READY;
     } else if (getOutsideTargetAngle() > getOutsideCurrentAngle()) {
-      state = TurretState.ROTATING_CW;
+      currentState = TurretState.ROTATING_CW;
     } else {
-      state = TurretState.ROTATING_CCW;
+      currentState = TurretState.ROTATING_CCW;
     }
-    Logger.recordOutput("Subsystems/TurretState", state.name());
+    Logger.recordOutput("Subsystems/TurretState", currentState.name());
 
     // Push tunable PID changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kD)) {
@@ -338,6 +340,15 @@ public class Turret extends SubsystemBase {
    */
   public double getOutsideTargetAngle() {
     return io.getOutsideTargetAngle();
+  }
+
+  /**
+   * Get the current turret operating state.
+   *
+   * @return Current TurretState
+   */
+  public TurretState getState() {
+    return currentState;
   }
 
   /**

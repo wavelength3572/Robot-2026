@@ -133,10 +133,6 @@ public class ShootingCommands {
   private static final LoggedTunableNumber spindexerFarRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 100.0);
 
-  // Max drive speed (m/s) while smart launch speed-limit mode is active
-  private static final LoggedTunableNumber smartLaunchSpeedLimitCapMps =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpeedLimitCapMps", 0.5);
-
   // ===== LUT Dev Overrides (manual RPM/hood for data collection) =====
   private static final LoggedTunableNumber lutDevOverrideRPM =
       new LoggedTunableNumber("LUTDev/OverrideRPM", 2500.0);
@@ -568,13 +564,6 @@ public class ShootingCommands {
    * @param spindexer The spindexer subsystem (can be null)
    * @return Command that aims and fires based on odometry while held
    */
-  private static boolean isRobotSlowEnoughToFeed(ShootingCoordinator coordinator) {
-    if (coordinator.getFieldSpeedsSupplier() == null) return true;
-    edu.wpi.first.math.kinematics.ChassisSpeeds speeds = coordinator.getFieldSpeedsSupplier().get();
-    double speed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
-    return speed <= coordinator.getMaxFeedSpeedMps();
-  }
-
   public static Command smartLaunchCommand(
       Launcher launcher,
       ShootingCoordinator coordinator,
@@ -582,24 +571,20 @@ public class ShootingCommands {
       Turret turret,
       Hood hood,
       Spindexer spindexer) {
-    return smartLaunchCommand(launcher, coordinator, motivator, turret, hood, spindexer, true);
+    return smartLaunchCommandImpl(launcher, coordinator, motivator, turret, hood, spindexer);
   }
 
   /**
-   * Core smart launch implementation.
-   *
-   * @param gateOnSpeed When true, feeding is suppressed if the robot exceeds the max feed speed.
-   *     When false, feeding is allowed at any speed (used by speed-limited variant where the driver
-   *     already accepts reduced speed).
+   * Core smart launch implementation. Uses zone-aware speed gating for both readiness checks and
+   * spindexer feeding.
    */
-  private static Command smartLaunchCommand(
+  private static Command smartLaunchCommandImpl(
       Launcher launcher,
       ShootingCoordinator coordinator,
       Motivator motivator,
       Turret turret,
       Hood hood,
-      Spindexer spindexer,
-      boolean gateOnSpeed) {
+      Spindexer spindexer) {
     return Commands.sequence(
             Commands.runOnce(() -> setMode(ShootingMode.COMPETITION)),
 
@@ -655,7 +640,7 @@ public class ShootingCommands {
                           boolean hoodReady = hood == null || hood.atTarget();
                           boolean hasShot =
                               shot != null && (isLutDevOverrideActive() || shot.achievable());
-                          boolean robotSlow = !gateOnSpeed || isRobotSlowEnoughToFeed(coordinator);
+                          boolean robotSlow = coordinator.isRobotSlowEnoughForCurrentZone();
 
                           boolean allReady =
                               launcherReady
@@ -689,7 +674,7 @@ public class ShootingCommands {
                           boolean hoodReady = hood == null || hood.atTarget();
                           boolean hasShot =
                               shot != null && (isLutDevOverrideActive() || shot.achievable());
-                          boolean robotSlow = !gateOnSpeed || isRobotSlowEnoughToFeed(coordinator);
+                          boolean robotSlow = coordinator.isRobotSlowEnoughForCurrentZone();
                           return launcherReady
                               && motivatorReady
                               && turretReady
@@ -804,8 +789,7 @@ public class ShootingCommands {
                     ? Commands.run(
                         () -> {
                           boolean feedOk =
-                              turret.atTarget()
-                                  && (!gateOnSpeed || isRobotSlowEnoughToFeed(coordinator));
+                              turret.atTarget() && coordinator.isRobotSlowEnoughForCurrentZone();
                           if (feedOk) {
                             double dist = coordinator.getDistanceToTarget();
                             double spnRPM = getSpindexerRPM(dist > 0 ? dist : 1.16);
@@ -866,8 +850,8 @@ public class ShootingCommands {
       Turret turret,
       Hood hood,
       Spindexer spindexer) {
-    return smartLaunchCommand(launcher, coordinator, motivator, turret, hood, spindexer, false)
-        .beforeStarting(() -> DriveCommands.setSpeedLimit(smartLaunchSpeedLimitCapMps.get()))
+    return smartLaunchCommandImpl(launcher, coordinator, motivator, turret, hood, spindexer)
+        .beforeStarting(() -> DriveCommands.setSpeedLimit(coordinator.getShootOnTheMoveSpeedMps()))
         .finallyDo(() -> DriveCommands.clearSpeedLimit())
         .withName("SmartLaunch (Speed Limited)");
   }
@@ -924,6 +908,250 @@ public class ShootingCommands {
         .withName("AutoTrack");
   }
 
+  // ===== Shared Readiness Check =====
+
+  /**
+   * Check if all shooting subsystems are ready to fire. Uses state machines rather than raw
+   * atSetpoint() calls — single source of truth for readiness gating.
+   *
+   * @param launcher The launcher subsystem
+   * @param motivator The motivator subsystem (can be null)
+   * @param turret The turret subsystem
+   * @param hood The hood subsystem (can be null)
+   * @param shot The current shot result (can be null)
+   * @return true if all subsystems are at setpoint and shot is achievable
+   */
+  static boolean isAllSubsystemsReady(
+      Launcher launcher,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      ShotCalculator.ShotResult shot) {
+    Launcher.LauncherState ls = launcher.getState();
+    return (ls == Launcher.LauncherState.READY || ls == Launcher.LauncherState.FEEDING)
+        && (motivator == null || motivator.getState() == Motivator.MotivatorState.READY)
+        && turret.getState() == Turret.TurretState.READY
+        && (hood == null || hood.getState() == Hood.HoodState.READY)
+        && shot != null
+        && (isLutDevOverrideActive() || shot.achievable());
+  }
+
+  // ===== Continuous Smart Launch (for autonomous auto-shoot) =====
+
+  /**
+   * Continuous smart launch command for use during autonomous paths. Unlike smartLaunchCommand,
+   * this has no initial wait phase — it starts tracking and firing immediately (launcher may
+   * already be spinning from initialSmartLaunch). Runs until interrupted (path ends → parallel
+   * group ends).
+   *
+   * <p>Uses zone-based speed gating from the coordinator for hub vs pass speed limits. Controls all
+   * shooting subsystems (launcher RPM, turret angle, hood angle, motivator, spindexer) from live
+   * shot calculations.
+   *
+   * @param launcher The launcher subsystem
+   * @param coordinator The shooting coordinator (provides shot calculations and zone checks)
+   * @param motivator The motivator subsystem (can be null)
+   * @param turret The turret subsystem
+   * @param hood The hood subsystem (can be null)
+   * @param spindexer The spindexer subsystem (can be null)
+   * @param armOnPassZone When true, feeding is suppressed until the robot first enters a PASS or
+   *     LONG_PASS zone. Used by SPRINT autos to prevent firing preloads at the start position.
+   *     Launcher/turret/hood still track the live shot while waiting.
+   * @return Command that continuously tracks and fires while active
+   */
+  public static Command continuousSmartLaunchCommand(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer,
+      boolean armOnPassZone) {
+    // Mutable flags captured by lambdas.
+    // feedingArmed: flips to true once the robot transitions into a pass zone.
+    //   Once armed, stays armed permanently (robot can return to alliance zone and fire).
+    // wasOutsidePassZone: prevents arming if the robot starts in/near the pass zone.
+    //   Must leave the pass zone first, then re-enter to arm. For SPRINT autos starting
+    //   in the alliance zone this is immediate; for edge cases it prevents false arming.
+    final boolean[] feedingArmed = {!armOnPassZone};
+    final boolean[] wasOutsidePassZone = {false};
+
+    return Commands.parallel(
+            // Arming monitor — detects transition INTO a pass zone. Requires the robot
+            // to have been outside the pass zone first (prevents false arming if the
+            // starting position happens to be in/near the pass zone boundary).
+            Commands.run(
+                () -> {
+                  if (feedingArmed[0]) return;
+                  boolean inPassZone = coordinator.isInPassZone();
+                  if (!inPassZone) {
+                    wasOutsidePassZone[0] = true;
+                  } else if (wasOutsidePassZone[0]) {
+                    // Transition: was outside → now inside → arm subsystems.
+                    // Don't set feedingActive yet — that enables recovery boost which
+                    // makes no sense before the launcher is at speed. It gets set once
+                    // the spindexer actually starts feeding (launcher at setpoint).
+                    feedingArmed[0] = true;
+                    Logger.recordOutput("ContinuousSmartLaunch/FeedingArmed", true);
+                    System.out.println("[ContinuousSmartLaunch] Armed — entered pass zone");
+                  }
+                }),
+
+            // Launcher — pre-spin to idle RPM before armed, full RPM once armed
+            Commands.run(
+                () -> {
+                  if (!feedingArmed[0]) {
+                    // Pre-spin so wheels are already moving when we enter the pass zone
+                    launcher.setVelocity(2000);
+                    return;
+                  }
+                  ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                  if (shot != null) {
+                    double rpm = getEffectiveRPM(shot);
+                    double hoodDeg = getEffectiveHoodDeg(shot);
+                    launcher.setVelocity(rpm);
+                    coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
+                  }
+                },
+                launcher),
+
+            // Turret — track target (only when armed)
+            Commands.run(
+                () -> {
+                  if (!feedingArmed[0]) return;
+                  ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                  if (shot != null) {
+                    turret.setOutsideTurretAngle(shot.turretAngleDeg());
+                  }
+                },
+                turret),
+
+            // Hood — track target angle (only when armed)
+            hood != null
+                ? Commands.run(
+                    () -> {
+                      if (!feedingArmed[0]) return;
+                      ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                      if (shot != null) {
+                        hood.setHoodAngle(getEffectiveHoodDeg(shot));
+                      }
+                    },
+                    hood)
+                : Commands.none(),
+
+            // Motivator — spin up (only when armed)
+            motivator != null
+                ? Commands.run(
+                    () -> {
+                      if (!feedingArmed[0]) return;
+                      ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                      double launcherRPM = getEffectiveRPM(s);
+                      motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                    },
+                    motivator)
+                : Commands.none(),
+
+            // Spindexer — feed fuel (gated on armed + launcher ready + turret aimed + zone speed)
+            spindexer != null
+                ? Commands.run(
+                    () -> {
+                      boolean armed = feedingArmed[0];
+                      boolean launcherReady = launcher.atSetpoint();
+                      boolean turretAimed = turret.atTarget();
+                      boolean speedOk = coordinator.isRobotSlowEnoughForCurrentZone();
+                      Logger.recordOutput("ContinuousSmartLaunch/Gate/Armed", armed);
+                      Logger.recordOutput("ContinuousSmartLaunch/Gate/LauncherReady", launcherReady);
+                      Logger.recordOutput("ContinuousSmartLaunch/Gate/TurretAimed", turretAimed);
+                      Logger.recordOutput("ContinuousSmartLaunch/Gate/SpeedOk", speedOk);
+                      boolean feedOk = armed && launcherReady && turretAimed && speedOk;
+                      if (feedOk) {
+                        // Enable recovery boost now that we're actually feeding into
+                        // a launcher that's at speed (not before — see arming monitor)
+                        launcher.setFeedingActive(true);
+                        double dist = coordinator.getDistanceToTarget();
+                        double spnRPM = getSpindexerRPM(dist > 0 ? dist : 1.16);
+                        spindexer.setSpindexerVelocity(spnRPM);
+                      } else {
+                        spindexer.reciprocate();
+                      }
+                      Logger.recordOutput("ContinuousSmartLaunch/FeedingSuppressed", !feedOk);
+                    },
+                    spindexer)
+                : Commands.none(),
+
+            // Fire balls in simulation
+            coordinator != null
+                ? createContinuousSimFiringLoop(
+                    coordinator, launcher, motivator, turret, hood, feedingArmed)
+                : Commands.none())
+        .finallyDo(
+            () -> {
+              launcher.setFeedingActive(false);
+              launcher.stop();
+              if (motivator != null) {
+                motivator.stopMotivator();
+              }
+              if (spindexer != null) {
+                spindexer.stopSpindexer();
+              }
+              if (hood != null) {
+                hood.setHoodAngle(hood.getMinAngle());
+              }
+              Logger.recordOutput("ContinuousSmartLaunch/Active", false);
+            })
+        .beforeStarting(
+            () -> {
+              // Only set feeding active immediately if not waiting for pass zone
+              if (!armOnPassZone) {
+                launcher.setFeedingActive(true);
+              }
+              Logger.recordOutput("ContinuousSmartLaunch/Active", true);
+              Logger.recordOutput("ContinuousSmartLaunch/FeedingArmed", feedingArmed[0]);
+              System.out.println(
+                  "[ContinuousSmartLaunch] Started"
+                      + (armOnPassZone ? " (waiting for pass zone)" : " (armed immediately)"));
+            })
+        .withName("ContinuousSmartLaunch");
+  }
+
+  /**
+   * Sim firing loop for continuous smart launch. Uses isAllSubsystemsReady + zone speed gating +
+   * feeding armed check.
+   */
+  private static Command createContinuousSimFiringLoop(
+      ShootingCoordinator coordinator,
+      Launcher launcher,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      boolean[] feedingArmed) {
+    return Commands.sequence(
+            Commands.waitUntil(
+                () -> {
+                  ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                  return feedingArmed[0]
+                      && isAllSubsystemsReady(launcher, motivator, turret, hood, shot)
+                      && coordinator.isRobotSlowEnoughForCurrentZone();
+                }),
+            Commands.runOnce(
+                () -> {
+                  coordinator.launchFuel();
+                  launcher.notifyBallFired();
+                  Logger.recordOutput("Shots/ShotLog/LastShotTime", Timer.getFPGATimestamp());
+
+                  ShotVisualizer visualizer = coordinator.getVisualizer();
+                  int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
+                  Logger.recordOutput("Shots/ShotLog/FuelRemaining", fuelRemaining);
+                }),
+            Commands.waitSeconds(MIN_SHOT_INTERVAL_SECONDS))
+        .repeatedly()
+        .until(
+            () -> {
+              ShotVisualizer visualizer = coordinator.getVisualizer();
+              return visualizer == null || visualizer.getFuelCount() <= 0;
+            });
+  }
+
   /**
    * Simulation firing loop. Waits for alignment and setpoint, then launches fuel repeatedly.
    *
@@ -939,7 +1167,7 @@ public class ShootingCommands {
                 () ->
                     turret.atTarget()
                         && launcher.atSetpoint()
-                        && isRobotSlowEnoughToFeed(coordinator)),
+                        && coordinator.isRobotSlowEnoughForCurrentZone()),
             Commands.runOnce(
                 () -> {
                   coordinator.launchFuel();
@@ -980,11 +1208,17 @@ public class ShootingCommands {
     return SmartDashboard.getBoolean("LUTDev/UseOverrides", false);
   }
 
+  // Safety cap: matches LauncherIOSparkFlex.MAX_VELOCITY_RPM hardware limit
+  private static final double MAX_LAUNCHER_RPM = 5000.0;
+
   private static double getEffectiveRPM(ShotCalculator.ShotResult shot) {
+    double rpm;
     if (isLutDevOverrideActive()) {
-      return lutDevOverrideRPM.get() + launcherTrimRPM;
+      rpm = lutDevOverrideRPM.get() + launcherTrimRPM;
+    } else {
+      rpm = shot != null ? shot.launcherRPM() + launcherTrimRPM : 0.0;
     }
-    return shot != null ? shot.launcherRPM() + launcherTrimRPM : 0.0;
+    return Math.min(rpm, MAX_LAUNCHER_RPM);
   }
 
   private static double getEffectiveHoodDeg(ShotCalculator.ShotResult shot) {
