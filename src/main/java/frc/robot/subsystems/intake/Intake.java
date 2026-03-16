@@ -3,6 +3,8 @@ package frc.robot.subsystems.intake;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.util.Color;
+import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -13,6 +15,9 @@ import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.mechanism.LoggedMechanism2d;
+import org.littletonrobotics.junction.mechanism.LoggedMechanismLigament2d;
+import org.littletonrobotics.junction.mechanism.LoggedMechanismRoot2d;
 
 // TODO might need some sort of deploy sequence or intelligence to fix the backlash with respect to
 // deploy
@@ -163,6 +168,39 @@ public class Intake extends SubsystemBase {
   private DeployState deployState = DeployState.RETRACTED;
   private final Timer brakeTimer = new Timer();
 
+  // ========== MECHANISM 2D VISUALIZATION ==========
+  // Canvas dimensions (meters) — side view of robot
+  private static final double MECH_CANVAS_WIDTH = 1.0;
+  private static final double MECH_CANVAS_HEIGHT = 0.6;
+  // Pivot at right edge of robot body (front bumper)
+  private static final double MECH_PIVOT_X = 0.50;
+  private static final double MECH_PIVOT_Z = 0.20;
+  // Visual arm length (meters) — extends past bumper when horizontal
+  private static final double MECH_ARM_LENGTH = 0.30;
+  private static final double MECH_ARM_LINE_WIDTH = 8.0;
+  private static final double MECH_ROLLER_LENGTH = 0.06;
+  private static final double MECH_ROLLER_LINE_WIDTH = 12.0;
+  // Robot body reference line (static, extends leftward from pivot)
+  private static final double MECH_BODY_LENGTH = 0.40;
+  private static final double MECH_BODY_LINE_WIDTH = 6.0;
+
+  private final LoggedMechanism2d mechanism;
+  private final LoggedMechanismLigament2d armLigament;
+  private final LoggedMechanismLigament2d rollerLigament;
+
+  // Color palette
+  private static final Color8Bit COLOR_RETRACTED = new Color8Bit(Color.kGray);
+  private static final Color8Bit COLOR_DEPLOYING = new Color8Bit(Color.kOrange);
+  private static final Color8Bit COLOR_DEPLOYED = new Color8Bit(Color.kGreen);
+  private static final Color8Bit COLOR_RETRACTING = new Color8Bit(Color.kOrange);
+  private static final Color8Bit COLOR_AGITATING = new Color8Bit(Color.kYellow);
+  private static final Color8Bit COLOR_SETTLING = new Color8Bit(Color.kCyan);
+  private static final Color8Bit COLOR_ROLLER_INTAKE = new Color8Bit(Color.kLimeGreen);
+  private static final Color8Bit COLOR_ROLLER_EJECT = new Color8Bit(Color.kRed);
+  private static final Color8Bit COLOR_ROLLER_IDLE = new Color8Bit(Color.kDarkGray);
+  private static final Color8Bit COLOR_ROLLER_LOCKED = new Color8Bit(Color.kDarkRed);
+  private static final Color8Bit COLOR_BODY = new Color8Bit(Color.kDimGray);
+
   // Operational constants (not robot-specific)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
   public static final double ROLLER_EJECT_SPEED = -0.6;
@@ -198,6 +236,28 @@ public class Intake extends SubsystemBase {
     applyRetractMotionConfig();
     io.setDeployBrakeMode(true);
     io.setDeployPosition(deployStowedPosition);
+
+    // Initialize Mechanism2d side-view visualization
+    mechanism = new LoggedMechanism2d(MECH_CANVAS_WIDTH, MECH_CANVAS_HEIGHT);
+
+    // Robot body reference line — horizontal bar extending backward from pivot
+    LoggedMechanismRoot2d bodyRoot = mechanism.getRoot("Body", MECH_PIVOT_X, MECH_PIVOT_Z);
+    bodyRoot.append(
+        new LoggedMechanismLigament2d(
+            "RobotBody", MECH_BODY_LENGTH, 180, MECH_BODY_LINE_WIDTH, COLOR_BODY));
+
+    // Intake arm — rotates from pivot; 90° = straight up (retracted), tilts forward when deployed
+    LoggedMechanismRoot2d pivotRoot = mechanism.getRoot("IntakePivot", MECH_PIVOT_X, MECH_PIVOT_Z);
+    armLigament =
+        pivotRoot.append(
+            new LoggedMechanismLigament2d(
+                "IntakeArm", MECH_ARM_LENGTH, 90, MECH_ARM_LINE_WIDTH, COLOR_RETRACTED));
+
+    // Roller indicator at the tip of the arm
+    rollerLigament =
+        armLigament.append(
+            new LoggedMechanismLigament2d(
+                "Roller", MECH_ROLLER_LENGTH, 0, MECH_ROLLER_LINE_WIDTH, COLOR_ROLLER_IDLE));
   }
 
   /**
@@ -295,6 +355,38 @@ public class Intake extends SubsystemBase {
     if (rollersSafetyLocked) {
       io.stopRollerMotor();
     }
+
+    // ---- Update Mechanism2d visualization ----
+    // Map deploy position to visual angle:
+    //   position 0 (stowed)    → 90° (straight up)
+    //   position extended      → 0°  (horizontal, pointing forward past bumper)
+    double deployFraction = inputs.deployPositionRotations / deployExtendedPos.get();
+    double armAngleDeg = 90.0 * (1.0 - Math.min(deployFraction, 1.0));
+    armLigament.setAngle(armAngleDeg);
+
+    // Arm color based on deploy state
+    switch (deployState) {
+      case RETRACTED -> armLigament.setColor(COLOR_RETRACTED);
+      case DEPLOYING -> armLigament.setColor(COLOR_DEPLOYING);
+      case DEPLOY_SETTLING -> armLigament.setColor(COLOR_SETTLING);
+      case DEPLOYED -> armLigament.setColor(COLOR_DEPLOYED);
+      case RETRACTING -> armLigament.setColor(COLOR_RETRACTING);
+      case AGITATING -> armLigament.setColor(COLOR_AGITATING);
+      case AGITATE_SETTLING -> armLigament.setColor(COLOR_SETTLING);
+    }
+
+    // Roller color based on roller state
+    if (rollersSafetyLocked) {
+      rollerLigament.setColor(COLOR_ROLLER_LOCKED);
+    } else if (inputs.rollerVelocityRPM > 50) {
+      rollerLigament.setColor(COLOR_ROLLER_INTAKE);
+    } else if (inputs.rollerVelocityRPM < -50) {
+      rollerLigament.setColor(COLOR_ROLLER_EJECT);
+    } else {
+      rollerLigament.setColor(COLOR_ROLLER_IDLE);
+    }
+
+    Logger.recordOutput("Mechanism2d/Intake", mechanism);
 
     // Log state machines
     Logger.recordOutput("Subsystems/IntakeDeployState", deployState.name());
