@@ -63,8 +63,8 @@ public class TurretAimingHelper {
           case ALLIANCE, TRENCH_NEAR -> {
             Translation2d hubTarget =
                 (alliance == Alliance.Blue)
-                    ? FieldConstants.Hub.innerCenterPoint
-                    : FieldConstants.Hub.oppInnerCenterPoint;
+                    ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()
+                    : FieldConstants.Hub.oppInnerCenterPoint.toTranslation2d();
             yield new AimResult(hubTarget, AimMode.SHOOT, zone);
           }
           case NEUTRAL -> {
@@ -92,8 +92,8 @@ public class TurretAimingHelper {
             // Fallback: aim at hub
             Translation2d fallback =
                 (alliance == Alliance.Blue)
-                    ? FieldConstants.Hub.innerCenterPoint
-                    : FieldConstants.Hub.oppInnerCenterPoint;
+                    ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()
+                    : FieldConstants.Hub.oppInnerCenterPoint.toTranslation2d();
             yield new AimResult(fallback, AimMode.NONE, zone);
           }
         };

@@ -97,11 +97,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // far too sluggish for flywheel recovery. These settings reduce the effective
     // measurement window to ~16ms (~8ms phase lag), giving the 1kHz onboard PID
     // much fresher velocity data to work with.
-    // See: https://www.chiefdelphi.com/t/psa-rev-spark-default-velocity-filtering-is-still-really-bad-for-flywheels/514567
-    leaderConfig
-        .encoder
-        .uvwMeasurementPeriod(8)
-        .uvwAverageDepth(2);
+    // See:
+    // https://www.chiefdelphi.com/t/psa-rev-spark-default-velocity-filtering-is-still-really-bad-for-flywheels/514567
+    leaderConfig.encoder.uvwMeasurementPeriod(8).uvwAverageDepth(2);
 
     // PID + feedforward all run onboard the SparkFlex at 1kHz — no CAN latency.
     // kS/kV applied automatically in kVelocity mode (per REV 2026 API).

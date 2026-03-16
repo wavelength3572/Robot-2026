@@ -386,8 +386,7 @@ public class ShootingCoordinator extends SubsystemBase {
             boolean isLeftTrench = selectIsLeftTrench(robotPose);
             Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
             Logger.recordOutput("Turret/Pass/Active", isLeftTrench ? "LEFT" : "RIGHT");
-            calculatePassToTarget(
-                robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
+            calculatePassToTarget(robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
           }
         }
         case LONG_PASS -> {

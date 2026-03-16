@@ -395,8 +395,8 @@ public class FieldConstants {
    * Bump zones — rectangular areas over each bump on both sides of the field.
    *
    * <p>Bumps run along the Y-axis between the hub and the trenches. The X extent uses the same
-   * depth as trench zones (centered on hub center line). The Y extent spans from the hub corner
-   * to the end of the bump.
+   * depth as trench zones (centered on hub center line). The Y extent spans from the hub corner to
+   * the end of the bump.
    */
   public static class BumpZones {
     /** Safety margin added to each edge of the bump zone (meters). */
@@ -432,23 +432,11 @@ public class FieldConstants {
       return TrenchZones.isInZone(
               x, y, BLUE_LEFT_MIN_X, BLUE_LEFT_MAX_X, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y, margin)
           || TrenchZones.isInZone(
-              x,
-              y,
-              BLUE_RIGHT_MIN_X,
-              BLUE_RIGHT_MAX_X,
-              BLUE_RIGHT_MIN_Y,
-              BLUE_RIGHT_MAX_Y,
-              margin)
+              x, y, BLUE_RIGHT_MIN_X, BLUE_RIGHT_MAX_X, BLUE_RIGHT_MIN_Y, BLUE_RIGHT_MAX_Y, margin)
           || TrenchZones.isInZone(
               x, y, RED_LEFT_MIN_X, RED_LEFT_MAX_X, RED_LEFT_MIN_Y, RED_LEFT_MAX_Y, margin)
           || TrenchZones.isInZone(
-              x,
-              y,
-              RED_RIGHT_MIN_X,
-              RED_RIGHT_MAX_X,
-              RED_RIGHT_MIN_Y,
-              RED_RIGHT_MAX_Y,
-              margin);
+              x, y, RED_RIGHT_MIN_X, RED_RIGHT_MAX_X, RED_RIGHT_MIN_Y, RED_RIGHT_MAX_Y, margin);
     }
   }
 
