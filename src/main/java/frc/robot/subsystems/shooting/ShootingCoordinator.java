@@ -77,13 +77,12 @@ public class ShootingCoordinator extends SubsystemBase {
   // Optional feeding suppression check — when true, launchFuel() is a no-op
   private BooleanSupplier feedingSuppressedSupplier = () -> false;
 
-  // Trench avoidance — clamps hood angle when robot is under a trench
+  // Trench avoidance — always active; clamps hood angle when robot is under a trench
   private final LoggedTunableNumber trenchHoodMaxDeg =
       new LoggedTunableNumber("Shots/TrenchMode/HoodMaxDeg", 18.0);
   private final LoggedTunableNumber trenchMarginMeters =
       new LoggedTunableNumber(
           "Shots/TrenchMode/MarginMeters", FieldConstants.TrenchZones.DEFAULT_MARGIN_METERS);
-  private boolean trenchModeEnabled = false;
   private boolean trenchModeActive = false; // true when robot is currently in a trench zone
 
   // Visualizer throttle — run at 10Hz instead of 50Hz (pure display, not control)
@@ -126,6 +125,13 @@ public class ShootingCoordinator extends SubsystemBase {
   private boolean autoShootEnabled = false;
   private Runnable onShotFiredCallback = null;
   private double lastShotTimestamp = 0.0;
+
+  // Auto-shoot distance gate: suppresses firing until the robot has moved this far from where
+  // auto-shoot was enabled.  Prevents accidental shots at the starting position when pre-shot
+  // is disabled but auto-shoot is on.
+  private final LoggedTunableNumber autoShootMinDistanceM =
+      new LoggedTunableNumber("Shots/AutoShoot/MinDistanceM", 0.5);
+  private Pose2d autoShootStartPose = null;
 
   // Match shot tracking (counts persist across auto→teleop transition)
   private int totalShots = 0;
@@ -179,9 +185,6 @@ public class ShootingCoordinator extends SubsystemBase {
     passingStrategyChooser.setDefaultOption("Symmetric (Y-based)", PassingStrategy.SYMMETRIC);
     passingStrategyChooser.addOption("Driver Station", PassingStrategy.DRIVER_STATION);
     SmartDashboard.putData("Shots/Pass/Strategy", passingStrategyChooser);
-
-    // Trench mode toggle — off by default, can be enabled via dashboard or code
-    SmartDashboard.putBoolean("Shots/TrenchMode/Enabled", trenchModeEnabled);
 
     // Load any previously recorded LUT data from disk
     reloadLUTData();
@@ -266,14 +269,11 @@ public class ShootingCoordinator extends SubsystemBase {
       Pose2d robotPose = robotPoseSupplier.get();
       ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
 
-      // Sync trench mode enabled state from dashboard toggle
-      trenchModeEnabled = SmartDashboard.getBoolean("Shots/TrenchMode/Enabled", trenchModeEnabled);
-
-      // Check if robot is in any trench zone (all 4, alliance-independent)
+      // Check if robot is in any trench zone (all 4, alliance-independent).
+      // Trench clamping is always active — hood is clamped whenever the robot is under a trench.
       trenchModeActive =
-          trenchModeEnabled
-              && FieldConstants.TrenchZones.isInAnyTrenchZone(
-                  robotPose.getX(), robotPose.getY(), trenchMarginMeters.get());
+          FieldConstants.TrenchZones.isInAnyTrenchZone(
+              robotPose.getX(), robotPose.getY(), trenchMarginMeters.get());
       TurretAimingHelper.AimResult aimResult =
           TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
 
@@ -725,6 +725,20 @@ public class ShootingCoordinator extends SubsystemBase {
     Logger.recordOutput("Turret/AutoShoot/InAllianceZone", inAllianceZone);
     Logger.recordOutput("Turret/AutoShoot/RobotSpeedMps", robotSpeedMps);
 
+    // Distance gate: when a start pose is recorded, suppress firing until the robot has
+    // moved far enough.  Once cleared, null out the start pose so we don't re-check.
+    if (autoShootStartPose != null) {
+      double distFromStart =
+          robotPose.getTranslation().getDistance(autoShootStartPose.getTranslation());
+      if (distFromStart < autoShootMinDistanceM.get()) {
+        Logger.recordOutput("Turret/AutoShoot/DistanceGated", true);
+        Logger.recordOutput("Turret/AutoShoot/Fired", false);
+        return;
+      }
+      autoShootStartPose = null; // gate cleared — stop checking
+    }
+    Logger.recordOutput("Turret/AutoShoot/DistanceGated", false);
+
     if (launcherReady && hasShot && aimed && hasFuel && intervalElapsed && robotSlow) {
       // Snapshot key calibration data at the instant of firing
       double distAtFire =
@@ -862,11 +876,22 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Enable auto-shoot mode. Turret will fire automatically when all conditions are met. */
   public void enableAutoShoot() {
     autoShootEnabled = true;
+    autoShootStartPose = robotPoseSupplier != null ? robotPoseSupplier.get() : null;
+  }
+
+  /**
+   * Enable auto-shoot mode, skipping the minimum-distance gate. Use this when a pre-shot has
+   * already been taken, so auto-shoot should fire immediately when the coordinator is ready.
+   */
+  public void enableAutoShootImmediate() {
+    autoShootEnabled = true;
+    autoShootStartPose = null; // no distance gate
   }
 
   /** Disable auto-shoot mode. */
   public void disableAutoShoot() {
     autoShootEnabled = false;
+    autoShootStartPose = null;
   }
 
   /**
@@ -880,25 +905,11 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // ========== Trench Avoidance Mode ==========
 
-  /** Enable trench avoidance mode. Hood angle will be clamped when robot is under a trench. */
-  public void enableTrenchMode() {
-    trenchModeEnabled = true;
-    SmartDashboard.putBoolean("Shots/TrenchMode/Enabled", true);
-  }
-
-  /** Disable trench avoidance mode. */
-  public void disableTrenchMode() {
-    trenchModeEnabled = false;
-    trenchModeActive = false;
-    SmartDashboard.putBoolean("Shots/TrenchMode/Enabled", false);
-  }
-
-  /** Check if trench avoidance mode is enabled. */
-  public boolean isTrenchModeEnabled() {
-    return trenchModeEnabled;
-  }
-
-  /** Check if trench avoidance is currently active (enabled AND robot is in a trench zone). */
+  /**
+   * Check if trench avoidance is currently active (robot is in a trench zone). Trench clamping is
+   * always enabled — there is no toggle. The hood is clamped whenever the robot is detected inside
+   * any trench zone.
+   */
   public boolean isTrenchModeActive() {
     return trenchModeActive;
   }
