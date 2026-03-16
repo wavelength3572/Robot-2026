@@ -85,16 +85,6 @@ public final class ShotCalculator {
     targetLauncherRPM = rpm;
   }
 
-  /** Get the current launcher RPM. */
-  public static double getCurrentLauncherRPM() {
-    return currentLauncherRPM;
-  }
-
-  /** Get the target launcher RPM. */
-  public static double getTargetLauncherRPM() {
-    return targetLauncherRPM;
-  }
-
   /**
    * Get the distance-dependent launch efficiency.
    *
@@ -329,11 +319,6 @@ public final class ShotCalculator {
     // Calculate relative (desired) angle (turret angle relative to robot heading)
     double relativeAngle = absoluteAngle - robotHeadingDeg;
 
-    // Log calculation values
-    Logger.recordOutput("Turret/RobotOmegaNormalized", robotOmegaNormalized);
-    Logger.recordOutput("Turret/AbsoluteAngle", absoluteAngle);
-    Logger.recordOutput("Turret/RelativeAngle", relativeAngle);
-
     // Find the equivalent angle closest to current position
     // Check desiredAngle and its ±360° versions
     double[] candidates = {relativeAngle, relativeAngle + 360.0, relativeAngle - 360.0};
@@ -363,7 +348,11 @@ public final class ShotCalculator {
       bestOutsideAngle = effectiveMaxDeg;
     }
 
-    Logger.recordOutput("Turret/bestOutsideAngle", bestOutsideAngle);
+    // Log commanded angle and how close we are to a flip
+    Logger.recordOutput("TurretFlipCalc/CommandedAngleDeg", bestOutsideAngle);
+    double marginToMin = bestOutsideAngle - effectiveMinDeg;
+    double marginToMax = effectiveMaxDeg - bestOutsideAngle;
+    Logger.recordOutput("TurretFlipCalc/FlipMarginDeg", Math.min(marginToMin, marginToMax));
 
     return bestOutsideAngle;
   }
@@ -597,9 +586,9 @@ public final class ShotCalculator {
     double y2 = passTarget.getZ() - config.heightMeters();
 
     // Log constraint points for debugging
-    Logger.recordOutput("Turret/Pass/TwoPoint/ConstraintX", x1);
-    Logger.recordOutput("Turret/Pass/TwoPoint/ConstraintH", constraintH);
-    Logger.recordOutput("Turret/Pass/TwoPoint/HorizontalDist", horizontalDist);
+    Logger.recordOutput("Shots/Pass/TwoPoint/ConstraintX", x1);
+    Logger.recordOutput("Shots/Pass/TwoPoint/ConstraintH", constraintH);
+    Logger.recordOutput("Shots/Pass/TwoPoint/HorizontalDist", horizontalDist);
 
     // Solve for launch angle: tanTheta = (y1*x2^2 - y2*x1^2) / (x1*x2*(x2 - x1))
     double denominator = x1 * x2 * (x2 - x1);
@@ -616,7 +605,7 @@ public final class ShotCalculator {
     // Check hood limits
     if (hoodAngleDeg < hoodMinAngleDeg || hoodAngleDeg > hoodMaxAngleDeg) {
       Logger.recordOutput(
-          "Turret/Pass/TwoPoint/RejectReason",
+          "Shots/Pass/TwoPoint/RejectReason",
           String.format(
               "Hood %.1f outside [%.0f-%.0f]", hoodAngleDeg, hoodMinAngleDeg, hoodMaxAngleDeg));
       return unachievablePassResult(
@@ -626,7 +615,7 @@ public final class ShotCalculator {
     // Solve for K
     double K = (x1 * tanTheta - y1) / (x1 * x1);
     if (K <= 0) {
-      Logger.recordOutput("Turret/Pass/TwoPoint/RejectReason", "K <= 0");
+      Logger.recordOutput("Shots/Pass/TwoPoint/RejectReason", "K <= 0");
       return unachievablePassResult(
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
     }
@@ -635,7 +624,7 @@ public final class ShotCalculator {
     double cosTheta = Math.cos(theta);
     double vSquared = GRAVITY / (2 * K * cosTheta * cosTheta);
     if (vSquared <= 0) {
-      Logger.recordOutput("Turret/Pass/TwoPoint/RejectReason", "v^2 <= 0");
+      Logger.recordOutput("Shots/Pass/TwoPoint/RejectReason", "v^2 <= 0");
       return unachievablePassResult(
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
     }
@@ -645,7 +634,7 @@ public final class ShotCalculator {
     double rpm = calculateRPMForVelocity(exitVelocity, horizontalDist);
     if (rpm < 1500 || rpm > 5000) {
       Logger.recordOutput(
-          "Turret/Pass/TwoPoint/RejectReason", String.format("RPM %.0f outside [1500-5000]", rpm));
+          "Shots/Pass/TwoPoint/RejectReason", String.format("RPM %.0f outside [1500-5000]", rpm));
       return unachievablePassResult(
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
     }
@@ -656,7 +645,7 @@ public final class ShotCalculator {
     double peakHeight = config.heightMeters() + (vy0 * vy0) / (2 * GRAVITY);
     if (peakHeight > maxPeakHeightM) {
       Logger.recordOutput(
-          "Turret/Pass/TwoPoint/RejectReason",
+          "Shots/Pass/TwoPoint/RejectReason",
           String.format("Peak %.1fm > max %.1fm", peakHeight, maxPeakHeightM));
       return unachievablePassResult(
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
@@ -668,16 +657,16 @@ public final class ShotCalculator {
     double distanceToPeak = vx * timeToPeak;
     if (distanceToPeak >= x1) {
       Logger.recordOutput(
-          "Turret/Pass/TwoPoint/RejectReason",
+          "Shots/Pass/TwoPoint/RejectReason",
           String.format("Peak at %.2fm, constraint at %.2fm", distanceToPeak, x1));
       return unachievablePassResult(
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
     }
 
-    Logger.recordOutput("Turret/Pass/TwoPoint/RejectReason", "OK");
-    Logger.recordOutput("Turret/Pass/TwoPoint/PeakHeightM", peakHeight);
-    Logger.recordOutput("Turret/Pass/TwoPoint/HoodAngleDeg", hoodAngleDeg);
-    Logger.recordOutput("Turret/Pass/TwoPoint/RPM", rpm);
+    Logger.recordOutput("Shots/Pass/TwoPoint/RejectReason", "OK");
+    Logger.recordOutput("Shots/Pass/TwoPoint/PeakHeightM", peakHeight);
+    Logger.recordOutput("Shots/Pass/TwoPoint/HoodAngleDeg", hoodAngleDeg);
+    Logger.recordOutput("Shots/Pass/TwoPoint/RPM", rpm);
 
     // Velocity compensation: re-solve with adjusted aim target, keeping clearance point fixed
     Translation3d aimTarget = passTarget;

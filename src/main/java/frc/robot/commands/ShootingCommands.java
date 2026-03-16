@@ -665,7 +665,17 @@ public class ShootingCommands {
                                   && hasShot
                                   && robotSlow;
 
-                          Logger.recordOutput("SmartLaunch/RobotSlow", robotSlow);
+                          Logger.recordOutput("SmartLaunch/Ready/Launcher", launcherReady);
+                          Logger.recordOutput("SmartLaunch/Ready/Motivator", motivatorReady);
+                          Logger.recordOutput("SmartLaunch/Ready/Turret", turretReady);
+                          Logger.recordOutput("SmartLaunch/Ready/Hood", hoodReady);
+                          Logger.recordOutput("SmartLaunch/Ready/HasShot", hasShot);
+                          Logger.recordOutput("SmartLaunch/Ready/ShotNull", shot == null);
+                          Logger.recordOutput(
+                              "SmartLaunch/Ready/ShotAchievable",
+                              shot != null && shot.achievable());
+                          Logger.recordOutput("SmartLaunch/Ready/RobotSlow", robotSlow);
+                          Logger.recordOutput("SmartLaunch/Ready/All", allReady);
                           return allReady;
                         }),
                     Commands.waitSeconds(0.1),

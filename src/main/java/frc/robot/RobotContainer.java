@@ -87,8 +87,8 @@ public class RobotContainer {
 
   private LoggedDashboardChooser<Command> autoChooser;
   private final LoggedDashboardChooser<String> allianceWinChooser;
-  private final SendableChooser<AutoWrapperFactory.StartStrategy> startStrategyChooser;
-  private final SendableChooser<AutoWrapperFactory.PathShootingStrategy> pathShootingChooser;
+  private SendableChooser<AutoWrapperFactory.StartStrategy> startStrategyChooser;
+  private SendableChooser<AutoWrapperFactory.PathShootingStrategy> pathShootingChooser;
   private boolean lastCompetitionMode = true;
 
   // Maps display name (e.g. "[Shot] 3 Piece Source") → raw auto name ("3 Piece Source").
@@ -342,19 +342,9 @@ public class RobotContainer {
     SmartDashboard.putBoolean("Competition Mode", false);
     autoChooser = buildAutoChooserForMode(true);
 
-    // Auton strategy choosers — folder provides defaults, driver can override.
-    // "Folder Default" uses the auto's folder to pick the strategy automatically.
-    startStrategyChooser = new SendableChooser<>();
-    startStrategyChooser.setDefaultOption("Folder Default", null);
-    startStrategyChooser.addOption("Shoot Preloads", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS);
-    startStrategyChooser.addOption("Sprint", AutoWrapperFactory.StartStrategy.SPRINT);
-    SmartDashboard.putData("Auton Start Strategy", startStrategyChooser);
-
-    pathShootingChooser = new SendableChooser<>();
-    pathShootingChooser.setDefaultOption("Folder Default", null);
-    pathShootingChooser.addOption("End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
-    pathShootingChooser.addOption("Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
-    SmartDashboard.putData("Auton Path Shooting Strategy", pathShootingChooser);
+    // Auton strategy choosers — rebuilt when auto selection changes to show folder defaults.
+    // Operator can override after selecting an auto.
+    publishStrategyChoosers(null);
 
     updateOI();
   }
@@ -398,8 +388,8 @@ public class RobotContainer {
 
   /**
    * Use this to pass the autonomous command to the main {@link Robot} class. Dispatches to the
-   * appropriate wrapper based on the auto's folder. The folder provides default strategies which the
-   * dashboard choosers can override. Test autos and unknown folders run bare.
+   * appropriate wrapper based on the auto's folder. The folder provides default strategies which
+   * the dashboard choosers can override. Test autos and unknown folders run bare.
    *
    * @return the command to run in autonomous
    */
@@ -419,15 +409,11 @@ public class RobotContainer {
       return selectedAuto; // Test autos and unknown folders run bare
     }
 
-    // Dashboard choosers override folder defaults; null means "use folder default"
+    // Read strategies directly — choosers always have concrete values
     AutoWrapperFactory.StartStrategy startStrategy = startStrategyChooser.getSelected();
     AutoWrapperFactory.PathShootingStrategy pathStrategy = pathShootingChooser.getSelected();
-    if (startStrategy == null) {
-      startStrategy = defaultStartStrategy(folder);
-    }
-    if (pathStrategy == null) {
-      pathStrategy = defaultPathShootingStrategy(folder);
-    }
+    if (startStrategy == null) startStrategy = defaultStartStrategy(folder);
+    if (pathStrategy == null) pathStrategy = defaultPathShootingStrategy(folder);
 
     return AutoWrapperFactory.compWrapped(
         selectedAuto,
@@ -457,10 +443,61 @@ public class RobotContainer {
   }
 
   /** Folder-based default for path shooting. CompSprint auto-shoots; everything else waits. */
-  private static AutoWrapperFactory.PathShootingStrategy defaultPathShootingStrategy(String folder) {
+  private static AutoWrapperFactory.PathShootingStrategy defaultPathShootingStrategy(
+      String folder) {
     return "CompSprint".equals(folder)
         ? AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT
         : AutoWrapperFactory.PathShootingStrategy.END_OF_PATH;
+  }
+
+  /**
+   * Rebuild and publish the strategy choosers with the given folder's defaults pre-selected. Called
+   * on startup (with null folder) and whenever the auto selection changes. The operator can then
+   * override from the dashboard.
+   */
+  private void publishStrategyChoosers(String folder) {
+    AutoWrapperFactory.StartStrategy defaultStart =
+        (folder != null) ? defaultStartStrategy(folder) : null;
+    AutoWrapperFactory.PathShootingStrategy defaultPath =
+        (folder != null) ? defaultPathShootingStrategy(folder) : null;
+
+    startStrategyChooser = new SendableChooser<>();
+    if (defaultStart == AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS) {
+      startStrategyChooser.setDefaultOption(
+          "Shoot Preloads", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS);
+      startStrategyChooser.addOption("Sprint", AutoWrapperFactory.StartStrategy.SPRINT);
+    } else if (defaultStart == AutoWrapperFactory.StartStrategy.SPRINT) {
+      startStrategyChooser.addOption(
+          "Shoot Preloads", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS);
+      startStrategyChooser.setDefaultOption("Sprint", AutoWrapperFactory.StartStrategy.SPRINT);
+    } else {
+      // No auto selected — show options with no default
+      startStrategyChooser.setDefaultOption("—", null);
+      startStrategyChooser.addOption(
+          "Shoot Preloads", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS);
+      startStrategyChooser.addOption("Sprint", AutoWrapperFactory.StartStrategy.SPRINT);
+    }
+    SmartDashboard.putData("Auton Start Strategy", startStrategyChooser);
+
+    pathShootingChooser = new SendableChooser<>();
+    if (defaultPath == AutoWrapperFactory.PathShootingStrategy.END_OF_PATH) {
+      pathShootingChooser.setDefaultOption(
+          "End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
+      pathShootingChooser.addOption(
+          "Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
+    } else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT) {
+      pathShootingChooser.addOption(
+          "End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
+      pathShootingChooser.setDefaultOption(
+          "Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
+    } else {
+      pathShootingChooser.setDefaultOption("—", null);
+      pathShootingChooser.addOption(
+          "End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
+      pathShootingChooser.addOption(
+          "Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
+    }
+    SmartDashboard.putData("Auton Path Shooting Strategy", pathShootingChooser);
   }
 
   /**
@@ -748,11 +785,18 @@ public class RobotContainer {
       if (selectedDisplayName == null
           || selectedDisplayName.isEmpty()
           || selectedDisplayName.equals("None")) {
+        if (autoChanged) publishStrategyChoosers(null);
         return;
       }
 
       // Resolve display name → raw auto name for PathPlanner
       String rawAutoName = displayToAutoName.getOrDefault(selectedDisplayName, selectedDisplayName);
+
+      // Rebuild strategy choosers with this auto's folder defaults
+      if (autoChanged) {
+        String folder = autoFolderMap.getOrDefault(rawAutoName, "");
+        publishStrategyChoosers(folder);
+      }
 
       try {
         // Get the starting pose from the PathPlanner auto
@@ -943,6 +987,10 @@ public class RobotContainer {
     fuelSim.registerRobot(
         robotWidth, robotLength, bumperHeight, drive::getPose, drive::getFieldRelativeSpeeds);
     fuelSim.enableAirResistance();
+    if (shootingCoordinator != null && shootingCoordinator.getVisualizer() != null) {
+      fuelSim.setRobotFuelStoredSupplier(
+          () -> shootingCoordinator.getVisualizer().getFuelCount());
+    }
 
     // Register intake with fuel simulation for pickup collision detection
     // Intake zone: 10 inches (0.254m) from front frame, 30 inches (0.762m) wide

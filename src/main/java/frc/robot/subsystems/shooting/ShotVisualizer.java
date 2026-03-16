@@ -18,13 +18,6 @@ import java.util.LinkedList;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
 
-/** Launcher status for trajectory color coding. */
-enum LauncherStatus {
-  UNPOWERED, // Red - launcher not running
-  SPINNING_UP, // Yellow - powered but not at setpoint
-  AT_SETPOINT // Green - at setpoint, ready to fire
-}
-
 /**
  * Handles visualization of shot trajectory and fuel simulation integration. Calculates and logs
  * trajectory points for AdvantageScope visualization.
@@ -37,10 +30,6 @@ public class ShotVisualizer {
   // Trajectory for visualization (where the ball would actually go)
   private final Translation3d[] actualTrajectory = new Translation3d[TRAJECTORY_POINTS];
   private static final Translation3d[] EMPTY_TRAJECTORY = new Translation3d[0];
-
-  // Threshold for determining launcher status
-  private static final double RPM_VELOCITY_THRESHOLD = 50.0;
-  private static final double RPM_SETPOINT_TOLERANCE = 100.0; // RPM tolerance for "at setpoint"
 
   private final Supplier<Pose3d> robotPoseSupplier;
   private final Supplier<ChassisSpeeds> fieldSpeedsSupplier;
@@ -266,48 +255,30 @@ public class ShotVisualizer {
   }
 
   /**
-   * Determine the launcher status based on current and target RPM.
-   *
-   * @return LauncherStatus indicating ready state
-   */
-  private LauncherStatus getLauncherStatus() {
-    double currentRPM = ShotCalculator.getCurrentLauncherRPM();
-    double targetRPM = ShotCalculator.getTargetLauncherRPM();
-
-    if (Math.abs(currentRPM) < RPM_VELOCITY_THRESHOLD
-        && Math.abs(targetRPM) < RPM_VELOCITY_THRESHOLD) {
-      return LauncherStatus.UNPOWERED;
-    }
-
-    if (Math.abs(currentRPM - targetRPM) < RPM_SETPOINT_TOLERANCE
-        && targetRPM > RPM_VELOCITY_THRESHOLD) {
-      return LauncherStatus.AT_SETPOINT;
-    }
-
-    return LauncherStatus.SPINNING_UP;
-  }
-
-  /**
    * Update the ACTUAL trajectory visualization (where we'd REALLY shoot). Uses current launcher RPM
-   * and turret angle. Also logs color-coded trajectories based on launcher status.
+   * and turret angle. Logs color-coded trajectories based on shot readiness gating.
    */
   public void updateActualTrajectory(
-      double currentExitVelocity, double currentLaunchAngle, double currentAzimuthAngle) {
+      double currentExitVelocity,
+      double currentLaunchAngle,
+      double currentAzimuthAngle,
+      ShotSnapshot.TrajectoryReadiness readiness) {
     calculateTrajectoryPoints(
         currentExitVelocity, currentLaunchAngle, currentAzimuthAngle, actualTrajectory);
 
-    LauncherStatus status = getLauncherStatus();
-    Logger.recordOutput("Turret/LauncherStatus", status.name());
-
     Logger.recordOutput(
-        "Turret/Trajectory/Red",
-        status == LauncherStatus.UNPOWERED ? actualTrajectory : EMPTY_TRAJECTORY);
+        "Shots/Trajectory/Red",
+        readiness == ShotSnapshot.TrajectoryReadiness.NOT_ACTIVE
+            ? actualTrajectory
+            : EMPTY_TRAJECTORY);
     Logger.recordOutput(
-        "Turret/Trajectory/Yellow",
-        status == LauncherStatus.SPINNING_UP ? actualTrajectory : EMPTY_TRAJECTORY);
+        "Shots/Trajectory/Yellow",
+        readiness == ShotSnapshot.TrajectoryReadiness.NOT_READY
+            ? actualTrajectory
+            : EMPTY_TRAJECTORY);
     Logger.recordOutput(
-        "Turret/Trajectory/Green",
-        status == LauncherStatus.AT_SETPOINT ? actualTrajectory : EMPTY_TRAJECTORY);
+        "Shots/Trajectory/Green",
+        readiness == ShotSnapshot.TrajectoryReadiness.READY ? actualTrajectory : EMPTY_TRAJECTORY);
   }
 
   /** Log fuel inventory status and process pending fuel arrivals. */
@@ -317,14 +288,18 @@ public class ShotVisualizer {
 
   /**
    * Calculate and visualize the trajectory for a target. Updates the color-coded trajectory
-   * (red/yellow/green based on launcher status).
+   * (red/yellow/green based on shot readiness).
    *
    * @param shotResult The calculated shot parameters
    * @param currentTurretAngleRad Current turret angle in radians (for actual trajectory)
    * @param robotHeadingRad Robot heading in radians (to convert turret angle to field-relative)
+   * @param readiness Trajectory readiness state for color coding
    */
   public void visualizeShot(
-      ShotCalculator.ShotResult shotResult, double currentTurretAngleRad, double robotHeadingRad) {
+      ShotCalculator.ShotResult shotResult,
+      double currentTurretAngleRad,
+      double robotHeadingRad,
+      ShotSnapshot.TrajectoryReadiness readiness) {
     Translation3d turretPos = getTurretFieldPosition();
     Translation3d target = shotResult.aimTarget();
 
@@ -342,11 +317,11 @@ public class ShotVisualizer {
         ShotCalculator.calculateExitVelocityFromRPM(shotResult.launcherRPM(), distanceToTarget);
 
     // Actual trajectory: aim direction + robot velocity (what the sim ball does)
-    updateActualTrajectory(actualExitVelocity, shotResult.launchAngleRad(), targetAzimuthAngle);
+    updateActualTrajectory(
+        actualExitVelocity, shotResult.launchAngleRad(), targetAzimuthAngle, readiness);
 
-    Logger.recordOutput("Turret/Shot/CurrentRPM", ShotCalculator.getCurrentLauncherRPM());
     Logger.recordOutput(
-        "Turret/Shot/CompensatedTarget", new Pose3d(shotResult.aimTarget(), Rotation3d.kZero));
+        "Shots/CompensatedTarget", new Pose3d(shotResult.aimTarget(), Rotation3d.kZero));
   }
 
   /**
@@ -371,7 +346,16 @@ public class ShotVisualizer {
     if (snapshot.currentShot() != null) {
       double currentTurretAngleRad = Math.toRadians(snapshot.currentAngleDeg());
       double robotHeadingRad = snapshot.robotPose().getRotation().getRadians();
-      visualizeShot(snapshot.currentShot(), currentTurretAngleRad, robotHeadingRad);
+      visualizeShot(
+          snapshot.currentShot(),
+          currentTurretAngleRad,
+          robotHeadingRad,
+          snapshot.trajectoryReadiness());
+    } else {
+      // No active shot — log empty trajectories so stale arcs don't linger
+      Logger.recordOutput("Shots/Trajectory/Red", EMPTY_TRAJECTORY);
+      Logger.recordOutput("Shots/Trajectory/Yellow", EMPTY_TRAJECTORY);
+      Logger.recordOutput("Shots/Trajectory/Green", EMPTY_TRAJECTORY);
     }
   }
 }

@@ -3,7 +3,7 @@ package frc.robot.util;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
 import frc.robot.FieldConstants;
-import org.littletonrobotics.junction.Logger;
+
 
 /**
  * Detects which field zone the robot is in for auto-shoot purposes.
@@ -67,21 +67,17 @@ public class ZoneDetector {
   public static Zone getCurrentZone(double robotX, double robotY, Alliance alliance) {
     // --- Priority 1: 2D obstacle zones (robot-size margins) ---
     if (FieldConstants.BumpZones.isInAnyBumpZone(robotX, robotY, ROBOT_HALF_EXTENT)) {
-      Logger.recordOutput("ZoneDetector/Active", "BUMP");
       return Zone.BUMP;
     }
     if (FieldConstants.TrenchZones.isInAnyTrenchZone(robotX, robotY, ROBOT_HALF_EXTENT)) {
       // Determine if we're on the alliance side (NEAR) or neutral side (FAR) of this trench.
       // The trench straddles the hub center line. For blue, alliance is low-X; for red, high-X.
       boolean onAllianceSide = isOnAllianceSideOfTrench(robotX, alliance);
-      Zone trenchZone = onAllianceSide ? Zone.TRENCH_NEAR : Zone.TRENCH_FAR;
-      Logger.recordOutput("ZoneDetector/Active", trenchZone.name());
-      return trenchZone;
+      return onAllianceSide ? Zone.TRENCH_NEAR : Zone.TRENCH_FAR;
     }
 
     // --- Priority 2: X-based field zones with hysteresis ---
     currentXZone = calculateXZone(robotX, alliance);
-    Logger.recordOutput("ZoneDetector/Active", currentXZone.name());
     return currentXZone;
   }
 

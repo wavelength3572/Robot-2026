@@ -3,6 +3,7 @@ package frc.robot.subsystems.shooting;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -29,6 +30,23 @@ public class LUTShotStrategy implements ShotStrategy {
   private final ShotLookupTable lookupTable;
 
   private static final int VELOCITY_COMP_ITERATIONS = 3;
+
+  /**
+   * Max hood angle deviation (degrees) we can compensate with RPM. If the LUT wants an angle more
+   * than this far outside the allowed range, the shot is unachievable. Within this range, we clamp
+   * the hood and add RPM to compensate.
+   *
+   * <p>TODO: Tune this to support larger compensation (2-5°). There's no physical reason we
+   * couldn't clamp e.g. a 24° shot down to 18° and compensate with RPM — the ball just needs more
+   * speed on a steeper trajectory. The RPM-per-degree ratio may need to be non-linear at larger
+   * deltas. For now 1° is conservative and safe.
+   */
+  private static final LoggedTunableNumber maxCompensationDeg =
+      new LoggedTunableNumber("Shots/LUT/MaxCompensationDeg", 1.0);
+
+  /** RPM added per degree of hood compensation (scales linearly with the clamped delta). */
+  private static final LoggedTunableNumber rpmPerDegCompensation =
+      new LoggedTunableNumber("Shots/LUT/RPMPerDegCompensation", 100.0);
 
   public LUTShotStrategy(ShotLookupTable lookupTable) {
     this.lookupTable = lookupTable;
@@ -111,25 +129,37 @@ public class LUTShotStrategy implements ShotStrategy {
             effectiveMaxDeg,
             config);
 
-    // Convert hood angle to launch angle for the result
-    double launchAngleRad = Math.toRadians(90.0 - entry.hoodAngleDeg());
+    // Clamp hood angle to the max limit (trench safety ceiling). The min limit is
+    // hardware-only — we never need to clamp upward toward the trench.
+    double rawHoodDeg = entry.hoodAngleDeg();
+    double clampedHoodDeg = Math.min(hoodMaxAngleDeg, rawHoodDeg);
+    // positive delta = LUT wanted a flatter angle than allowed, we clamped down
+    //   → steeper launch, ball falls short → add RPM to compensate
+    double hoodDelta = rawHoodDeg - clampedHoodDeg;
+    double rpmCompensation = hoodDelta * rpmPerDegCompensation.get();
+    double effectiveRPM = entry.rpm() + rpmCompensation;
 
-    // RPM comes directly from LUT — no efficiency conversion needed
-    // The LUT stores actual RPMs that worked, bypassing efficiency entirely
-    double exitVelocityMps =
-        ShotCalculator.calculateExitVelocityFromRPM(entry.rpm(), finalDistance);
-
-    // Check hood angle is achievable
-    boolean achievable =
-        entry.hoodAngleDeg() >= hoodMinAngleDeg && entry.hoodAngleDeg() <= hoodMaxAngleDeg;
+    // Achievable if the hood is within hardware limits AND any trench clamp is
+    // within our RPM compensation budget
+    boolean achievable = rawHoodDeg >= hoodMinAngleDeg && hoodDelta <= maxCompensationDeg.get();
 
     Logger.recordOutput("Shots/Strategy/LUT/InRange", lookupTable.isInRange(finalDistance));
+    Logger.recordOutput("Shots/Strategy/LUT/RawHoodDeg", rawHoodDeg);
+    Logger.recordOutput("Shots/Strategy/LUT/ClampedHoodDeg", clampedHoodDeg);
+    Logger.recordOutput("Shots/Strategy/LUT/RPMCompensation", rpmCompensation);
+
+    // Convert clamped hood angle to launch angle for the result
+    double launchAngleRad = Math.toRadians(90.0 - clampedHoodDeg);
+
+    // RPM comes directly from LUT (+ any clamp compensation)
+    double exitVelocityMps =
+        ShotCalculator.calculateExitVelocityFromRPM(effectiveRPM, finalDistance);
 
     return new ShotCalculator.ShotResult(
         exitVelocityMps,
-        entry.rpm(),
+        effectiveRPM,
         launchAngleRad,
-        entry.hoodAngleDeg(),
+        clampedHoodDeg,
         turretAngleDeg,
         aimTarget,
         achievable);

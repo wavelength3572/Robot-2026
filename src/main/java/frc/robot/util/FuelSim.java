@@ -490,6 +490,7 @@ public class FuelSim {
   private Timer loggingTimer = new Timer();
   private Supplier<Pose2d> robotSupplier = null;
   private Supplier<ChassisSpeeds> robotSpeedsSupplier = null;
+  private java.util.function.IntSupplier robotFuelStoredSupplier = () -> 0;
   private double robotWidth; // size along the robot's y axis
   private double robotLength; // size along the robot's x axis
   private double bumperHeight;
@@ -677,6 +678,7 @@ public class FuelSim {
     }
     Logger.recordOutput("FuelSim/Fuels", fuelPosBuffer);
     Logger.recordOutput("FuelSim/FuelCount", size);
+    Logger.recordOutput("FuelSim/RobotFuelStored", robotFuelStoredSupplier.getAsInt());
     Logger.recordOutput("FuelSim/BlueScore", Hub.BLUE_HUB.getScore());
     Logger.recordOutput("FuelSim/RedScore", Hub.RED_HUB.getScore());
     Logger.recordOutput("FuelSim/OutpostBarriers", outpostBarriersEnabled.get());
@@ -721,6 +723,11 @@ public class FuelSim {
    */
   public void setLoggingFrequency(double loggingFreqHz) {
     this.loggingFreqHz = loggingFreqHz;
+  }
+
+  /** Sets the supplier for how many fuel the robot is currently holding (for logging). */
+  public void setRobotFuelStoredSupplier(java.util.function.IntSupplier supplier) {
+    this.robotFuelStoredSupplier = supplier;
   }
 
   /**

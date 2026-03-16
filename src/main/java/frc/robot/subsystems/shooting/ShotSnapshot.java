@@ -20,4 +20,13 @@ public record ShotSnapshot(
     ShotCalculator.ShotResult currentShot,
     double turretHeightMeters,
     double turretXOffset,
-    double turretYOffset) {}
+    double turretYOffset,
+    TrajectoryReadiness trajectoryReadiness) {
+
+  /** Trajectory color based on actual shot readiness gating. */
+  public enum TrajectoryReadiness {
+    NOT_ACTIVE, // Red — no shot calculated
+    NOT_READY, // Yellow — shot exists but one or more subsystems not ready
+    READY // Green — all subsystems ready, would fire if triggered
+  }
+}

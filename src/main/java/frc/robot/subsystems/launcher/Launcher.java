@@ -234,12 +234,13 @@ public class Launcher extends SubsystemBase {
   }
 
   /**
-   * Check if the launcher is at the target velocity.
+   * Check if the launcher is at the target velocity. Returns false when idle (no velocity
+   * commanded) to prevent downstream logic from treating an unpowered launcher as "ready".
    *
-   * @return True if at setpoint within tolerance
+   * @return True if at setpoint within tolerance and actively spinning
    */
   public boolean atSetpoint() {
-    return inputs.atSetpoint;
+    return inputs.targetVelocityRPM >= 100.0 && inputs.atSetpoint;
   }
 
   /**

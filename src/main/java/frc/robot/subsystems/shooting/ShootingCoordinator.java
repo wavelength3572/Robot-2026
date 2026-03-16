@@ -315,7 +315,7 @@ public class ShootingCoordinator extends SubsystemBase {
                 Math.max(minY, Math.min(maxY, leftRawY)),
                 0.0);
         Logger.recordOutput(
-            "Turret/Pass/Left/Target", new Pose3d(cachedLeftTarget, Rotation3d.kZero));
+            "Shots/Pass/Left/Target", new Pose3d(cachedLeftTarget, Rotation3d.kZero));
 
         // Right trench target (with offsets, clamped to alliance zone)
         double rightRawX = baseX + passRightAdjustX.get() * (maxX - minX) / 2.0;
@@ -328,7 +328,7 @@ public class ShootingCoordinator extends SubsystemBase {
                 Math.max(minY, Math.min(maxY, rightRawY)),
                 0.0);
         Logger.recordOutput(
-            "Turret/Pass/Right/Target", new Pose3d(cachedRightTarget, Rotation3d.kZero));
+            "Shots/Pass/Right/Target", new Pose3d(cachedRightTarget, Rotation3d.kZero));
       }
 
       // Recompute lob pass targets only when lob tunables change
@@ -346,7 +346,7 @@ public class ShootingCoordinator extends SubsystemBase {
                 Math.max(minY, Math.min(maxY, st12RawY)),
                 0.0);
         Logger.recordOutput(
-            "Turret/Pass/Lob/Station12/Target",
+            "Shots/Pass/Lob/Station12/Target",
             new Pose3d(cachedLobStation12Target, Rotation3d.kZero));
 
         // Station 3 target (blue = high Y near outpost, red = low Y near outpost)
@@ -361,7 +361,7 @@ public class ShootingCoordinator extends SubsystemBase {
                 Math.max(minY, Math.min(maxY, st3RawY)),
                 0.0);
         Logger.recordOutput(
-            "Turret/Pass/Lob/Station3/Target",
+            "Shots/Pass/Lob/Station3/Target",
             new Pose3d(cachedLobStation3Target, Rotation3d.kZero));
       }
 
@@ -369,7 +369,7 @@ public class ShootingCoordinator extends SubsystemBase {
         case SHOOT -> calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
         case PASS -> {
           PassingStrategy strategy = passingStrategyChooser.getSelected();
-          Logger.recordOutput("Turret/Pass/StrategyUsed", strategy.name());
+          Logger.recordOutput("Shots/Pass/StrategyUsed", strategy.name());
 
           if (strategy == PassingStrategy.DRIVER_STATION) {
             // Lob pass: pick target based on driver station number, use steep launch angle
@@ -378,24 +378,24 @@ public class ShootingCoordinator extends SubsystemBase {
             Translation3d activeTarget =
                 (station <= 2) ? cachedLobStation12Target : cachedLobStation3Target;
             Logger.recordOutput(
-                "Turret/Pass/Active", (station <= 2) ? "LOB_STATION_1_2" : "LOB_STATION_3");
+                "Shots/Pass/Active", (station <= 2) ? "LOB_STATION_1_2" : "LOB_STATION_3");
             calculatePassToTarget(
                 robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
           } else {
             // Symmetric pass: pick target based on robot Y position
             boolean isLeftTrench = selectIsLeftTrench(robotPose);
             Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
-            Logger.recordOutput("Turret/Pass/Active", isLeftTrench ? "LEFT" : "RIGHT");
+            Logger.recordOutput("Shots/Pass/Active", isLeftTrench ? "LEFT" : "RIGHT");
             calculatePassToTarget(robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
           }
         }
         case LONG_PASS -> {
           // Opponent zone — always use lob strategy for the longer distance
-          Logger.recordOutput("Turret/Pass/StrategyUsed", "LONG_PASS");
+          Logger.recordOutput("Shots/Pass/StrategyUsed", "LONG_PASS");
           boolean isLeftTrench = selectIsLeftTrench(robotPose);
           Translation3d activeTarget =
               isLeftTrench ? cachedLobStation12Target : cachedLobStation3Target;
-          Logger.recordOutput("Turret/Pass/Active", isLeftTrench ? "LOB_LEFT" : "LOB_RIGHT");
+          Logger.recordOutput("Shots/Pass/Active", isLeftTrench ? "LOB_LEFT" : "LOB_RIGHT");
           calculatePassToTarget(
               robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
         }
@@ -594,12 +594,12 @@ public class ShootingCoordinator extends SubsystemBase {
         constraintX = horizontalDist / 2.0;
         constraintH = symmetricArcPeakHeightM.get();
         maxPeakHeight = lobMaxPeakHeightM.get();
-        Logger.recordOutput("Turret/Pass/TwoPoint/LobFallback", true);
+        Logger.recordOutput("Shots/Pass/TwoPoint/LobFallback", true);
       } else {
         constraintX = hubDistAlongShot;
         constraintH = HUB_NET_HEIGHT + lobNetClearanceMarginM.get();
         maxPeakHeight = lobMaxPeakHeightM.get();
-        Logger.recordOutput("Turret/Pass/TwoPoint/LobFallback", false);
+        Logger.recordOutput("Shots/Pass/TwoPoint/LobFallback", false);
       }
     } else {
       // SYMMETRIC: clearance point is the midpoint, height is the desired arc peak
@@ -737,8 +737,8 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // NONE mode (bump or far trench) — suppress all shooting
     if (aimResult.mode() == TurretAimingHelper.AimMode.NONE) {
-      Logger.recordOutput("Turret/AutoShoot/Zone", aimResult.zone().name());
-      Logger.recordOutput("Turret/AutoShoot/Fired", false);
+      Logger.recordOutput("Shots/AutoShoot/Zone", aimResult.zone().name());
+      Logger.recordOutput("Shots/AutoShoot/Fired", false);
       return;
     }
 
@@ -754,8 +754,8 @@ public class ShootingCoordinator extends SubsystemBase {
           case PASS, LONG_PASS -> robotSpeedMps <= autoShootPassMaxSpeedMps.get();
           case NONE -> false; // unreachable, handled above
         };
-    Logger.recordOutput("Turret/AutoShoot/Zone", aimResult.zone().name());
-    Logger.recordOutput("Turret/AutoShoot/RobotSpeedMps", robotSpeedMps);
+    Logger.recordOutput("Shots/AutoShoot/Zone", aimResult.zone().name());
+    Logger.recordOutput("Shots/AutoShoot/RobotSpeedMps", robotSpeedMps);
 
     // Distance gate: when a start pose is recorded, suppress firing until the robot has
     // moved far enough.  Once cleared, null out the start pose so we don't re-check.
@@ -763,13 +763,13 @@ public class ShootingCoordinator extends SubsystemBase {
       double distFromStart =
           robotPose.getTranslation().getDistance(autoShootStartPose.getTranslation());
       if (distFromStart < autoShootMinDistanceM.get()) {
-        Logger.recordOutput("Turret/AutoShoot/DistanceGated", true);
-        Logger.recordOutput("Turret/AutoShoot/Fired", false);
+        Logger.recordOutput("Shots/AutoShoot/DistanceGated", true);
+        Logger.recordOutput("Shots/AutoShoot/Fired", false);
         return;
       }
       autoShootStartPose = null; // gate cleared — stop checking
     }
-    Logger.recordOutput("Turret/AutoShoot/DistanceGated", false);
+    Logger.recordOutput("Shots/AutoShoot/DistanceGated", false);
 
     if (launcherReady && hasShot && aimed && hasFuel && intervalElapsed && robotSlow) {
       // Snapshot key calibration data at the instant of firing
@@ -789,9 +789,9 @@ public class ShootingCoordinator extends SubsystemBase {
       if (onShotFiredCallback != null) {
         onShotFiredCallback.run();
       }
-      Logger.recordOutput("Turret/AutoShoot/Fired", true);
+      Logger.recordOutput("Shots/AutoShoot/Fired", true);
     } else {
-      Logger.recordOutput("Turret/AutoShoot/Fired", false);
+      Logger.recordOutput("Shots/AutoShoot/Fired", false);
     }
   }
 
@@ -889,18 +889,12 @@ public class ShootingCoordinator extends SubsystemBase {
 
       // Update the ShotCalculator's target RPM for consistency
       ShotCalculator.setTargetLauncherRPM(launcherRPM);
-
-      Logger.recordOutput("Turret/ManualShot/LauncherRPM", launcherRPM);
-      Logger.recordOutput("Turret/ManualShot/HoodAngleDeg", hoodAngleDeg);
-      Logger.recordOutput("Turret/ManualShot/ExitVelocityMps", currentShot.exitVelocityMps());
     }
   }
 
   /** Clear manual shot parameters and return to auto-calculated shots. */
   public void clearManualShotParameters() {
     currentShot = null;
-    Logger.recordOutput("Turret/ManualShot/LauncherRPM", 0.0);
-    Logger.recordOutput("Turret/ManualShot/HoodAngleDeg", 0.0);
   }
 
   // ========== Auto-Shoot Mode ==========
@@ -1066,6 +1060,22 @@ public class ShootingCoordinator extends SubsystemBase {
    * @return Snapshot containing all state the visualizer needs
    */
   private ShotSnapshot createVisualizerSnapshot(boolean isBlueAlliance) {
+    // Compute trajectory readiness from actual gating logic
+    ShotSnapshot.TrajectoryReadiness readiness;
+    if (currentShot == null) {
+      readiness = ShotSnapshot.TrajectoryReadiness.NOT_ACTIVE;
+    } else {
+      boolean launcherReady = launcher != null && launcher.atSetpoint();
+      boolean motivatorReady = motivator == null || motivator.isMotivatorAtSetpoint();
+      boolean turretReady = turret.atTarget();
+      boolean hoodReady = hood == null || hood.atTarget();
+      boolean achievable = currentShot.achievable();
+      readiness =
+          (launcherReady && motivatorReady && turretReady && hoodReady && achievable)
+              ? ShotSnapshot.TrajectoryReadiness.READY
+              : ShotSnapshot.TrajectoryReadiness.NOT_READY;
+    }
+
     return new ShotSnapshot(
         robotPoseSupplier.get(),
         fieldSpeedsSupplier.get(),
@@ -1079,6 +1089,7 @@ public class ShootingCoordinator extends SubsystemBase {
         currentShot,
         turretConfig.heightMeters(),
         turretConfig.xOffset(),
-        turretConfig.yOffset());
+        turretConfig.yOffset(),
+        readiness);
   }
 }
