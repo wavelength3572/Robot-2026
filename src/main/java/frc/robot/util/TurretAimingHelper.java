@@ -19,8 +19,8 @@ import frc.robot.FieldConstants;
  *
  * <ul>
  *   <li>ALLIANCE / TRENCH → SHOOT (aim at hub)
- *   <li>NEUTRAL → PASS (aim at pass target)
- *   <li>BUMP / OPPONENT → NONE (suppress shooting, keep last aim target)
+ *   <li>NEUTRAL / OPPONENT → PASS (aim at pass target)
+ *   <li>BUMP → NONE (suppress shooting, keep last aim target)
  * </ul>
  */
 public class TurretAimingHelper {
@@ -64,7 +64,7 @@ public class TurretAimingHelper {
                     : FieldConstants.Hub.oppInnerCenterPoint;
             yield new AimResult(hubTarget, AimMode.SHOOT, zone);
           }
-          case NEUTRAL -> {
+          case NEUTRAL, OPPONENT -> {
             double targetX =
                 (alliance == Alliance.Blue)
                     ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
@@ -72,7 +72,7 @@ public class TurretAimingHelper {
             double targetY = ZoneDetector.getPassTargetY(robotY);
             yield new AimResult(new Translation2d(targetX, targetY), AimMode.PASS, zone);
           }
-          case BUMP, OPPONENT -> {
+          case BUMP -> {
             // Keep last aim target for smooth turret motion, but suppress firing
             if (lastResult != null) {
               yield new AimResult(lastResult.target(), AimMode.NONE, zone);
