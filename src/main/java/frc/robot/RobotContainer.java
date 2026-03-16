@@ -87,6 +87,8 @@ public class RobotContainer {
 
   private LoggedDashboardChooser<Command> autoChooser;
   private final LoggedDashboardChooser<String> allianceWinChooser;
+  private final SendableChooser<AutoWrapperFactory.StartStrategy> startStrategyChooser;
+  private final SendableChooser<AutoWrapperFactory.PathShootingStrategy> pathShootingChooser;
   private boolean lastCompetitionMode = true;
 
   // Maps display name (e.g. "[Shot] 3 Piece Source") → raw auto name ("3 Piece Source").
@@ -340,6 +342,20 @@ public class RobotContainer {
     SmartDashboard.putBoolean("Competition Mode", false);
     autoChooser = buildAutoChooserForMode(true);
 
+    // Auton strategy choosers — folder provides defaults, driver can override.
+    // "Folder Default" uses the auto's folder to pick the strategy automatically.
+    startStrategyChooser = new SendableChooser<>();
+    startStrategyChooser.setDefaultOption("Folder Default", null);
+    startStrategyChooser.addOption("Shoot Preloads", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS);
+    startStrategyChooser.addOption("Sprint", AutoWrapperFactory.StartStrategy.SPRINT);
+    SmartDashboard.putData("Auton Start Strategy", startStrategyChooser);
+
+    pathShootingChooser = new SendableChooser<>();
+    pathShootingChooser.setDefaultOption("Folder Default", null);
+    pathShootingChooser.addOption("End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
+    pathShootingChooser.addOption("Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
+    SmartDashboard.putData("Auton Path Shooting Strategy", pathShootingChooser);
+
     updateOI();
   }
 
@@ -382,8 +398,8 @@ public class RobotContainer {
 
   /**
    * Use this to pass the autonomous command to the main {@link Robot} class. Dispatches to the
-   * appropriate wrapper based on the auto's folder (Comp, CompSprint, etc.). Test autos and unknown
-   * folders run bare.
+   * appropriate wrapper based on the auto's folder. The folder provides default strategies which the
+   * dashboard choosers can override. Test autos and unknown folders run bare.
    *
    * @return the command to run in autonomous
    */
@@ -399,31 +415,52 @@ public class RobotContainer {
     String folder = autoFolderMap.getOrDefault(rawName, "");
     edu.wpi.first.math.geometry.Pose2d startingPose = resolveStartingPose(rawName);
 
-    return switch (folder) {
-      case "Comp" -> AutoWrapperFactory.compShotWrapped(
-          selectedAuto,
-          startingPose,
-          drive,
-          intake,
-          launcher,
-          shootingCoordinator,
-          motivator,
-          turret,
-          hood,
-          spindexer);
-      case "CompSprint" -> AutoWrapperFactory.compSprintWrapped(
-          selectedAuto,
-          startingPose,
-          drive,
-          intake,
-          launcher,
-          shootingCoordinator,
-          motivator,
-          turret,
-          hood,
-          spindexer);
-      default -> selectedAuto; // Test autos and unknown folders run bare
-    };
+    if (!isCompFolder(folder)) {
+      return selectedAuto; // Test autos and unknown folders run bare
+    }
+
+    // Dashboard choosers override folder defaults; null means "use folder default"
+    AutoWrapperFactory.StartStrategy startStrategy = startStrategyChooser.getSelected();
+    AutoWrapperFactory.PathShootingStrategy pathStrategy = pathShootingChooser.getSelected();
+    if (startStrategy == null) {
+      startStrategy = defaultStartStrategy(folder);
+    }
+    if (pathStrategy == null) {
+      pathStrategy = defaultPathShootingStrategy(folder);
+    }
+
+    return AutoWrapperFactory.compWrapped(
+        selectedAuto,
+        startingPose,
+        startStrategy,
+        pathStrategy,
+        drive,
+        intake,
+        launcher,
+        shootingCoordinator,
+        motivator,
+        turret,
+        hood,
+        spindexer);
+  }
+
+  /** Returns true for any folder that should receive the comp wrapper. */
+  private static boolean isCompFolder(String folder) {
+    return "Comp".equals(folder) || "CompSafe".equals(folder) || "CompSprint".equals(folder);
+  }
+
+  /** Folder-based default for start strategy. CompSprint sprints; everything else shoots first. */
+  private static AutoWrapperFactory.StartStrategy defaultStartStrategy(String folder) {
+    return "CompSprint".equals(folder)
+        ? AutoWrapperFactory.StartStrategy.SPRINT
+        : AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS;
+  }
+
+  /** Folder-based default for path shooting. CompSprint auto-shoots; everything else waits. */
+  private static AutoWrapperFactory.PathShootingStrategy defaultPathShootingStrategy(String folder) {
+    return "CompSprint".equals(folder)
+        ? AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT
+        : AutoWrapperFactory.PathShootingStrategy.END_OF_PATH;
   }
 
   /**
@@ -766,7 +803,7 @@ public class RobotContainer {
         String rawName = entry.getKey();
         String folder = entry.getValue();
         String prefix = folderToPrefix(folder);
-        if ("Comp".equals(folder) || "CompSprint".equals(folder)) {
+        if (isCompFolder(folder)) {
           String displayName = prefix + rawName;
           displayToAutoName.put(displayName, rawName);
           sendable.addOption(displayName, new PathPlannerAuto(rawName));
@@ -837,7 +874,7 @@ public class RobotContainer {
   /** Map a PathPlanner folder name to a short display prefix for the auto chooser dropdown. */
   private static String folderToPrefix(String folder) {
     return switch (folder) {
-      case "Comp" -> "[Shot] ";
+      case "Comp", "CompSafe" -> "[Comp] ";
       case "CompSprint" -> "[Sprint] ";
       default -> "[Bare] ";
     };

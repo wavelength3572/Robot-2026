@@ -19,11 +19,13 @@ import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.util.FuelSim;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Factory for composing autonomous wrapper sequences. Each public method assembles a complete auto
- * wrapper from reusable building blocks, allowing different wrapper strategies (shot-first, sprint,
- * etc.) without duplicating setup/teardown logic.
+ * Factory for composing autonomous wrapper sequences. A single unified method assembles the wrapper
+ * from two strategy choices (start and path-shooting), allowing any combination without duplicating
+ * setup/teardown logic.
  */
 public class AutoWrapperFactory {
 
@@ -31,42 +33,28 @@ public class AutoWrapperFactory {
 
   private AutoWrapperFactory() {} // Static utility class
 
-  // ---- Public wrapper assemblers ----
-
-  /**
-   * Standard comp auto wrapper: shoots preloaded balls first, then runs the path, then fires
-   * remaining balls. This is the existing behavior for all "Comp" folder autos.
-   */
-  public static Command compShotWrapped(
-      Command selectedAuto,
-      Pose2d startingPose,
-      frc.robot.subsystems.drive.Drive drive,
-      Intake intake,
-      Launcher launcher,
-      ShootingCoordinator coordinator,
-      Motivator motivator,
-      Turret turret,
-      Hood hood,
-      Spindexer spindexer) {
-    return Commands.sequence(
-            resetOdometry(drive, startingPose),
-            simSetup(coordinator),
-            deployIntake(intake),
-            initialSmartLaunch(launcher, coordinator, motivator, turret, hood, spindexer),
-            stowHood(hood),
-            runPath(selectedAuto),
-            postPathSmartLaunch(launcher, coordinator, motivator, turret, hood, spindexer))
-        .finallyDo(() -> teardown(launcher, motivator, intake));
+  /** Whether to shoot preloaded balls before running the path or sprint immediately. */
+  public enum StartStrategy {
+    SHOOT_PRELOADS,
+    SPRINT
   }
 
+  /** Whether to auto-shoot during the path or only fire after the path completes. */
+  public enum PathShootingStrategy {
+    END_OF_PATH,
+    AUTO_SHOOT
+  }
+
+  // ---- Public wrapper assembler ----
+
   /**
-   * Sprint comp auto wrapper: deploys intake and enables auto-shoot immediately, then runs the
-   * path. Auto-shoot fires balls opportunistically during the path. Useful for sprint-to-neutral
-   * autos where stopping to shoot at the start wastes time.
+   * Unified comp auto wrapper. Composes the sequence dynamically based on the two strategy choices.
    */
-  public static Command compSprintWrapped(
+  public static Command compWrapped(
       Command selectedAuto,
       Pose2d startingPose,
+      StartStrategy startStrategy,
+      PathShootingStrategy pathStrategy,
       frc.robot.subsystems.drive.Drive drive,
       Intake intake,
       Launcher launcher,
@@ -75,14 +63,37 @@ public class AutoWrapperFactory {
       Turret turret,
       Hood hood,
       Spindexer spindexer) {
-    return Commands.sequence(
-            resetOdometry(drive, startingPose),
-            simSetup(coordinator),
-            deployIntake(intake),
-            enableAutoShoot(launcher, motivator, coordinator),
-            runPath(selectedAuto),
-            disableAutoShoot(launcher, motivator, coordinator),
-            postPathSmartLaunch(launcher, coordinator, motivator, turret, hood, spindexer))
+
+    List<Command> steps = new ArrayList<>();
+
+    // Always: reset odometry, sim setup, deploy intake
+    steps.add(resetOdometry(drive, startingPose));
+    steps.add(simSetup(coordinator));
+    steps.add(deployIntake(intake));
+
+    // Start strategy
+    if (startStrategy == StartStrategy.SHOOT_PRELOADS) {
+      steps.add(initialSmartLaunch(launcher, coordinator, motivator, turret, hood, spindexer));
+      steps.add(stowHood(hood));
+    }
+
+    // Path shooting: enable auto-shoot before path if requested
+    if (pathStrategy == PathShootingStrategy.AUTO_SHOOT) {
+      steps.add(enableAutoShoot(launcher, motivator, coordinator));
+    }
+
+    // Always: run the path
+    steps.add(runPath(selectedAuto));
+
+    // Path shooting: disable auto-shoot after path if it was enabled
+    if (pathStrategy == PathShootingStrategy.AUTO_SHOOT) {
+      steps.add(disableAutoShoot(launcher, motivator, coordinator));
+    }
+
+    // Always: fire remaining balls after path
+    steps.add(postPathSmartLaunch(launcher, coordinator, motivator, turret, hood, spindexer));
+
+    return Commands.sequence(steps.toArray(Command[]::new))
         .finallyDo(() -> teardown(launcher, motivator, intake));
   }
 
