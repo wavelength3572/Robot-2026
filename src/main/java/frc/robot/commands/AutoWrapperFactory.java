@@ -82,7 +82,8 @@ public class AutoWrapperFactory {
             enableAutoShoot(launcher, motivator, coordinator),
             runPath(selectedAuto),
             disableAutoShoot(launcher, motivator, coordinator),
-            postPathSmartLaunch(launcher, coordinator, motivator, turret, hood, spindexer))
+            postPathSmartLaunchWithAgitation(
+                launcher, coordinator, motivator, turret, hood, spindexer, intake))
         .finallyDo(() -> teardown(launcher, motivator, intake));
   }
 
@@ -162,6 +163,25 @@ public class AutoWrapperFactory {
             launcher, coordinator, motivator, turret, hood, spindexer)
         .withTimeout(10.0)
         .asProxy();
+  }
+
+  private static Command postPathSmartLaunchWithAgitation(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer,
+      Intake intake) {
+    Command smartLaunch =
+        ShootingCommands.smartLaunchCommand(
+                launcher, coordinator, motivator, turret, hood, spindexer)
+            .withTimeout(10.0)
+            .asProxy();
+    if (intake != null) {
+      smartLaunch = smartLaunch.alongWith(intake.agitateCommand(() -> 2000.0, () -> false));
+    }
+    return smartLaunch;
   }
 
   private static Command enableAutoShoot(

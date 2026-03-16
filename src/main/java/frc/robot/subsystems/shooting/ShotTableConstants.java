@@ -39,8 +39,8 @@ public final class ShotTableConstants {
     {1.963, 2575, 15.5, 1.15},
     {2.200, 2600, 15.5, 1.161},
     {2.500, 2750, 15.5, 1.175},
-    {2.818, 2894, 15.5, 1.19}, // interpolated
-    {3.07, 2875, 16.0, 1.22}, // measured
+    {2.818, 2850, 15.5, 1.19}, // interpolated
+    {3.111, 2875, 15.5, 1.22}, // measured
     {3.25, 2984, 16.5, 1.23}, // smoothed (measured 1.133)
 
     // Long range
