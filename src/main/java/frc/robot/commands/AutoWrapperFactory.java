@@ -92,8 +92,10 @@ public class AutoWrapperFactory {
       steps.add(runPath(selectedAuto));
     }
 
-    // Always: fire remaining balls after path
-    steps.add(postPathSmartLaunch(launcher, coordinator, motivator, turret, hood, spindexer));
+    // Always: fire remaining balls after path (with agitation to shake loose stuck balls)
+    steps.add(
+        postPathSmartLaunchWithAgitation(
+            launcher, coordinator, motivator, turret, hood, spindexer, intake));
 
     return Commands.sequence(steps.toArray(Command[]::new))
         .finallyDo(() -> teardown(launcher, motivator, intake));
@@ -164,18 +166,26 @@ public class AutoWrapperFactory {
     return selectedAuto.asProxy();
   }
 
-  private static Command postPathSmartLaunch(
+
+  private static Command postPathSmartLaunchWithAgitation(
       Launcher launcher,
       ShootingCoordinator coordinator,
       Motivator motivator,
       Turret turret,
       Hood hood,
-      Spindexer spindexer) {
-    return ShootingCommands.smartLaunchCommand(
-            launcher, coordinator, motivator, turret, hood, spindexer)
-        .withTimeout(10.0)
-        .asProxy();
+      Spindexer spindexer,
+      Intake intake) {
+    Command smartLaunch =
+        ShootingCommands.smartLaunchCommand(
+                launcher, coordinator, motivator, turret, hood, spindexer)
+            .withTimeout(10.0)
+            .asProxy();
+    if (intake != null) {
+      smartLaunch = smartLaunch.alongWith(intake.agitateCommand(() -> 2000.0, () -> false));
+    }
+    return smartLaunch;
   }
+
 
   private static void teardown(Launcher launcher, Motivator motivator, Intake intake) {
     if (launcher != null) {

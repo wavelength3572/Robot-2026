@@ -7,13 +7,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchLeft"
+            "pathName": "TrenchLeftSprint"
           }
         }
       ]
     }
   },
   "resetOdom": true,
-  "folder": "Comp",
+  "folder": "CompSprint",
   "choreoAuto": false
 }
