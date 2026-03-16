@@ -133,6 +133,12 @@ public class ShootingCoordinator extends SubsystemBase {
   private int teleopShots = 0;
   private final LoggedTunableNumber autoShootMinInterval =
       new LoggedTunableNumber("Shots/AutoShoot/MinInterval", 0.15);
+  // Max robot speed for auto-shoot to fire when in SHOOT mode (alliance zone).
+  // Low threshold means robot must be nearly stationary before auto-shoot fires a hub shot.
+  // This lets the launcher spin up while decelerating so it fires the instant the robot stops.
+  // PASS mode (neutral zone) has no speed gate — passes fire at any speed.
+  private final LoggedTunableNumber autoShootHubMaxSpeedMps =
+      new LoggedTunableNumber("Shots/AutoShoot/HubMaxSpeedMps", 0.3);
   private final LoggedTunableNumber maxFeedSpeedMps =
       new LoggedTunableNumber("Shots/SmartLaunch/MaxFeedSpeedMps", 1.75);
 
@@ -711,7 +717,13 @@ public class ShootingCoordinator extends SubsystemBase {
 
     ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
     double robotSpeedMps = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-    boolean robotSlow = !inAllianceZone || robotSpeedMps <= maxFeedSpeedMps.get();
+    // PASS mode (neutral zone): no speed gate — fire passes at any speed while sprinting.
+    // SHOOT mode (alliance zone): robot must be nearly stationary so the launcher is
+    // pre-spun and fires the instant the robot stops. Tunable via dashboard.
+    boolean robotSlow =
+        !inAllianceZone || robotSpeedMps <= autoShootHubMaxSpeedMps.get();
+    Logger.recordOutput("Turret/AutoShoot/InAllianceZone", inAllianceZone);
+    Logger.recordOutput("Turret/AutoShoot/RobotSpeedMps", robotSpeedMps);
 
     if (launcherReady && hasShot && aimed && hasFuel && intervalElapsed && robotSlow) {
       // Snapshot key calibration data at the instant of firing
