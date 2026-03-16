@@ -905,6 +905,7 @@ public class RobotContainer {
     // Register the robot with the simulation
     fuelSim.registerRobot(
         robotWidth, robotLength, bumperHeight, drive::getPose, drive::getFieldRelativeSpeeds);
+    fuelSim.enableAirResistance();
 
     // Register intake with fuel simulation for pickup collision detection
     // Intake zone: 10 inches (0.254m) from front frame, 30 inches (0.762m) wide
