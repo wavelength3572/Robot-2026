@@ -18,20 +18,23 @@ import frc.robot.FieldConstants;
  * <p>Delegates zone detection to {@link ZoneDetector} and maps zones to aim modes:
  *
  * <ul>
- *   <li>ALLIANCE / TRENCH → SHOOT (aim at hub)
- *   <li>NEUTRAL / OPPONENT → PASS (aim at pass target)
- *   <li>BUMP → NONE (suppress shooting, keep last aim target)
+ *   <li>ALLIANCE / TRENCH_NEAR → SHOOT (aim at hub)
+ *   <li>NEUTRAL → PASS (aim at pass target)
+ *   <li>OPPONENT → LONG_PASS (aggressive pass back to alliance zone)
+ *   <li>TRENCH_FAR / BUMP → NONE (suppress shooting, keep last aim target)
  * </ul>
  */
 public class TurretAimingHelper {
 
   /** Aiming mode based on robot position. */
   public enum AimMode {
-    /** Aim at hub and shoot (alliance zone or trench). */
+    /** Aim at hub and shoot (alliance zone or trench near side). */
     SHOOT,
     /** Aim at pass target and fire (neutral zone). */
     PASS,
-    /** Suppress shooting — over bump or in opponent zone. */
+    /** Aggressive pass from opponent zone — longer distance, steeper trajectory. */
+    LONG_PASS,
+    /** Suppress shooting — over bump or transiting through far trench. */
     NONE
   }
 
@@ -57,14 +60,14 @@ public class TurretAimingHelper {
 
     AimResult result =
         switch (zone) {
-          case ALLIANCE, TRENCH -> {
+          case ALLIANCE, TRENCH_NEAR -> {
             Translation2d hubTarget =
                 (alliance == Alliance.Blue)
                     ? FieldConstants.Hub.innerCenterPoint
                     : FieldConstants.Hub.oppInnerCenterPoint;
             yield new AimResult(hubTarget, AimMode.SHOOT, zone);
           }
-          case NEUTRAL, OPPONENT -> {
+          case NEUTRAL -> {
             double targetX =
                 (alliance == Alliance.Blue)
                     ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
@@ -72,7 +75,16 @@ public class TurretAimingHelper {
             double targetY = ZoneDetector.getPassTargetY(robotY);
             yield new AimResult(new Translation2d(targetX, targetY), AimMode.PASS, zone);
           }
-          case BUMP -> {
+          case OPPONENT -> {
+            // Long pass — same target area but will use more aggressive shot parameters
+            double targetX =
+                (alliance == Alliance.Blue)
+                    ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
+                    : Constants.StrategyConstants.RED_PASS_TARGET_X;
+            double targetY = ZoneDetector.getPassTargetY(robotY);
+            yield new AimResult(new Translation2d(targetX, targetY), AimMode.LONG_PASS, zone);
+          }
+          case TRENCH_FAR, BUMP -> {
             // Keep last aim target for smooth turret motion, but suppress firing
             if (lastResult != null) {
               yield new AimResult(lastResult.target(), AimMode.NONE, zone);

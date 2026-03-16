@@ -86,29 +86,31 @@ public class ZoneDetector {
   }
 
   /**
-   * Check if the robot is on the alliance side of the trench it's currently in.
+   * Check if the robot's bumper is still touching the alliance-neutral boundary tape.
    *
-   * <p>Each trench is centered on a hub center line. For blue alliance, our hub's center line is at
-   * hubCenter (low X = alliance side). For red, our hub is at oppHubCenter (high X = alliance
-   * side). The opponent's trench is always FAR since we're in their territory.
+   * <p>Game rule: shots only count if any part of the robot crosses the alliance zone boundary
+   * line. TRENCH_NEAR means our bumper still reaches that tape; TRENCH_FAR means we're entirely
+   * past it into neutral territory. The opponent's trench is always FAR.
    */
   private static boolean isOnAllianceSideOfTrench(double robotX, Alliance alliance) {
     double blueHubCenter = FieldConstants.LinesVertical.hubCenter;
     double redHubCenter = FieldConstants.LinesVertical.oppHubCenter;
+    double allianceLine = FieldConstants.LinesVertical.allianceZone;
+    double oppAllianceLine = FieldConstants.LinesVertical.oppAllianceZone;
 
     if (alliance == Alliance.Blue) {
-      // Blue: our trench is at blueHubCenter, alliance side is X < hubCenter
       // If we're in the red-side trench, that's always FAR (opponent territory)
       double distToBlue = Math.abs(robotX - blueHubCenter);
       double distToRed = Math.abs(robotX - redHubCenter);
-      if (distToRed < distToBlue) return false; // in opponent's trench = always FAR
-      return robotX <= blueHubCenter; // alliance side of our trench
+      if (distToRed < distToBlue) return false;
+      // NEAR if our bumper still touches the alliance zone tape
+      return robotX <= allianceLine + ROBOT_HALF_EXTENT;
     } else {
-      // Red: our trench is at redHubCenter, alliance side is X > hubCenter
       double distToBlue = Math.abs(robotX - blueHubCenter);
       double distToRed = Math.abs(robotX - redHubCenter);
-      if (distToBlue < distToRed) return false; // in opponent's trench = always FAR
-      return robotX >= redHubCenter; // alliance side of our trench
+      if (distToBlue < distToRed) return false;
+      // NEAR if our bumper still touches the alliance zone tape
+      return robotX >= oppAllianceLine - ROBOT_HALF_EXTENT;
     }
   }
 

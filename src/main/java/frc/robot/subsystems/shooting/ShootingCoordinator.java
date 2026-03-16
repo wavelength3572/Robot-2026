@@ -278,7 +278,8 @@ public class ShootingCoordinator extends SubsystemBase {
       TurretAimingHelper.AimResult aimResult =
           TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
       trenchModeActive =
-          aimResult.zone() == ZoneDetector.Zone.TRENCH
+          aimResult.zone() == ZoneDetector.Zone.TRENCH_NEAR
+              || aimResult.zone() == ZoneDetector.Zone.TRENCH_FAR
               || aimResult.zone() == ZoneDetector.Zone.BUMP;
 
       // Shared alliance-zone X bounds (used by both strategies)
@@ -389,8 +390,18 @@ public class ShootingCoordinator extends SubsystemBase {
                 robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
           }
         }
+        case LONG_PASS -> {
+          // Opponent zone — always use lob strategy for the longer distance
+          Logger.recordOutput("Turret/Pass/StrategyUsed", "LONG_PASS");
+          boolean isLeftTrench = selectIsLeftTrench(robotPose);
+          Translation3d activeTarget =
+              isLeftTrench ? cachedLobStation12Target : cachedLobStation3Target;
+          Logger.recordOutput("Turret/Pass/Active", isLeftTrench ? "LOB_LEFT" : "LOB_RIGHT");
+          calculatePassToTarget(
+              robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
+        }
         case NONE -> {
-          // Over bump or in opponent zone — keep calculating hub shot for when we exit,
+          // Over bump or far trench — keep calculating hub shot for when we exit,
           // but auto-shoot won't fire (NONE mode is checked in runAutoShoot).
           calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
         }
@@ -725,7 +736,7 @@ public class ShootingCoordinator extends SubsystemBase {
     TurretAimingHelper.AimResult aimResult =
         TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
 
-    // NONE mode (bump or opponent zone) — suppress all shooting
+    // NONE mode (bump or far trench) — suppress all shooting
     if (aimResult.mode() == TurretAimingHelper.AimMode.NONE) {
       Logger.recordOutput("Turret/AutoShoot/Zone", aimResult.zone().name());
       Logger.recordOutput("Turret/AutoShoot/Fired", false);
@@ -735,12 +746,13 @@ public class ShootingCoordinator extends SubsystemBase {
     ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
     double robotSpeedMps = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     // Zone-based speed gating:
-    // SHOOT (alliance/trench): must be nearly stationary for accurate hub shots
+    // SHOOT (alliance/trench near): must be nearly stationary for accurate hub shots
     // PASS (neutral): tunable speed gate — set high for full-sprint passes, low to restrict
+    // LONG_PASS (opponent): use pass speed gate (lob trajectory is more forgiving)
     boolean robotSlow =
         switch (aimResult.mode()) {
           case SHOOT -> robotSpeedMps <= autoShootHubMaxSpeedMps.get();
-          case PASS -> robotSpeedMps <= autoShootPassMaxSpeedMps.get();
+          case PASS, LONG_PASS -> robotSpeedMps <= autoShootPassMaxSpeedMps.get();
           case NONE -> false; // unreachable, handled above
         };
     Logger.recordOutput("Turret/AutoShoot/Zone", aimResult.zone().name());
