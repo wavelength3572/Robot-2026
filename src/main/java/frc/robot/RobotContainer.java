@@ -9,6 +9,7 @@ package frc.robot;
 
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -342,9 +343,8 @@ public class RobotContainer {
     SmartDashboard.putBoolean("Competition Mode", false);
     autoChooser = buildAutoChooserForMode(true);
 
-    // Auton strategy choosers — rebuilt when auto selection changes to show folder defaults.
-    // Operator can override after selecting an auto.
-    publishStrategyChoosers(null);
+    // Auton strategy choosers — created once; selection resets when auto changes.
+    initStrategyChoosers();
 
     updateOI();
   }
@@ -455,49 +455,48 @@ public class RobotContainer {
    * on startup (with null folder) and whenever the auto selection changes. The operator can then
    * override from the dashboard.
    */
-  private void publishStrategyChoosers(String folder) {
+  /** Create the strategy choosers once at startup. Called from the constructor. */
+  private void initStrategyChoosers() {
+    startStrategyChooser = new SendableChooser<>();
+    startStrategyChooser.setDefaultOption("—", null);
+    startStrategyChooser.addOption(
+        "Shoot Preloads", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS);
+    startStrategyChooser.addOption("Sprint", AutoWrapperFactory.StartStrategy.SPRINT);
+    SmartDashboard.putData("Auton Start Strategy", startStrategyChooser);
+
+    pathShootingChooser = new SendableChooser<>();
+    pathShootingChooser.setDefaultOption("—", null);
+    pathShootingChooser.addOption(
+        "End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
+    pathShootingChooser.addOption(
+        "Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
+    SmartDashboard.putData("Auton Path Shooting Strategy", pathShootingChooser);
+  }
+
+  /**
+   * Reset the strategy chooser selections to the folder-appropriate defaults. The chooser widgets
+   * stay alive on the dashboard — only the selected value changes.
+   */
+  private void resetStrategySelections(String folder) {
     AutoWrapperFactory.StartStrategy defaultStart =
         (folder != null) ? defaultStartStrategy(folder) : null;
     AutoWrapperFactory.PathShootingStrategy defaultPath =
         (folder != null) ? defaultPathShootingStrategy(folder) : null;
 
-    startStrategyChooser = new SendableChooser<>();
-    if (defaultStart == AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS) {
-      startStrategyChooser.setDefaultOption(
-          "Shoot Preloads", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS);
-      startStrategyChooser.addOption("Sprint", AutoWrapperFactory.StartStrategy.SPRINT);
-    } else if (defaultStart == AutoWrapperFactory.StartStrategy.SPRINT) {
-      startStrategyChooser.addOption(
-          "Shoot Preloads", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS);
-      startStrategyChooser.setDefaultOption("Sprint", AutoWrapperFactory.StartStrategy.SPRINT);
-    } else {
-      // No auto selected — show options with no default
-      startStrategyChooser.setDefaultOption("—", null);
-      startStrategyChooser.addOption(
-          "Shoot Preloads", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS);
-      startStrategyChooser.addOption("Sprint", AutoWrapperFactory.StartStrategy.SPRINT);
-    }
-    SmartDashboard.putData("Auton Start Strategy", startStrategyChooser);
+    // Determine the option name strings to select
+    String startName = "—";
+    if (defaultStart == AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS) startName = "Shoot Preloads";
+    else if (defaultStart == AutoWrapperFactory.StartStrategy.SPRINT) startName = "Sprint";
 
-    pathShootingChooser = new SendableChooser<>();
-    if (defaultPath == AutoWrapperFactory.PathShootingStrategy.END_OF_PATH) {
-      pathShootingChooser.setDefaultOption(
-          "End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
-      pathShootingChooser.addOption(
-          "Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
-    } else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT) {
-      pathShootingChooser.addOption(
-          "End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
-      pathShootingChooser.setDefaultOption(
-          "Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
-    } else {
-      pathShootingChooser.setDefaultOption("—", null);
-      pathShootingChooser.addOption(
-          "End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
-      pathShootingChooser.addOption(
-          "Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
-    }
-    SmartDashboard.putData("Auton Path Shooting Strategy", pathShootingChooser);
+    String pathName = "—";
+    if (defaultPath == AutoWrapperFactory.PathShootingStrategy.END_OF_PATH) pathName = "End of Path";
+    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT)
+      pathName = "Auto Shoot";
+
+    // Write the desired default into the NT "selected" key so the dashboard + getSelected() update
+    var nt = NetworkTableInstance.getDefault();
+    nt.getTable("SmartDashboard/Auton Start Strategy").getEntry("selected").setString(startName);
+    nt.getTable("SmartDashboard/Auton Path Shooting Strategy").getEntry("selected").setString(pathName);
   }
 
   /**
@@ -785,7 +784,7 @@ public class RobotContainer {
       if (selectedDisplayName == null
           || selectedDisplayName.isEmpty()
           || selectedDisplayName.equals("None")) {
-        if (autoChanged) publishStrategyChoosers(null);
+        if (autoChanged) resetStrategySelections(null);
         return;
       }
 
@@ -795,7 +794,7 @@ public class RobotContainer {
       // Rebuild strategy choosers with this auto's folder defaults
       if (autoChanged) {
         String folder = autoFolderMap.getOrDefault(rawAutoName, "");
-        publishStrategyChoosers(folder);
+        resetStrategySelections(folder);
       }
 
       try {
