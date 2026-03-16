@@ -8,19 +8,20 @@ import org.littletonrobotics.junction.Logger;
 /**
  * Detects which field zone the robot is in for auto-shoot purposes.
  *
- * <p>Five zones, checked in priority order:
+ * <p>Six zones, checked in priority order:
  *
  * <ol>
  *   <li><b>BUMP</b> — over the bump ramps flanking the hub. No shooting allowed.
- *   <li><b>TRENCH</b> — under the trench hood. Hood must be clamped, only low-angle shots.
+ *   <li><b>TRENCH_NEAR</b> — under trench on alliance side of hub. Hood clamped, can shoot hub.
+ *   <li><b>TRENCH_FAR</b> — under trench on neutral side of hub. Hood clamped, no shooting.
  *   <li><b>ALLIANCE</b> — our scoring zone. Aim at hub, speed-gated.
  *   <li><b>NEUTRAL</b> — mid-field. Pass shots allowed (speed-gated by tunable).
- *   <li><b>OPPONENT</b> — their side. No shooting.
+ *   <li><b>OPPONENT</b> — their side. Long pass back to alliance zone.
  * </ol>
  *
- * <p>BUMP and TRENCH are 2D rectangle checks that use the robot's physical dimensions as margins,
- * so the zone activates when ANY part of the robot overlaps the field element. ALLIANCE/NEUTRAL/
- * OPPONENT are X-axis-only with a small hysteresis buffer to prevent aim-target flickering.
+ * <p>BUMP and TRENCH zones are 2D rectangle checks that use the robot's physical dimensions as
+ * margins, so the zone activates when ANY part of the robot overlaps the field element.
+ * ALLIANCE/NEUTRAL/OPPONENT are X-axis-only with a small hysteresis buffer.
  */
 public class ZoneDetector {
 
@@ -28,13 +29,15 @@ public class ZoneDetector {
   public enum Zone {
     /** Over a bump — suppress all shooting. */
     BUMP,
-    /** Under a trench hood — clamp hood angle, low shots only. */
-    TRENCH,
+    /** Under trench on alliance side — hood clamped, can shoot hub (low angle). */
+    TRENCH_NEAR,
+    /** Under trench on neutral side — hood clamped, suppress shooting (just transiting). */
+    TRENCH_FAR,
     /** Alliance scoring zone — aim at hub, fire when slow. */
     ALLIANCE,
     /** Neutral zone — pass shots, speed-gated. */
     NEUTRAL,
-    /** Opponent side — suppress shooting. */
+    /** Opponent side — long pass back to alliance zone. */
     OPPONENT
   }
 
@@ -68,8 +71,12 @@ public class ZoneDetector {
       return Zone.BUMP;
     }
     if (FieldConstants.TrenchZones.isInAnyTrenchZone(robotX, robotY, ROBOT_HALF_EXTENT)) {
-      Logger.recordOutput("ZoneDetector/Active", "TRENCH");
-      return Zone.TRENCH;
+      // Determine if we're on the alliance side (NEAR) or neutral side (FAR) of this trench.
+      // The trench straddles the hub center line. For blue, alliance is low-X; for red, high-X.
+      boolean onAllianceSide = isOnAllianceSideOfTrench(robotX, alliance);
+      Zone trenchZone = onAllianceSide ? Zone.TRENCH_NEAR : Zone.TRENCH_FAR;
+      Logger.recordOutput("ZoneDetector/Active", trenchZone.name());
+      return trenchZone;
     }
 
     // --- Priority 2: X-based field zones with hysteresis ---
@@ -79,10 +86,36 @@ public class ZoneDetector {
   }
 
   /**
+   * Check if the robot is on the alliance side of the trench it's currently in.
+   *
+   * <p>Each trench is centered on a hub center line. For blue alliance, our hub's center line is at
+   * hubCenter (low X = alliance side). For red, our hub is at oppHubCenter (high X = alliance
+   * side). The opponent's trench is always FAR since we're in their territory.
+   */
+  private static boolean isOnAllianceSideOfTrench(double robotX, Alliance alliance) {
+    double blueHubCenter = FieldConstants.LinesVertical.hubCenter;
+    double redHubCenter = FieldConstants.LinesVertical.oppHubCenter;
+
+    if (alliance == Alliance.Blue) {
+      // Blue: our trench is at blueHubCenter, alliance side is X < hubCenter
+      // If we're in the red-side trench, that's always FAR (opponent territory)
+      double distToBlue = Math.abs(robotX - blueHubCenter);
+      double distToRed = Math.abs(robotX - redHubCenter);
+      if (distToRed < distToBlue) return false; // in opponent's trench = always FAR
+      return robotX <= blueHubCenter; // alliance side of our trench
+    } else {
+      // Red: our trench is at redHubCenter, alliance side is X > hubCenter
+      double distToBlue = Math.abs(robotX - blueHubCenter);
+      double distToRed = Math.abs(robotX - redHubCenter);
+      if (distToBlue < distToRed) return false; // in opponent's trench = always FAR
+      return robotX >= redHubCenter; // alliance side of our trench
+    }
+  }
+
+  /**
    * X-based zone calculation with hysteresis on the ALLIANCE↔NEUTRAL boundary.
    *
-   * <p>The shoot zone extends past the alliance line by {@code shootZoneExtension} meters (tuned in
-   * TurretAimingHelper). Hysteresis prevents flickering when driving along the boundary.
+   * <p>Hysteresis prevents flickering when driving along the boundary.
    */
   private static Zone calculateXZone(double robotX, Alliance alliance) {
     double allianceZoneEnd = FieldConstants.LinesVertical.allianceZone;
@@ -110,10 +143,8 @@ public class ZoneDetector {
     if (allianceIsLowX) {
       // Blue: X < boundary = ALLIANCE, X > boundary = NEUTRAL
       if (currentXZone == Zone.ALLIANCE) {
-        // Stay ALLIANCE until we're clearly past the boundary
         return (robotX > boundary + X_HYSTERESIS) ? Zone.NEUTRAL : Zone.ALLIANCE;
       } else {
-        // Stay NEUTRAL until we're clearly inside the alliance zone
         return (robotX < boundary - X_HYSTERESIS) ? Zone.ALLIANCE : Zone.NEUTRAL;
       }
     } else {
