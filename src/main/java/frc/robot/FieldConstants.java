@@ -382,12 +382,73 @@ public class FieldConstants {
       return "";
     }
 
-    private static boolean isInZone(
+    static boolean isInZone(
         double x, double y, double minX, double maxX, double minY, double maxY, double margin) {
       return x >= (minX - margin)
           && x <= (maxX + margin)
           && y >= (minY - margin)
           && y <= (maxY + margin);
+    }
+  }
+
+  /**
+   * Bump zones — rectangular areas over each bump on both sides of the field.
+   *
+   * <p>Bumps run along the Y-axis between the hub and the trenches. The X extent uses the same
+   * depth as trench zones (centered on hub center line). The Y extent spans from the hub corner
+   * to the end of the bump.
+   */
+  public static class BumpZones {
+    /** Safety margin added to each edge of the bump zone (meters). */
+    public static final double DEFAULT_MARGIN_METERS = 0.4;
+
+    // X extent: same as trench zones (centered on hub center line)
+    private static final double halfDepth = LeftTrench.depth / 2.0;
+
+    // ---- Blue-side bumps ----
+    public static final double BLUE_LEFT_MIN_X = LinesVertical.hubCenter - halfDepth;
+    public static final double BLUE_LEFT_MAX_X = LinesVertical.hubCenter + halfDepth;
+    public static final double BLUE_LEFT_MIN_Y = LinesHorizontal.leftBumpEnd; // hub corner
+    public static final double BLUE_LEFT_MAX_Y = LinesHorizontal.leftBumpStart; // bump outer edge
+
+    public static final double BLUE_RIGHT_MIN_X = LinesVertical.hubCenter - halfDepth;
+    public static final double BLUE_RIGHT_MAX_X = LinesVertical.hubCenter + halfDepth;
+    public static final double BLUE_RIGHT_MIN_Y = LinesHorizontal.rightBumpEnd; // bump outer edge
+    public static final double BLUE_RIGHT_MAX_Y = LinesHorizontal.rightBumpStart; // hub corner
+
+    // ---- Red-side bumps ----
+    public static final double RED_LEFT_MIN_X = LinesVertical.oppHubCenter - halfDepth;
+    public static final double RED_LEFT_MAX_X = LinesVertical.oppHubCenter + halfDepth;
+    public static final double RED_LEFT_MIN_Y = LinesHorizontal.leftBumpEnd;
+    public static final double RED_LEFT_MAX_Y = LinesHorizontal.leftBumpStart;
+
+    public static final double RED_RIGHT_MIN_X = LinesVertical.oppHubCenter - halfDepth;
+    public static final double RED_RIGHT_MAX_X = LinesVertical.oppHubCenter + halfDepth;
+    public static final double RED_RIGHT_MIN_Y = LinesHorizontal.rightBumpEnd;
+    public static final double RED_RIGHT_MAX_Y = LinesHorizontal.rightBumpStart;
+
+    /** Check if a point is inside any of the 4 bump zones, with margin applied. */
+    public static boolean isInAnyBumpZone(double x, double y, double margin) {
+      return TrenchZones.isInZone(
+              x, y, BLUE_LEFT_MIN_X, BLUE_LEFT_MAX_X, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y, margin)
+          || TrenchZones.isInZone(
+              x,
+              y,
+              BLUE_RIGHT_MIN_X,
+              BLUE_RIGHT_MAX_X,
+              BLUE_RIGHT_MIN_Y,
+              BLUE_RIGHT_MAX_Y,
+              margin)
+          || TrenchZones.isInZone(
+              x, y, RED_LEFT_MIN_X, RED_LEFT_MAX_X, RED_LEFT_MIN_Y, RED_LEFT_MAX_Y, margin)
+          || TrenchZones.isInZone(
+              x,
+              y,
+              RED_RIGHT_MIN_X,
+              RED_RIGHT_MAX_X,
+              RED_RIGHT_MIN_Y,
+              RED_RIGHT_MAX_Y,
+              margin);
     }
   }
 

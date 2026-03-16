@@ -21,6 +21,7 @@ import frc.robot.subsystems.turret.Turret;
 import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.RobotStatus;
 import frc.robot.util.TurretAimingHelper;
+import frc.robot.util.ZoneDetector;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
@@ -77,13 +78,11 @@ public class ShootingCoordinator extends SubsystemBase {
   // Optional feeding suppression check — when true, launchFuel() is a no-op
   private BooleanSupplier feedingSuppressedSupplier = () -> false;
 
-  // Trench avoidance — always active; clamps hood angle when robot is under a trench
+  // Trench avoidance — always active; clamps hood angle when robot is under a trench or bump.
+  // Zone detection with robot-size margins is handled by ZoneDetector.
   private final LoggedTunableNumber trenchHoodMaxDeg =
       new LoggedTunableNumber("Shots/TrenchMode/HoodMaxDeg", 18.0);
-  private final LoggedTunableNumber trenchMarginMeters =
-      new LoggedTunableNumber(
-          "Shots/TrenchMode/MarginMeters", FieldConstants.TrenchZones.DEFAULT_MARGIN_METERS);
-  private boolean trenchModeActive = false; // true when robot is currently in a trench zone
+  private boolean trenchModeActive = false; // true when robot is in a trench or bump zone
 
   // Visualizer throttle — run at 10Hz instead of 50Hz (pure display, not control)
   private int visualizerCounter = 0;
@@ -142,9 +141,13 @@ public class ShootingCoordinator extends SubsystemBase {
   // Max robot speed for auto-shoot to fire when in SHOOT mode (alliance zone).
   // Low threshold means robot must be nearly stationary before auto-shoot fires a hub shot.
   // This lets the launcher spin up while decelerating so it fires the instant the robot stops.
-  // PASS mode (neutral zone) has no speed gate — passes fire at any speed.
   private final LoggedTunableNumber autoShootHubMaxSpeedMps =
       new LoggedTunableNumber("Shots/AutoShoot/HubMaxSpeedMps", 0.3);
+  // Max robot speed for auto-shoot to fire pass shots in the neutral zone.
+  // Set high (e.g. 3.0) to pass at full sprint, low (e.g. 0.5) to only pass when slow,
+  // or 0.0 to effectively disable passing on the move.
+  private final LoggedTunableNumber autoShootPassMaxSpeedMps =
+      new LoggedTunableNumber("Shots/AutoShoot/PassMaxSpeedMps", 3.0);
   private final LoggedTunableNumber maxFeedSpeedMps =
       new LoggedTunableNumber("Shots/SmartLaunch/MaxFeedSpeedMps", 1.75);
 
@@ -269,13 +272,14 @@ public class ShootingCoordinator extends SubsystemBase {
       Pose2d robotPose = robotPoseSupplier.get();
       ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
 
-      // Check if robot is in any trench zone (all 4, alliance-independent).
-      // Trench clamping is always active — hood is clamped whenever the robot is under a trench.
-      trenchModeActive =
-          FieldConstants.TrenchZones.isInAnyTrenchZone(
-              robotPose.getX(), robotPose.getY(), trenchMarginMeters.get());
+      // Zone detection — TurretAimingHelper delegates to ZoneDetector which handles
+      // trench/bump detection using robot-size margins. Trench clamping activates when
+      // any part of the robot overlaps a trench zone.
       TurretAimingHelper.AimResult aimResult =
           TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
+      trenchModeActive =
+          aimResult.zone() == ZoneDetector.Zone.TRENCH
+              || aimResult.zone() == ZoneDetector.Zone.BUMP;
 
       // Shared alliance-zone X bounds (used by both strategies)
       double allianceZoneX = FieldConstants.LinesVertical.allianceZone;
@@ -360,28 +364,35 @@ public class ShootingCoordinator extends SubsystemBase {
             new Pose3d(cachedLobStation3Target, Rotation3d.kZero));
       }
 
-      if (aimResult.mode() == TurretAimingHelper.AimMode.SHOOT) {
-        calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
-      } else {
-        PassingStrategy strategy = passingStrategyChooser.getSelected();
-        Logger.recordOutput("Turret/Pass/StrategyUsed", strategy.name());
+      switch (aimResult.mode()) {
+        case SHOOT -> calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
+        case PASS -> {
+          PassingStrategy strategy = passingStrategyChooser.getSelected();
+          Logger.recordOutput("Turret/Pass/StrategyUsed", strategy.name());
 
-        if (strategy == PassingStrategy.DRIVER_STATION) {
-          // Lob pass: pick target based on driver station number, use steep launch angle
-          var location = DriverStation.getLocation();
-          int station = location.isPresent() ? location.getAsInt() : 2;
-          Translation3d activeTarget =
-              (station <= 2) ? cachedLobStation12Target : cachedLobStation3Target;
-          Logger.recordOutput(
-              "Turret/Pass/Active", (station <= 2) ? "LOB_STATION_1_2" : "LOB_STATION_3");
-          calculatePassToTarget(
-              robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
-        } else {
-          // Symmetric pass: pick target based on robot Y position
-          boolean isLeftTrench = selectIsLeftTrench(robotPose);
-          Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
-          Logger.recordOutput("Turret/Pass/Active", isLeftTrench ? "LEFT" : "RIGHT");
-          calculatePassToTarget(robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
+          if (strategy == PassingStrategy.DRIVER_STATION) {
+            // Lob pass: pick target based on driver station number, use steep launch angle
+            var location = DriverStation.getLocation();
+            int station = location.isPresent() ? location.getAsInt() : 2;
+            Translation3d activeTarget =
+                (station <= 2) ? cachedLobStation12Target : cachedLobStation3Target;
+            Logger.recordOutput(
+                "Turret/Pass/Active", (station <= 2) ? "LOB_STATION_1_2" : "LOB_STATION_3");
+            calculatePassToTarget(
+                robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
+          } else {
+            // Symmetric pass: pick target based on robot Y position
+            boolean isLeftTrench = selectIsLeftTrench(robotPose);
+            Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
+            Logger.recordOutput("Turret/Pass/Active", isLeftTrench ? "LEFT" : "RIGHT");
+            calculatePassToTarget(
+                robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
+          }
+        }
+        case NONE -> {
+          // Over bump or in opponent zone — keep calculating hub shot for when we exit,
+          // but auto-shoot won't fire (NONE mode is checked in runAutoShoot).
+          calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
         }
       }
     }
@@ -709,20 +720,30 @@ public class ShootingCoordinator extends SubsystemBase {
     double now = Timer.getFPGATimestamp();
     boolean intervalElapsed = (now - lastShotTimestamp) >= autoShootMinInterval.get();
 
-    // Zone check for speed gating
+    // Zone check for speed gating and shot suppression
     Pose2d robotPose = robotPoseSupplier.get();
     TurretAimingHelper.AimResult aimResult =
         TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
-    boolean inAllianceZone = aimResult.mode() == TurretAimingHelper.AimMode.SHOOT;
+
+    // NONE mode (bump or opponent zone) — suppress all shooting
+    if (aimResult.mode() == TurretAimingHelper.AimMode.NONE) {
+      Logger.recordOutput("Turret/AutoShoot/Zone", aimResult.zone().name());
+      Logger.recordOutput("Turret/AutoShoot/Fired", false);
+      return;
+    }
 
     ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
     double robotSpeedMps = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-    // PASS mode (neutral zone): no speed gate — fire passes at any speed while sprinting.
-    // SHOOT mode (alliance zone): robot must be nearly stationary so the launcher is
-    // pre-spun and fires the instant the robot stops. Tunable via dashboard.
+    // Zone-based speed gating:
+    // SHOOT (alliance/trench): must be nearly stationary for accurate hub shots
+    // PASS (neutral): tunable speed gate — set high for full-sprint passes, low to restrict
     boolean robotSlow =
-        !inAllianceZone || robotSpeedMps <= autoShootHubMaxSpeedMps.get();
-    Logger.recordOutput("Turret/AutoShoot/InAllianceZone", inAllianceZone);
+        switch (aimResult.mode()) {
+          case SHOOT -> robotSpeedMps <= autoShootHubMaxSpeedMps.get();
+          case PASS -> robotSpeedMps <= autoShootPassMaxSpeedMps.get();
+          case NONE -> false; // unreachable, handled above
+        };
+    Logger.recordOutput("Turret/AutoShoot/Zone", aimResult.zone().name());
     Logger.recordOutput("Turret/AutoShoot/RobotSpeedMps", robotSpeedMps);
 
     // Distance gate: when a start pose is recorded, suppress firing until the robot has
