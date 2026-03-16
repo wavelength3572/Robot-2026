@@ -631,6 +631,10 @@ public class ShootingCommands {
                             if (hood != null) {
                               hood.setHoodAngle(hoodDeg);
                             }
+                            // Start motivator once launcher is at setpoint
+                            if (motivator != null && launcher.atSetpoint()) {
+                              motivator.setMotivatorVelocity(getMotivatorRPM(rpm));
+                            }
                           }
 
                           boolean launcherReady = launcher.atSetpoint();
@@ -975,6 +979,7 @@ public class ShootingCommands {
     //   in the alliance zone this is immediate; for edge cases it prevents false arming.
     final boolean[] feedingArmed = {!armOnPassZone};
     final boolean[] wasOutsidePassZone = {false};
+    final boolean[] motivatorStarted = {false};
 
     return Commands.parallel(
             // Arming monitor — detects transition INTO a pass zone. Requires the robot
@@ -1039,11 +1044,15 @@ public class ShootingCommands {
                     hood)
                 : Commands.none(),
 
-            // Motivator — spin up (only when armed)
+            // Motivator — wait for armed + launcher ready to start, then keep running
             motivator != null
                 ? Commands.run(
                     () -> {
                       if (!feedingArmed[0]) return;
+                      if (!motivatorStarted[0]) {
+                        if (!launcher.atSetpoint()) return;
+                        motivatorStarted[0] = true;
+                      }
                       ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                       double launcherRPM = getEffectiveRPM(s);
                       motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
@@ -1060,7 +1069,8 @@ public class ShootingCommands {
                       boolean turretAimed = turret.atTarget();
                       boolean speedOk = coordinator.isRobotSlowEnoughForCurrentZone();
                       Logger.recordOutput("ContinuousSmartLaunch/Gate/Armed", armed);
-                      Logger.recordOutput("ContinuousSmartLaunch/Gate/LauncherReady", launcherReady);
+                      Logger.recordOutput(
+                          "ContinuousSmartLaunch/Gate/LauncherReady", launcherReady);
                       Logger.recordOutput("ContinuousSmartLaunch/Gate/TurretAimed", turretAimed);
                       Logger.recordOutput("ContinuousSmartLaunch/Gate/SpeedOk", speedOk);
                       boolean feedOk = armed && launcherReady && turretAimed && speedOk;
@@ -1129,27 +1139,32 @@ public class ShootingCommands {
             Commands.waitUntil(
                 () -> {
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
-                  return feedingArmed[0]
-                      && isAllSubsystemsReady(launcher, motivator, turret, hood, shot)
-                      && coordinator.isRobotSlowEnoughForCurrentZone();
+                  boolean armed = feedingArmed[0];
+                  boolean subsReady = isAllSubsystemsReady(launcher, motivator, turret, hood, shot);
+                  boolean speedOk = coordinator.isRobotSlowEnoughForCurrentZone();
+                  Logger.recordOutput("ContinuousSimFire/Armed", armed);
+                  Logger.recordOutput("ContinuousSimFire/SubsReady", subsReady);
+                  Logger.recordOutput("ContinuousSimFire/SpeedOk", speedOk);
+                  Logger.recordOutput(
+                      "ContinuousSimFire/LauncherState", launcher.getState().name());
+                  Logger.recordOutput(
+                      "ContinuousSimFire/MotivatorState",
+                      motivator != null ? motivator.getState().name() : "NULL");
+                  return armed && subsReady && speedOk;
                 }),
             Commands.runOnce(
                 () -> {
+                  ShotVisualizer visualizer = coordinator.getVisualizer();
+                  if (visualizer != null && visualizer.getFuelCount() <= 0) return;
                   coordinator.launchFuel();
                   launcher.notifyBallFired();
                   Logger.recordOutput("Shots/ShotLog/LastShotTime", Timer.getFPGATimestamp());
 
-                  ShotVisualizer visualizer = coordinator.getVisualizer();
                   int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
                   Logger.recordOutput("Shots/ShotLog/FuelRemaining", fuelRemaining);
                 }),
             Commands.waitSeconds(MIN_SHOT_INTERVAL_SECONDS))
-        .repeatedly()
-        .until(
-            () -> {
-              ShotVisualizer visualizer = coordinator.getVisualizer();
-              return visualizer == null || visualizer.getFuelCount() <= 0;
-            });
+        .repeatedly();
   }
 
   /**
