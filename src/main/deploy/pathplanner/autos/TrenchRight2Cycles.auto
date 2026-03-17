@@ -26,6 +26,6 @@
     }
   },
   "resetOdom": true,
-  "folder": "Comp",
+  "folder": "CompStationaryShoot",
   "choreoAuto": false
 }
