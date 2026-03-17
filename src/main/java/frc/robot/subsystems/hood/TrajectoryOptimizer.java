@@ -3,6 +3,7 @@ package frc.robot.subsystems.hood;
 import edu.wpi.first.math.geometry.Translation3d;
 import frc.robot.subsystems.shooting.ShotCalculator;
 import frc.robot.util.LoggedTunableNumber;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Trajectory optimizer for hybrid RPM+hood control. Calculates the optimal combination of launcher
@@ -32,7 +33,7 @@ public class TrajectoryOptimizer {
   // PRIMARY TUNABLE: Descent angle (angle of line from hub edge to hub center)
   // Tune this to match the hub wall angle visually (60° matches well)
   private static final LoggedTunableNumber descentAngleDeg =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/DescentAngleDeg", 48.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/DescentAngleDeg", 50.0);
 
   // Minimum descent angle for fallback. When the preferred angle requires a hood position
   // below the mechanical limit (too close to hub), the optimizer steps down in 1° increments
@@ -43,7 +44,7 @@ public class TrajectoryOptimizer {
   // Clearance constraints (inches above the lip)
   private static final LoggedTunableNumber minClearanceInches =
       new LoggedTunableNumber(
-          "Shots/SmartLaunch/Trajectory/MinClearanceInches", 1.5); // Safety margin
+          "Shots/SmartLaunch/Trajectory/MinClearanceInches", 2.0); // Safety margin
   private static final LoggedTunableNumber maxClearanceInches =
       new LoggedTunableNumber(
           "Shots/SmartLaunch/Trajectory/MaxClearanceInches", 22.0); // Sanity check
@@ -54,7 +55,7 @@ public class TrajectoryOptimizer {
   private static final LoggedTunableNumber maxRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxRPM", 5000.0);
   private static final LoggedTunableNumber maxPeakHeightFt =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxPeakHeightFt", 10.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxPeakHeightFt", 12.0);
 
   /** Result of trajectory optimization. */
   public static class OptimalShot {
@@ -128,6 +129,7 @@ public class TrajectoryOptimizer {
           tryDescentAngle(descent, D, D_edge, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg);
 
       if (shot.achievable) {
+        logDiagnostics(preferredDescent, shot);
         return shot;
       }
 
@@ -135,7 +137,21 @@ public class TrajectoryOptimizer {
     }
 
     // No descent angle worked — return the last failure
+    logDiagnostics(preferredDescent, lastFailure);
     return lastFailure;
+  }
+
+  private static void logDiagnostics(double requestedDescentDeg, OptimalShot shot) {
+    String prefix = "Shots/SmartLaunch/Trajectory/";
+    Logger.recordOutput(prefix + "RequestedDescentDeg", requestedDescentDeg);
+    Logger.recordOutput(prefix + "ActualDescentDeg", shot.descentAngleDeg);
+    Logger.recordOutput(prefix + "LaunchAngleDeg", shot.launchAngleDeg);
+    Logger.recordOutput(prefix + "ComputedHoodAngleDeg", shot.hoodAngleDeg);
+    Logger.recordOutput(prefix + "ComputedRPM", shot.rpm);
+    Logger.recordOutput(prefix + "PeakHeightM", shot.peakHeightM);
+    Logger.recordOutput(prefix + "ExitVelocityMps", shot.exitVelocityMps);
+    Logger.recordOutput(prefix + "Achievable", shot.achievable);
+    Logger.recordOutput(prefix + "Notes", shot.notes);
   }
 
   /**

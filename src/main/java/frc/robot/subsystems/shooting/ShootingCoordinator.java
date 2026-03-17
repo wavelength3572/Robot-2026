@@ -266,12 +266,20 @@ public class ShootingCoordinator extends SubsystemBase {
       Pose2d robotPose = robotPoseSupplier.get();
       ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
 
-      // Zone detection — TurretAimingHelper delegates to ZoneDetector which handles
-      // trench/bump detection using robot-size margins. Trench clamping activates when
-      // any part of the robot overlaps a trench zone.
+      // Zone detection — uses turret field position for trench detection (hood clearance)
+      // and robot center for bump detection (chassis on ramp).
+      double robotHeadingRad = robotPose.getRotation().getRadians();
+      double[] turretFieldPos =
+          ShotCalculator.getTurretFieldPosition(
+              robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
       TurretAimingHelper.AimResult aimResult =
           TurretAimingHelper.getAimTarget(
-            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
+              robotPose.getX(),
+              robotPose.getY(),
+              alliance,
+              pitchDegSupplier.getAsDouble(),
+              turretFieldPos[0],
+              turretFieldPos[1]);
       trenchModeActive =
           aimResult.zone() == ZoneDetector.Zone.TRENCH_NEAR
               || aimResult.zone() == ZoneDetector.Zone.TRENCH_FAR

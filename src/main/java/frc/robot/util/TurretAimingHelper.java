@@ -73,7 +73,29 @@ public class TurretAimingHelper {
    */
   public static AimResult getAimTarget(
       double robotX, double robotY, Alliance alliance, double robotPitchDeg) {
-    ZoneDetector.Zone zone = ZoneDetector.getCurrentZone(robotX, robotY, alliance, robotPitchDeg);
+    return getAimTarget(robotX, robotY, alliance, robotPitchDeg, robotX, robotY);
+  }
+
+  /**
+   * Get the aim target using turret field position for trench detection.
+   *
+   * @param robotX Robot X position in meters
+   * @param robotY Robot Y position in meters
+   * @param alliance Current alliance
+   * @param robotPitchDeg Gyro pitch in degrees for bump confirmation
+   * @param turretX Turret X position in field coords
+   * @param turretY Turret Y position in field coords
+   * @return AimResult containing target coordinates, aim mode, and zone
+   */
+  public static AimResult getAimTarget(
+      double robotX,
+      double robotY,
+      Alliance alliance,
+      double robotPitchDeg,
+      double turretX,
+      double turretY) {
+    ZoneDetector.Zone zone =
+        ZoneDetector.getCurrentZone(robotX, robotY, alliance, robotPitchDeg, turretX, turretY);
 
     AimResult result =
         switch (zone) {

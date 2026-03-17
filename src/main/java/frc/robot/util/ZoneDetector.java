@@ -18,8 +18,9 @@ import frc.robot.FieldConstants;
  *   <li><b>OPPONENT</b> — their side. Long pass back to alliance zone.
  * </ol>
  *
- * <p>BUMP and TRENCH zones are 2D rectangle checks that use the robot's physical dimensions as
- * margins, so the zone activates when ANY part of the robot overlaps the field element.
+ * <p>BUMP zones use the robot's physical dimensions as margin (any part of the chassis on the
+ * ramp). TRENCH zones use the turret's field position with a small radius margin (~7 inches),
+ * since what matters is whether the turret/hood is under the trench structure.
  * ALLIANCE/NEUTRAL/OPPONENT are X-axis-only with a small hysteresis buffer.
  */
 public class ZoneDetector {
@@ -41,10 +42,11 @@ public class ZoneDetector {
   }
 
   /**
-   * Half the longest robot dimension (bumper-to-bumper). Used as margin so that zone activates when
-   * any part of the robot body overlaps the field element, regardless of orientation.
+   * Turret radius margin for obstacle zone detection (~7 inches). Zone checks use turret field
+   * position rather than robot center, since what matters is whether the turret/hood is in or near
+   * the obstacle. This radius accounts for the turret opening where balls pass through.
    */
-  private static final double ROBOT_HALF_EXTENT = 0.49; // ~max(0.787, 0.978) / 2
+  private static final double TURRET_RADIUS = 0.178; // 7 inches
 
   /** Small hysteresis buffer for X-based zone transitions (ALLIANCE↔NEUTRAL). */
   private static final double X_HYSTERESIS = 0.3;
@@ -56,13 +58,7 @@ public class ZoneDetector {
   private static final double BUMP_PITCH_THRESHOLD_DEG = 5.0;
 
   /**
-   * Determine the robot's current zone.
-   *
-   * <p>2D zones (BUMP, TRENCH) take priority over X-based zones. Margins are set to the robot's
-   * half-extent so the zone triggers when any part of the robot overlaps the physical element.
-   *
-   * <p>BUMP requires BOTH position overlap AND gyro tilt above threshold to avoid false positives.
-   * If the robot is in the bump rectangle but level, it falls through to the X-based zone.
+   * Determine the robot's current zone (without turret position — uses robot center for trench).
    *
    * @param robotX Robot X position (field coords)
    * @param robotY Robot Y position (field coords)
@@ -70,11 +66,12 @@ public class ZoneDetector {
    * @return The active zone
    */
   public static Zone getCurrentZone(double robotX, double robotY, Alliance alliance) {
-    return getCurrentZone(robotX, robotY, alliance, 0.0);
+    return getCurrentZone(robotX, robotY, alliance, 0.0, robotX, robotY);
   }
 
   /**
-   * Determine the robot's current zone, with gyro pitch for bump confirmation.
+   * Determine the robot's current zone, with gyro pitch for bump confirmation. Uses robot center
+   * for trench detection (prefer the turret-aware overload).
    *
    * @param robotX Robot X position (field coords)
    * @param robotY Robot Y position (field coords)
@@ -84,15 +81,39 @@ public class ZoneDetector {
    */
   public static Zone getCurrentZone(
       double robotX, double robotY, Alliance alliance, double robotPitchDeg) {
-    // --- Priority 1: 2D obstacle zones (robot-size margins) ---
-    // BUMP requires both position AND tilt — if flat, fall through to X-based zone
-    if (FieldConstants.BumpZones.isInAnyBumpZone(robotX, robotY, ROBOT_HALF_EXTENT)
+    return getCurrentZone(robotX, robotY, alliance, robotPitchDeg, robotX, robotY);
+  }
+
+  /**
+   * Determine the robot's current zone using turret field position for obstacle detection.
+   *
+   * <p>Both bump and trench zones use the turret's field position with a turret-radius margin,
+   * since what matters is where the turret/hood is relative to the obstacle. Bump additionally
+   * requires gyro tilt confirmation to avoid false positives on flat ground.
+   *
+   * @param robotX Robot X position (field coords, used for X-based zone logic)
+   * @param robotY Robot Y position (field coords)
+   * @param alliance Current alliance
+   * @param robotPitchDeg Absolute gyro pitch in degrees (positive = nose up)
+   * @param turretX Turret X position in field coords
+   * @param turretY Turret Y position in field coords
+   * @return The active zone
+   */
+  public static Zone getCurrentZone(
+      double robotX,
+      double robotY,
+      Alliance alliance,
+      double robotPitchDeg,
+      double turretX,
+      double turretY) {
+    // --- Priority 1: 2D obstacle zones (turret position + turret radius) ---
+    // BUMP: turret over a bump ramp AND robot is tilted
+    if (FieldConstants.BumpZones.isInAnyBumpZone(turretX, turretY, TURRET_RADIUS)
         && Math.abs(robotPitchDeg) >= BUMP_PITCH_THRESHOLD_DEG) {
       return Zone.BUMP;
     }
-    if (FieldConstants.TrenchZones.isInAnyTrenchZone(robotX, robotY, ROBOT_HALF_EXTENT)) {
-      // Determine if we're on the alliance side (NEAR) or neutral side (FAR) of this trench.
-      // The trench straddles the hub center line. For blue, alliance is low-X; for red, high-X.
+    // TRENCH: turret under the overhead trench structure
+    if (FieldConstants.TrenchZones.isInAnyTrenchZone(turretX, turretY, TURRET_RADIUS)) {
       boolean onAllianceSide = isOnAllianceSideOfTrench(robotX, alliance);
       return onAllianceSide ? Zone.TRENCH_NEAR : Zone.TRENCH_FAR;
     }
