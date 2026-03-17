@@ -422,7 +422,7 @@ public class ShootingCoordinator extends SubsystemBase {
     }
   }
 
-  /** Check if turret is too close to hub center for a reliable lob pass (< 2m). */
+  /** Check if turret is too close to hub center for a reliable lob pass (< 4m). */
   private boolean isTooCloseToHub(Pose2d robotPose) {
     double robotHeadingRad = robotPose.getRotation().getRadians();
     double[] turretFieldPos =
@@ -430,15 +430,13 @@ public class ShootingCoordinator extends SubsystemBase {
             robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
     boolean isBlue = RobotStatus.isBlueAlliance();
     double hubCenterX =
-        isBlue
-            ? FieldConstants.LinesVertical.hubCenter
-            : FieldConstants.LinesVertical.oppHubCenter;
+        isBlue ? FieldConstants.LinesVertical.hubCenter : FieldConstants.LinesVertical.oppHubCenter;
     double hubCenterY = FieldConstants.fieldWidth / 2.0;
     double dist =
         Math.sqrt(
             Math.pow(hubCenterX - turretFieldPos[0], 2)
                 + Math.pow(hubCenterY - turretFieldPos[1], 2));
-    return dist < 2.0;
+    return dist < 4.0;
   }
 
   /**
