@@ -26,16 +26,15 @@ public final class ShotCalculator {
   private static final double MAIN_WHEEL_RADIUS_METERS = 0.0381; // 3" diameter = 1.5" radius
   private static final double HOOD_SURFACE_SPEED_RATIO = 1.0 / 1.41; // hood rolls slower
 
-  // Distance-dependent slip/compression efficiency, derived from LUT calibration data.
-  // Formula: efficiency = A*d^2 + B*d + C, where d = distance to target in meters.
-  // Accounts for motivator contribution to ball speed (motivator runs at ~56.5% of launcher RPM).
-  // Recalculated from ShotTableConstants baseline data (March 2026) — old coefficients ignored
-  // motivator and underestimated exit velocity by up to 20% at long range.
-  private static final double EFFICIENCY_A = -0.0131;
-  private static final double EFFICIENCY_B = 0.0942;
-  private static final double EFFICIENCY_C = 0.6257;
-  private static final double EFFICIENCY_MIN = 0.50; // floor to prevent nonsense at extreme range
-  private static final double EFFICIENCY_MAX = 0.85; // ceiling
+  // Mechanical roller-to-ball transfer efficiency (constant).
+  // Derived from LUT calibration data by back-calculating the exit velocity each LUT entry's
+  // own arc (hood angle) requires to hit the hub, then dividing by the average surface velocity
+  // at that RPM. Using the LUT's own arcs (not the parametric arc) isolates the true mechanical
+  // property from trajectory differences. Mean across 16 LUT points: 0.774, std dev: 0.027.
+  // Close-range entries (~1.16m) show lower efficiency (~0.71) due to the motivator being
+  // repositioned, which changes ball-roller contact geometry — but the LUT handles close range
+  // directly, so parametric mode only needs accuracy at mid/long range where 0.774 holds well.
+  private static final double LAUNCH_EFFICIENCY = 0.774;
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -86,23 +85,14 @@ public final class ShotCalculator {
     targetLauncherRPM = rpm;
   }
 
-  /**
-   * Get the distance-dependent launch efficiency.
-   *
-   * @param distanceMeters Horizontal distance to target
-   * @return Efficiency factor (clamped to safe range)
-   */
+  /** Get the launch efficiency constant. */
   public static double getEfficiency(double distanceMeters) {
-    double eff =
-        EFFICIENCY_A * distanceMeters * distanceMeters
-            + EFFICIENCY_B * distanceMeters
-            + EFFICIENCY_C;
-    return Math.max(EFFICIENCY_MIN, Math.min(EFFICIENCY_MAX, eff));
+    return LAUNCH_EFFICIENCY;
   }
 
-  /** Get efficiency at a default mid-range distance (for call sites without distance context). */
+  /** Get the launch efficiency constant. */
   public static double getEfficiency() {
-    return getEfficiency(3.0);
+    return LAUNCH_EFFICIENCY;
   }
 
   /**
@@ -112,7 +102,7 @@ public final class ShotCalculator {
    * efficiency.
    *
    * @param rpm Launcher wheel RPM
-   * @param distanceMeters Horizontal distance to target (for efficiency curve)
+   * @param distanceMeters Horizontal distance to target (unused, efficiency is constant)
    */
   public static double calculateExitVelocityFromRPM(double rpm, double distanceMeters) {
     double mainSurfaceVelocity = (rpm * 2.0 * Math.PI * MAIN_WHEEL_RADIUS_METERS) / 60.0;
@@ -140,7 +130,7 @@ public final class ShotCalculator {
    * Get what RPM would be needed to achieve a target exit velocity at a given distance.
    *
    * @param targetExitVelocity Desired exit velocity in m/s
-   * @param distanceMeters Horizontal distance to target (for efficiency curve)
+   * @param distanceMeters Horizontal distance to target (unused, efficiency is constant)
    * @return Required wheel RPM
    */
   public static double calculateRPMForVelocity(double targetExitVelocity, double distanceMeters) {

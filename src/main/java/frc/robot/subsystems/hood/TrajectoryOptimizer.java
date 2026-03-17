@@ -279,7 +279,7 @@ public class TrajectoryOptimizer {
     }
     double velocity = Math.sqrt(vSquared);
 
-    // Convert exit velocity to RPM using distance-dependent efficiency
+    // Convert exit velocity to RPM using launch efficiency
     double rpm = ShotCalculator.calculateRPMForVelocity(velocity, horizontalDistanceM);
 
     // Check RPM limits
