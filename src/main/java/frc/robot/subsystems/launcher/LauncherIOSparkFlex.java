@@ -193,6 +193,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
           new DoubleSupplier[] {leaderMotor::getAppliedOutput, leaderMotor::getBusVoltage},
           (values) -> inputs.leaderAppliedVolts = values[0] * values[1]);
       ifOk(leaderMotor, leaderMotor::getOutputCurrent, (value) -> inputs.leaderCurrentAmps = value);
+      ifOk(leaderMotor, leaderController::getIAccum, (value) -> inputs.iAccum = value);
       inputs.leaderConnected = leaderConnectedDebounce.calculate(!sparkStickyFault);
       leaderConnection.update(inputs.leaderConnected);
     } else {

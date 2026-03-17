@@ -18,6 +18,7 @@ public interface LauncherIO {
     public double leaderAppliedVolts = 0.0;
     public double leaderCurrentAmps = 0.0;
     public double leaderTempCelsius = 0.0;
+    public double iAccum = 0.0;
 
     // Follower motor data (for monitoring even in follower mode)
     public double followerVelocityRPM = 0.0;
