@@ -69,6 +69,11 @@ public class Spindexer extends SubsystemBase {
   private boolean reciprocateForward = true;
   private final Timer reciprocateTimer = new Timer();
 
+  // Reverse kick — brief reverse pulse after reciprocation ends to push any partially-fed ball
+  // back.
+  private boolean reverseKickActive = false;
+  private final Timer reverseKickTimer = new Timer();
+
   private static final LoggedTunableNumber reciprocateRPM =
       new LoggedTunableNumber("Tuning/Spindexer/Reciprocate/RPM", 50.0);
   private static final LoggedTunableNumber reciprocateIntervalSec =
@@ -150,7 +155,7 @@ public class Spindexer extends SubsystemBase {
       autoUnclogAttempts = 0;
     }
 
-    // When no command owns the spindexer, handle unclog and idle reciprocation directly
+    // When no command owns the spindexer, handle unclog and reverse kick
     if (getCurrentCommand() == null) {
       if (unclogActive) {
         io.setSpindexerVelocity(-Math.abs(unclogRPM.get()));
@@ -158,8 +163,14 @@ public class Spindexer extends SubsystemBase {
       } else if (wasUnclogActive) {
         io.stopSpindexer();
         state = SpindexerState.STOPPED;
-      } else {
-        reciprocate();
+      } else if (reverseKickActive) {
+        // Reverse kick in progress — stop when one interval elapses
+        if (reverseKickTimer.hasElapsed(reciprocateIntervalSec.get())) {
+          reverseKickActive = false;
+          reverseKickTimer.stop();
+          io.stopSpindexer();
+          state = SpindexerState.STOPPED;
+        }
       }
     }
     wasUnclogActive = unclogActive;
@@ -323,8 +334,7 @@ public class Spindexer extends SubsystemBase {
 
   /**
    * Gently jostle fuel by alternating spindexer direction at low RPM. Call this each cycle when not
-   * actively feeding — it handles the timer and direction switching internally. Used by shooting
-   * commands during the "waiting for systems to spin up" gap, and by periodic() when fully idle.
+   * actively feeding — it handles the timer and direction switching internally.
    */
   public void reciprocate() {
     if (!SmartDashboard.getBoolean("Tuning/Spindexer/Reciprocate/Enabled", true)) {
@@ -347,6 +357,18 @@ public class Spindexer extends SubsystemBase {
     state = SpindexerState.RECIPROCATING;
   }
 
+  /**
+   * Stop reciprocation with a reverse kick — one interval in the opposite direction to push any
+   * partially-fed ball back. The kick runs autonomously in periodic() and stops itself.
+   */
+  public void stopReciprocateWithKick() {
+    double rpm = reciprocateRPM.get();
+    io.setSpindexerVelocity(reciprocateForward ? -rpm : rpm);
+    reverseKickActive = true;
+    reverseKickTimer.restart();
+    state = SpindexerState.RECIPROCATING;
+  }
+
   // ========== Commands ==========
 
   /**
@@ -356,6 +378,19 @@ public class Spindexer extends SubsystemBase {
    */
   public Command stopSpindexerCommand() {
     return runOnce(this::stopSpindexer).withName("Spindexer: Stop");
+  }
+
+  /**
+   * Command that reciprocates the spindexer while running. On cancel, starts a reverse kick — one
+   * interval in the opposite direction to push any partially-fed ball back. The kick runs
+   * autonomously in periodic() and stops itself after one reciprocation interval.
+   *
+   * @return Command that runs until interrupted
+   */
+  public Command reciprocateCommand() {
+    return run(this::reciprocate)
+        .finallyDo(this::stopReciprocateWithKick)
+        .withName("Spindexer: Reciprocate");
   }
 
   /**

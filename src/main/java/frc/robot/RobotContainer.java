@@ -432,7 +432,10 @@ public class RobotContainer {
 
   /** Returns true for any folder that should receive the comp wrapper. */
   private static boolean isCompFolder(String folder) {
-    return "Comp".equals(folder) || "CompSafe".equals(folder) || "CompSprint".equals(folder);
+    return "Comp".equals(folder)
+        || "CompSafe".equals(folder)
+        || "CompSprint".equals(folder)
+        || "CompStationaryShoot".equals(folder);
   }
 
   /** Folder-based default for start strategy. CompSprint sprints; everything else shoots first. */
@@ -445,9 +448,10 @@ public class RobotContainer {
   /** Folder-based default for path shooting. CompSprint auto-shoots; everything else waits. */
   private static AutoWrapperFactory.PathShootingStrategy defaultPathShootingStrategy(
       String folder) {
-    return "CompSprint".equals(folder)
-        ? AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT
-        : AutoWrapperFactory.PathShootingStrategy.END_OF_PATH;
+    if ("CompSprint".equals(folder)) return AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT;
+    if ("CompStationaryShoot".equals(folder))
+      return AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY;
+    return AutoWrapperFactory.PathShootingStrategy.END_OF_PATH;
   }
 
   /**
@@ -469,6 +473,9 @@ public class RobotContainer {
     pathShootingChooser.addOption(
         "End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
     pathShootingChooser.addOption("Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
+    pathShootingChooser.addOption(
+        "Auto Tracking, Stationary",
+        AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY);
     SmartDashboard.putData("Auton Path Shooting Strategy", pathShootingChooser);
   }
 
@@ -493,6 +500,8 @@ public class RobotContainer {
       pathName = "End of Path";
     else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT)
       pathName = "Auto Shoot";
+    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY)
+      pathName = "Auto Tracking, Stationary";
 
     // Write the desired default into the NT "selected" key so the dashboard + getSelected() update
     var nt = NetworkTableInstance.getDefault();
@@ -891,6 +900,7 @@ public class RobotContainer {
     return switch (folder) {
       case "Comp", "CompSafe" -> "[Comp] ";
       case "CompSprint" -> "[Sprint] ";
+      case "CompStationaryShoot" -> "[StationaryShoot] ";
       default -> "[Bare] ";
     };
   }

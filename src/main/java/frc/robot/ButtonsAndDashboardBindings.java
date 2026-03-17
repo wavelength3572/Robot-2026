@@ -389,6 +389,8 @@ public class ButtonsAndDashboardBindings {
     // Intake controls
     if (intake != null) {
       // Button 4: Deploy and run rollers while held; on release, stop rollers but stay deployed.
+      // Also reciprocates the spindexer to keep fuel loose while intaking.
+      // Bound as separate commands so shooting can interrupt the spindexer without killing intake.
       oi.getButtonBox1Button4()
           .whileTrue(
               Commands.startEnd(
@@ -398,6 +400,9 @@ public class ButtonsAndDashboardBindings {
                   },
                   intake::stopRollers,
                   intake));
+      if (spindexer != null) {
+        oi.getButtonBox1Button4().whileTrue(spindexer.reciprocateCommand());
+      }
 
       // Button 3: Retract and run rollers while held; on release, stop rollers but stay retracted
       oi.getButtonBox1Button3()

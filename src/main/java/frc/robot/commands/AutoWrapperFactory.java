@@ -42,7 +42,12 @@ public class AutoWrapperFactory {
   /** Whether to auto-shoot during the path or only fire after the path completes. */
   public enum PathShootingStrategy {
     END_OF_PATH,
-    AUTO_SHOOT
+    AUTO_SHOOT,
+    /**
+     * Always track hub (turret/launcher/motivator spin up); only fire when stationary in near
+     * trench or alliance zone. Hood tracks in near trench and alliance only (not far trench).
+     */
+    AUTO_TRACKING_STATIONARY
   }
 
   // ---- Public wrapper assembler ----
@@ -66,31 +71,50 @@ public class AutoWrapperFactory {
 
     List<Command> steps = new ArrayList<>();
 
-    // Always: reset odometry, sim setup, deploy intake
+    // Always: reset odometry, sim setup
     steps.add(resetOdometry(drive, startingPose));
     steps.add(simSetup(coordinator));
-    steps.add(deployIntake(intake));
 
     // Start strategy
     if (startStrategy == StartStrategy.SHOOT_PRELOADS) {
       steps.add(initialSmartLaunch(launcher, coordinator, motivator, turret, hood, spindexer));
-      steps.add(stowHood(hood));
     }
 
-    // Path shooting: run continuous SmartLaunch in parallel with path if requested.
+    // Build the path command with shooting and intake deploy in parallel.
+    // Intake deploy and hood stow (if SHOOT_PRELOADS) run alongside the path instead of
+    // sequentially before it, saving ~0.25-1.0s of auto time.
+    List<Command> pathParallel = new ArrayList<>();
+
     // SPRINT autos suppress feeding until the robot first enters a pass zone.
     if (pathStrategy == PathShootingStrategy.AUTO_SHOOT) {
       boolean armOnPassZone = (startStrategy == StartStrategy.SPRINT);
-      steps.add(
-          Commands.parallel(
-              runPath(selectedAuto),
-              ShootingCommands.continuousSmartLaunchCommand(
-                      launcher, coordinator, motivator, turret, hood, spindexer, armOnPassZone)
-                  .asProxy()));
+      pathParallel.add(runPath(selectedAuto));
+      pathParallel.add(
+          ShootingCommands.continuousSmartLaunchCommand(
+                  launcher, coordinator, motivator, turret, hood, spindexer, armOnPassZone)
+              .asProxy());
+    } else if (pathStrategy == PathShootingStrategy.AUTO_TRACKING_STATIONARY) {
+      pathParallel.add(runPath(selectedAuto));
+      pathParallel.add(
+          ShootingCommands.autoTrackingStationaryCommand(
+                  launcher, coordinator, motivator, turret, hood, spindexer)
+              .asProxy());
     } else {
-      // Always: run the path
-      steps.add(runPath(selectedAuto));
+      // END_OF_PATH: run the path only
+      pathParallel.add(runPath(selectedAuto));
     }
+
+    // Deploy intake in parallel with path start instead of sequentially before
+    pathParallel.add(deployIntake(intake));
+
+    // Stow hood in parallel with path start (after preload shooting) instead of blocking.
+    // Skip for AUTO_TRACKING_STATIONARY — the tracking command manages the hood itself.
+    if (startStrategy == StartStrategy.SHOOT_PRELOADS
+        && pathStrategy != PathShootingStrategy.AUTO_TRACKING_STATIONARY) {
+      pathParallel.add(stowHood(hood));
+    }
+
+    steps.add(Commands.parallel(pathParallel.toArray(Command[]::new)));
 
     // Always: fire remaining balls after path (with agitation to shake loose stuck balls)
     steps.add(
@@ -148,7 +172,7 @@ public class AutoWrapperFactory {
       Spindexer spindexer) {
     return ShootingCommands.smartLaunchCommand(
             launcher, coordinator, motivator, turret, hood, spindexer)
-        .withTimeout(5.0)
+        .withTimeout(3.5)
         .asProxy();
   }
 
@@ -165,7 +189,6 @@ public class AutoWrapperFactory {
   private static Command runPath(Command selectedAuto) {
     return selectedAuto.asProxy();
   }
-
 
   private static Command postPathSmartLaunchWithAgitation(
       Launcher launcher,
@@ -185,7 +208,6 @@ public class AutoWrapperFactory {
     }
     return smartLaunch;
   }
-
 
   private static void teardown(Launcher launcher, Motivator motivator, Intake intake) {
     if (launcher != null) {

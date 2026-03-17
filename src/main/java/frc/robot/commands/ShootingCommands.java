@@ -1,6 +1,7 @@
 package frc.robot.commands;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -16,6 +17,7 @@ import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
+import frc.robot.util.ZoneDetector;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
 
@@ -513,17 +515,10 @@ public class ShootingCommands {
                         motivator)
                     : Commands.none(),
 
-                // Run spindexer to feed fuel (gated on turret alignment, reciprocate while waiting)
+                // Run spindexer to feed fuel continuously (fixed shots are stationary presets)
                 spindexer != null
                     ? Commands.run(
-                        () -> {
-                          if (turret.atTarget()) {
-                            spindexer.setSpindexerVelocity(spindexerRPMSupplier.getAsDouble());
-                          } else {
-                            spindexer.reciprocate();
-                          }
-                          Logger.recordOutput("FixedShot/FeedingSuppressed", !turret.atTarget());
-                        },
+                        () -> spindexer.setSpindexerVelocity(spindexerRPMSupplier.getAsDouble()),
                         spindexer)
                     : Commands.none(),
 
@@ -787,21 +782,35 @@ public class ShootingCommands {
                         motivator)
                     : Commands.none(),
 
-                // Run spindexer to feed fuel (gated on turret alignment + optionally robot speed,
-                // reciprocate while waiting)
+                // Run spindexer: teleop always feeds (operator is holding shoot button),
+                // auto feeds when slow enough, reciprocates when too fast (transiting)
                 spindexer != null
                     ? Commands.run(
-                        () -> {
-                          boolean feedOk =
-                              turret.atTarget() && coordinator.isRobotSlowEnoughForCurrentZone();
-                          if (feedOk) {
+                        new Runnable() {
+                          boolean wasReciprocating = false;
+
+                          @Override
+                          public void run() {
                             double dist = coordinator.getDistanceToTarget();
                             double spnRPM = getSpindexerRPM(dist > 0 ? dist : 1.16);
-                            spindexer.setSpindexerVelocity(spnRPM);
-                          } else {
-                            spindexer.reciprocate();
+                            if (DriverStation.isTeleop()
+                                || coordinator.isRobotSlowEnoughForCurrentZone()) {
+                              wasReciprocating = false;
+                              spindexer.setSpindexerVelocity(spnRPM);
+                            } else if (DriverStation.isAutonomous()) {
+                              wasReciprocating = true;
+                              spindexer.reciprocate();
+                            } else if (wasReciprocating) {
+                              wasReciprocating = false;
+                              spindexer.stopReciprocateWithKick();
+                            } else {
+                              spindexer.stopSpindexer();
+                            }
+                            Logger.recordOutput(
+                                "SmartLaunch/Feeding",
+                                DriverStation.isTeleop()
+                                    || coordinator.isRobotSlowEnoughForCurrentZone());
                           }
-                          Logger.recordOutput("SmartLaunch/FeedingSuppressed", !feedOk);
                         },
                         spindexer)
                     : Commands.none(),
@@ -1020,10 +1029,9 @@ public class ShootingCommands {
                 },
                 launcher),
 
-            // Turret — track target (only when armed)
+            // Turret — always track target so it's pre-aimed when feeding arms
             Commands.run(
                 () -> {
-                  if (!feedingArmed[0]) return;
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
                     turret.setOutsideTurretAngle(shot.turretAngleDeg());
@@ -1060,31 +1068,45 @@ public class ShootingCommands {
                     motivator)
                 : Commands.none(),
 
-            // Spindexer — feed fuel (gated on armed + launcher ready + turret aimed + zone speed)
+            // Spindexer — feed fuel (gated on armed + launcher ready + turret aimed + zone speed,
+            // reciprocate in neutral zone only when launcher is at speed, hold still otherwise)
             spindexer != null
                 ? Commands.run(
-                    () -> {
-                      boolean armed = feedingArmed[0];
-                      boolean launcherReady = launcher.atSetpoint();
-                      boolean turretAimed = turret.atTarget();
-                      boolean speedOk = coordinator.isRobotSlowEnoughForCurrentZone();
-                      Logger.recordOutput("ContinuousSmartLaunch/Gate/Armed", armed);
-                      Logger.recordOutput(
-                          "ContinuousSmartLaunch/Gate/LauncherReady", launcherReady);
-                      Logger.recordOutput("ContinuousSmartLaunch/Gate/TurretAimed", turretAimed);
-                      Logger.recordOutput("ContinuousSmartLaunch/Gate/SpeedOk", speedOk);
-                      boolean feedOk = armed && launcherReady && turretAimed && speedOk;
-                      if (feedOk) {
-                        // Enable recovery boost now that we're actually feeding into
-                        // a launcher that's at speed (not before — see arming monitor)
-                        launcher.setFeedingActive(true);
-                        double dist = coordinator.getDistanceToTarget();
-                        double spnRPM = getSpindexerRPM(dist > 0 ? dist : 1.16);
-                        spindexer.setSpindexerVelocity(spnRPM);
-                      } else {
-                        spindexer.reciprocate();
+                    new Runnable() {
+                      boolean wasReciprocating = false;
+
+                      @Override
+                      public void run() {
+                        boolean armed = feedingArmed[0];
+                        boolean launcherReady = launcher.atSetpoint();
+                        boolean turretAimed = turret.atTarget();
+                        boolean speedOk = coordinator.isRobotSlowEnoughForCurrentZone();
+                        Logger.recordOutput("ContinuousSmartLaunch/Gate/Armed", armed);
+                        Logger.recordOutput(
+                            "ContinuousSmartLaunch/Gate/LauncherReady", launcherReady);
+                        Logger.recordOutput("ContinuousSmartLaunch/Gate/TurretAimed", turretAimed);
+                        Logger.recordOutput("ContinuousSmartLaunch/Gate/SpeedOk", speedOk);
+                        boolean feedOk = armed && launcherReady && turretAimed && speedOk;
+                        boolean spindexerFeedOk = armed && turretAimed && speedOk;
+                        if (feedOk) {
+                          launcher.setFeedingActive(true);
+                        }
+                        if (spindexerFeedOk) {
+                          wasReciprocating = false;
+                          double dist = coordinator.getDistanceToTarget();
+                          double spnRPM = getSpindexerRPM(dist > 0 ? dist : 1.16);
+                          spindexer.setSpindexerVelocity(spnRPM);
+                        } else if (!speedOk) {
+                          wasReciprocating = true;
+                          spindexer.reciprocate();
+                        } else if (wasReciprocating) {
+                          wasReciprocating = false;
+                          spindexer.stopReciprocateWithKick();
+                        } else {
+                          spindexer.stopSpindexer();
+                        }
+                        Logger.recordOutput("ContinuousSmartLaunch/FeedingSuppressed", !feedOk);
                       }
-                      Logger.recordOutput("ContinuousSmartLaunch/FeedingSuppressed", !feedOk);
                     },
                     spindexer)
                 : Commands.none(),
@@ -1122,6 +1144,213 @@ public class ShootingCommands {
                       + (armOnPassZone ? " (waiting for pass zone)" : " (armed immediately)"));
             })
         .withName("ContinuousSmartLaunch");
+  }
+
+  /**
+   * Auto-tracking stationary shooting command. Continuously tracks the hub (turret, launcher,
+   * motivator) in far trench, near trench, and alliance zones, but only feeds the spindexer when
+   * the robot is stationary in near trench or alliance zone. Hood tracks target angle in near
+   * trench and alliance zone only — in far trench the hood stays at min angle for safety.
+   *
+   * <p>Designed for autos where the path stops in a shooting zone to fire automatically, without
+   * needing explicit shoot commands in the path.
+   *
+   * @param launcher The launcher subsystem
+   * @param coordinator The shooting coordinator
+   * @param motivator The motivator subsystem (can be null)
+   * @param turret The turret subsystem
+   * @param hood The hood subsystem (can be null)
+   * @param spindexer The spindexer subsystem (can be null)
+   * @return Command that tracks continuously and fires when stationary in a safe zone
+   */
+  public static Command autoTrackingStationaryCommand(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer) {
+    final boolean[] motivatorStarted = {false};
+
+    return Commands.parallel(
+            // Launcher — spin to hub RPM in tracking zones, idle otherwise
+            Commands.run(
+                () -> {
+                  ZoneDetector.Zone zone = coordinator.getCurrentZone();
+                  boolean inTrackZone =
+                      zone == ZoneDetector.Zone.TRENCH_FAR
+                          || zone == ZoneDetector.Zone.TRENCH_NEAR
+                          || zone == ZoneDetector.Zone.ALLIANCE;
+                  if (!inTrackZone) {
+                    launcher.setVelocity(2000);
+                    return;
+                  }
+                  ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                  if (shot != null) {
+                    double rpm = getEffectiveRPM(shot);
+                    double hoodDeg = getEffectiveHoodDeg(shot);
+                    launcher.setVelocity(rpm);
+                    coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
+                  }
+                },
+                launcher),
+
+            // Turret — track hub in tracking zones only
+            Commands.run(
+                () -> {
+                  ZoneDetector.Zone zone = coordinator.getCurrentZone();
+                  boolean inTrackZone =
+                      zone == ZoneDetector.Zone.TRENCH_FAR
+                          || zone == ZoneDetector.Zone.TRENCH_NEAR
+                          || zone == ZoneDetector.Zone.ALLIANCE;
+                  if (!inTrackZone) return;
+                  ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                  if (shot != null) {
+                    turret.setOutsideTurretAngle(shot.turretAngleDeg());
+                  }
+                },
+                turret),
+
+            // Hood — track target in near trench and alliance only.
+            // In far trench, hold at min angle (not safe to raise under trench ceiling).
+            // Outside tracking zones, do nothing.
+            hood != null
+                ? Commands.run(
+                    () -> {
+                      ZoneDetector.Zone zone = coordinator.getCurrentZone();
+                      if (zone == ZoneDetector.Zone.TRENCH_FAR) {
+                        hood.setHoodAngle(hood.getMinAngle());
+                        return;
+                      }
+                      if (zone != ZoneDetector.Zone.TRENCH_NEAR
+                          && zone != ZoneDetector.Zone.ALLIANCE) {
+                        return;
+                      }
+                      ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                      if (shot != null) {
+                        hood.setHoodAngle(getEffectiveHoodDeg(shot));
+                      }
+                    },
+                    hood)
+                : Commands.none(),
+
+            // Motivator — spin in tracking zones once launcher is ready
+            motivator != null
+                ? Commands.run(
+                    () -> {
+                      ZoneDetector.Zone zone = coordinator.getCurrentZone();
+                      boolean inTrackZone =
+                          zone == ZoneDetector.Zone.TRENCH_FAR
+                              || zone == ZoneDetector.Zone.TRENCH_NEAR
+                              || zone == ZoneDetector.Zone.ALLIANCE;
+                      if (!inTrackZone) {
+                        motivatorStarted[0] = false;
+                        return;
+                      }
+                      if (!motivatorStarted[0]) {
+                        if (!launcher.atSetpoint()) return;
+                        motivatorStarted[0] = true;
+                      }
+                      ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                      double launcherRPM = getEffectiveRPM(s);
+                      motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                    },
+                    motivator)
+                : Commands.none(),
+
+            // Spindexer — feed only when stationary in near trench or alliance zone
+            spindexer != null
+                ? Commands.run(
+                    () -> {
+                      ZoneDetector.Zone zone = coordinator.getCurrentZone();
+                      boolean inShootZone =
+                          zone == ZoneDetector.Zone.TRENCH_NEAR
+                              || zone == ZoneDetector.Zone.ALLIANCE;
+                      boolean stationary = coordinator.isRobotStationary();
+                      boolean launcherReady = launcher.atSetpoint();
+                      boolean turretAimed = turret.atTarget();
+
+                      Logger.recordOutput("AutoTrackStationary/Gate/InShootZone", inShootZone);
+                      Logger.recordOutput("AutoTrackStationary/Gate/Stationary", stationary);
+                      Logger.recordOutput("AutoTrackStationary/Gate/LauncherReady", launcherReady);
+                      Logger.recordOutput("AutoTrackStationary/Gate/TurretAimed", turretAimed);
+
+                      boolean feedOk = inShootZone && stationary && launcherReady && turretAimed;
+                      if (feedOk) {
+                        launcher.setFeedingActive(true);
+                        double dist = coordinator.getDistanceToTarget();
+                        double spnRPM = getSpindexerRPM(dist > 0 ? dist : 1.16);
+                        spindexer.setSpindexerVelocity(spnRPM);
+                      } else {
+                        spindexer.reciprocate();
+                      }
+                      Logger.recordOutput("AutoTrackStationary/FeedingSuppressed", !feedOk);
+                    },
+                    spindexer)
+                : Commands.none(),
+
+            // Fire balls in simulation
+            coordinator != null
+                ? createAutoTrackingSimFiringLoop(coordinator, launcher, motivator, turret, hood)
+                : Commands.none())
+        .finallyDo(
+            () -> {
+              launcher.setFeedingActive(false);
+              launcher.stop();
+              if (motivator != null) {
+                motivator.stopMotivator();
+              }
+              if (spindexer != null) {
+                spindexer.stopSpindexer();
+              }
+              if (hood != null) {
+                hood.setHoodAngle(hood.getMinAngle());
+              }
+              Logger.recordOutput("AutoTrackStationary/Active", false);
+            })
+        .beforeStarting(
+            () -> {
+              launcher.setFeedingActive(true);
+              Logger.recordOutput("AutoTrackStationary/Active", true);
+              System.out.println("[AutoTrackStationary] Started");
+            })
+        .withName("AutoTrackStationary");
+  }
+
+  /**
+   * Sim firing loop for auto-tracking stationary. Gates on stationary + in shoot zone (near trench
+   * or alliance).
+   */
+  private static Command createAutoTrackingSimFiringLoop(
+      ShootingCoordinator coordinator,
+      Launcher launcher,
+      Motivator motivator,
+      Turret turret,
+      Hood hood) {
+    return Commands.sequence(
+            Commands.waitUntil(
+                () -> {
+                  ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                  boolean subsReady = isAllSubsystemsReady(launcher, motivator, turret, hood, shot);
+                  boolean stationary = coordinator.isRobotStationary();
+                  ZoneDetector.Zone zone = coordinator.getCurrentZone();
+                  boolean inShootZone =
+                      zone == ZoneDetector.Zone.TRENCH_NEAR || zone == ZoneDetector.Zone.ALLIANCE;
+                  return subsReady && stationary && inShootZone;
+                }),
+            Commands.runOnce(
+                () -> {
+                  ShotVisualizer visualizer = coordinator.getVisualizer();
+                  if (visualizer != null && visualizer.getFuelCount() <= 0) return;
+                  coordinator.launchFuel();
+                  launcher.notifyBallFired();
+                  Logger.recordOutput("Shots/ShotLog/LastShotTime", Timer.getFPGATimestamp());
+
+                  int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
+                  Logger.recordOutput("Shots/ShotLog/FuelRemaining", fuelRemaining);
+                }),
+            Commands.waitSeconds(MIN_SHOT_INTERVAL_SECONDS))
+        .repeatedly();
   }
 
   /**

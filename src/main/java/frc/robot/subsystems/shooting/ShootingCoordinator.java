@@ -974,6 +974,31 @@ public class ShootingCoordinator extends SubsystemBase {
         || aimResult.mode() == TurretAimingHelper.AimMode.LONG_PASS;
   }
 
+  /**
+   * Get the current zone the robot is in.
+   *
+   * @return Current zone, or ALLIANCE as fallback if pose is unavailable
+   */
+  public ZoneDetector.Zone getCurrentZone() {
+    if (robotPoseSupplier == null) return ZoneDetector.Zone.ALLIANCE;
+    Pose2d robotPose = robotPoseSupplier.get();
+    DriverStation.Alliance alliance = RobotStatus.getAlliance();
+    return ZoneDetector.getCurrentZone(robotPose.getX(), robotPose.getY(), alliance);
+  }
+
+  /**
+   * Check if the robot is stationary (speed <= stationarySpeedMps tunable). Used by auto-tracking
+   * stationary shooting strategy.
+   *
+   * @return true if the robot speed is within the stationary threshold
+   */
+  public boolean isRobotStationary() {
+    if (fieldSpeedsSupplier == null) return true;
+    ChassisSpeeds speeds = fieldSpeedsSupplier.get();
+    double robotSpeedMps = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
+    return robotSpeedMps <= stationarySpeedMps.get();
+  }
+
   // ========== Trench Avoidance Mode ==========
 
   /**
