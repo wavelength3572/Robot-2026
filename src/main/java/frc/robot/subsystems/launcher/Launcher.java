@@ -25,7 +25,6 @@ public class Launcher extends SubsystemBase {
     IDLE,
     SPINNING_UP,
     READY,
-    FEEDING,
     RECOVERING,
     DISCONNECTED
   }
@@ -132,12 +131,10 @@ public class Launcher extends SubsystemBase {
       currentState = LauncherState.DISCONNECTED;
     } else if (inputs.targetVelocityRPM < 100.0) {
       currentState = LauncherState.IDLE;
-    } else if (recoveryActive) {
-      currentState = LauncherState.RECOVERING;
-    } else if (feedingActive) {
-      currentState = LauncherState.FEEDING;
     } else if (inputs.atSetpoint) {
       currentState = LauncherState.READY;
+    } else if (recoveryActive) {
+      currentState = LauncherState.RECOVERING;
     } else {
       currentState = LauncherState.SPINNING_UP;
     }
@@ -242,6 +239,15 @@ public class Launcher extends SubsystemBase {
    */
   public LauncherState getState() {
     return currentState;
+  }
+
+  /**
+   * Whether the launcher should be considered ready for firing. True when at setpoint (READY) or
+   * actively recovering from an RPM dip after a shot (RECOVERING). Recovery dips are expected
+   * during multi-ball sequences and should not gate firing.
+   */
+  public boolean isReady() {
+    return currentState == LauncherState.READY || currentState == LauncherState.RECOVERING;
   }
 
   /**

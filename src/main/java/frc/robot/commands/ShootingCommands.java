@@ -440,7 +440,7 @@ public class ShootingCommands {
                     Commands.waitUntil(
                         () -> {
                           boolean launcherReady =
-                              launcher.getState() == Launcher.LauncherState.READY;
+                              launcher.isReady();
                           boolean motivatorReady =
                               motivator == null
                                   || motivator.getState() == Motivator.MotivatorState.READY;
@@ -455,7 +455,7 @@ public class ShootingCommands {
                     Commands.waitUntil(
                         () -> {
                           boolean launcherReady =
-                              launcher.getState() == Launcher.LauncherState.READY;
+                              launcher.isReady();
                           boolean motivatorReady =
                               motivator == null
                                   || motivator.getState() == Motivator.MotivatorState.READY;
@@ -641,7 +641,7 @@ public class ShootingCommands {
                           }
 
                           boolean launcherReady =
-                              launcher.getState() == Launcher.LauncherState.READY;
+                              launcher.isReady();
                           boolean motivatorReady =
                               motivator == null
                                   || motivator.getState() == Motivator.MotivatorState.READY;
@@ -675,7 +675,7 @@ public class ShootingCommands {
                         () -> {
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                           boolean launcherReady =
-                              launcher.getState() == Launcher.LauncherState.READY;
+                              launcher.isReady();
                           boolean motivatorReady =
                               motivator == null
                                   || motivator.getState() == Motivator.MotivatorState.READY;
@@ -699,7 +699,7 @@ public class ShootingCommands {
                         () -> {
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                           boolean launcherReady =
-                              launcher.getState() == Launcher.LauncherState.READY;
+                              launcher.isReady();
                           boolean motivatorReady =
                               motivator == null
                                   || motivator.getState() == Motivator.MotivatorState.READY;
@@ -956,8 +956,7 @@ public class ShootingCommands {
       Turret turret,
       Hood hood,
       ShotCalculator.ShotResult shot) {
-    Launcher.LauncherState ls = launcher.getState();
-    return (ls == Launcher.LauncherState.READY || ls == Launcher.LauncherState.FEEDING)
+    return launcher.isReady()
         && (motivator == null || motivator.getState() == Motivator.MotivatorState.READY)
         && turret.getState() == Turret.TurretState.READY
         && (hood == null || hood.getState() == Hood.HoodState.READY)
@@ -1095,7 +1094,7 @@ public class ShootingCommands {
                       public void run() {
                         boolean armed = feedingArmed[0];
                         boolean launcherReady =
-                            launcher.getState() == Launcher.LauncherState.READY;
+                            launcher.isReady();
                         boolean turretAimed =
                             turret.getState() == Turret.TurretState.READY;
                         boolean speedOk = coordinator.isRobotSlowEnoughForCurrentZone();
@@ -1286,7 +1285,7 @@ public class ShootingCommands {
                               || zone == ZoneDetector.Zone.ALLIANCE;
                       boolean stationary = coordinator.isRobotStationary();
                       boolean launcherReady =
-                          launcher.getState() == Launcher.LauncherState.READY;
+                          launcher.isReady();
                       boolean turretAimed =
                           turret.getState() == Turret.TurretState.READY;
 
@@ -1430,8 +1429,7 @@ public class ShootingCommands {
             Commands.waitUntil(
                 () ->
                     turret.getState() == Turret.TurretState.READY
-                        && (launcher.getState() == Launcher.LauncherState.READY
-                            || launcher.getState() == Launcher.LauncherState.FEEDING)
+                        && launcher.isReady()
                         && coordinator.isRobotSlowEnoughForCurrentZone()),
             Commands.runOnce(
                 () -> {
