@@ -322,6 +322,11 @@ public class Drive extends SubsystemBase {
     return getPose().getRotation();
   }
 
+  /** Returns the current gyro pitch in degrees (positive = nose up). */
+  public double getPitchDeg() {
+    return gyroInputs.pitchDeg;
+  }
+
   /**
    * Returns the pose projected forward by the aim phase delay, accounting for current velocity. Use
    * this for aiming calculations that need to compensate for control loop latency.

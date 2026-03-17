@@ -77,7 +77,8 @@ public class IndicatorLight extends SubsystemBase {
   private double warningRemainingTime = 5.0;
 
   // Turret encoder validation supplier (set by RobotContainer)
-  private Supplier<TurretEncoderStatus> turretEncoderStatusSupplier = () -> TurretEncoderStatus.VALID;
+  private Supplier<TurretEncoderStatus> turretEncoderStatusSupplier =
+      () -> TurretEncoderStatus.VALID;
 
   // Emergency strobe state
   private double strobePhaseStartTime = 0.0;

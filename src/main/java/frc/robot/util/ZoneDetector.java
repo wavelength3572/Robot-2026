@@ -52,11 +52,17 @@ public class ZoneDetector {
   /** Tracks the current X-based zone to apply hysteresis. */
   private static Zone currentXZone = Zone.ALLIANCE;
 
+  /** Minimum gyro pitch (degrees) to confirm the robot is actually on a bump. */
+  private static final double BUMP_PITCH_THRESHOLD_DEG = 5.0;
+
   /**
    * Determine the robot's current zone.
    *
    * <p>2D zones (BUMP, TRENCH) take priority over X-based zones. Margins are set to the robot's
    * half-extent so the zone triggers when any part of the robot overlaps the physical element.
+   *
+   * <p>BUMP requires BOTH position overlap AND gyro tilt above threshold to avoid false positives.
+   * If the robot is in the bump rectangle but level, it falls through to the X-based zone.
    *
    * @param robotX Robot X position (field coords)
    * @param robotY Robot Y position (field coords)
@@ -64,8 +70,24 @@ public class ZoneDetector {
    * @return The active zone
    */
   public static Zone getCurrentZone(double robotX, double robotY, Alliance alliance) {
+    return getCurrentZone(robotX, robotY, alliance, 0.0);
+  }
+
+  /**
+   * Determine the robot's current zone, with gyro pitch for bump confirmation.
+   *
+   * @param robotX Robot X position (field coords)
+   * @param robotY Robot Y position (field coords)
+   * @param alliance Current alliance
+   * @param robotPitchDeg Absolute gyro pitch in degrees (positive = nose up)
+   * @return The active zone
+   */
+  public static Zone getCurrentZone(
+      double robotX, double robotY, Alliance alliance, double robotPitchDeg) {
     // --- Priority 1: 2D obstacle zones (robot-size margins) ---
-    if (FieldConstants.BumpZones.isInAnyBumpZone(robotX, robotY, ROBOT_HALF_EXTENT)) {
+    // BUMP requires both position AND tilt — if flat, fall through to X-based zone
+    if (FieldConstants.BumpZones.isInAnyBumpZone(robotX, robotY, ROBOT_HALF_EXTENT)
+        && Math.abs(robotPitchDeg) >= BUMP_PITCH_THRESHOLD_DEG) {
       return Zone.BUMP;
     }
     if (FieldConstants.TrenchZones.isInAnyTrenchZone(robotX, robotY, ROBOT_HALF_EXTENT)) {

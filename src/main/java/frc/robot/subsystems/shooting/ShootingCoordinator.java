@@ -22,6 +22,7 @@ import frc.robot.util.RobotStatus;
 import frc.robot.util.TurretAimingHelper;
 import frc.robot.util.ZoneDetector;
 import java.util.function.BooleanSupplier;
+import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
 
@@ -73,6 +74,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private int periodicCounter = 0;
   private Supplier<Pose2d> robotPoseSupplier = null;
   private Supplier<ChassisSpeeds> fieldSpeedsSupplier = null;
+  private DoubleSupplier pitchDegSupplier = () -> 0.0;
 
   // Optional feeding suppression check — when true, launchFuel() is a no-op
   private BooleanSupplier feedingSuppressedSupplier = () -> false;
@@ -185,8 +187,23 @@ public class ShootingCoordinator extends SubsystemBase {
    * @param speedsSupplier Supplier for field-relative chassis speeds
    */
   public void initialize(Supplier<Pose2d> poseSupplier, Supplier<ChassisSpeeds> speedsSupplier) {
+    initialize(poseSupplier, speedsSupplier, () -> 0.0);
+  }
+
+  /**
+   * Initialize the coordinator with robot pose, speed, and pitch suppliers.
+   *
+   * @param poseSupplier Supplier for robot's 2D pose
+   * @param speedsSupplier Supplier for field-relative chassis speeds
+   * @param pitchDegSupplier Supplier for gyro pitch in degrees (for bump detection)
+   */
+  public void initialize(
+      Supplier<Pose2d> poseSupplier,
+      Supplier<ChassisSpeeds> speedsSupplier,
+      DoubleSupplier pitchDegSupplier) {
     this.robotPoseSupplier = poseSupplier;
     this.fieldSpeedsSupplier = speedsSupplier;
+    this.pitchDegSupplier = pitchDegSupplier;
 
     // Create 3D pose supplier from 2D pose
     Supplier<Pose3d> pose3dSupplier =
@@ -253,7 +270,8 @@ public class ShootingCoordinator extends SubsystemBase {
       // trench/bump detection using robot-size margins. Trench clamping activates when
       // any part of the robot overlaps a trench zone.
       TurretAimingHelper.AimResult aimResult =
-          TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
+          TurretAimingHelper.getAimTarget(
+            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
       trenchModeActive =
           aimResult.zone() == ZoneDetector.Zone.TRENCH_NEAR
               || aimResult.zone() == ZoneDetector.Zone.TRENCH_FAR
@@ -856,14 +874,12 @@ public class ShootingCoordinator extends SubsystemBase {
       // motivator's contribution to ball speed. Solving for the velocity that hits the target
       // at the given launch angle matches real-world LUT shot behavior.
       double distanceToTarget =
-          Math.sqrt(
-              Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
+          Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
       double heightDelta = target.getZ() - turretConfig.heightMeters();
       double launchAngle = currentShot.launchAngleRad();
       double cosTheta = Math.cos(launchAngle);
       double tanTheta = Math.tan(launchAngle);
-      double denom =
-          2.0 * cosTheta * cosTheta * (distanceToTarget * tanTheta - heightDelta);
+      double denom = 2.0 * cosTheta * cosTheta * (distanceToTarget * tanTheta - heightDelta);
       double actualExitVelocity =
           (denom > 0 && distanceToTarget >= 0.1)
               ? Math.sqrt(9.81 * distanceToTarget * distanceToTarget / denom)
@@ -962,7 +978,8 @@ public class ShootingCoordinator extends SubsystemBase {
     Pose2d robotPose = robotPoseSupplier.get();
     DriverStation.Alliance alliance = RobotStatus.getAlliance();
     TurretAimingHelper.AimResult aimResult =
-        TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
+        TurretAimingHelper.getAimTarget(
+            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
 
     return switch (aimResult.mode()) {
       case SHOOT_ON_THE_MOVE -> robotSpeedMps <= shootOnTheMoveSpeedMps.get();
@@ -983,7 +1000,8 @@ public class ShootingCoordinator extends SubsystemBase {
     Pose2d robotPose = robotPoseSupplier.get();
     DriverStation.Alliance alliance = RobotStatus.getAlliance();
     TurretAimingHelper.AimResult aimResult =
-        TurretAimingHelper.getAimTarget(robotPose.getX(), robotPose.getY(), alliance);
+        TurretAimingHelper.getAimTarget(
+            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
     return aimResult.mode() == TurretAimingHelper.AimMode.PASS
         || aimResult.mode() == TurretAimingHelper.AimMode.LONG_PASS;
   }
@@ -997,7 +1015,8 @@ public class ShootingCoordinator extends SubsystemBase {
     if (robotPoseSupplier == null) return ZoneDetector.Zone.ALLIANCE;
     Pose2d robotPose = robotPoseSupplier.get();
     DriverStation.Alliance alliance = RobotStatus.getAlliance();
-    return ZoneDetector.getCurrentZone(robotPose.getX(), robotPose.getY(), alliance);
+    return ZoneDetector.getCurrentZone(
+        robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
   }
 
   /**

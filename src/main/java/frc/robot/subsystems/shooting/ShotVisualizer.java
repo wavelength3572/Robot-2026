@@ -339,8 +339,7 @@ public class ShotVisualizer {
       double horizontalDistance, double heightDelta, double launchAngleRad) {
     double cosTheta = Math.cos(launchAngleRad);
     double tanTheta = Math.tan(launchAngleRad);
-    double denominator =
-        2.0 * cosTheta * cosTheta * (horizontalDistance * tanTheta - heightDelta);
+    double denominator = 2.0 * cosTheta * cosTheta * (horizontalDistance * tanTheta - heightDelta);
 
     if (denominator <= 0 || horizontalDistance < 0.1) {
       // No valid ballistic solution — target unreachable at this angle
