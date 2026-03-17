@@ -28,11 +28,12 @@ public final class ShotCalculator {
 
   // Distance-dependent slip/compression efficiency, derived from LUT calibration data.
   // Formula: efficiency = A*d^2 + B*d + C, where d = distance to target in meters.
-  // Peaks ~0.785 at mid-range, drops at close range (steep angle) and long range (flat/high slip).
-  // Recalculate these coefficients when updating ShotTableConstants baseline data.
-  private static final double EFFICIENCY_A = -0.0232;
-  private static final double EFFICIENCY_B = 0.1311;
-  private static final double EFFICIENCY_C = 0.5929;
+  // Accounts for motivator contribution to ball speed (motivator runs at ~56.5% of launcher RPM).
+  // Recalculated from ShotTableConstants baseline data (March 2026) — old coefficients ignored
+  // motivator and underestimated exit velocity by up to 20% at long range.
+  private static final double EFFICIENCY_A = -0.0131;
+  private static final double EFFICIENCY_B = 0.0942;
+  private static final double EFFICIENCY_C = 0.6257;
   private static final double EFFICIENCY_MIN = 0.50; // floor to prevent nonsense at extreme range
   private static final double EFFICIENCY_MAX = 0.85; // ceiling
 
