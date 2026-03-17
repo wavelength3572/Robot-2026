@@ -382,7 +382,7 @@ public class ShootingCoordinator extends SubsystemBase {
         case PASS -> {
           PassingStrategy strategy = passingStrategyChooser.getSelected();
 
-          if (strategy == PassingStrategy.DRIVER_STATION) {
+          if (strategy == PassingStrategy.DRIVER_STATION && !isTooCloseToHub(robotPose)) {
             Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass Lob");
             var location = DriverStation.getLocation();
             int station = location.isPresent() ? location.getAsInt() : 2;
@@ -393,7 +393,12 @@ public class ShootingCoordinator extends SubsystemBase {
             calculatePassToTarget(
                 robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
           } else {
-            Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass Low");
+            // Symmetric low pass (also used as fallback when too close to hub for lob)
+            if (strategy == PassingStrategy.DRIVER_STATION) {
+              Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass Low (hub fallback)");
+            } else {
+              Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass Low");
+            }
             boolean isLeftTrench = selectIsLeftTrench(robotPose);
             Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
             Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
@@ -415,6 +420,25 @@ public class ShootingCoordinator extends SubsystemBase {
         }
       }
     }
+  }
+
+  /** Check if turret is too close to hub center for a reliable lob pass (< 2m). */
+  private boolean isTooCloseToHub(Pose2d robotPose) {
+    double robotHeadingRad = robotPose.getRotation().getRadians();
+    double[] turretFieldPos =
+        ShotCalculator.getTurretFieldPosition(
+            robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
+    boolean isBlue = RobotStatus.isBlueAlliance();
+    double hubCenterX =
+        isBlue
+            ? FieldConstants.LinesVertical.hubCenter
+            : FieldConstants.LinesVertical.oppHubCenter;
+    double hubCenterY = FieldConstants.fieldWidth / 2.0;
+    double dist =
+        Math.sqrt(
+            Math.pow(hubCenterX - turretFieldPos[0], 2)
+                + Math.pow(hubCenterY - turretFieldPos[1], 2));
+    return dist < 2.0;
   }
 
   /**
@@ -530,7 +554,7 @@ public class ShootingCoordinator extends SubsystemBase {
     double maxPeakHeight;
 
     if (strategy == PassingStrategy.DRIVER_STATION) {
-      // LOB: clearance point is at the hub net
+      // LOB: clearance point is at the hub net (proximity check already done at dispatch)
       boolean isBlue = RobotStatus.isBlueAlliance();
       double hubCenterX =
           isBlue
@@ -538,44 +562,28 @@ public class ShootingCoordinator extends SubsystemBase {
               : FieldConstants.LinesVertical.oppHubCenter;
       double hubCenterY = FieldConstants.fieldWidth / 2.0;
 
-      // Check distance from turret to hub center — too close to lob reliably
-      double distToHub =
-          Math.sqrt(
-              Math.pow(hubCenterX - turretX, 2) + Math.pow(hubCenterY - turretY, 2));
+      // Project hub center onto the shot line to get distance along shot direction
+      double dx = target.getX() - turretX;
+      double dy = target.getY() - turretY;
+      double shotLen = Math.sqrt(dx * dx + dy * dy);
+      if (shotLen < 0.01) shotLen = 0.01;
+      double shotDirX = dx / shotLen;
+      double shotDirY = dy / shotLen;
 
-      if (distToHub < 2.0) {
-        // Too close to hub — fall back to low arc
+      double hubDistAlongShot =
+          (hubCenterX - turretX) * shotDirX + (hubCenterY - turretY) * shotDirY;
+
+      if (hubDistAlongShot <= 0.5 || hubDistAlongShot >= horizontalDist - 0.5) {
+        // Shot doesn't cross the hub — use low arc
         constraintX = horizontalDist / 2.0;
         constraintH = symmetricArcPeakHeightM.get();
         maxPeakHeight = symmetricArcPeakHeightM.get() + 1.0;
         Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", true);
-        Logger.recordOutput("SmartLaunch/Pass/TwoPoint/FallbackReason", "Too close to hub");
       } else {
-        // Project hub center onto the shot line to get distance along shot direction
-        double dx = target.getX() - turretX;
-        double dy = target.getY() - turretY;
-        double shotLen = Math.sqrt(dx * dx + dy * dy);
-        if (shotLen < 0.01) shotLen = 0.01;
-        double shotDirX = dx / shotLen;
-        double shotDirY = dy / shotLen;
-
-        double hubDistAlongShot =
-            (hubCenterX - turretX) * shotDirX + (hubCenterY - turretY) * shotDirY;
-
-        if (hubDistAlongShot <= 0.5 || hubDistAlongShot >= horizontalDist - 0.5) {
-          // Shot doesn't cross the hub — use low arc
-          constraintX = horizontalDist / 2.0;
-          constraintH = symmetricArcPeakHeightM.get();
-          maxPeakHeight = symmetricArcPeakHeightM.get() + 1.0;
-          Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", true);
-          Logger.recordOutput("SmartLaunch/Pass/TwoPoint/FallbackReason", "Shot misses hub");
-        } else {
-          constraintX = hubDistAlongShot;
-          constraintH = HUB_NET_HEIGHT + lobNetClearanceMarginM.get();
-          maxPeakHeight = lobMaxPeakHeightM.get();
-          Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", false);
-          Logger.recordOutput("SmartLaunch/Pass/TwoPoint/FallbackReason", "");
-        }
+        constraintX = hubDistAlongShot;
+        constraintH = HUB_NET_HEIGHT + lobNetClearanceMarginM.get();
+        maxPeakHeight = lobMaxPeakHeightM.get();
+        Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", false);
       }
     } else {
       // SYMMETRIC: clearance point is the midpoint, height is the desired arc peak
