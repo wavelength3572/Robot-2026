@@ -340,10 +340,10 @@ public final class ShotCalculator {
     }
 
     // Log commanded angle and how close we are to a flip
-    Logger.recordOutput("TurretFlipCalc/CommandedAngleDeg", bestOutsideAngle);
+    Logger.recordOutput("Turret/FlipCalc/CommandedAngleDeg", bestOutsideAngle);
     double marginToMin = bestOutsideAngle - effectiveMinDeg;
     double marginToMax = effectiveMaxDeg - bestOutsideAngle;
-    Logger.recordOutput("TurretFlipCalc/FlipMarginDeg", Math.min(marginToMin, marginToMax));
+    Logger.recordOutput("Turret/FlipCalc/FlipMarginDeg", Math.min(marginToMin, marginToMax));
 
     return bestOutsideAngle;
   }
@@ -577,9 +577,9 @@ public final class ShotCalculator {
     double y2 = passTarget.getZ() - config.heightMeters();
 
     // Log constraint points for debugging
-    Logger.recordOutput("Shots/Pass/TwoPoint/ConstraintX", x1);
-    Logger.recordOutput("Shots/Pass/TwoPoint/ConstraintH", constraintH);
-    Logger.recordOutput("Shots/Pass/TwoPoint/HorizontalDist", horizontalDist);
+    Logger.recordOutput("SmartLaunch/Pass/TwoPoint/ConstraintX", x1);
+    Logger.recordOutput("SmartLaunch/Pass/TwoPoint/ConstraintH", constraintH);
+    Logger.recordOutput("SmartLaunch/Pass/TwoPoint/HorizontalDist", horizontalDist);
 
     // Solve for launch angle: tanTheta = (y1*x2^2 - y2*x1^2) / (x1*x2*(x2 - x1))
     double denominator = x1 * x2 * (x2 - x1);
@@ -596,7 +596,7 @@ public final class ShotCalculator {
     // Check hood limits
     if (hoodAngleDeg < hoodMinAngleDeg || hoodAngleDeg > hoodMaxAngleDeg) {
       Logger.recordOutput(
-          "Shots/Pass/TwoPoint/RejectReason",
+          "SmartLaunch/Pass/TwoPoint/RejectReason",
           String.format(
               "Hood %.1f outside [%.0f-%.0f]", hoodAngleDeg, hoodMinAngleDeg, hoodMaxAngleDeg));
       return unachievablePassResult(
@@ -606,7 +606,7 @@ public final class ShotCalculator {
     // Solve for K
     double K = (x1 * tanTheta - y1) / (x1 * x1);
     if (K <= 0) {
-      Logger.recordOutput("Shots/Pass/TwoPoint/RejectReason", "K <= 0");
+      Logger.recordOutput("SmartLaunch/Pass/TwoPoint/RejectReason", "K <= 0");
       return unachievablePassResult(
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
     }
@@ -615,7 +615,7 @@ public final class ShotCalculator {
     double cosTheta = Math.cos(theta);
     double vSquared = GRAVITY / (2 * K * cosTheta * cosTheta);
     if (vSquared <= 0) {
-      Logger.recordOutput("Shots/Pass/TwoPoint/RejectReason", "v^2 <= 0");
+      Logger.recordOutput("SmartLaunch/Pass/TwoPoint/RejectReason", "v^2 <= 0");
       return unachievablePassResult(
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
     }
@@ -625,7 +625,8 @@ public final class ShotCalculator {
     double rpm = calculateRPMForVelocity(exitVelocity, horizontalDist);
     if (rpm < 1500 || rpm > 3200) {
       Logger.recordOutput(
-          "Shots/Pass/TwoPoint/RejectReason", String.format("RPM %.0f outside [1500-3200]", rpm));
+          "SmartLaunch/Pass/TwoPoint/RejectReason",
+          String.format("RPM %.0f outside [1500-3200]", rpm));
       return unachievablePassResult(
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
     }
@@ -636,7 +637,7 @@ public final class ShotCalculator {
     double peakHeight = config.heightMeters() + (vy0 * vy0) / (2 * GRAVITY);
     if (peakHeight > maxPeakHeightM) {
       Logger.recordOutput(
-          "Shots/Pass/TwoPoint/RejectReason",
+          "SmartLaunch/Pass/TwoPoint/RejectReason",
           String.format("Peak %.1fm > max %.1fm", peakHeight, maxPeakHeightM));
       return unachievablePassResult(
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
@@ -648,16 +649,16 @@ public final class ShotCalculator {
     double distanceToPeak = vx * timeToPeak;
     if (distanceToPeak >= x1) {
       Logger.recordOutput(
-          "Shots/Pass/TwoPoint/RejectReason",
+          "SmartLaunch/Pass/TwoPoint/RejectReason",
           String.format("Peak at %.2fm, constraint at %.2fm", distanceToPeak, x1));
       return unachievablePassResult(
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
     }
 
-    Logger.recordOutput("Shots/Pass/TwoPoint/RejectReason", "OK");
-    Logger.recordOutput("Shots/Pass/TwoPoint/PeakHeightM", peakHeight);
-    Logger.recordOutput("Shots/Pass/TwoPoint/HoodAngleDeg", hoodAngleDeg);
-    Logger.recordOutput("Shots/Pass/TwoPoint/RPM", rpm);
+    Logger.recordOutput("SmartLaunch/Pass/TwoPoint/RejectReason", "OK");
+    Logger.recordOutput("SmartLaunch/Pass/TwoPoint/PeakHeightM", peakHeight);
+    Logger.recordOutput("SmartLaunch/Pass/TwoPoint/HoodAngleDeg", hoodAngleDeg);
+    Logger.recordOutput("SmartLaunch/Pass/TwoPoint/RPM", rpm);
 
     // Velocity compensation: re-solve with adjusted aim target, keeping clearance point fixed
     Translation3d aimTarget = passTarget;

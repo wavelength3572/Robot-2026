@@ -676,7 +676,7 @@ public class FuelSim {
     for (int i = 0; i < size; i++) {
       fuelPosBuffer[i] = fuels.get(i).pos;
     }
-    Logger.recordOutput("FuelSim/Fuels", fuelPosBuffer);
+    Logger.recordOutput("Visualizations/Fuels", fuelPosBuffer);
     Logger.recordOutput("FuelSim/FuelCount", size);
     Logger.recordOutput("FuelSim/RobotFuelStored", robotFuelStoredSupplier.getAsInt());
     Logger.recordOutput("FuelSim/BlueScore", Hub.BLUE_HUB.getScore());

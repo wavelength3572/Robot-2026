@@ -267,17 +267,17 @@ public class ShotVisualizer {
         currentExitVelocity, currentLaunchAngle, currentAzimuthAngle, actualTrajectory);
 
     Logger.recordOutput(
-        "Shots/Trajectory/Red",
+        "Visualizations/Trajectory/Red",
         readiness == ShotSnapshot.TrajectoryReadiness.NOT_ACTIVE
             ? actualTrajectory
             : EMPTY_TRAJECTORY);
     Logger.recordOutput(
-        "Shots/Trajectory/Yellow",
+        "Visualizations/Trajectory/Yellow",
         readiness == ShotSnapshot.TrajectoryReadiness.NOT_READY
             ? actualTrajectory
             : EMPTY_TRAJECTORY);
     Logger.recordOutput(
-        "Shots/Trajectory/Green",
+        "Visualizations/Trajectory/Green",
         readiness == ShotSnapshot.TrajectoryReadiness.READY ? actualTrajectory : EMPTY_TRAJECTORY);
   }
 
@@ -327,7 +327,7 @@ public class ShotVisualizer {
         actualExitVelocity, shotResult.launchAngleRad(), targetAzimuthAngle, readiness);
 
     Logger.recordOutput(
-        "Shots/CompensatedTarget", new Pose3d(shotResult.aimTarget(), Rotation3d.kZero));
+        "Visualizations/CompensatedTarget", new Pose3d(shotResult.aimTarget(), Rotation3d.kZero));
   }
 
   /**
@@ -378,9 +378,9 @@ public class ShotVisualizer {
           snapshot.trajectoryReadiness());
     } else {
       // No active shot — log empty trajectories so stale arcs don't linger
-      Logger.recordOutput("Shots/Trajectory/Red", EMPTY_TRAJECTORY);
-      Logger.recordOutput("Shots/Trajectory/Yellow", EMPTY_TRAJECTORY);
-      Logger.recordOutput("Shots/Trajectory/Green", EMPTY_TRAJECTORY);
+      Logger.recordOutput("Visualizations/Trajectory/Red", EMPTY_TRAJECTORY);
+      Logger.recordOutput("Visualizations/Trajectory/Yellow", EMPTY_TRAJECTORY);
+      Logger.recordOutput("Visualizations/Trajectory/Green", EMPTY_TRAJECTORY);
     }
   }
 }

@@ -1,7 +1,5 @@
 package frc.robot.subsystems.intake;
 
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
@@ -13,7 +11,6 @@ import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
-import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.mechanism.LoggedMechanism2d;
 import org.littletonrobotics.junction.mechanism.LoggedMechanismLigament2d;
@@ -386,7 +383,7 @@ public class Intake extends SubsystemBase {
       rollerLigament.setColor(COLOR_ROLLER_IDLE);
     }
 
-    Logger.recordOutput("Mechanism2d/Intake", mechanism);
+    Logger.recordOutput("Visualizations/Intake2d", mechanism);
 
     // Log state machines
     Logger.recordOutput("Subsystems/IntakeDeployState", deployState.name());
@@ -814,29 +811,5 @@ public class Intake extends SubsystemBase {
   /** Stop all motors. */
   public void stop() {
     io.stop();
-  }
-
-  // ========== 3D VISUALIZATION ==========
-
-  // Intake pivot point relative to robot center (meters)
-  // X = forward, Y = left, Z = up
-  // Adjust PIVOT_X to match your robot's front bumper location
-  private static final double PIVOT_X = 0.43; // At front bumper (frame edge + bumper thickness)
-  private static final double PIVOT_Y = 0.0; // Centered left-right
-  private static final double PIVOT_Z = 0.20; // Pivot height above ground
-
-  /**
-   * Returns the 3D pose of the intake arm for AdvantageScope visualization. When retracted (0
-   * rotations), arm points backward into robot. When deployed (0.5 rotations), arm points forward
-   * over bumper.
-   */
-  @AutoLogOutput(key = "Odometry/Intake")
-  public Pose3d getPose() {
-    // Convert deploy position to pitch angle
-    // 0 rotations = 90° pitch (pointing up/back into robot)
-    // 0.5 rotations = -90° pitch (pointing down/forward over bumper)
-    double pitchRadians = Math.PI / 2 - (inputs.deployPositionRotations * 2 * Math.PI);
-
-    return new Pose3d(PIVOT_X, PIVOT_Y, PIVOT_Z, new Rotation3d(0, pitchRadians, 0));
   }
 }

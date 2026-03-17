@@ -109,7 +109,7 @@ public final class Constants {
   /** Team-specific strategy constants (pass targets, trench positions). */
   public static final class StrategyConstants {
     /** Pass target X positions (closer to neutral zone for achievable pass RPMs). */
-    public static final double BLUE_PASS_TARGET_X = 2.5;
+    public static final double BLUE_PASS_TARGET_X = 2.0;
 
     public static final double RED_PASS_TARGET_X = FieldConstants.fieldLength - BLUE_PASS_TARGET_X;
 
@@ -125,10 +125,11 @@ public final class Constants {
      * Lob pass target Y positions for driver-station strategy. Station 1/2 target is far from the
      * outpost; station 3 target is near the outpost.
      *
-     * <p>Defined in blue-alliance coordinates: station 1 is low Y, outpost is high Y.
+     * <p>Both targets are 1.5m from their respective walls. Station 1 is near
+     * the high-Y wall for blue, station 3 is near the low-Y wall for blue.
      */
-    public static final double LOB_STATION_1_2_TARGET_Y = 1.5;
+    public static final double LOB_STATION_1_TARGET_Y = 1.5;
 
-    public static final double LOB_STATION_3_TARGET_Y = FieldConstants.Outpost.centerPoint.getY();
+    public static final double LOB_STATION_3_TARGET_Y = 1.5;
   }
 }

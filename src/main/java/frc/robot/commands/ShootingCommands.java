@@ -184,12 +184,12 @@ public class ShootingCommands {
   }
 
   /** Derive motivator RPM from launcher RPM: motivatorRPM = launcherRPM * ratio. */
-  private static double getMotivatorRPM(double launcherRPM) {
+  public static double getMotivatorRPM(double launcherRPM) {
     return launcherRPM * motivatorLauncherRatio.get();
   }
 
   /** Lerp spindexer RPM from distance — 350 RPM close (1.16m), 100 RPM far (5.35m). */
-  private static double getSpindexerRPM(double distanceM) {
+  public static double getSpindexerRPM(double distanceM) {
     double minDist = 1.16, maxDist = 5.35;
     double t = Math.max(0, Math.min(1, (distanceM - minDist) / (maxDist - minDist)));
     return spindexerCloseRPM.get() + t * (spindexerFarRPM.get() - spindexerCloseRPM.get());
@@ -257,10 +257,10 @@ public class ShootingCommands {
               ShotVisualizer visualizer = coordinator.getVisualizer();
               if (visualizer != null) {
                 visualizer.setFuelCount(40);
-                Logger.recordOutput("Shots/ShotLog/FuelRemaining", 40);
+                Logger.recordOutput("ShotLog/FuelRemaining", 40);
               }
 
-              Logger.recordOutput("Shots/ShotLog/SimReset", true);
+              Logger.recordOutput("ShotLog/SimReset", true);
               System.out.println("[Shooting] Simulation reset: field cleared, 40 balls in hopper");
             })
         .ignoringDisable(true)
@@ -287,10 +287,10 @@ public class ShootingCommands {
               ShotVisualizer visualizer = coordinator.getVisualizer();
               if (visualizer != null) {
                 visualizer.setFuelCount(40);
-                Logger.recordOutput("Shots/ShotLog/FuelRemaining", 40);
+                Logger.recordOutput("ShotLog/FuelRemaining", 40);
               }
 
-              Logger.recordOutput("Shots/ShotLog/SimReset", true);
+              Logger.recordOutput("ShotLog/SimReset", true);
               System.out.println(
                   "[Shooting] Field reset: all starting fuel spawned, 40 balls in hopper");
             })
@@ -439,13 +439,11 @@ public class ShootingCommands {
                 Commands.sequence(
                     Commands.waitUntil(
                         () -> {
-                          boolean launcherReady =
-                              launcher.isReady();
+                          boolean launcherReady = launcher.isReady();
                           boolean motivatorReady =
                               motivator == null
                                   || motivator.getState() == Motivator.MotivatorState.READY;
-                          boolean turretReady =
-                              turret.getState() == Turret.TurretState.READY;
+                          boolean turretReady = turret.getState() == Turret.TurretState.READY;
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
 
@@ -454,13 +452,11 @@ public class ShootingCommands {
                     Commands.waitSeconds(0.1),
                     Commands.waitUntil(
                         () -> {
-                          boolean launcherReady =
-                              launcher.isReady();
+                          boolean launcherReady = launcher.isReady();
                           boolean motivatorReady =
                               motivator == null
                                   || motivator.getState() == Motivator.MotivatorState.READY;
-                          boolean turretReady =
-                              turret.getState() == Turret.TurretState.READY;
+                          boolean turretReady = turret.getState() == Turret.TurretState.READY;
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
                           return launcherReady && motivatorReady && turretReady && hoodReady;
@@ -640,13 +636,11 @@ public class ShootingCommands {
                             }
                           }
 
-                          boolean launcherReady =
-                              launcher.isReady();
+                          boolean launcherReady = launcher.isReady();
                           boolean motivatorReady =
                               motivator == null
                                   || motivator.getState() == Motivator.MotivatorState.READY;
-                          boolean turretReady =
-                              turret.getState() == Turret.TurretState.READY;
+                          boolean turretReady = turret.getState() == Turret.TurretState.READY;
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
                           boolean achievable =
@@ -674,13 +668,11 @@ public class ShootingCommands {
                     Commands.waitUntil(
                         () -> {
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
-                          boolean launcherReady =
-                              launcher.isReady();
+                          boolean launcherReady = launcher.isReady();
                           boolean motivatorReady =
                               motivator == null
                                   || motivator.getState() == Motivator.MotivatorState.READY;
-                          boolean turretReady =
-                              turret.getState() == Turret.TurretState.READY;
+                          boolean turretReady = turret.getState() == Turret.TurretState.READY;
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
                           boolean achievable =
@@ -698,13 +690,11 @@ public class ShootingCommands {
                     Commands.runOnce(
                         () -> {
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
-                          boolean launcherReady =
-                              launcher.isReady();
+                          boolean launcherReady = launcher.isReady();
                           boolean motivatorReady =
                               motivator == null
                                   || motivator.getState() == Motivator.MotivatorState.READY;
-                          boolean turretReady =
-                              turret.getState() == Turret.TurretState.READY;
+                          boolean turretReady = turret.getState() == Turret.TurretState.READY;
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
                           boolean achievable =
@@ -1093,10 +1083,8 @@ public class ShootingCommands {
                       @Override
                       public void run() {
                         boolean armed = feedingArmed[0];
-                        boolean launcherReady =
-                            launcher.isReady();
-                        boolean turretAimed =
-                            turret.getState() == Turret.TurretState.READY;
+                        boolean launcherReady = launcher.isReady();
+                        boolean turretAimed = turret.getState() == Turret.TurretState.READY;
                         boolean speedOk = coordinator.isRobotSlowEnoughForCurrentZone();
                         Logger.recordOutput("ContinuousSmartLaunch/Gate/Armed", armed);
                         Logger.recordOutput(
@@ -1284,10 +1272,8 @@ public class ShootingCommands {
                           zone == ZoneDetector.Zone.TRENCH_NEAR
                               || zone == ZoneDetector.Zone.ALLIANCE;
                       boolean stationary = coordinator.isRobotStationary();
-                      boolean launcherReady =
-                          launcher.isReady();
-                      boolean turretAimed =
-                          turret.getState() == Turret.TurretState.READY;
+                      boolean launcherReady = launcher.isReady();
+                      boolean turretAimed = turret.getState() == Turret.TurretState.READY;
 
                       Logger.recordOutput("AutoTrackStationary/Gate/InShootZone", inShootZone);
                       Logger.recordOutput("AutoTrackStationary/Gate/Stationary", stationary);
@@ -1363,10 +1349,10 @@ public class ShootingCommands {
                   if (visualizer != null && visualizer.getFuelCount() <= 0) return;
                   coordinator.launchFuel();
                   launcher.notifyBallFired();
-                  Logger.recordOutput("Shots/ShotLog/LastShotTime", Timer.getFPGATimestamp());
+                  Logger.recordOutput("ShotLog/LastShotTime", Timer.getFPGATimestamp());
 
                   int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
-                  Logger.recordOutput("Shots/ShotLog/FuelRemaining", fuelRemaining);
+                  Logger.recordOutput("ShotLog/FuelRemaining", fuelRemaining);
                 }),
             Commands.waitSeconds(MIN_SHOT_INTERVAL_SECONDS))
         .repeatedly();
@@ -1406,10 +1392,10 @@ public class ShootingCommands {
                   if (visualizer != null && visualizer.getFuelCount() <= 0) return;
                   coordinator.launchFuel();
                   launcher.notifyBallFired();
-                  Logger.recordOutput("Shots/ShotLog/LastShotTime", Timer.getFPGATimestamp());
+                  Logger.recordOutput("ShotLog/LastShotTime", Timer.getFPGATimestamp());
 
                   int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
-                  Logger.recordOutput("Shots/ShotLog/FuelRemaining", fuelRemaining);
+                  Logger.recordOutput("ShotLog/FuelRemaining", fuelRemaining);
                 }),
             Commands.waitSeconds(MIN_SHOT_INTERVAL_SECONDS))
         .repeatedly();
@@ -1435,11 +1421,11 @@ public class ShootingCommands {
                 () -> {
                   coordinator.launchFuel();
                   launcher.notifyBallFired();
-                  Logger.recordOutput("Shots/ShotLog/LastShotTime", Timer.getFPGATimestamp());
+                  Logger.recordOutput("ShotLog/LastShotTime", Timer.getFPGATimestamp());
 
                   ShotVisualizer visualizer = coordinator.getVisualizer();
                   int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
-                  Logger.recordOutput("Shots/ShotLog/FuelRemaining", fuelRemaining);
+                  Logger.recordOutput("ShotLog/FuelRemaining", fuelRemaining);
                 }),
             Commands.waitSeconds(MIN_SHOT_INTERVAL_SECONDS))
         .repeatedly()

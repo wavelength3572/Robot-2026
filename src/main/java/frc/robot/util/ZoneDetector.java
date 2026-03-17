@@ -19,9 +19,9 @@ import frc.robot.FieldConstants;
  * </ol>
  *
  * <p>BUMP zones use the robot's physical dimensions as margin (any part of the chassis on the
- * ramp). TRENCH zones use the turret's field position with a small radius margin (~7 inches),
- * since what matters is whether the turret/hood is under the trench structure.
- * ALLIANCE/NEUTRAL/OPPONENT are X-axis-only with a small hysteresis buffer.
+ * ramp). TRENCH zones use the turret's field position with a small radius margin (~7 inches), since
+ * what matters is whether the turret/hood is under the trench structure. ALLIANCE/NEUTRAL/OPPONENT
+ * are X-axis-only with a small hysteresis buffer.
  */
 public class ZoneDetector {
 
@@ -142,13 +142,13 @@ public class ZoneDetector {
       double distToRed = Math.abs(robotX - redHubCenter);
       if (distToRed < distToBlue) return false;
       // NEAR if our bumper still touches the alliance zone tape
-      return robotX <= allianceLine + ROBOT_HALF_EXTENT;
+      return robotX <= allianceLine + TURRET_RADIUS;
     } else {
       double distToBlue = Math.abs(robotX - blueHubCenter);
       double distToRed = Math.abs(robotX - redHubCenter);
       if (distToBlue < distToRed) return false;
       // NEAR if our bumper still touches the alliance zone tape
-      return robotX >= oppAllianceLine - ROBOT_HALF_EXTENT;
+      return robotX >= oppAllianceLine - TURRET_RADIUS;
     }
   }
 

@@ -60,11 +60,11 @@ public class ShootingCoordinator extends SubsystemBase {
 
   private final SendableChooser<PassingStrategy> passingStrategyChooser = new SendableChooser<>();
   private final ShotLookupTable lookupTable = new ShotLookupTable();
-  private final ShotLookupTable practiceRoomLookupTable = new ShotLookupTable();
+  private final ShotLookupTable alternateLookupTable = new ShotLookupTable();
   private final StationaryShotBatchRecorder batchRecorder = new StationaryShotBatchRecorder();
   private final ParametricShotStrategy parametricStrategy = new ParametricShotStrategy();
   private final LUTShotStrategy lutStrategy;
-  private final LUTShotStrategy practiceRoomLutStrategy;
+  private final LUTShotStrategy alternateLutStrategy;
   private ShotStrategy activeStrategy;
 
   // Visualizer (created during initialize)
@@ -95,30 +95,30 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Pass target offset tunables — separate for left and right trench
   private final LoggedTunableNumber passLeftAdjustX =
-      new LoggedTunableNumber("Shots/Pass/Left/AdjustX", 0.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Left/AdjustX", 0.0);
   private final LoggedTunableNumber passLeftAdjustY =
-      new LoggedTunableNumber("Shots/Pass/Left/AdjustY", 0.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Left/AdjustY", 0.0);
   private final LoggedTunableNumber passRightAdjustX =
-      new LoggedTunableNumber("Shots/Pass/Right/AdjustX", 0.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Right/AdjustX", 0.0);
   private final LoggedTunableNumber passRightAdjustY =
-      new LoggedTunableNumber("Shots/Pass/Right/AdjustY", 0.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Right/AdjustY", 0.0);
 
   // Two-point trajectory tunables for pass shots
   private final LoggedTunableNumber symmetricArcPeakHeightM =
-      new LoggedTunableNumber("Shots/Pass/Symmetric/ArcPeakHeightM", 1.5);
+      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightM", 1.5);
   private final LoggedTunableNumber lobNetClearanceMarginM =
-      new LoggedTunableNumber("Shots/Pass/Lob/NetClearanceMarginM", 0.3);
+      new LoggedTunableNumber("SmartLaunch/Pass/Lob/NetClearanceMarginM", 0.3);
   private final LoggedTunableNumber lobMaxPeakHeightM =
-      new LoggedTunableNumber("Shots/Pass/Lob/MaxPeakHeightM", 5.0);
-  private final LoggedTunableNumber lobStation12AdjustY =
-      new LoggedTunableNumber("Shots/Pass/Lob/Station12/AdjustY", 0.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Lob/MaxPeakHeightM", 5.0);
+  private final LoggedTunableNumber lobStation1AdjustY =
+      new LoggedTunableNumber("SmartLaunch/Pass/DriverStation/Station1/AdjustY", 0.0);
   private final LoggedTunableNumber lobStation3AdjustY =
-      new LoggedTunableNumber("Shots/Pass/Lob/Station3/AdjustY", 0.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/DriverStation/Station3/AdjustY", 0.0);
 
   // Cached pass targets — only recomputed when tunables change
   private Translation3d cachedLeftTarget = null;
   private Translation3d cachedRightTarget = null;
-  private Translation3d cachedLobStation12Target = null;
+  private Translation3d cachedLobStation1Target = null;
   private Translation3d cachedLobStation3Target = null;
 
   // Match shot tracking (counts persist across auto→teleop transition)
@@ -161,19 +161,19 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Initialize shot strategies — completely independent, no shared efficiency model
     this.lutStrategy = new LUTShotStrategy(lookupTable);
-    this.practiceRoomLutStrategy = new LUTShotStrategy(practiceRoomLookupTable);
+    this.alternateLutStrategy = new LUTShotStrategy(alternateLookupTable);
     this.activeStrategy = lutStrategy;
 
     // Strategy dropdown on dashboard — three options
     strategyChooser.addOption("Parametric", "Parametric");
     strategyChooser.setDefaultOption("LUT (Lookup Table)", "LUT");
-    strategyChooser.addOption("LUT Practice Room", "LUT_PRACTICE");
+    strategyChooser.addOption("LUT Alternate", "LUT_ALTERNATE");
     SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
 
     // Passing strategy chooser — how to pick left vs right pass target
     passingStrategyChooser.setDefaultOption("Symmetric (Y-based)", PassingStrategy.SYMMETRIC);
     passingStrategyChooser.addOption("Driver Station", PassingStrategy.DRIVER_STATION);
-    SmartDashboard.putData("Shots/Pass/Strategy", passingStrategyChooser);
+    SmartDashboard.putData("SmartLaunch/Pass/Strategy", passingStrategyChooser);
 
     // Load any previously recorded LUT data from disk
     reloadLUTData();
@@ -287,8 +287,8 @@ public class ShootingCoordinator extends SubsystemBase {
 
       // Log zone and aim mode (throttled to 10Hz)
       if (periodicCounter % 5 == 0) {
-        Logger.recordOutput("Shots/Zone", aimResult.zone().name());
-        Logger.recordOutput("Shots/AimMode", aimResult.mode().name());
+        Logger.recordOutput("SmartLaunch/Zone", aimResult.zone().name());
+        Logger.recordOutput("SmartLaunch/AllowedAction", aimResult.mode().name());
       }
 
       // Shared alliance-zone X bounds (used by both strategies)
@@ -324,7 +324,7 @@ public class ShootingCoordinator extends SubsystemBase {
                 Math.max(minY, Math.min(maxY, leftRawY)),
                 0.0);
         Logger.recordOutput(
-            "Shots/Pass/Left/Target", new Pose3d(cachedLeftTarget, Rotation3d.kZero));
+            "SmartLaunch/Pass/Symmetric/Left", new Pose3d(cachedLeftTarget, Rotation3d.kZero));
 
         // Right trench target (low Y, with offsets, clamped to alliance zone)
         double rightRawX = baseX + passRightAdjustX.get() * (maxX - minX) / 2.0;
@@ -337,28 +337,28 @@ public class ShootingCoordinator extends SubsystemBase {
                 Math.max(minY, Math.min(maxY, rightRawY)),
                 0.0);
         Logger.recordOutput(
-            "Shots/Pass/Right/Target", new Pose3d(cachedRightTarget, Rotation3d.kZero));
+            "SmartLaunch/Pass/Symmetric/Right", new Pose3d(cachedRightTarget, Rotation3d.kZero));
       }
 
       // Recompute lob pass targets only when lob tunables change
-      if (cachedLobStation12Target == null
-          || LoggedTunableNumber.hasChanged(lobStation12AdjustY, lobStation3AdjustY)) {
-        // Station 1/2 target (blue = low Y, red = high Y)
+      if (cachedLobStation1Target == null
+          || LoggedTunableNumber.hasChanged(lobStation1AdjustY, lobStation3AdjustY)) {
+        // Station 1/2 target (blue = high Y, red = low Y)
         double st12BaseY =
             isBlueAlliance
-                ? Constants.StrategyConstants.LOB_STATION_1_2_TARGET_Y
-                : fieldW - Constants.StrategyConstants.LOB_STATION_1_2_TARGET_Y;
-        double st12RawY = st12BaseY + lobStation12AdjustY.get() * (maxY - minY) / 2.0;
-        cachedLobStation12Target =
+                ? fieldW - Constants.StrategyConstants.LOB_STATION_1_TARGET_Y
+                : Constants.StrategyConstants.LOB_STATION_1_TARGET_Y;
+        double st12RawY = st12BaseY + lobStation1AdjustY.get() * (maxY - minY) / 2.0;
+        cachedLobStation1Target =
             new Translation3d(
                 Math.max(minX, Math.min(maxX, baseX)),
                 Math.max(minY, Math.min(maxY, st12RawY)),
                 0.0);
         Logger.recordOutput(
-            "Shots/Pass/Lob/Station12/Target",
-            new Pose3d(cachedLobStation12Target, Rotation3d.kZero));
+            "SmartLaunch/Pass/DriverStation/Station1",
+            new Pose3d(cachedLobStation1Target, Rotation3d.kZero));
 
-        // Station 3 target (blue = high Y near outpost, red = low Y near outpost)
+        // Station 3 target (blue = low Y near outpost, red = high Y near outpost)
         double st3BaseY =
             isBlueAlliance
                 ? Constants.StrategyConstants.LOB_STATION_3_TARGET_Y
@@ -370,7 +370,7 @@ public class ShootingCoordinator extends SubsystemBase {
                 Math.max(minY, Math.min(maxY, st3RawY)),
                 0.0);
         Logger.recordOutput(
-            "Shots/Pass/Lob/Station3/Target",
+            "SmartLaunch/Pass/DriverStation/Station3",
             new Pose3d(cachedLobStation3Target, Rotation3d.kZero));
       }
 
@@ -379,16 +379,16 @@ public class ShootingCoordinator extends SubsystemBase {
             robotPose, fieldSpeeds, isBlueAlliance);
         case PASS -> {
           PassingStrategy strategy = passingStrategyChooser.getSelected();
-          Logger.recordOutput("Shots/Pass/StrategyUsed", strategy.name());
+          Logger.recordOutput("SmartLaunch/Pass/Strategy", strategy.name());
 
           if (strategy == PassingStrategy.DRIVER_STATION) {
             // Lob pass: pick target based on driver station number, use steep launch angle
             var location = DriverStation.getLocation();
             int station = location.isPresent() ? location.getAsInt() : 2;
             Translation3d activeTarget =
-                (station <= 2) ? cachedLobStation12Target : cachedLobStation3Target;
+                (station <= 2) ? cachedLobStation1Target : cachedLobStation3Target;
             Logger.recordOutput(
-                "Shots/Pass/Active", (station <= 2) ? "LOB_STATION_1_2" : "LOB_STATION_3");
+                "SmartLaunch/Pass/Target", (station <= 2) ? "LOB_STATION_1" : "LOB_STATION_3");
             calculatePassToTarget(
                 robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
           } else {
@@ -397,17 +397,17 @@ public class ShootingCoordinator extends SubsystemBase {
             // The TrajectoryOptimizer handles ground-level targets natively.
             boolean isLeftTrench = selectIsLeftTrench(robotPose);
             Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
-            Logger.recordOutput("Shots/Pass/Active", isLeftTrench ? "LEFT" : "RIGHT");
+            Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
             calculateSymmetricPass(robotPose, fieldSpeeds, activeTarget);
           }
         }
         case LONG_PASS -> {
           // Opponent zone — always use lob strategy for the longer distance
-          Logger.recordOutput("Shots/Pass/StrategyUsed", "LONG_PASS");
+          Logger.recordOutput("SmartLaunch/Pass/Strategy", "LONG_PASS");
           boolean isLeftTrench = selectIsLeftTrench(robotPose);
           Translation3d activeTarget =
-              isLeftTrench ? cachedLobStation12Target : cachedLobStation3Target;
-          Logger.recordOutput("Shots/Pass/Active", isLeftTrench ? "LOB_LEFT" : "LOB_RIGHT");
+              isLeftTrench ? cachedLobStation1Target : cachedLobStation3Target;
+          Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LOB_LEFT" : "LOB_RIGHT");
           calculatePassToTarget(
               robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
         }
@@ -446,9 +446,9 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Tunable pass shot parameters
   private final LoggedTunableNumber passHoodAngleDeg =
-      new LoggedTunableNumber("Shots/Pass/HoodAngleDeg", 46.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/HoodAngleDeg", 46.0);
   private final LoggedTunableNumber passMaxRPM =
-      new LoggedTunableNumber("Shots/Pass/MaxRPM", 4000.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/MaxRPM", 4000.0);
 
   /**
    * Calculate symmetric pass using simple projectile physics. Uses a fixed hood angle (tunable) and
@@ -500,13 +500,13 @@ public class ShootingCoordinator extends SubsystemBase {
 
       // Velocity compensation: iteratively adjust aim point
       double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-      Logger.recordOutput("Shots/Pass/VelComp/RobotSpeedMps", robotSpeed);
-      Logger.recordOutput("Shots/Pass/VelComp/BaseRPM", rpm);
-      Logger.recordOutput("Shots/Pass/VelComp/BaseDist", horizontalDist);
+      Logger.recordOutput("SmartLaunch/Pass/VelComp/RobotSpeedMps", robotSpeed);
+      Logger.recordOutput("SmartLaunch/Pass/VelComp/BaseRPM", rpm);
+      Logger.recordOutput("SmartLaunch/Pass/VelComp/BaseDist", horizontalDist);
       if (robotSpeed > 0.1) {
         double tof =
             ShotCalculator.calculateTimeOfFlight(exitVelocity, launchAngleRad, horizontalDist);
-        Logger.recordOutput("Shots/Pass/VelComp/InitialTOF", tof);
+        Logger.recordOutput("SmartLaunch/Pass/VelComp/InitialTOF", tof);
         for (int i = 0; i < 3; i++) {
           Translation3d candidate =
               ShotCalculator.clampAimOffset(
@@ -532,9 +532,9 @@ public class ShootingCoordinator extends SubsystemBase {
           rpm = newRPM;
           aimTarget = candidate;
           tof = ShotCalculator.calculateTimeOfFlight(exitVelocity, launchAngleRad, aimDist);
-          Logger.recordOutput("Shots/Pass/VelComp/Iter" + i + "/AimDist", aimDist);
-          Logger.recordOutput("Shots/Pass/VelComp/Iter" + i + "/RPM", newRPM);
-          Logger.recordOutput("Shots/Pass/VelComp/Iter" + i + "/TOF", tof);
+          Logger.recordOutput("SmartLaunch/Pass/VelComp/Iter" + i + "/AimDist", aimDist);
+          Logger.recordOutput("SmartLaunch/Pass/VelComp/Iter" + i + "/RPM", newRPM);
+          Logger.recordOutput("SmartLaunch/Pass/VelComp/Iter" + i + "/TOF", tof);
         }
       }
 
@@ -564,10 +564,10 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Log at 10Hz
     if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("Shots/Strategy/Active", "Pass (Symmetric)");
-      Logger.recordOutput("Shots/Strategy/DistanceM", horizontalDist);
-      Logger.recordOutput("Shots/Pass/Symmetric/RPM", rpm);
-      Logger.recordOutput("Shots/Pass/Symmetric/Achievable", achievable);
+      Logger.recordOutput("SmartLaunch/Strategy", "Pass (Symmetric)");
+      Logger.recordOutput("SmartLaunch/DistanceM", horizontalDist);
+      Logger.recordOutput("SmartLaunch/Pass/Symmetric/RPM", rpm);
+      Logger.recordOutput("SmartLaunch/Pass/Symmetric/Achievable", achievable);
     }
   }
 
@@ -614,56 +614,14 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Throttle logging to ~10Hz
     if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("Shots/Strategy/Active", activeStrategy.getName());
+      Logger.recordOutput("SmartLaunch/Strategy", activeStrategy.getName());
 
-      boolean activeIsParametric = (activeStrategy == parametricStrategy);
-
-      // Log active strategy
-      if (activeIsParametric) {
-        Logger.recordOutput("Shots/Strategy/Parametric/RecommendedRPM", activeResult.launcherRPM());
-        Logger.recordOutput(
-            "Shots/Strategy/Parametric/RecommendedHoodDeg", activeResult.hoodAngleDeg());
-        Logger.recordOutput("Shots/Strategy/Parametric/Achievable", activeResult.achievable());
-
-        // LUT is cheap (table lookup) — always compute it for comparison
-        ShotCalculator.ShotResult lutResult =
-            lutStrategy.calculateShot(
-                robotPose,
-                fieldSpeeds,
-                target,
-                turretConfig,
-                currentTurretAngle,
-                turretMin,
-                turretMax,
-                hoodMin,
-                hoodMax);
-        Logger.recordOutput("Shots/Strategy/LUT/RecommendedRPM", lutResult.launcherRPM());
-        Logger.recordOutput("Shots/Strategy/LUT/RecommendedHoodDeg", lutResult.hoodAngleDeg());
-      } else {
-        Logger.recordOutput("Shots/Strategy/LUT/RecommendedRPM", activeResult.launcherRPM());
-        Logger.recordOutput("Shots/Strategy/LUT/RecommendedHoodDeg", activeResult.hoodAngleDeg());
-
-        // Parametric is expensive — only compute when disabled
-        if (DriverStation.isDisabled()) {
-          ShotCalculator.ShotResult parametricResult =
-              parametricStrategy.calculateShot(
-                  robotPose,
-                  fieldSpeeds,
-                  target,
-                  turretConfig,
-                  currentTurretAngle,
-                  turretMin,
-                  turretMax,
-                  hoodMin,
-                  hoodMax);
-          Logger.recordOutput(
-              "Shots/Strategy/Parametric/RecommendedRPM", parametricResult.launcherRPM());
-          Logger.recordOutput(
-              "Shots/Strategy/Parametric/RecommendedHoodDeg", parametricResult.hoodAngleDeg());
-          Logger.recordOutput(
-              "Shots/Strategy/Parametric/Achievable", parametricResult.achievable());
-        }
-      }
+      // Log active strategy output
+      Logger.recordOutput("SmartLaunch/RPM", activeResult.launcherRPM());
+      Logger.recordOutput("SmartLaunch/HoodDeg", activeResult.hoodAngleDeg());
+      Logger.recordOutput("SmartLaunch/LaunchAngleDeg", activeResult.getLaunchAngleDegrees());
+      Logger.recordOutput("SmartLaunch/ExitVelocityMps", activeResult.exitVelocityMps());
+      Logger.recordOutput("SmartLaunch/Achievable", activeResult.achievable());
 
       // Log distance to target
       double robotHeadingRad = robotPose.getRotation().getRadians();
@@ -675,7 +633,7 @@ public class ShootingCoordinator extends SubsystemBase {
       double distanceToTarget =
           Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
       currentDistanceM = distanceToTarget;
-      Logger.recordOutput("Shots/Strategy/DistanceM", distanceToTarget);
+      Logger.recordOutput("SmartLaunch/DistanceM", distanceToTarget);
     }
   }
 
@@ -733,12 +691,12 @@ public class ShootingCoordinator extends SubsystemBase {
         constraintX = horizontalDist / 2.0;
         constraintH = symmetricArcPeakHeightM.get();
         maxPeakHeight = lobMaxPeakHeightM.get();
-        Logger.recordOutput("Shots/Pass/TwoPoint/LobFallback", true);
+        Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", true);
       } else {
         constraintX = hubDistAlongShot;
         constraintH = HUB_NET_HEIGHT + lobNetClearanceMarginM.get();
         maxPeakHeight = lobMaxPeakHeightM.get();
-        Logger.recordOutput("Shots/Pass/TwoPoint/LobFallback", false);
+        Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", false);
       }
     } else {
       // SYMMETRIC: clearance point is the midpoint, height is the desired arc peak
@@ -767,7 +725,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Pass shot distance logged at 10Hz (RPM/hood already covered by Shots/Status/)
     if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("Shots/Strategy/DistanceM", horizontalDist);
+      Logger.recordOutput("SmartLaunch/DistanceM", horizontalDist);
     }
   }
 
@@ -780,26 +738,25 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   private void logShotState() {
     // --- Readiness flags (use subsystem state machines, not raw at-setpoint checks) ---
-    boolean launcherReady =
-        launcher != null && launcher.isReady();
+    boolean launcherReady = launcher != null && launcher.isReady();
     boolean motivatorReady =
         motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
     boolean turretReady = turret.getState() == Turret.TurretState.READY;
     boolean hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
     boolean achievable = currentShot != null && currentShot.achievable();
 
-    Logger.recordOutput("Shots/Status/Ready/Launcher", launcherReady);
-    Logger.recordOutput("Shots/Status/Ready/Motivator", motivatorReady);
-    Logger.recordOutput("Shots/Status/Ready/Turret", turretReady);
-    Logger.recordOutput("Shots/Status/Ready/Hood", hoodReady);
-    Logger.recordOutput("Shots/Status/Ready/Achievable", achievable);
+    Logger.recordOutput("SmartLaunch/Ready/Launcher", launcherReady);
+    Logger.recordOutput("SmartLaunch/Ready/Motivator", motivatorReady);
+    Logger.recordOutput("SmartLaunch/Ready/Turret", turretReady);
+    Logger.recordOutput("SmartLaunch/Ready/Hood", hoodReady);
+    Logger.recordOutput("SmartLaunch/Ready/Achievable", achievable);
     Logger.recordOutput(
-        "Shots/Status/Ready/All",
+        "SmartLaunch/Ready/All",
         launcherReady && motivatorReady && turretReady && hoodReady && achievable);
 
     // --- Targets (what we're commanding) ---
     boolean overridesActive = SmartDashboard.getBoolean("LUTDev/UseOverrides", false);
-    Logger.recordOutput("Shots/Status/OverridesActive", overridesActive);
+    Logger.recordOutput("SmartLaunch/OverridesActive", overridesActive);
 
     double targetRPM;
     double targetHoodDeg;
@@ -814,27 +771,27 @@ public class ShootingCoordinator extends SubsystemBase {
       targetHoodDeg = 0;
     }
 
-    Logger.recordOutput("Shots/Status/Target/LauncherRPM", targetRPM);
-    Logger.recordOutput("Shots/Status/Target/HoodDeg", targetHoodDeg);
+    Logger.recordOutput("SmartLaunch/Target/LauncherRPM", targetRPM);
+    Logger.recordOutput("SmartLaunch/Target/HoodDeg", targetHoodDeg);
     Logger.recordOutput(
-        "Shots/Status/Target/TurretDeg", currentShot != null ? currentShot.turretAngleDeg() : 0.0);
+        "SmartLaunch/Target/TurretDeg", currentShot != null ? currentShot.turretAngleDeg() : 0.0);
     Logger.recordOutput(
-        "Shots/Status/Target/MotivatorRPM",
-        motivator != null ? motivator.getMotivatorTargetRPM() : 0.0);
+        "SmartLaunch/Target/MotivatorRPM",
+        frc.robot.commands.ShootingCommands.getMotivatorRPM(targetRPM));
     Logger.recordOutput(
-        "Shots/Status/Target/SpindexerRPM",
-        spindexer != null ? spindexer.getSpindexerTargetRPM() : 0.0);
+        "SmartLaunch/Target/SpindexerRPM",
+        frc.robot.commands.ShootingCommands.getSpindexerRPM(currentDistanceM));
 
     // --- Actuals (what hardware is doing) ---
     Logger.recordOutput(
-        "Shots/Status/Actual/LauncherRPM", launcher != null ? launcher.getVelocity() : 0.0);
-    Logger.recordOutput("Shots/Status/Actual/HoodDeg", hood != null ? hood.getCurrentAngle() : 0.0);
-    Logger.recordOutput("Shots/Status/Actual/TurretDeg", turret.getOutsideCurrentAngle());
+        "SmartLaunch/Actual/LauncherRPM", launcher != null ? launcher.getVelocity() : 0.0);
+    Logger.recordOutput("SmartLaunch/Actual/HoodDeg", hood != null ? hood.getCurrentAngle() : 0.0);
+    Logger.recordOutput("SmartLaunch/Actual/TurretDeg", turret.getOutsideCurrentAngle());
     Logger.recordOutput(
-        "Shots/Status/Actual/MotivatorRPM",
+        "SmartLaunch/Actual/MotivatorRPM",
         motivator != null ? motivator.getMotivatorWheelVelocity() : 0.0);
     Logger.recordOutput(
-        "Shots/Status/Actual/SpindexerRPM",
+        "SmartLaunch/Actual/SpindexerRPM",
         spindexer != null ? spindexer.getSpindexerWheelVelocity() : 0.0);
 
     // Distance and TOF
@@ -848,16 +805,16 @@ public class ShootingCoordinator extends SubsystemBase {
       double distance =
           Math.sqrt(
               Math.pow(aim.getX() - turretPos[0], 2) + Math.pow(aim.getY() - turretPos[1], 2));
-      Logger.recordOutput("Shots/Status/DistanceM", distance);
+      Logger.recordOutput("SmartLaunch/DistanceM", distance);
 
       // Parametric TOF from physics (exit velocity + launch angle)
       double parametricTOF =
           ShotCalculator.calculateTimeOfFlight(
               currentShot.exitVelocityMps(), currentShot.launchAngleRad(), distance);
-      Logger.recordOutput("Shots/Strategy/Parametric/TOF", parametricTOF);
+      Logger.recordOutput("SmartLaunch/Parametric/TOF", parametricTOF);
 
       // LUT TOF from empirical data
-      Logger.recordOutput("Shots/Strategy/LUT/TOF", lookupTable.lookupTOF(distance));
+      Logger.recordOutput("SmartLaunch/LUT/TOF", lookupTable.lookupTOF(distance));
     }
   }
 
@@ -908,9 +865,9 @@ public class ShootingCoordinator extends SubsystemBase {
       } else {
         teleopShots++;
       }
-      Logger.recordOutput("Shots/ShotLog/TotalShots", totalShots);
-      Logger.recordOutput("Shots/ShotLog/AutoShots", autoShots);
-      Logger.recordOutput("Shots/ShotLog/TeleopShots", teleopShots);
+      Logger.recordOutput("ShotLog/TotalShots", totalShots);
+      Logger.recordOutput("ShotLog/AutoShots", autoShots);
+      Logger.recordOutput("ShotLog/TeleopShots", teleopShots);
     }
   }
 
@@ -919,9 +876,9 @@ public class ShootingCoordinator extends SubsystemBase {
     totalShots = 0;
     autoShots = 0;
     teleopShots = 0;
-    Logger.recordOutput("Shots/ShotLog/TotalShots", 0);
-    Logger.recordOutput("Shots/ShotLog/AutoShots", 0);
-    Logger.recordOutput("Shots/ShotLog/TeleopShots", 0);
+    Logger.recordOutput("ShotLog/TotalShots", 0);
+    Logger.recordOutput("ShotLog/AutoShots", 0);
+    Logger.recordOutput("ShotLog/TeleopShots", 0);
   }
 
   /**
@@ -1091,7 +1048,7 @@ public class ShootingCoordinator extends SubsystemBase {
     ShotStrategy newStrategy;
     switch (selected) {
       case "LUT" -> newStrategy = lutStrategy;
-      case "LUT_PRACTICE" -> newStrategy = practiceRoomLutStrategy;
+      case "LUT_ALTERNATE" -> newStrategy = alternateLutStrategy;
       default -> newStrategy = parametricStrategy;
     }
 
@@ -1110,23 +1067,23 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   public void reloadLUTData() {
     lookupTable.clear();
-    practiceRoomLookupTable.clear();
+    alternateLookupTable.clear();
 
     // Load hardcoded baseline only — field-recorded data is for offline review,
     // not runtime use. To update shots, edit ShotTableConstants and redeploy.
     int baselineCount = ShotTableConstants.loadBaseline(lookupTable);
-    int practiceCount = ShotTableConstants.loadPracticeRoom(practiceRoomLookupTable);
+    int alternateCount = ShotTableConstants.loadAlternate(alternateLookupTable);
 
     // Log full table to AdvantageKit for live dashboard viewing
     lookupTable.logTable("LUTDev/Table");
-    practiceRoomLookupTable.logTable("LUTDev/PracticeRoomTable");
+    alternateLookupTable.logTable("LUTDev/AlternateTable");
 
     frc.robot.util.StartupLogger.log(
         "[ShootingCoordinator] LUT loaded: "
             + baselineCount
             + " baseline, "
-            + practiceCount
-            + " practice room entries");
+            + alternateCount
+            + " alternate entries");
   }
 
   /** Get the batch recorder for recording new data collection sessions. */
@@ -1183,8 +1140,7 @@ public class ShootingCoordinator extends SubsystemBase {
     if (currentShot == null) {
       readiness = ShotSnapshot.TrajectoryReadiness.NOT_ACTIVE;
     } else {
-      boolean launcherReady =
-          launcher != null && launcher.isReady();
+      boolean launcherReady = launcher != null && launcher.isReady();
       boolean motivatorReady =
           motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
       boolean turretReady = turret.getState() == Turret.TurretState.READY;

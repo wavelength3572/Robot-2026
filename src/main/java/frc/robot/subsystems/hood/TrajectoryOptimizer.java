@@ -142,16 +142,11 @@ public class TrajectoryOptimizer {
   }
 
   private static void logDiagnostics(double requestedDescentDeg, OptimalShot shot) {
-    String prefix = "Shots/SmartLaunch/Trajectory/";
+    String prefix = "SmartLaunch/Parametric/";
     Logger.recordOutput(prefix + "RequestedDescentDeg", requestedDescentDeg);
     Logger.recordOutput(prefix + "ActualDescentDeg", shot.descentAngleDeg);
-    Logger.recordOutput(prefix + "LaunchAngleDeg", shot.launchAngleDeg);
-    Logger.recordOutput(prefix + "ComputedHoodAngleDeg", shot.hoodAngleDeg);
-    Logger.recordOutput(prefix + "ComputedRPM", shot.rpm);
     Logger.recordOutput(prefix + "PeakHeightM", shot.peakHeightM);
-    Logger.recordOutput(prefix + "ExitVelocityMps", shot.exitVelocityMps);
-    Logger.recordOutput(prefix + "Achievable", shot.achievable);
-    Logger.recordOutput(prefix + "Notes", shot.notes);
+    Logger.recordOutput(prefix + "ClearanceNotes", shot.notes);
   }
 
   /**

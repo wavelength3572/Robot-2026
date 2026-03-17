@@ -483,7 +483,7 @@ public class Turret extends SubsystemBase {
   // ========== 3D Pose & Config ==========
 
   /** Returns the current turret 3D pose for component visualization. */
-  @AutoLogOutput(key = "Odometry/Turret")
+  @AutoLogOutput(key = "Visualizations/Turret")
   public Pose3d getPose() {
     return new Pose3d(
         turretXOffset,
