@@ -13,8 +13,16 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.subsystems.led.IndicatorLightConstants.LED_EFFECTS;
 import frc.robot.util.HubShiftUtil;
 import java.util.Random;
+import java.util.function.Supplier;
 
 public class IndicatorLight extends SubsystemBase {
+
+  /** Turret absolute encoder validation state, checked at startup. */
+  public enum TurretEncoderStatus {
+    VALID,
+    WARNING,
+    ERROR
+  }
 
   /** Dashboard-selectable light mode: match auto-lighting, off, or pit (blue ombre). */
   public enum LightMode {
@@ -67,6 +75,18 @@ public class IndicatorLight extends SubsystemBase {
 
   private double countdownRemainingTime = 7.0;
   private double warningRemainingTime = 5.0;
+
+  // Turret encoder validation supplier (set by RobotContainer)
+  private Supplier<TurretEncoderStatus> turretEncoderStatusSupplier = () -> TurretEncoderStatus.VALID;
+
+  // Emergency strobe state
+  private double strobePhaseStartTime = 0.0;
+  private int strobePhase = 0; // 0=strobe, 1=converge, 2=flash
+  private boolean strobeOn = false;
+  private double strobeLastToggle = 0.0;
+
+  // Amber breathing state
+  private double amberBreathAngle = 0.0;
 
   private Random random = new Random();
 
@@ -162,6 +182,18 @@ public class IndicatorLight extends SubsystemBase {
     LightMode mode = lightModeChooser.getSelected();
     if (mode == null) mode = LightMode.MATCH;
 
+    // Turret encoder validation overrides everything (except disabled RSL)
+    TurretEncoderStatus encoderStatus = turretEncoderStatusSupplier.get();
+    if (encoderStatus == TurretEncoderStatus.ERROR) {
+      LED_State = LED_EFFECTS.TURRET_ENCODER_ERROR;
+      doTurretEncoderError();
+      return;
+    } else if (encoderStatus == TurretEncoderStatus.WARNING) {
+      LED_State = LED_EFFECTS.TURRET_ENCODER_WARNING;
+      doTurretEncoderWarning();
+      return;
+    }
+
     // Disabled RSL shows in all modes
     if (DriverStation.isDisabled()) {
       LED_State = LED_EFFECTS.RSL;
@@ -210,8 +242,18 @@ public class IndicatorLight extends SubsystemBase {
       case SEARCH_LIGHT -> doSearchlightSingleEffect();
       case DYNAMIC_BLINK -> dynamicBlink();
       case GREEN_RED_WARNING -> doGreenRedWarning();
+      case TURRET_ENCODER_WARNING -> doTurretEncoderWarning();
+      case TURRET_ENCODER_ERROR -> doTurretEncoderError();
       default -> {}
     }
+  }
+
+  /**
+   * Set the supplier for turret encoder validation status. When ERROR or WARNING, the LED pattern
+   * overrides normal match lighting.
+   */
+  public void setTurretEncoderStatusSupplier(Supplier<TurretEncoderStatus> supplier) {
+    this.turretEncoderStatusSupplier = supplier;
   }
 
   // ========== Public setters for LED effects ==========
@@ -654,6 +696,115 @@ public class IndicatorLight extends SubsystemBase {
           (lateralError - MIN_TOLERANCE_BLINK) / (MAX_TOLERANCE_BLINK - MIN_TOLERANCE_BLINK);
       currentBlinkPeriod = MIN_BLINK_PERIOD + fraction * (MAX_BLINK_PERIOD - MIN_BLINK_PERIOD);
     }
+  }
+
+  // ========== Turret encoder validation patterns ==========
+
+  /**
+   * Emergency strobe — 3-phase repeating cycle for critical encoder error.
+   *
+   * <p>Phase 0 (0.4s): Rapid red/white alternating strobe every 50ms. Phase 1 (0.3s): Red pixels
+   * converge from both ends to center. Phase 2 (0.3s): Full white flash then instant blackout.
+   */
+  private void doTurretEncoderError() {
+    double now = Timer.getFPGATimestamp();
+    int numLEDs = wlLEDBuffer.getLength();
+
+    // Initialize phase timer on first call
+    if (strobePhaseStartTime == 0.0) {
+      strobePhaseStartTime = now;
+      strobePhase = 0;
+      strobeLastToggle = now;
+    }
+
+    double phaseElapsed = now - strobePhaseStartTime;
+
+    // Advance phases
+    if (strobePhase == 0 && phaseElapsed >= 0.4) {
+      strobePhase = 1;
+      strobePhaseStartTime = now;
+      phaseElapsed = 0.0;
+    } else if (strobePhase == 1 && phaseElapsed >= 0.3) {
+      strobePhase = 2;
+      strobePhaseStartTime = now;
+      phaseElapsed = 0.0;
+    } else if (strobePhase == 2 && phaseElapsed >= 0.3) {
+      strobePhase = 0;
+      strobePhaseStartTime = now;
+      phaseElapsed = 0.0;
+    }
+
+    if (strobePhase == 0) {
+      // Phase 0: rapid red/white alternating strobe
+      if (now - strobeLastToggle >= 0.05) {
+        strobeOn = !strobeOn;
+        strobeLastToggle = now;
+      }
+      for (int i = 0; i < numLEDs; i++) {
+        // Alternate even/odd pixels, swap each toggle
+        boolean even = (i % 2 == 0);
+        boolean redPixel = (even == strobeOn);
+        if (redPixel) {
+          wlLEDBuffer.setRGB(i, 255, 0, 0);
+        } else {
+          wlLEDBuffer.setRGBW(i, 0, 0, 0, 255);
+        }
+      }
+    } else if (strobePhase == 1) {
+      // Phase 1: red converge from both ends to center
+      double progress = phaseElapsed / 0.3; // 0.0 → 1.0
+      int reachIndex = (int) (progress * (numLEDs / 2));
+
+      for (int i = 0; i < numLEDs; i++) {
+        wlLEDBuffer.setRGB(i, 0, 0, 0); // black base
+      }
+      // Leading edge from left
+      for (int i = Math.max(0, reachIndex - 2); i <= Math.min(reachIndex, numLEDs / 2); i++) {
+        int brightness = 255 - (reachIndex - i) * 80;
+        wlLEDBuffer.setRGB(i, Math.max(0, brightness), 0, 0);
+      }
+      // Leading edge from right (mirror)
+      for (int i = Math.max(numLEDs / 2, numLEDs - 1 - reachIndex);
+          i <= Math.min(numLEDs - 1, numLEDs - 1 - reachIndex + 2);
+          i++) {
+        int brightness = 255 - (i - (numLEDs - 1 - reachIndex)) * 80;
+        wlLEDBuffer.setRGB(i, Math.max(0, brightness), 0, 0);
+      }
+    } else {
+      // Phase 2: white flash then blackout
+      boolean flash = phaseElapsed < 0.12;
+      for (int i = 0; i < numLEDs; i++) {
+        if (flash) {
+          wlLEDBuffer.setRGBW(i, 0, 0, 0, 255);
+        } else {
+          wlLEDBuffer.setRGB(i, 0, 0, 0);
+        }
+      }
+    }
+
+    setActiveBuffer(wlLEDBuffer);
+  }
+
+  /** Amber breathing pulse for encoder warning (5-15° offset). Smooth sine-wave brightness. */
+  private void doTurretEncoderWarning() {
+    int numLEDs = wlLEDBuffer.getLength();
+
+    // Advance breath angle (~1.5s full cycle)
+    amberBreathAngle += 0.06;
+    if (amberBreathAngle > 2.0 * Math.PI) {
+      amberBreathAngle -= 2.0 * Math.PI;
+    }
+
+    // Sine wave: 0.0 → 1.0 brightness
+    double brightness = (Math.sin(amberBreathAngle) + 1.0) / 2.0;
+    int value = (int) (brightness * 200) + 20; // never fully off, range 20-220
+
+    for (int i = 0; i < numLEDs; i++) {
+      // Warm amber: HSV hue 15 (yellow-orange), full saturation
+      wlLEDBuffer.setHSV(i, IndicatorLightConstants.YELLOW_HUE, 255, value);
+    }
+
+    setActiveBuffer(wlLEDBuffer);
   }
 
   // ========== Default lighting logic ==========

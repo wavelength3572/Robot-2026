@@ -3,9 +3,12 @@ package frc.robot.subsystems.turret;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import frc.robot.subsystems.led.IndicatorLight.TurretEncoderStatus;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -55,11 +58,28 @@ public class Turret extends SubsystemBase {
   // How close to a limit (degrees) before safety indicators fire
   private static final double WARNING_ZONE_DEG = 20.0;
 
+  // Startup encoder validation thresholds (degrees from expected zero position)
+  private static final double ENCODER_WARNING_THRESHOLD_DEG = 5.0;
+  private static final double ENCODER_ERROR_THRESHOLD_DEG = 15.0;
+
   // Current state — promoted from periodic() local for external readiness checks
   private TurretState currentState = TurretState.LOCKED;
 
   // Turret lock — when true, all movement commands are blocked and motor is in brake hold
   private boolean locked = false;
+
+  // Startup encoder validation
+  private boolean startupValidationDone = false;
+  private TurretEncoderStatus encoderValidationStatus = TurretEncoderStatus.VALID;
+
+  private final Alert encoderWarningAlert =
+      new Alert(
+          "Turret absolute encoder offset from expected position (5-15 deg). Check encoder mount.",
+          AlertType.kWarning);
+  private final Alert encoderErrorAlert =
+      new Alert(
+          "TURRET LOCKED — Absolute encoder >15 deg from expected position! Encoder may have shifted. Do NOT enable until inspected.",
+          AlertType.kError);
 
   /**
    * Creates a new Turret subsystem.
@@ -83,6 +103,32 @@ public class Turret extends SubsystemBase {
   public void periodic() {
     io.updateInputs(inputs);
     Logger.processInputs("Turret", inputs);
+
+    // One-time startup encoder validation: check if the inside angle is near 0°
+    // (the expected position when the team places the turret at the known setup position).
+    // If the absolute encoder offset has physically shifted, this angle will be wrong.
+    if (!startupValidationDone && inputs.connected) {
+      startupValidationDone = true;
+      double startupAngleError = Math.abs(inputs.currentInsideAngleDeg);
+      Logger.recordOutput("Turret/StartupAngleError", startupAngleError);
+
+      if (startupAngleError >= ENCODER_ERROR_THRESHOLD_DEG) {
+        encoderValidationStatus = TurretEncoderStatus.ERROR;
+        encoderErrorAlert.set(true);
+        lock();
+        System.err.println(
+            "[Turret] CRITICAL: Startup angle is "
+                + String.format("%.1f", startupAngleError)
+                + " deg from expected. Encoder offset may have shifted! Turret LOCKED.");
+      } else if (startupAngleError >= ENCODER_WARNING_THRESHOLD_DEG) {
+        encoderValidationStatus = TurretEncoderStatus.WARNING;
+        encoderWarningAlert.set(true);
+        System.err.println(
+            "[Turret] WARNING: Startup angle is "
+                + String.format("%.1f", startupAngleError)
+                + " deg from expected. Check encoder mount.");
+      }
+    }
 
     // Compute and log state
     if (!inputs.connected) {
@@ -122,6 +168,15 @@ public class Turret extends SubsystemBase {
    */
   public boolean isLocked() {
     return locked;
+  }
+
+  /**
+   * Get the startup encoder validation status.
+   *
+   * @return VALID, WARNING, or ERROR based on startup angle deviation
+   */
+  public TurretEncoderStatus getEncoderValidationStatus() {
+    return encoderValidationStatus;
   }
 
   // ========== Angle Control ==========

@@ -276,6 +276,11 @@ public class RobotContainer {
     // LED subsystem: 42 LEDs on PWM 0, wired in parallel to two physical strips
     leds = new IndicatorLight();
 
+    // Wire turret encoder validation to LEDs for startup error/warning patterns
+    if (turret != null) {
+      leds.setTurretEncoderStatusSupplier(turret::getEncoderValidationStatus);
+    }
+
     // Initialize FuelSim for simulation mode (after coordinator so intake can be
     // registered)
     if (Constants.currentMode == Constants.Mode.SIM) {
