@@ -375,35 +375,34 @@ public class ShootingCoordinator extends SubsystemBase {
       }
 
       switch (aimResult.mode()) {
-        case SHOOT_ON_THE_MOVE, SHOOT_STATIONARY -> calculateShotToHub(
-            robotPose, fieldSpeeds, isBlueAlliance);
+        case SHOOT_ON_THE_MOVE, SHOOT_STATIONARY -> {
+          Logger.recordOutput("SmartLaunch/Strategy", "Hub " + activeStrategy.getName());
+          calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
+        }
         case PASS -> {
           PassingStrategy strategy = passingStrategyChooser.getSelected();
-          Logger.recordOutput("SmartLaunch/Pass/Strategy", strategy.name());
 
           if (strategy == PassingStrategy.DRIVER_STATION) {
-            // Lob pass: pick target based on driver station number, use steep launch angle
+            Logger.recordOutput("SmartLaunch/Strategy", "Pass Lob");
             var location = DriverStation.getLocation();
             int station = location.isPresent() ? location.getAsInt() : 2;
             Translation3d activeTarget =
                 (station <= 2) ? cachedLobStation1Target : cachedLobStation3Target;
             Logger.recordOutput(
-                "SmartLaunch/Pass/Target", (station <= 2) ? "LOB_STATION_1" : "LOB_STATION_3");
+                "SmartLaunch/Pass/Target", (station <= 2) ? "STATION_1" : "STATION_3");
             calculatePassToTarget(
                 robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
           } else {
-            // Symmetric pass: pick target based on robot Y position.
-            // Always use parametric strategy (physics solver) — the LUT has no pass data.
-            // The TrajectoryOptimizer handles ground-level targets natively.
+            Logger.recordOutput("SmartLaunch/Strategy", "Pass Low");
             boolean isLeftTrench = selectIsLeftTrench(robotPose);
             Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
             Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
-            calculateSymmetricPass(robotPose, fieldSpeeds, activeTarget);
+            calculatePassToTarget(
+                robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
           }
         }
         case LONG_PASS -> {
-          // Opponent zone — always use lob strategy for the longer distance
-          Logger.recordOutput("SmartLaunch/Pass/Strategy", "LONG_PASS");
+          Logger.recordOutput("SmartLaunch/Strategy", "Pass LongLob");
           boolean isLeftTrench = selectIsLeftTrench(robotPose);
           Translation3d activeTarget =
               isLeftTrench ? cachedLobStation1Target : cachedLobStation3Target;
@@ -412,8 +411,7 @@ public class ShootingCoordinator extends SubsystemBase {
               robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
         }
         case NONE -> {
-          // Over bump or far trench — keep calculating hub shot for when we exit,
-          // but auto-shoot won't fire (NONE mode is checked in runAutoShoot).
+          Logger.recordOutput("SmartLaunch/Strategy", "Hub " + activeStrategy.getName());
           calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
         }
       }
@@ -445,131 +443,8 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   // Tunable pass shot parameters
-  private final LoggedTunableNumber passHoodAngleDeg =
-      new LoggedTunableNumber("SmartLaunch/Pass/HoodAngleDeg", 46.0);
   private final LoggedTunableNumber passMaxRPM =
       new LoggedTunableNumber("SmartLaunch/Pass/MaxRPM", 4000.0);
-
-  /**
-   * Calculate symmetric pass using simple projectile physics. Uses a fixed hood angle (tunable) and
-   * solves for the RPM needed to reach the target distance at that angle. No hub geometry — just
-   * launch the ball to land at the target point on the ground.
-   *
-   * <p>The hood angle is the primary tuning knob: flatter (higher hood angle) = more range
-   * efficient, steeper (lower hood angle) = higher arc but shorter range for same RPM.
-   */
-  private void calculateSymmetricPass(
-      Pose2d robotPose, ChassisSpeeds fieldSpeeds, Translation3d passTarget) {
-    double robotHeadingRad = robotPose.getRotation().getRadians();
-    double[] turretFieldPos =
-        ShotCalculator.getTurretFieldPosition(
-            robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
-    double turretX = turretFieldPos[0];
-    double turretY = turretFieldPos[1];
-    double turretH = turretConfig.heightMeters();
-
-    double horizontalDist =
-        Math.sqrt(
-            Math.pow(passTarget.getX() - turretX, 2) + Math.pow(passTarget.getY() - turretY, 2));
-
-    // Fixed hood angle → launch angle
-    double hoodDeg = passHoodAngleDeg.get();
-    double launchAngleRad = Math.toRadians(90.0 - hoodDeg);
-    double cosTheta = Math.cos(launchAngleRad);
-    double sinTheta = Math.sin(launchAngleRad);
-    double tanTheta = Math.tan(launchAngleRad);
-
-    // Solve projectile equation for exit velocity:
-    //   0 = turretH + D*tan(θ) - (g*D²)/(2*v²*cos²(θ))
-    //   v² = (g*D²) / (2*cos²(θ) * (D*tan(θ) + turretH))
-    double targetRelativeH =
-        passTarget.getZ() - turretH; // typically negative (ground below turret)
-    double heightGain = horizontalDist * tanTheta + targetRelativeH;
-
-    // Velocity compensation: adjust aim point for robot movement
-    Translation3d aimTarget = passTarget;
-    double exitVelocity = 0;
-    double rpm = 0;
-    boolean achievable = false;
-
-    if (heightGain > 0.01) {
-      double vSquared =
-          (9.81 * horizontalDist * horizontalDist) / (2.0 * cosTheta * cosTheta * heightGain);
-      exitVelocity = Math.sqrt(vSquared);
-      rpm = ShotCalculator.calculateRPMForVelocity(exitVelocity, horizontalDist);
-
-      // Velocity compensation: iteratively adjust aim point
-      double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-      Logger.recordOutput("SmartLaunch/Pass/VelComp/RobotSpeedMps", robotSpeed);
-      Logger.recordOutput("SmartLaunch/Pass/VelComp/BaseRPM", rpm);
-      Logger.recordOutput("SmartLaunch/Pass/VelComp/BaseDist", horizontalDist);
-      if (robotSpeed > 0.1) {
-        double tof =
-            ShotCalculator.calculateTimeOfFlight(exitVelocity, launchAngleRad, horizontalDist);
-        Logger.recordOutput("SmartLaunch/Pass/VelComp/InitialTOF", tof);
-        for (int i = 0; i < 3; i++) {
-          Translation3d candidate =
-              ShotCalculator.clampAimOffset(
-                  ShotCalculator.predictTargetPos(passTarget, fieldSpeeds, tof), passTarget);
-          double aimDist =
-              Math.sqrt(
-                  Math.pow(candidate.getX() - turretX, 2)
-                      + Math.pow(candidate.getY() - turretY, 2));
-          double aimHeightGain = aimDist * tanTheta + (candidate.getZ() - turretH);
-          if (aimHeightGain <= 0.01) break;
-          double newVSquared =
-              (9.81 * aimDist * aimDist) / (2.0 * cosTheta * cosTheta * aimHeightGain);
-          double newVelocity = Math.sqrt(newVSquared);
-          double newRPM = ShotCalculator.calculateRPMForVelocity(newVelocity, aimDist);
-          if (newRPM > passMaxRPM.get()) {
-            // Clamp to max rather than discarding — avoids cliff when crossing the cap
-            exitVelocity = newVelocity;
-            rpm = passMaxRPM.get();
-            aimTarget = candidate;
-            break;
-          }
-          exitVelocity = newVelocity;
-          rpm = newRPM;
-          aimTarget = candidate;
-          tof = ShotCalculator.calculateTimeOfFlight(exitVelocity, launchAngleRad, aimDist);
-          Logger.recordOutput("SmartLaunch/Pass/VelComp/Iter" + i + "/AimDist", aimDist);
-          Logger.recordOutput("SmartLaunch/Pass/VelComp/Iter" + i + "/RPM", newRPM);
-          Logger.recordOutput("SmartLaunch/Pass/VelComp/Iter" + i + "/TOF", tof);
-        }
-      }
-
-      achievable = rpm >= 1500 && rpm <= passMaxRPM.get();
-      // Clamp RPM so the launcher never exceeds the pass limit — even if the physics
-      // says we need more, we'd rather undershoot than command unsafe RPM.
-      rpm = Math.min(rpm, passMaxRPM.get());
-    }
-
-    // Turret angle
-    double turretAngleDeg =
-        ShotCalculator.calculateOutsideTurretAngle(
-            robotPose.getX(),
-            robotPose.getY(),
-            robotPose.getRotation().getDegrees(),
-            aimTarget.getX(),
-            aimTarget.getY(),
-            turret.getOutsideCurrentAngle(),
-            turret.getMinAngle(),
-            turret.getMaxAngle(),
-            turretConfig);
-
-    currentShot =
-        new ShotCalculator.ShotResult(
-            exitVelocity, rpm, launchAngleRad, hoodDeg, turretAngleDeg, aimTarget, achievable);
-    currentDistanceM = horizontalDist;
-
-    // Log at 10Hz
-    if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("SmartLaunch/Strategy", "Pass (Symmetric)");
-      Logger.recordOutput("SmartLaunch/DistanceM", horizontalDist);
-      Logger.recordOutput("SmartLaunch/Pass/Symmetric/RPM", rpm);
-      Logger.recordOutput("SmartLaunch/Pass/Symmetric/Achievable", achievable);
-    }
-  }
 
   /** Calculate and apply hub shot. */
   private void calculateShotToHub(
@@ -614,15 +489,6 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Throttle logging to ~10Hz
     if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("SmartLaunch/Strategy", activeStrategy.getName());
-
-      // Log active strategy output
-      Logger.recordOutput("SmartLaunch/RPM", activeResult.launcherRPM());
-      Logger.recordOutput("SmartLaunch/HoodDeg", activeResult.hoodAngleDeg());
-      Logger.recordOutput("SmartLaunch/LaunchAngleDeg", activeResult.getLaunchAngleDegrees());
-      Logger.recordOutput("SmartLaunch/ExitVelocityMps", activeResult.exitVelocityMps());
-      Logger.recordOutput("SmartLaunch/Achievable", activeResult.achievable());
-
       // Log distance to target
       double robotHeadingRad = robotPose.getRotation().getRadians();
       double[] turretFieldPos =
@@ -775,6 +641,15 @@ public class ShootingCoordinator extends SubsystemBase {
     Logger.recordOutput("SmartLaunch/Target/HoodDeg", targetHoodDeg);
     Logger.recordOutput(
         "SmartLaunch/Target/TurretDeg", currentShot != null ? currentShot.turretAngleDeg() : 0.0);
+    Logger.recordOutput(
+        "SmartLaunch/Target/LaunchAngleDeg",
+        currentShot != null ? currentShot.getLaunchAngleDegrees() : 0.0);
+    Logger.recordOutput(
+        "SmartLaunch/Target/ExitVelocityMps",
+        currentShot != null ? currentShot.exitVelocityMps() : 0.0);
+    Logger.recordOutput(
+        "SmartLaunch/Target/Achievable",
+        currentShot != null && currentShot.achievable());
     Logger.recordOutput(
         "SmartLaunch/Target/MotivatorRPM",
         frc.robot.commands.ShootingCommands.getMotivatorRPM(targetRPM));
