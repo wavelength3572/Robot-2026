@@ -753,15 +753,22 @@ public class ShootingCoordinator extends SubsystemBase {
    * auto-track, or none) is active.
    */
   private void logShotState() {
-    // --- Readiness flags ---
-    boolean launcherReady = launcher != null && launcher.atSetpoint();
-    boolean motivatorReady = motivator == null || motivator.isMotivatorAtSetpoint();
-    boolean turretReady = turret.atTarget();
-    boolean hoodReady = hood == null || hood.atTarget();
+    // --- Readiness flags (use subsystem state machines, not raw at-setpoint checks) ---
+    boolean launcherReady =
+        launcher != null && launcher.getState() == Launcher.LauncherState.READY;
+    boolean motivatorReady =
+        motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
+    boolean turretReady = turret.getState() == Turret.TurretState.READY;
+    boolean hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
     boolean achievable = currentShot != null && currentShot.achievable();
 
+    Logger.recordOutput("Shots/Status/Ready/Launcher", launcherReady);
+    Logger.recordOutput("Shots/Status/Ready/Motivator", motivatorReady);
+    Logger.recordOutput("Shots/Status/Ready/Turret", turretReady);
+    Logger.recordOutput("Shots/Status/Ready/Hood", hoodReady);
+    Logger.recordOutput("Shots/Status/Ready/Achievable", achievable);
     Logger.recordOutput(
-        "Shots/Status/Ready",
+        "Shots/Status/Ready/All",
         launcherReady && motivatorReady && turretReady && hoodReady && achievable);
 
     // --- Targets (what we're commanding) ---
