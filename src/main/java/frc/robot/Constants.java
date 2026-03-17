@@ -125,8 +125,8 @@ public final class Constants {
      * Lob pass target Y positions for driver-station strategy. Station 1/2 target is far from the
      * outpost; station 3 target is near the outpost.
      *
-     * <p>Both targets are 1.5m from their respective walls. Station 1 is near
-     * the high-Y wall for blue, station 3 is near the low-Y wall for blue.
+     * <p>Both targets are 1.5m from their respective walls. Station 1 is near the high-Y wall for
+     * blue, station 3 is near the low-Y wall for blue.
      */
     public static final double LOB_STATION_1_TARGET_Y = 1.5;
 

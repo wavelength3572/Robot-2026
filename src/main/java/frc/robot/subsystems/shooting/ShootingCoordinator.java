@@ -110,6 +110,8 @@ public class ShootingCoordinator extends SubsystemBase {
       new LoggedTunableNumber("SmartLaunch/Pass/Lob/NetClearanceMarginM", 0.3);
   private final LoggedTunableNumber lobMaxPeakHeightM =
       new LoggedTunableNumber("SmartLaunch/Pass/Lob/MaxPeakHeightM", 5.0);
+  private final LoggedTunableNumber lobMinHubDistM =
+      new LoggedTunableNumber("SmartLaunch/Pass/Lob/MinHubDistM", 4.0);
   private final LoggedTunableNumber lobStation1AdjustY =
       new LoggedTunableNumber("SmartLaunch/Pass/DriverStation/Station1/AdjustY", 0.0);
   private final LoggedTunableNumber lobStation3AdjustY =
@@ -541,11 +543,12 @@ public class ShootingCoordinator extends SubsystemBase {
     double horizontalDist =
         Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
 
-    double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
-    double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
-    if (trenchModeActive) {
-      hoodMax = Math.min(hoodMax, trenchHoodMaxDeg.get());
-    }
+    // For passes, allow the full theoretical hood range — the solver will compute the
+    // ideal angle and the result gets clamped to mechanical limits at command time.
+    // Hub shots enforce strict hood limits, but passes need steep angles (50-60°) that
+    // would be rejected by the normal [13-46] range.
+    double hoodMin = 0.0;
+    double hoodMax = 90.0;
 
     double constraintX;
     double constraintH;
