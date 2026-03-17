@@ -536,32 +536,46 @@ public class ShootingCoordinator extends SubsystemBase {
           isBlue
               ? FieldConstants.LinesVertical.hubCenter
               : FieldConstants.LinesVertical.oppHubCenter;
+      double hubCenterY = FieldConstants.fieldWidth / 2.0;
 
-      // Project hub center onto the shot line to get distance along shot direction
-      // Shot direction vector from turret to target
-      double dx = target.getX() - turretX;
-      double dy = target.getY() - turretY;
-      double shotLen = Math.sqrt(dx * dx + dy * dy);
-      if (shotLen < 0.01) shotLen = 0.01;
-      double shotDirX = dx / shotLen;
-      double shotDirY = dy / shotLen;
+      // Check distance from turret to hub center — too close to lob reliably
+      double distToHub =
+          Math.sqrt(
+              Math.pow(hubCenterX - turretX, 2) + Math.pow(hubCenterY - turretY, 2));
 
-      // Project hub center onto shot line: distance = dot(hubCenter - turret, shotDir)
-      double hubDistAlongShot =
-          (hubCenterX - turretX) * shotDirX
-              + (FieldConstants.fieldWidth / 2.0 - turretY) * shotDirY;
-
-      if (hubDistAlongShot <= 0.5 || hubDistAlongShot >= horizontalDist - 0.5) {
-        // Shot doesn't meaningfully cross the hub — fall back to symmetric arc
+      if (distToHub < 2.0) {
+        // Too close to hub — fall back to low arc
         constraintX = horizontalDist / 2.0;
         constraintH = symmetricArcPeakHeightM.get();
-        maxPeakHeight = lobMaxPeakHeightM.get();
+        maxPeakHeight = symmetricArcPeakHeightM.get() + 1.0;
         Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", true);
+        Logger.recordOutput("SmartLaunch/Pass/TwoPoint/FallbackReason", "Too close to hub");
       } else {
-        constraintX = hubDistAlongShot;
-        constraintH = HUB_NET_HEIGHT + lobNetClearanceMarginM.get();
-        maxPeakHeight = lobMaxPeakHeightM.get();
-        Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", false);
+        // Project hub center onto the shot line to get distance along shot direction
+        double dx = target.getX() - turretX;
+        double dy = target.getY() - turretY;
+        double shotLen = Math.sqrt(dx * dx + dy * dy);
+        if (shotLen < 0.01) shotLen = 0.01;
+        double shotDirX = dx / shotLen;
+        double shotDirY = dy / shotLen;
+
+        double hubDistAlongShot =
+            (hubCenterX - turretX) * shotDirX + (hubCenterY - turretY) * shotDirY;
+
+        if (hubDistAlongShot <= 0.5 || hubDistAlongShot >= horizontalDist - 0.5) {
+          // Shot doesn't cross the hub — use low arc
+          constraintX = horizontalDist / 2.0;
+          constraintH = symmetricArcPeakHeightM.get();
+          maxPeakHeight = symmetricArcPeakHeightM.get() + 1.0;
+          Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", true);
+          Logger.recordOutput("SmartLaunch/Pass/TwoPoint/FallbackReason", "Shot misses hub");
+        } else {
+          constraintX = hubDistAlongShot;
+          constraintH = HUB_NET_HEIGHT + lobNetClearanceMarginM.get();
+          maxPeakHeight = lobMaxPeakHeightM.get();
+          Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", false);
+          Logger.recordOutput("SmartLaunch/Pass/TwoPoint/FallbackReason", "");
+        }
       }
     } else {
       // SYMMETRIC: clearance point is the midpoint, height is the desired arc peak

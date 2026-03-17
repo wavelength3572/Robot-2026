@@ -651,7 +651,8 @@ public final class ShotCalculator {
     if (distanceToPeak >= x1) {
       Logger.recordOutput(
           "SmartLaunch/Pass/TwoPoint/RejectReason",
-          String.format("OK (rising at constraint: peak %.2fm, constraint %.2fm)", distanceToPeak, x1));
+          String.format(
+              "OK (rising at constraint: peak %.2fm, constraint %.2fm)", distanceToPeak, x1));
     } else {
       Logger.recordOutput("SmartLaunch/Pass/TwoPoint/RejectReason", "OK");
     }
