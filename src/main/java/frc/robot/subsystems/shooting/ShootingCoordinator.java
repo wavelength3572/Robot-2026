@@ -773,7 +773,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private void logShotState() {
     // --- Readiness flags (use subsystem state machines, not raw at-setpoint checks) ---
     boolean launcherReady =
-        launcher != null && launcher.getState() == Launcher.LauncherState.READY;
+        launcher != null && launcher.isReady();
     boolean motivatorReady =
         motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
     boolean turretReady = turret.getState() == Turret.TurretState.READY;
@@ -1176,9 +1176,7 @@ public class ShootingCoordinator extends SubsystemBase {
       readiness = ShotSnapshot.TrajectoryReadiness.NOT_ACTIVE;
     } else {
       boolean launcherReady =
-          launcher != null
-              && (launcher.getState() == Launcher.LauncherState.READY
-                  || launcher.getState() == Launcher.LauncherState.FEEDING);
+          launcher != null && launcher.isReady();
       boolean motivatorReady =
           motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
       boolean turretReady = turret.getState() == Turret.TurretState.READY;
