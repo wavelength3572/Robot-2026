@@ -94,9 +94,7 @@ public class LauncherIOSim implements LauncherIO {
     inputs.leaderAppliedVolts = appliedVolts;
     inputs.followerAppliedVolts = appliedVolts;
     inputs.leaderCurrentAmps = Math.abs(currentWheelRPM) * 0.01;
-    inputs.leaderPdhCurrentAmps = Math.abs(currentWheelRPM) * 0.01;
     inputs.followerCurrentAmps = Math.abs(currentWheelRPM) * 0.01;
-    inputs.followerPdhCurrentAmps = Math.abs(currentWheelRPM) * 0.01;
     inputs.leaderTempCelsius = 25.0;
     inputs.followerTempCelsius = 25.0;
     inputs.targetVelocityRPM = targetWheelRPM;

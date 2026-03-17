@@ -33,8 +33,6 @@ import java.util.function.DoubleSupplier;
 public class MotivatorIOSparkMax implements MotivatorIO {
   private final RobotConfig config;
 
-  // private final PowerDistribution pdh;
-
   // Hardware - Motivator motor 1 (CAN ID 55)
   private final SparkMax motivator;
   private final RelativeEncoder motivatorEncoder;
@@ -62,9 +60,6 @@ public class MotivatorIOSparkMax implements MotivatorIO {
 
   public MotivatorIOSparkMax() {
     config = Constants.getRobotConfig();
-
-    // Create PDH for independent current monitoring
-    // pdh = new PowerDistribution();
 
     // Create SparkFlex controllers
     motivator = new SparkMax(config.getMotivatorCanId(), MotorType.kBrushless);

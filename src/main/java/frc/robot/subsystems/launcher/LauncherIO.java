@@ -17,21 +17,16 @@ public interface LauncherIO {
     public double leaderVelocityRPM = 0.0;
     public double leaderAppliedVolts = 0.0;
     public double leaderCurrentAmps = 0.0;
-    public double leaderPdhCurrentAmps = 0.0;
     public double leaderTempCelsius = 0.0;
 
     // Follower motor data (for monitoring even in follower mode)
     public double followerVelocityRPM = 0.0;
     public double followerAppliedVolts = 0.0;
     public double followerCurrentAmps = 0.0;
-    public double followerPdhCurrentAmps = 0.0;
     public double followerTempCelsius = 0.0;
 
     // Wheel velocity (after gear ratio conversion)
     public double wheelVelocityRPM = 0.0;
-
-    // PDH voltage
-    public double pdhVoltage = 0.0;
 
     // Control state
     public double targetVelocityRPM = 0.0;

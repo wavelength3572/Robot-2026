@@ -14,7 +14,6 @@ import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkFlexConfig;
 import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.wpilibj.PowerDistribution;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
 import frc.robot.util.SparkConnection;
@@ -36,7 +35,6 @@ public class LauncherIOSparkFlex implements LauncherIO {
   // Hardware
   private final SparkFlex leaderMotor;
   private final SparkFlex followerMotor;
-  private final PowerDistribution pdh;
   private final RelativeEncoder leaderEncoder;
   private final RelativeEncoder followerEncoder;
   private final SparkClosedLoopController leaderController;
@@ -71,9 +69,6 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
     // Store gear ratio from config
     gearRatio = config.getLauncherGearRatio();
-
-    // Create PDH for independent current monitoring
-    pdh = new PowerDistribution();
 
     // Create SparkFlex controllers
     leaderMotor = new SparkFlex(config.getLauncherLeaderCanId(), MotorType.kBrushless);
@@ -198,7 +193,6 @@ public class LauncherIOSparkFlex implements LauncherIO {
           new DoubleSupplier[] {leaderMotor::getAppliedOutput, leaderMotor::getBusVoltage},
           (values) -> inputs.leaderAppliedVolts = values[0] * values[1]);
       ifOk(leaderMotor, leaderMotor::getOutputCurrent, (value) -> inputs.leaderCurrentAmps = value);
-      inputs.leaderPdhCurrentAmps = pdh.getCurrent(0);
       inputs.leaderConnected = leaderConnectedDebounce.calculate(!sparkStickyFault);
       leaderConnection.update(inputs.leaderConnected);
     } else {
@@ -220,7 +214,6 @@ public class LauncherIOSparkFlex implements LauncherIO {
           followerMotor,
           followerMotor::getOutputCurrent,
           (value) -> inputs.followerCurrentAmps = value);
-      inputs.followerPdhCurrentAmps = pdh.getCurrent(1);
       inputs.followerConnected = followerConnectedDebounce.calculate(!sparkStickyFault);
       followerConnection.update(inputs.followerConnected);
     } else {
@@ -243,9 +236,6 @@ public class LauncherIOSparkFlex implements LauncherIO {
             (value) -> inputs.followerTempCelsius = value);
       }
     }
-
-    // PDH voltage
-    inputs.pdhVoltage = pdh.getVoltage();
 
     // Wheel velocity (convert leader motor RPM to wheel RPM)
     inputs.wheelVelocityRPM = motorToWheelRPM(inputs.leaderVelocityRPM);
