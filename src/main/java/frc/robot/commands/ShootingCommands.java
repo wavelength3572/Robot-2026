@@ -1430,7 +1430,8 @@ public class ShootingCommands {
             Commands.waitUntil(
                 () ->
                     turret.getState() == Turret.TurretState.READY
-                        && launcher.getState() == Launcher.LauncherState.READY
+                        && (launcher.getState() == Launcher.LauncherState.READY
+                            || launcher.getState() == Launcher.LauncherState.FEEDING)
                         && coordinator.isRobotSlowEnoughForCurrentZone()),
             Commands.runOnce(
                 () -> {

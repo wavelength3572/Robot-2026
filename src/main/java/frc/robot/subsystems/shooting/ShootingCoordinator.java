@@ -1157,7 +1157,9 @@ public class ShootingCoordinator extends SubsystemBase {
       readiness = ShotSnapshot.TrajectoryReadiness.NOT_ACTIVE;
     } else {
       boolean launcherReady =
-          launcher != null && launcher.getState() == Launcher.LauncherState.READY;
+          launcher != null
+              && (launcher.getState() == Launcher.LauncherState.READY
+                  || launcher.getState() == Launcher.LauncherState.FEEDING);
       boolean motivatorReady =
           motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
       boolean turretReady = turret.getState() == Turret.TurretState.READY;
