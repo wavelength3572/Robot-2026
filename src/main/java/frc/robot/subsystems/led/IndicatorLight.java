@@ -681,6 +681,12 @@ public class IndicatorLight extends SubsystemBase {
 
     // Teleop: green when active, red when inactive, blink white 7s before going active
     HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getOfficialShiftInfo();
+
+    // Endgame: party mode!
+    if (shiftInfo.currentShift() == HubShiftUtil.ShiftEnum.ENDGAME) {
+      return LED_EFFECTS.PARTY;
+    }
+
     if (!shiftInfo.active() && shiftInfo.remainingTime() <= 7.0) {
       countdownRemainingTime = shiftInfo.remainingTime();
       return LED_EFFECTS.COUNTDOWN_BLINK;
