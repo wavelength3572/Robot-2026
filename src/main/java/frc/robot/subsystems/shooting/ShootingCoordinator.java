@@ -503,8 +503,8 @@ public class ShootingCoordinator extends SubsystemBase {
     }
   }
 
-  /** Hub net height in meters (from TrajectoryOptimizer). */
-  private static final double HUB_NET_HEIGHT = 1.83;
+  /** Hub net top height in meters (120.36 inches — top of the net, not the lip). */
+  private static final double HUB_NET_HEIGHT = 3.057;
 
   /** Calculate and apply pass shot using two-point trajectory solver. */
   private void calculatePassToTarget(
