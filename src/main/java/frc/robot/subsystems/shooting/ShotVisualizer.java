@@ -308,20 +308,46 @@ public class ShotVisualizer {
 
     this.currentAzimuthAngle = targetAzimuthAngle;
 
-    // Use the RPM-derived exit velocity (what the ball will ACTUALLY do at the commanded RPM).
+    // Compute exit velocity from ballistic physics to reach the aim target.
+    // The RPM-based model (calculateExitVelocityFromRPM) underestimates real exit velocity
+    // because it only models the main wheel + hood roller and ignores the motivator's
+    // contribution. Instead, solve for the velocity that reaches the target at the given
+    // launch angle — this matches what the empirically-calibrated LUT shots actually do.
     double distanceToTarget =
         Math.sqrt(
             Math.pow(target.getX() - turretPos.getX(), 2)
                 + Math.pow(target.getY() - turretPos.getY(), 2));
+    double heightDelta = target.getZ() - turretPos.getZ();
+    double launchAngle = shotResult.launchAngleRad();
     double actualExitVelocity =
-        ShotCalculator.calculateExitVelocityFromRPM(shotResult.launcherRPM(), distanceToTarget);
+        calculateVelocityToHitTarget(distanceToTarget, heightDelta, launchAngle);
 
-    // Actual trajectory: aim direction + robot velocity (what the sim ball does)
+    // Actual trajectory: aim direction + robot velocity
     updateActualTrajectory(
         actualExitVelocity, shotResult.launchAngleRad(), targetAzimuthAngle, readiness);
 
     Logger.recordOutput(
         "Shots/CompensatedTarget", new Pose3d(shotResult.aimTarget(), Rotation3d.kZero));
+  }
+
+  /**
+   * Solve for the exit velocity needed to hit a target at a given launch angle using projectile
+   * physics: v^2 = g * d^2 / (2 * cos^2(theta) * (d * tan(theta) - h)). Falls back to the
+   * ShotResult's exit velocity if the physics solution is invalid.
+   */
+  private static double calculateVelocityToHitTarget(
+      double horizontalDistance, double heightDelta, double launchAngleRad) {
+    double cosTheta = Math.cos(launchAngleRad);
+    double tanTheta = Math.tan(launchAngleRad);
+    double denominator =
+        2.0 * cosTheta * cosTheta * (horizontalDistance * tanTheta - heightDelta);
+
+    if (denominator <= 0 || horizontalDistance < 0.1) {
+      // No valid ballistic solution — target unreachable at this angle
+      return 0.0;
+    }
+
+    return Math.sqrt(GRAVITY * horizontalDistance * horizontalDistance / denominator);
   }
 
   /**

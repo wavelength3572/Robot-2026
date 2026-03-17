@@ -851,9 +851,23 @@ public class ShootingCoordinator extends SubsystemBase {
       Translation3d target = currentShot.aimTarget();
       double azimuthAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
 
-      // Use the pre-computed exit velocity from the shot result — it was calculated with
-      // the correct distance at strategy time, avoiding stale/manual distance mismatches.
-      double actualExitVelocity = currentShot.exitVelocityMps();
+      // Compute exit velocity from ballistic physics to reach the aim target.
+      // The RPM-based exitVelocityMps underestimates because it doesn't account for the
+      // motivator's contribution to ball speed. Solving for the velocity that hits the target
+      // at the given launch angle matches real-world LUT shot behavior.
+      double distanceToTarget =
+          Math.sqrt(
+              Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
+      double heightDelta = target.getZ() - turretConfig.heightMeters();
+      double launchAngle = currentShot.launchAngleRad();
+      double cosTheta = Math.cos(launchAngle);
+      double tanTheta = Math.tan(launchAngle);
+      double denom =
+          2.0 * cosTheta * cosTheta * (distanceToTarget * tanTheta - heightDelta);
+      double actualExitVelocity =
+          (denom > 0 && distanceToTarget >= 0.1)
+              ? Math.sqrt(9.81 * distanceToTarget * distanceToTarget / denom)
+              : currentShot.exitVelocityMps();
       visualizer.launchFuel(actualExitVelocity, currentShot.launchAngleRad(), azimuthAngle);
 
       // Track shot counts (auto vs teleop)
