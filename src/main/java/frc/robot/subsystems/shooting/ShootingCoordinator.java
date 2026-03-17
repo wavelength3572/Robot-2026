@@ -287,8 +287,8 @@ public class ShootingCoordinator extends SubsystemBase {
 
       // Log zone and aim mode (throttled to 10Hz)
       if (periodicCounter % 5 == 0) {
-        Logger.recordOutput("SmartLaunch/Zone", aimResult.zone().name());
-        Logger.recordOutput("SmartLaunch/AllowedAction", aimResult.mode().name());
+        Logger.recordOutput("SmartLaunch/Status/Zone", aimResult.zone().name());
+        Logger.recordOutput("SmartLaunch/Status/AllowedAction", aimResult.mode().name());
       }
 
       // Shared alliance-zone X bounds (used by both strategies)
@@ -376,14 +376,14 @@ public class ShootingCoordinator extends SubsystemBase {
 
       switch (aimResult.mode()) {
         case SHOOT_ON_THE_MOVE, SHOOT_STATIONARY -> {
-          Logger.recordOutput("SmartLaunch/Strategy", "Hub " + activeStrategy.getName());
+          Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub " + activeStrategy.getName());
           calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
         }
         case PASS -> {
           PassingStrategy strategy = passingStrategyChooser.getSelected();
 
           if (strategy == PassingStrategy.DRIVER_STATION) {
-            Logger.recordOutput("SmartLaunch/Strategy", "Pass Lob");
+            Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass Lob");
             var location = DriverStation.getLocation();
             int station = location.isPresent() ? location.getAsInt() : 2;
             Translation3d activeTarget =
@@ -393,16 +393,15 @@ public class ShootingCoordinator extends SubsystemBase {
             calculatePassToTarget(
                 robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
           } else {
-            Logger.recordOutput("SmartLaunch/Strategy", "Pass Low");
+            Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass Low");
             boolean isLeftTrench = selectIsLeftTrench(robotPose);
             Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
             Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
-            calculatePassToTarget(
-                robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
+            calculatePassToTarget(robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
           }
         }
         case LONG_PASS -> {
-          Logger.recordOutput("SmartLaunch/Strategy", "Pass LongLob");
+          Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass LongLob");
           boolean isLeftTrench = selectIsLeftTrench(robotPose);
           Translation3d activeTarget =
               isLeftTrench ? cachedLobStation1Target : cachedLobStation3Target;
@@ -411,7 +410,7 @@ public class ShootingCoordinator extends SubsystemBase {
               robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
         }
         case NONE -> {
-          Logger.recordOutput("SmartLaunch/Strategy", "Hub " + activeStrategy.getName());
+          Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub " + activeStrategy.getName());
           calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
         }
       }
@@ -499,7 +498,7 @@ public class ShootingCoordinator extends SubsystemBase {
       double distanceToTarget =
           Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
       currentDistanceM = distanceToTarget;
-      Logger.recordOutput("SmartLaunch/DistanceM", distanceToTarget);
+      Logger.recordOutput("SmartLaunch/Status/DistanceM", distanceToTarget);
     }
   }
 
@@ -591,7 +590,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Pass shot distance logged at 10Hz (RPM/hood already covered by Shots/Status/)
     if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("SmartLaunch/DistanceM", horizontalDist);
+      Logger.recordOutput("SmartLaunch/Status/DistanceM", horizontalDist);
     }
   }
 
@@ -622,7 +621,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // --- Targets (what we're commanding) ---
     boolean overridesActive = SmartDashboard.getBoolean("LUTDev/UseOverrides", false);
-    Logger.recordOutput("SmartLaunch/OverridesActive", overridesActive);
+    Logger.recordOutput("LUTDev/OverridesActive", overridesActive);
 
     double targetRPM;
     double targetHoodDeg;
@@ -648,8 +647,7 @@ public class ShootingCoordinator extends SubsystemBase {
         "SmartLaunch/Target/ExitVelocityMps",
         currentShot != null ? currentShot.exitVelocityMps() : 0.0);
     Logger.recordOutput(
-        "SmartLaunch/Target/Achievable",
-        currentShot != null && currentShot.achievable());
+        "SmartLaunch/Target/Achievable", currentShot != null && currentShot.achievable());
     Logger.recordOutput(
         "SmartLaunch/Target/MotivatorRPM",
         frc.robot.commands.ShootingCommands.getMotivatorRPM(targetRPM));
@@ -680,7 +678,7 @@ public class ShootingCoordinator extends SubsystemBase {
       double distance =
           Math.sqrt(
               Math.pow(aim.getX() - turretPos[0], 2) + Math.pow(aim.getY() - turretPos[1], 2));
-      Logger.recordOutput("SmartLaunch/DistanceM", distance);
+      Logger.recordOutput("SmartLaunch/Status/DistanceM", distance);
 
       // Parametric TOF from physics (exit velocity + launch angle)
       double parametricTOF =

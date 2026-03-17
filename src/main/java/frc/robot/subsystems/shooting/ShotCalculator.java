@@ -623,10 +623,10 @@ public final class ShotCalculator {
 
     // Check RPM limits
     double rpm = calculateRPMForVelocity(exitVelocity, horizontalDist);
-    if (rpm < 1500 || rpm > 3200) {
+    if (rpm < 1500 || rpm > 4500) {
       Logger.recordOutput(
           "SmartLaunch/Pass/TwoPoint/RejectReason",
-          String.format("RPM %.0f outside [1500-3200]", rpm));
+          String.format("RPM %.0f outside [1500-4500]", rpm));
       return unachievablePassResult(
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
     }
@@ -643,19 +643,18 @@ public final class ShotCalculator {
           robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
     }
 
-    // Check that ball is descending at clearance point (peak before x1)
+    // Check if ball is still rising at clearance point (peak after x1)
+    // This is fine for passes (ball still clears the height), just log it
     double vx = exitVelocity * cosTheta;
     double timeToPeak = vy0 / GRAVITY;
     double distanceToPeak = vx * timeToPeak;
     if (distanceToPeak >= x1) {
       Logger.recordOutput(
           "SmartLaunch/Pass/TwoPoint/RejectReason",
-          String.format("Peak at %.2fm, constraint at %.2fm", distanceToPeak, x1));
-      return unachievablePassResult(
-          robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
+          String.format("OK (rising at constraint: peak %.2fm, constraint %.2fm)", distanceToPeak, x1));
+    } else {
+      Logger.recordOutput("SmartLaunch/Pass/TwoPoint/RejectReason", "OK");
     }
-
-    Logger.recordOutput("SmartLaunch/Pass/TwoPoint/RejectReason", "OK");
     Logger.recordOutput("SmartLaunch/Pass/TwoPoint/PeakHeightM", peakHeight);
     Logger.recordOutput("SmartLaunch/Pass/TwoPoint/HoodAngleDeg", hoodAngleDeg);
     Logger.recordOutput("SmartLaunch/Pass/TwoPoint/RPM", rpm);
@@ -689,7 +688,7 @@ public final class ShotCalculator {
 
         double newExitVelocity = Math.sqrt(newVSquared);
         double newRPM = calculateRPMForVelocity(newExitVelocity, aimDist);
-        if (newRPM < 1500 || newRPM > 3200) break; // compensation pushed RPM out of bounds
+        if (newRPM < 1500 || newRPM > 4500) break; // compensation pushed RPM out of bounds
 
         exitVelocity = newExitVelocity;
         theta = newTheta;
