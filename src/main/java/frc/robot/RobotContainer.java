@@ -90,6 +90,7 @@ public class RobotContainer {
   private final LoggedDashboardChooser<String> allianceWinChooser;
   private SendableChooser<AutoWrapperFactory.StartStrategy> startStrategyChooser;
   private SendableChooser<AutoWrapperFactory.PathShootingStrategy> pathShootingChooser;
+  private SendableChooser<Double> passTimeBudgetChooser;
   private boolean lastCompetitionMode = true;
 
   // Maps display name (e.g. "[Shot] 3 Piece Source") → raw auto name ("3 Piece Source").
@@ -400,6 +401,9 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
+    // Reset stale holdFire state from a previous auto that may have been interrupted
+    autoFeedingSuppressed = false;
+
     Command selectedAuto = autoChooser.get();
     if (selectedAuto == null) return null;
 
@@ -421,11 +425,15 @@ public class RobotContainer {
     if (startStrategy == null) startStrategy = defaultStartStrategy(folder);
     if (pathStrategy == null) pathStrategy = defaultPathShootingStrategy(folder);
 
+    Double passTimeBudget = passTimeBudgetChooser.getSelected();
+    double passTimeBudgetSec = (passTimeBudget != null) ? passTimeBudget : -1.0;
+
     return AutoWrapperFactory.compWrapped(
         selectedAuto,
         startingPose,
         startStrategy,
         pathStrategy,
+        passTimeBudgetSec,
         drive,
         intake,
         launcher,
@@ -483,6 +491,13 @@ public class RobotContainer {
         "Auto Tracking, Stationary",
         AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY);
     SmartDashboard.putData("Auton Path Shooting Strategy", pathShootingChooser);
+
+    passTimeBudgetChooser = new SendableChooser<>();
+    passTimeBudgetChooser.setDefaultOption("Pass All (no limit)", -1.0);
+    passTimeBudgetChooser.addOption("Pass 2s then Hold", 2.0);
+    passTimeBudgetChooser.addOption("Pass 4s then Hold", 4.0);
+    passTimeBudgetChooser.addOption("Hold All in Neutral", 0.0);
+    SmartDashboard.putData("Auton Pass Time Budget", passTimeBudgetChooser);
   }
 
   /**

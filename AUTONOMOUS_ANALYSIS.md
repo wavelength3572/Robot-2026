@@ -3,131 +3,67 @@
 ## Overview
 
 The autonomous system uses PathPlanner autos with a strategy-based wrapper architecture
-(`AutoWrapperFactory`). Two configurable axes — **StartStrategy** and **PathShootingStrategy** —
-combine to produce the full autonomous sequence. This is a well-designed, modular system.
+(`AutoWrapperFactory`). Three configurable axes — **StartStrategy**, **PathShootingStrategy**, and
+**Pass Time Budget** — combine to produce the full autonomous sequence.
 
-## Current Autonomous Routines (21 autos)
+## Current Autonomous Routines (20 autos)
 
-| Category | Autos |
-|----------|-------|
-| **Comp (standard)** | TrenchRightSafe, TrenchLeftSafe, TrenchRightShotOnly, TrenchLeftShotOnly |
-| **CompSafe (conservative)** | TrenchRightSnowblowSafe, TrenchLeftSnowblowSafe |
-| **CompSprint (aggressive)** | TrenchRightSprintSafe, TrenchLeftSprintSafe |
-| **CompStationaryShoot** | TrenchRight2Cycles, TrenchLeft2Cycles |
-| **Specialty** | TrenchRight+Climb, TrenchRight+HumanPlayer, Depot, Depot2.0, Human Player |
-| **Test/Utility** | Basic Loop 1/2, Basic Sweep Score On Left/Right, Angle Unwrapping Tests |
+| Folder | Right | Left | Notes |
+|--------|-------|------|-------|
+| **Comp** | TrenchRightSafe, TrenchRight+HumanPlayer | — | **TrenchLeftSafe missing** |
+| **CompSprint** | TrenchRightSprintSafe, TrenchRightSnowblowAggressive | TrenchLeftSprintSafe, TrenchLeftSnowblowSafe | Naming mismatch: Aggressive vs Safe |
+| **CompStationaryShoot** | TrenchRight2Cycles | TrenchLeft2Cycles | Matched |
+| **Old Autos** | TrenchRightShotOnly, TrenchRight+Climb | TrenchLeftShotOnly | +Climb is old/unused |
+| **Other** | Depot, Depot2.0, Human Player | — | Right-side only (by design) |
+| **Test** | Basic Loop 1/2, Basic Sweep L/R, Angle Unwrap Tests | — | Not competition |
 
-## Identified Gaps
+### Auto Mirroring Gaps
 
-### 1. Teardown Does Not Stop Turret, Hood, or Spindexer
+| Missing Auto | Based On | Priority |
+|-------------|----------|----------|
+| **TrenchLeftSafe** | TrenchRightSafe (Comp) | **High** — only Comp-folder right-side auto with no left mirror |
+| TrenchLeftSnowblowAggressive | TrenchRightSnowblowAggressive (CompSprint) | Medium — left side has "Safe" variant but not "Aggressive" |
 
-**File:** `AutoWrapperFactory.java:212-222`
+Human Player autos are right-side only by field design. Climb autos are in Old Autos folder.
 
-The `teardown()` method stops the launcher, motivator, and intake — but **not** the turret, hood,
-or spindexer. If auto ends abruptly (e.g. disabled mid-auto, or the `finallyDo` fires during an
-unexpected interruption), these subsystems may continue running their last commanded state into
-teleop init.
+## Resolved Gaps (code changes made)
 
-**Recommendation:** Add `turret.stop()`, `hood.stop()` (or stow), and `spindexer.stop()` to the
-teardown block.
+### 1. Teardown now stops spindexer (was missing)
+**`AutoWrapperFactory.java`** — Added `spindexer.stopSpindexer()` with null check to `teardown()`.
+Previously only stopped launcher, motivator, intake.
 
-### 2. No Null-Check on Turret, Hood, Spindexer, or Coordinator in Teardown
+### 2. `autoFeedingSuppressed` reset at auto start
+**`RobotContainer.java`** — `getAutonomousCommand()` now resets `autoFeedingSuppressed = false`
+before building the command. Prevents stale holdFire state from a previous interrupted auto.
 
-**File:** `AutoWrapperFactory.java:212-222`
+### 3. Warning on null starting pose
+**`AutoWrapperFactory.java`** — `resetOdometry()` now calls `DriverStation.reportWarning()` when
+starting pose is null, so the drive team sees it on the dashboard instead of silent bad shots.
 
-Launcher, motivator, and intake are null-checked before stopping. If any of the other subsystems
-were ever null (e.g. on SquareBot which may not have all subsystems), the teardown would throw a
-NullPointerException. This is a minor concern since those subsystems are currently always present,
-but inconsistent with the existing null-guard pattern.
+### 4. Overall auto safety timeout
+**`AutoWrapperFactory.java`** — Added 14.5s overall timeout on the composed sequence (15s auto
+period minus 0.5s margin). Catches hung paths or stuck subsystem commands.
 
-### 3. No Timeout on the Overall Autonomous Sequence
+### 5. Pass Time Budget (new dashboard control)
+**`ShootingCommands.java` / `AutoWrapperFactory.java` / `RobotContainer.java`**
 
-**File:** `AutoWrapperFactory.java:58-126`
+New dashboard chooser "Auton Pass Time Budget" controls how long the spindexer feeds in neutral
+(pass) zones per visit:
+- **Pass All (no limit)** — current behavior, feed everything
+- **Pass 2s then Hold** — feed for 2s in neutral, then suppress and reciprocate
+- **Pass 4s then Hold** — feed for 4s in neutral, then suppress and reciprocate
+- **Hold All in Neutral** — never feed in neutral zone, keep all balls for alliance scoring
 
-The individual phases have timeouts (initial launch: 3.5s, post-path: 10s), but there is no
-overall timeout on the composed sequence. If PathPlanner hangs or a subsystem command never
-finishes, the auto could run indefinitely until the FMS transitions to teleop. WPILib will cancel
-on mode switch, but a safety timeout (e.g. 14.5s for a 15s auto period) would be defensive.
+The timer resets each time the robot leaves the pass zone, so multi-cycle autos (path → shoot →
+path → shoot) get a fresh budget per neutral zone visit.
 
-### 4. No Left-Side Equivalents for Specialty Autos
+Logged to AdvantageKit: `ContinuousSmartLaunch/Gate/PassBudgetExhausted`,
+`ContinuousSmartLaunch/Gate/PassSuppressed`, `ContinuousSmartLaunch/PassTimeRemainingSec`.
 
-Only `TrenchRight+Climb` and `TrenchRight+HumanPlayer` exist — there are no `TrenchLeft+Climb` or
-`TrenchLeft+HumanPlayer` variants. If the robot starts on the left side of the field, these
-strategies are unavailable.
+### 6. Turret pre-match validation (already existed)
+Turret subsystem already has encoder error detection with dashboard warning and auto-lock.
 
-**Recommendation:** Create mirrored left-side versions, or confirm that PathPlanner's alliance
-flipping handles this automatically (it handles Red/Blue flipping, but not left/right within the
-same alliance).
+## Remaining Items
 
-### 5. Depot Autos Lack a "Safe" or "Sprint" Variant
-
-The Depot autos (`Depot`, `Depot2.0`) exist but have no sprint or safe variants. If depot-side
-starts are used in competition, the team has no fallback if the primary Depot auto fails or
-conflicts arise.
-
-### 6. No "Do Nothing" / Mobility-Only Auto
-
-There is no minimal auto that just drives forward for mobility points without shooting. This is a
-common fallback at competition when something is broken (launcher, turret, vision, etc.) and the
-team just wants the mobility bonus.
-
-**Recommendation:** Add a simple "MobilityOnly" auto that drives forward ~1.5m and stops.
-
-### 7. Hold/Release Fire Named Commands Have No Auto-Reset
-
-**File:** `RobotContainer.java:391-393`
-
-The `autoFeedingSuppressed` flag is toggled by `holdFire`/`releaseFire` named commands but is never
-explicitly reset at auto start. If auto is interrupted between `holdFire` and `releaseFire`, the
-flag stays true, potentially suppressing feeding in the next auto run.
-
-**Recommendation:** Reset `autoFeedingSuppressed = false` in `autonomousInit()` or at the start of
-`compWrapped()`.
-
-### 8. Starting Pose Resolution Silently Falls Through on Null
-
-**File:** `AutoWrapperFactory.java:133-137`, `RobotContainer.java:795`
-
-If `resolveStartingPose()` returns null (e.g. a misconfigured auto file), the odometry reset is
-silently skipped. The robot then runs the entire auto with stale pose data, causing every
-vision-less shot calculation to be wrong. There's no warning logged.
-
-**Recommendation:** Log a warning when `startingPose` is null so the drive team notices on the
-dashboard.
-
-### 9. No Autonomous Self-Test or Pre-Match Validation
-
-There is no pre-match check that validates subsystem readiness before auto starts (e.g. "is the
-turret homed?", "is vision getting AprilTag locks?", "is the launcher motor responding?"). A
-pre-match checklist command could catch hardware issues before the match begins.
-
-### 10. Post-Path Shoot Phase Has a Long 10s Timeout
-
-**File:** `AutoWrapperFactory.java:203-205`
-
-The post-path smart launch has a 10-second timeout. In a 15-second auto period, if the path takes
-10+ seconds, the post-path phase could extend well beyond the auto period. While the FMS mode
-switch will cancel it, this means the robot may still be shooting as teleop begins rather than
-transitioning to a ready state.
-
-**Recommendation:** Consider calculating a dynamic timeout based on elapsed auto time, or reduce
-the static timeout to 5-6 seconds.
-
-## Strengths
-
-- **Strategy composition is clean** — the `AutoWrapperFactory` pattern avoids code duplication
-- **Dashboard-configurable strategies** allow on-the-fly adjustment without redeployment
-- **Zone-based speed gating** prevents shots at unsafe speeds
-- **Folder-based auto categorization** with competition mode filtering is well thought out
-- **Named commands** (`holdFire`/`releaseFire`, `RunIntake`) provide mid-path control
-- **`.asProxy()` usage** correctly avoids subsystem requirement conflicts in parallel groups
-- **`finallyDo` teardown** ensures cleanup on interruption
-
-## Summary
-
-The autonomous system is architecturally solid. The most impactful gaps to address are:
-
-1. **Incomplete teardown** (turret/hood/spindexer not stopped) — easy fix, prevents stale state
-2. **Missing `autoFeedingSuppressed` reset** — could cause silent failures between auto runs
-3. **No mobility-only fallback auto** — important competition safety net
-4. **Silent null starting pose** — could cause an entire auto to shoot incorrectly with no warning
+- **TrenchLeftSafe** auto needs to be created in PathPlanner (mirror of TrenchRightSafe)
+- Consider whether TrenchLeftSnowblowAggressive is needed alongside TrenchLeftSnowblowSafe

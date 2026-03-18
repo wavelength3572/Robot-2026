@@ -19,6 +19,7 @@ import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.util.FuelSim;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +31,9 @@ import java.util.List;
 public class AutoWrapperFactory {
 
   private static final int AUTO_START_FUEL_COUNT = 8;
+
+  /** Overall auto safety timeout. The FMS auto period is 15s; this leaves 0.5s margin. */
+  private static final double AUTO_OVERALL_TIMEOUT_SEC = 14.5;
 
   private AutoWrapperFactory() {} // Static utility class
 
@@ -55,11 +59,16 @@ public class AutoWrapperFactory {
   /**
    * Unified comp auto wrapper. Composes the sequence dynamically based on the two strategy choices.
    */
+  /**
+   * @param passTimeBudgetSec Maximum seconds of feeding allowed in pass zones during path. Negative
+   *     means unlimited (pass all). Used to retain balls in hopper for alliance zone scoring.
+   */
   public static Command compWrapped(
       Command selectedAuto,
       Pose2d startingPose,
       StartStrategy startStrategy,
       PathShootingStrategy pathStrategy,
+      double passTimeBudgetSec,
       frc.robot.subsystems.drive.Drive drive,
       Intake intake,
       Launcher launcher,
@@ -91,7 +100,14 @@ public class AutoWrapperFactory {
       pathParallel.add(runPath(selectedAuto));
       pathParallel.add(
           ShootingCommands.continuousSmartLaunchCommand(
-                  launcher, coordinator, motivator, turret, hood, spindexer, armOnPassZone)
+                  launcher,
+                  coordinator,
+                  motivator,
+                  turret,
+                  hood,
+                  spindexer,
+                  armOnPassZone,
+                  passTimeBudgetSec)
               .asProxy());
     } else if (pathStrategy == PathShootingStrategy.AUTO_TRACKING_STATIONARY) {
       pathParallel.add(runPath(selectedAuto));
@@ -122,7 +138,8 @@ public class AutoWrapperFactory {
             launcher, coordinator, motivator, turret, hood, spindexer, intake));
 
     return Commands.sequence(steps.toArray(Command[]::new))
-        .finallyDo(() -> teardown(launcher, motivator, intake));
+        .withTimeout(AUTO_OVERALL_TIMEOUT_SEC)
+        .finallyDo(() -> teardown(launcher, motivator, intake, spindexer));
   }
 
   // ---- Building blocks (private) ----
@@ -133,6 +150,10 @@ public class AutoWrapperFactory {
         () -> {
           if (startingPose != null) {
             drive.setPose(startingPose);
+          } else {
+            edu.wpi.first.wpilibj.DriverStation.reportWarning(
+                "[Auto] Starting pose is null — odometry NOT reset. Shot calculations may be wrong!",
+                false);
           }
         });
   }
@@ -209,7 +230,8 @@ public class AutoWrapperFactory {
     return smartLaunch;
   }
 
-  private static void teardown(Launcher launcher, Motivator motivator, Intake intake) {
+  private static void teardown(
+      Launcher launcher, Motivator motivator, Intake intake, Spindexer spindexer) {
     if (launcher != null) {
       launcher.stop();
     }
@@ -218,6 +240,9 @@ public class AutoWrapperFactory {
     }
     if (intake != null) {
       intake.stopRollers();
+    }
+    if (spindexer != null) {
+      spindexer.stopSpindexer();
     }
   }
 }

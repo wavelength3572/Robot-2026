@@ -986,6 +986,9 @@ public class ShootingCommands {
    * @param armOnPassZone When true, feeding is suppressed until the robot first enters a PASS or
    *     LONG_PASS zone. Used by SPRINT autos to prevent firing preloads at the start position.
    *     Launcher/turret/hood still track the live shot while waiting.
+   * @param passTimeBudgetSec Maximum seconds of feeding allowed while in a pass zone. Once the
+   *     budget is exhausted, feeding is suppressed in pass zones (but still allowed in alliance
+   *     zone). A negative value means unlimited (no budget).
    * @return Command that continuously tracks and fires while active
    */
   public static Command continuousSmartLaunchCommand(
@@ -995,7 +998,8 @@ public class ShootingCommands {
       Turret turret,
       Hood hood,
       Spindexer spindexer,
-      boolean armOnPassZone) {
+      boolean armOnPassZone,
+      double passTimeBudgetSec) {
     // Mutable flags captured by lambdas.
     // feedingArmed: flips to true once the robot transitions into a pass zone.
     //   Once armed, stays armed permanently (robot can return to alliance zone and fire).
@@ -1005,6 +1009,12 @@ public class ShootingCommands {
     final boolean[] feedingArmed = {!armOnPassZone};
     final boolean[] wasOutsidePassZone = {false};
     final boolean[] motivatorStarted = {false};
+    // Pass time budget tracking — accumulates time spent feeding in pass zones.
+    // When passTimeBudgetSec >= 0, feeding in pass zones is suppressed after the budget is spent.
+    // Resets each time the robot leaves the pass zone so each neutral zone visit gets a fresh budget.
+    final double[] passTimeAccumSec = {0.0};
+    final boolean[] wasInPassZone = {false};
+    final boolean hasBudget = passTimeBudgetSec >= 0;
 
     return Commands.parallel(
             // Arming monitor — detects transition INTO a pass zone. Requires the robot
@@ -1085,7 +1095,9 @@ public class ShootingCommands {
                 : Commands.none(),
 
             // Spindexer — feed fuel (gated on armed + launcher ready + turret aimed + zone speed,
-            // reciprocate in neutral zone only when launcher is at speed, hold still otherwise)
+            // reciprocate in neutral zone only when launcher is at speed, hold still otherwise).
+            // When a pass time budget is active, feeding in pass zones is suppressed after the
+            // budget is exhausted, keeping balls in the hopper for alliance zone scoring.
             spindexer != null
                 ? Commands.run(
                     new Runnable() {
@@ -1097,13 +1109,34 @@ public class ShootingCommands {
                         boolean launcherReady = launcher.isReady();
                         boolean turretAimed = turret.getState() == Turret.TurretState.READY;
                         boolean speedOk = coordinator.isRobotSlowEnoughForCurrentZone();
+                        boolean inPassZone = coordinator.isInPassZone();
+
+                        // Reset pass time budget when leaving the pass zone so each
+                        // neutral zone visit gets a fresh budget (important for multi-cycle autos)
+                        if (hasBudget && wasInPassZone[0] && !inPassZone) {
+                          passTimeAccumSec[0] = 0.0;
+                        }
+                        wasInPassZone[0] = inPassZone;
+
+                        // Pass time budget: suppress feeding in pass zone after budget spent
+                        boolean passBudgetExhausted =
+                            hasBudget && passTimeAccumSec[0] >= passTimeBudgetSec;
+                        boolean passSuppressed = inPassZone && passBudgetExhausted;
+
                         Logger.recordOutput("ContinuousSmartLaunch/Gate/Armed", armed);
                         Logger.recordOutput(
                             "ContinuousSmartLaunch/Gate/LauncherReady", launcherReady);
                         Logger.recordOutput("ContinuousSmartLaunch/Gate/TurretAimed", turretAimed);
                         Logger.recordOutput("ContinuousSmartLaunch/Gate/SpeedOk", speedOk);
-                        boolean feedOk = armed && launcherReady && turretAimed && speedOk;
-                        boolean spindexerFeedOk = armed && turretAimed && speedOk;
+                        Logger.recordOutput(
+                            "ContinuousSmartLaunch/Gate/PassBudgetExhausted", passBudgetExhausted);
+                        Logger.recordOutput(
+                            "ContinuousSmartLaunch/Gate/PassSuppressed", passSuppressed);
+
+                        boolean feedOk =
+                            armed && launcherReady && turretAimed && speedOk && !passSuppressed;
+                        boolean spindexerFeedOk =
+                            armed && turretAimed && speedOk && !passSuppressed;
                         if (feedOk) {
                           launcher.setFeedingActive(true);
                         }
@@ -1111,11 +1144,16 @@ public class ShootingCommands {
                           wasReciprocating = false;
                           double dist = coordinator.getDistanceToTarget();
                           double spnRPM =
-                              coordinator.isInPassZone()
+                              inPassZone
                                   ? getSpindexerPassRPM()
                                   : getSpindexerRPM(dist > 0 ? dist : 1.16);
                           spindexer.setSpindexerVelocity(spnRPM);
-                        } else if (!speedOk) {
+
+                          // Accumulate pass feeding time (20ms per cycle)
+                          if (inPassZone && hasBudget) {
+                            passTimeAccumSec[0] += 0.02;
+                          }
+                        } else if (!speedOk || passSuppressed) {
                           wasReciprocating = true;
                           spindexer.reciprocate();
                         } else if (wasReciprocating) {
@@ -1125,6 +1163,11 @@ public class ShootingCommands {
                           spindexer.stopSpindexer();
                         }
                         Logger.recordOutput("ContinuousSmartLaunch/FeedingSuppressed", !feedOk);
+                        if (hasBudget) {
+                          Logger.recordOutput(
+                              "ContinuousSmartLaunch/PassTimeRemainingSec",
+                              Math.max(0, passTimeBudgetSec - passTimeAccumSec[0]));
+                        }
                       }
                     },
                     spindexer)
