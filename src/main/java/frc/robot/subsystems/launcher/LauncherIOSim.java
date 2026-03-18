@@ -98,6 +98,7 @@ public class LauncherIOSim implements LauncherIO {
     inputs.leaderTempCelsius = 25.0;
     inputs.followerTempCelsius = 25.0;
     inputs.targetVelocityRPM = targetWheelRPM;
+    inputs.leaderTargetRPM = targetWheelRPM / gearRatio;
     inputs.atSetpoint = Math.abs(currentWheelRPM - targetWheelRPM) < velocityToleranceRPM;
   }
 

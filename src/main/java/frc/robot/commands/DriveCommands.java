@@ -92,11 +92,6 @@ public class DriveCommands {
     double scale =
         (maxSpeedMps > 0.0 && clampedLimit < maxSpeedMps) ? clampedLimit / maxSpeedMps : 1.0;
 
-    Logger.recordOutput("SpeedLimit/EffectiveMps", Math.min(effectiveSpeedLimitMps, maxSpeedMps));
-    Logger.recordOutput("SpeedLimit/TargetMps", Math.min(speedLimitTargetMps, maxSpeedMps));
-    Logger.recordOutput("SpeedLimit/Scale", scale);
-    Logger.recordOutput("SpeedLimit/Ramping", effectiveSpeedLimitMps < speedLimitTargetMps);
-
     return scale;
   }
 

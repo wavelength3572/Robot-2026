@@ -243,6 +243,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
     // Target and at-setpoint status
     inputs.targetVelocityRPM = currentTargetWheelRPM;
+    inputs.leaderTargetRPM = wheelToMotorRPM(currentTargetWheelRPM);
     inputs.atSetpoint =
         Math.abs(inputs.wheelVelocityRPM - currentTargetWheelRPM) < this.velocityToleranceRPM;
   }

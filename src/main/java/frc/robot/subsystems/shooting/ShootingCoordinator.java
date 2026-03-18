@@ -849,12 +849,21 @@ public class ShootingCoordinator extends SubsystemBase {
         TurretAimingHelper.getAimTarget(
             robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
 
-    return switch (aimResult.mode()) {
-      case SHOOT_ON_THE_MOVE -> robotSpeedMps <= shootOnTheMoveSpeedMps.get();
-      case SHOOT_STATIONARY -> robotSpeedMps <= stationarySpeedMps.get();
-      case PASS, LONG_PASS -> robotSpeedMps <= passSpeedMps.get();
-      case NONE -> false;
-    };
+    double thresholdMps =
+        switch (aimResult.mode()) {
+          case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get();
+          case SHOOT_STATIONARY -> stationarySpeedMps.get();
+          case PASS, LONG_PASS -> passSpeedMps.get();
+          case NONE -> 0.0;
+        };
+    boolean slowEnough =
+        aimResult.mode() != TurretAimingHelper.AimMode.NONE && robotSpeedMps <= thresholdMps;
+
+    Logger.recordOutput("SmartLaunch/SpeedCheck/RobotMps", robotSpeedMps);
+    Logger.recordOutput("SmartLaunch/SpeedCheck/ThresholdMps", thresholdMps);
+    Logger.recordOutput("SmartLaunch/SpeedCheck/SlowEnough", slowEnough);
+
+    return slowEnough;
   }
 
   /**
@@ -1020,6 +1029,26 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Get the shoot-on-the-move speed limit (for active drive speed capping). */
   public double getShootOnTheMoveSpeedMps() {
     return shootOnTheMoveSpeedMps.get();
+  }
+
+  /**
+   * Get the zone-appropriate drive speed limit. In ALLIANCE zone returns just under the
+   * shoot-on-the-move threshold; in PASS/LONG_PASS zones returns the pass threshold. Returns max
+   * speed for zones where shooting is suppressed (NONE).
+   */
+  public double getZoneSpeedLimitMps() {
+    if (robotPoseSupplier == null) return Double.MAX_VALUE;
+    Pose2d robotPose = robotPoseSupplier.get();
+    DriverStation.Alliance alliance = RobotStatus.getAlliance();
+    TurretAimingHelper.AimResult aimResult =
+        TurretAimingHelper.getAimTarget(
+            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
+    return switch (aimResult.mode()) {
+      case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get() - 0.05;
+      case SHOOT_STATIONARY -> stationarySpeedMps.get() - 0.05;
+      case PASS, LONG_PASS -> passSpeedMps.get() - 0.05;
+      case NONE -> Double.MAX_VALUE;
+    };
   }
 
   // ========== Snapshot Creation ==========

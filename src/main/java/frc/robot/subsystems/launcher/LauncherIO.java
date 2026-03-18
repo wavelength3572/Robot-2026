@@ -31,6 +31,7 @@ public interface LauncherIO {
 
     // Control state
     public double targetVelocityRPM = 0.0;
+    public double leaderTargetRPM = 0.0;
     public boolean atSetpoint = false;
   }
 

@@ -209,6 +209,8 @@ public class Intake extends SubsystemBase {
   // Pending roller velocity — set when deploy is commanded, applied once position threshold is met
   private boolean rollersPending = false;
   private double pendingRollerRPM = 0.0;
+  private boolean rollersActivelyCommanded = false;
+  private double activeRollerRPM = 0.0;
 
   // Velocity control toggle (default: velocity control on)
   private boolean useVelocityControl = true;
@@ -347,9 +349,13 @@ public class Intake extends SubsystemBase {
     }
 
     // Safety interlock: force rollers off when deploy is too close to stowed
-    // Preserve rollersPending so they re-activate once deploy reaches position
+    // If rollers were actively running, re-pend them so they restart when position recovers
     boolean rollersSafetyLocked = inputs.deployPositionRotations < rollerMinDeployPosition.get();
     if (rollersSafetyLocked) {
+      if (rollersActivelyCommanded && !rollersPending) {
+        pendingRollerRPM = activeRollerRPM;
+        rollersPending = true;
+      }
       io.stopRollerMotor();
     }
 
@@ -440,6 +446,7 @@ public class Intake extends SubsystemBase {
     applyRetractMotionConfig();
     deployCommanded = false;
     rollersPending = false;
+    rollersActivelyCommanded = false;
     movingFirstCycle = true;
     deployState = DeployState.RETRACTING;
     io.setDeployPosition(deployRetractedPos.get());
@@ -465,6 +472,7 @@ public class Intake extends SubsystemBase {
     io.setDeployBrakeMode(true);
     deployCommanded = false;
     rollersPending = false;
+    rollersActivelyCommanded = false;
     deployState = DeployState.RETRACTED;
     brakeTimer.stop();
   }
@@ -580,6 +588,7 @@ public class Intake extends SubsystemBase {
   /** Stop the rollers. */
   public void stopRollers() {
     rollersPending = false;
+    rollersActivelyCommanded = false;
     io.stopRollerMotor();
   }
 
@@ -610,6 +619,8 @@ public class Intake extends SubsystemBase {
    * @param rpm Target roller velocity in RPM
    */
   public void setRollerVelocityWhenDeployed(double rpm) {
+    activeRollerRPM = rpm;
+    rollersActivelyCommanded = true;
     if (inputs.deployPositionRotations >= rollerMinDeployPosition.get()) {
       io.setRollerVelocity(rpm);
       rollersPending = false;

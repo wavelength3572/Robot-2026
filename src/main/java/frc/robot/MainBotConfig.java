@@ -140,11 +140,11 @@ public class MainBotConfig implements RobotConfig {
   private static final int launcherFollowerCanId = 59;
   private static final double launcherGearRatio = 1.5; // 1 motor rot = 1.5 wheel rot
   private static final int launcherCurrentLimitAmps = 80;
-  private static final double launcherKp = 0.0;
-  private static final double launcherKi = 0.00000035;
-  private static final double launcherKd = 0.0;
-  private static final double launcherKv = 0.00174;
-  private static final double launcherKs = 0.31;
+  private static final double launcherKp = 0.00014;
+  private static final double launcherKi = 0.0;
+  private static final double launcherKd = 0.006;
+  private static final double launcherKv = 0.001786;
+  private static final double launcherKs = 0.205;
   private static final double launcherIZone = 100.0; // motor RPM - integral only below this error
 
   // Hood Configuration
