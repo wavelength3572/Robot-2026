@@ -106,15 +106,14 @@ public class LauncherIOSparkFlex implements LauncherIO {
     leaderConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(initKp, initKi, initKd)
+        .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot0)
         .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot1)
         .iZone(config.getLauncherIZone());
     leaderConfig
         .closedLoop
         .feedForward
-        .kS(config.getLauncherKs())
-        .kV(config.getLauncherKv())
-        .kA(0.0);
+        .sv(config.getLauncherKs(),config.getLauncherKv(),ClosedLoopSlot.kSlot0)
+        .sv(config.getLauncherKs(),config.getLauncherKv(),ClosedLoopSlot.kSlot1);
 
     // Signal update rates
     leaderConfig
@@ -282,21 +281,22 @@ public class LauncherIOSparkFlex implements LauncherIO {
   }
 
   @Override
-  public void configurePID(double kP, double kI, double kD, double recoveryKpBoost, double iZone) {
+  public void configurePID(double kP, double kI, double kD, double iZone) {
     var pidConfig = new SparkFlexConfig();
     pidConfig
         .closedLoop
-        .pid(kP, kI, kD)
-        .pid(kP + recoveryKpBoost, kI, kD, ClosedLoopSlot.kSlot1)
+        .pid(kP, kI, kD, ClosedLoopSlot.kSlot0)
+        .pid(kP, kI, kD, ClosedLoopSlot.kSlot1)
         .iZone(iZone);
     leaderMotor.configure(
         pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 
   @Override
-  public void configureFeedforward(double kS, double kV, double kA) {
+  public void configureFeedforward(double kS, double kV) {
     var ffConfig = new SparkFlexConfig();
-    ffConfig.closedLoop.feedForward.kS(kS).kV(kV).kA(kA);
+    ffConfig.closedLoop.feedForward.sv(kS,kV,ClosedLoopSlot.kSlot0);
+    ffConfig.closedLoop.feedForward.sv(kS,kV,ClosedLoopSlot.kSlot1);
     leaderMotor.configure(
         ffConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }

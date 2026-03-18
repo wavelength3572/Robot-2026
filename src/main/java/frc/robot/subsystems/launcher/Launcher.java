@@ -39,12 +39,9 @@ public class Launcher extends SubsystemBase {
   private static final LoggedTunableNumber kD;
   private static final LoggedTunableNumber kS;
   private static final LoggedTunableNumber kV;
-  private static final LoggedTunableNumber kA;
 
-  private static final LoggedTunableNumber recoveryKpBoost =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryKpBoost", 0.0);
   private static final LoggedTunableNumber recoveryArbFFPct =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryArbFFPct", 1.0);
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryArbFFPct", 0.0);
 
   // IZone: integral only accumulates when error is below this threshold (motor RPM).
   // Prevents windup during spin-up while allowing kI to eliminate steady-state error.
@@ -54,7 +51,7 @@ public class Launcher extends SubsystemBase {
   private static final LoggedTunableNumber velocityToleranceRPM =
       new LoggedTunableNumber("Tuning/Launcher/ReadyToleranceRPM", 35.0);
 
-  // Recovery: threshold error (wheel RPM) to activate Slot 1 (boosted kP)
+  // Recovery: threshold error (wheel RPM) to activate Slot 1
   private static final LoggedTunableNumber recoveryBoostThresholdRPM =
       new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostThresholdRPM", 40.0);
 
@@ -65,7 +62,6 @@ public class Launcher extends SubsystemBase {
     kD = new LoggedTunableNumber("Tuning/Launcher/kD", config.getLauncherKd());
     kS = new LoggedTunableNumber("Tuning/Launcher/kS", config.getLauncherKs());
     kV = new LoggedTunableNumber("Tuning/Launcher/kV", config.getLauncherKv());
-    kA = new LoggedTunableNumber("Tuning/Launcher/kA", 0.0);
     iZone = new LoggedTunableNumber("Tuning/Launcher/IZone", config.getLauncherIZone());
   }
 
@@ -144,11 +140,11 @@ public class Launcher extends SubsystemBase {
     ShotCalculator.setLauncherRPM(inputs.wheelVelocityRPM);
 
     // Push tunable changes to IO
-    if (LoggedTunableNumber.hasChanged(kP, kI, kD, recoveryKpBoost, iZone)) {
-      io.configurePID(kP.get(), kI.get(), kD.get(), recoveryKpBoost.get(), iZone.get());
+    if (LoggedTunableNumber.hasChanged(kP, kI, kD, iZone)) {
+      io.configurePID(kP.get(), kI.get(), kD.get(), iZone.get());
     }
-    if (LoggedTunableNumber.hasChanged(kS, kV, kA)) {
-      io.configureFeedforward(kS.get(), kV.get(), kA.get());
+    if (LoggedTunableNumber.hasChanged(kS, kV)) {
+      io.configureFeedforward(kS.get(), kV.get());
     }
     if (LoggedTunableNumber.hasChanged(velocityToleranceRPM)) {
       io.setVelocityTolerance(velocityToleranceRPM.get());

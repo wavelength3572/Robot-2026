@@ -61,10 +61,10 @@ public interface LauncherIO {
 
   /** Configure PID gains and IZone for velocity control. */
   default void configurePID(
-      double kP, double kI, double kD, double recoveryKpBoost, double iZone) {}
+      double kP, double kI, double kD, double iZone) {}
 
   /** Configure feedforward gains for velocity control. */
-  default void configureFeedforward(double kS, double kV, double kA) {}
+  default void configureFeedforward(double kS, double kV) {}
 
   /** Set the velocity tolerance for atSetpoint checks. */
   default void setVelocityTolerance(double toleranceRPM) {}
