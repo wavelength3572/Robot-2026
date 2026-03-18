@@ -120,7 +120,7 @@ public class Intake extends SubsystemBase {
     agitationRetractOutputLimit =
         new LoggedTunableNumber("Tuning/Intake/Agitation/RetractOutputLimit", 1.0);
     agitationRetractTarget =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractTarget", 0.055);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractTarget", 0.02);
     agitationTimeoutSec = new LoggedTunableNumber("Tuning/Intake/Agitation/TimeoutSec", 0.6);
     agitationCoastTimeSec = new LoggedTunableNumber("Tuning/Intake/Agitation/CoastTimeSec", 0.15);
     agitationFallTime = new LoggedTunableNumber("Tuning/Intake/Agitation/FallTimeSec", 0.3);
