@@ -138,6 +138,13 @@ public class ShootingCommands {
   private static final LoggedTunableNumber spindexerPassRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 350.0);
 
+  // Feed suppression during large turret movements (flips).
+  // Suppress feeding when turret error exceeds threshold; resume with hysteresis.
+  private static final LoggedTunableNumber feedSuppressionThresholdDeg =
+      new LoggedTunableNumber("Shots/SmartLaunch/FeedSuppressionThresholdDeg", 45.0);
+  private static final LoggedTunableNumber feedResumeThresholdDeg =
+      new LoggedTunableNumber("Shots/SmartLaunch/FeedResumeThresholdDeg", 35.0);
+
   // ===== LUT Dev Overrides (manual RPM/hood for data collection) =====
   private static final LoggedTunableNumber lutDevOverrideRPM =
       new LoggedTunableNumber("LUTDev/OverrideRPM", 2500.0);
@@ -201,6 +208,24 @@ public class ShootingCommands {
   /** Fixed spindexer RPM for pass/neutral zones. */
   public static double getSpindexerPassRPM() {
     return spindexerPassRPM.get();
+  }
+
+  /**
+   * Check if feed should be suppressed due to a large turret movement (flip). Uses hysteresis to
+   * prevent chatter near the threshold.
+   *
+   * @param turret The turret subsystem
+   * @param wasSuppressed Single-element array holding the previous suppression state
+   * @return true if feed should be suppressed
+   */
+  private static boolean shouldSuppressFeed(Turret turret, boolean[] wasSuppressed) {
+    double error = Math.abs(turret.getOutsideCurrentAngle() - turret.getOutsideTargetAngle());
+    if (wasSuppressed[0]) {
+      wasSuppressed[0] = error > feedResumeThresholdDeg.get();
+    } else {
+      wasSuppressed[0] = error > feedSuppressionThresholdDeg.get();
+    }
+    return wasSuppressed[0];
   }
 
   /** Initialize tunables so they appear in the dashboard immediately. */
@@ -638,7 +663,10 @@ public class ShootingCommands {
                               hood.setHoodAngle(hoodDeg);
                             }
                             // Start motivator once launcher is at setpoint
-                            if (motivator != null && launcher.isReady() && turret.atTarget() && hood.atTarget()) {
+                            if (motivator != null
+                                && launcher.isReady()
+                                && turret.atTarget()
+                                && hood.atTarget()) {
                               motivator.setMotivatorVelocity(getMotivatorRPM(rpm));
                             }
                           }
@@ -670,8 +698,7 @@ public class ShootingCommands {
                           Logger.recordOutput("SmartLaunch/Ready/RobotSlow", robotSlow);
                           Logger.recordOutput("SmartLaunch/Ready/All", allReady);
                           return allReady;
-                        })
-                    ),
+                        })),
                 Commands.sequence(
                     Commands.waitSeconds(5.0),
                     Commands.runOnce(
@@ -765,25 +792,44 @@ public class ShootingCommands {
                 // turret alignment or robot speed. Stopping it causes RPM drops
                 // that disrupt shots, especially during shoot-on-the-move when the
                 // turret is continuously tracking and atTarget() flickers.
+                // Feed is suppressed during large turret movements (flips).
                 motivator != null
                     ? Commands.run(
-                        () -> {
-                          ShotCalculator.ShotResult s = coordinator.getCurrentShot();
-                          double launcherRPM = getEffectiveRPM(s);
-                          motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                        new Runnable() {
+                          boolean[] flipSuppressed = {false};
+
+                          @Override
+                          public void run() {
+                            if (turret != null && shouldSuppressFeed(turret, flipSuppressed)) {
+                              motivator.stopMotivator();
+                            } else {
+                              ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                              double launcherRPM = getEffectiveRPM(s);
+                              motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                            }
+                          }
                         },
                         motivator)
                     : Commands.none(),
 
                 // Run spindexer: teleop always feeds (operator is holding shoot button),
-                // auto feeds when slow enough, reciprocates when too fast (transiting)
+                // auto feeds when slow enough, reciprocates when too fast (transiting).
+                // Feed is suppressed during large turret movements (flips).
                 spindexer != null
                     ? Commands.run(
                         new Runnable() {
                           boolean wasReciprocating = false;
+                          boolean[] flipSuppressed = {false};
 
                           @Override
                           public void run() {
+                            boolean suppressed =
+                                turret != null && shouldSuppressFeed(turret, flipSuppressed);
+                            Logger.recordOutput("SmartLaunch/FlipSuppressed", suppressed);
+                            if (suppressed) {
+                              spindexer.stopSpindexer();
+                              return;
+                            }
                             double dist = coordinator.getDistanceToTarget();
                             double spnRPM =
                                 coordinator.isInPassZone()
@@ -1043,25 +1089,44 @@ public class ShootingCommands {
                 // turret alignment or robot speed. Stopping it causes RPM drops
                 // that disrupt shots, especially during shoot-on-the-move when the
                 // turret is continuously tracking and atTarget() flickers.
+                // Feed is suppressed during large turret movements (flips).
                 motivator != null
                     ? Commands.run(
-                        () -> {
-                          ShotCalculator.ShotResult s = coordinator.getCurrentShot();
-                          double launcherRPM = getEffectiveRPM(s);
-                          motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                        new Runnable() {
+                          boolean[] flipSuppressed = {false};
+
+                          @Override
+                          public void run() {
+                            if (turret != null && shouldSuppressFeed(turret, flipSuppressed)) {
+                              motivator.stopMotivator();
+                            } else {
+                              ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                              double launcherRPM = getEffectiveRPM(s);
+                              motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                            }
+                          }
                         },
                         motivator)
                     : Commands.none(),
 
                 // Run spindexer: teleop always feeds (operator is holding shoot button),
-                // auto feeds when slow enough, reciprocates when too fast (transiting)
+                // auto feeds when slow enough, reciprocates when too fast (transiting).
+                // Feed is suppressed during large turret movements (flips).
                 spindexer != null
                     ? Commands.run(
                         new Runnable() {
                           boolean wasReciprocating = false;
+                          boolean[] flipSuppressed = {false};
 
                           @Override
                           public void run() {
+                            boolean suppressed =
+                                turret != null && shouldSuppressFeed(turret, flipSuppressed);
+                            Logger.recordOutput("SmartLaunch/FlipSuppressed", suppressed);
+                            if (suppressed) {
+                              spindexer.stopSpindexer();
+                              return;
+                            }
                             double dist = coordinator.getDistanceToTarget();
                             double spnRPM =
                                 coordinator.isInPassZone()
