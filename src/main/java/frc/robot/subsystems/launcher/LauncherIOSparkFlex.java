@@ -121,9 +121,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
-        .appliedOutputPeriodMs(20)
-        .busVoltagePeriodMs(100)
-        .outputCurrentPeriodMs(100);
+        .appliedOutputPeriodMs(5)
+        .busVoltagePeriodMs(5)
+        .outputCurrentPeriodMs(5);
 
     tryUntilOk(
         leaderMotor,
@@ -140,7 +140,6 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(config.getLauncherCurrentLimitAmps())
         .disableVoltageCompensation()
-        // .voltageCompensation(12.0)
         .follow(leaderMotor, true);
 
     followerConfig.encoder.uvwMeasurementPeriod(8).uvwAverageDepth(2);

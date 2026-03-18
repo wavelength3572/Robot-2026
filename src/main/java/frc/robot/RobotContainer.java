@@ -879,9 +879,6 @@ public class RobotContainer {
 
         if (launcher != null) {
           chooser.addOption(
-              "[Util] Launcher SysId (Quasistatic)", launcher.launcherSysIdQuasistatic());
-          chooser.addOption("[Util] Launcher SysId (Dynamic)", launcher.launcherSysIdDynamic());
-          chooser.addOption(
               "[Util] Launcher Simple FF Characterization",
               LauncherCommands.feedforwardCharacterization(launcher));
         }
