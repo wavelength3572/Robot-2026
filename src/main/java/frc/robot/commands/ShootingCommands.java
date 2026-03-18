@@ -131,9 +131,9 @@ public class ShootingCommands {
 
   // Spindexer RPM lerped by distance: close = max, far = min
   private static final LoggedTunableNumber spindexerCloseRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 350.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 225.0);
   private static final LoggedTunableNumber spindexerFarRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 300.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 225.0);
   // Fixed spindexer RPM used in pass/neutral zones (no distance lerp)
   private static final LoggedTunableNumber spindexerPassRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 350.0);

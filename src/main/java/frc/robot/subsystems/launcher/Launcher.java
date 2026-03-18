@@ -166,7 +166,7 @@ public class Launcher extends SubsystemBase {
       double threshold = recoveryBoostThresholdRPM.get();
       if (!recoveryActive && error > threshold) {
         recoveryActive = true;
-      } else if (recoveryActive && error < threshold * 0.5) {
+      } else if (recoveryActive && error < threshold * 0.9) {
         recoveryActive = false;
       }
     } else {
