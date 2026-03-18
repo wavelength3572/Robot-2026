@@ -177,7 +177,7 @@ public class Launcher extends SubsystemBase {
     // FF voltage ≈ kS + kV * motorRPM. Scale by tunable percentage.
     double gearRatio = Constants.getRobotConfig().getLauncherGearRatio();
     double motorRPM = velocityRPM / gearRatio;
-    double steadyStateFF = kS.get() + kV.get() * motorRPM;
+    double steadyStateFF = kS.get() + (kV.get() * motorRPM);
     double recoveryArbFFVolts = recoveryActive ? recoveryArbFFPct.get() * steadyStateFF : 0.0;
 
     io.setVelocity(velocityRPM, recoveryActive, recoveryArbFFVolts);
