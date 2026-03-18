@@ -103,9 +103,9 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber passRightAdjustY =
       new LoggedTunableNumber("SmartLaunch/Pass/Right/AdjustY", 0.0);
 
-  // Two-point trajectory tunables for pass shots
-  private final LoggedTunableNumber symmetricArcPeakHeightM =
-      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightM", 1.5);
+  // Two-point trajectory tunables for pass shots (dashboard value in inches, converted to meters)
+  private final LoggedTunableNumber symmetricArcPeakHeightIn =
+      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightIn", 98.4);
   private final LoggedTunableNumber lobNetClearanceMarginM =
       new LoggedTunableNumber("SmartLaunch/Pass/Lob/NetClearanceMarginM", 0.3);
   private final LoggedTunableNumber lobMaxPeakHeightM =
@@ -577,8 +577,8 @@ public class ShootingCoordinator extends SubsystemBase {
       if (hubDistAlongShot <= 0.5 || hubDistAlongShot >= horizontalDist - 0.5) {
         // Shot doesn't cross the hub — use low arc
         constraintX = horizontalDist / 2.0;
-        constraintH = symmetricArcPeakHeightM.get();
-        maxPeakHeight = symmetricArcPeakHeightM.get() + 1.0;
+        constraintH = symmetricArcPeakHeightIn.get() * 0.0254;
+        maxPeakHeight = symmetricArcPeakHeightIn.get() * 0.0254 + 1.0;
         Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", true);
       } else {
         constraintX = hubDistAlongShot;
@@ -589,8 +589,9 @@ public class ShootingCoordinator extends SubsystemBase {
     } else {
       // SYMMETRIC: clearance point is the midpoint, height is the desired arc peak
       constraintX = horizontalDist / 2.0;
-      constraintH = symmetricArcPeakHeightM.get();
-      maxPeakHeight = symmetricArcPeakHeightM.get() + 1.0; // allow small margin above desired peak
+      constraintH = symmetricArcPeakHeightIn.get() * 0.0254;
+      maxPeakHeight =
+          symmetricArcPeakHeightIn.get() * 0.0254 + 1.0; // allow small margin above desired peak
     }
 
     ShotCalculator.ShotResult result =

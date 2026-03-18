@@ -143,15 +143,15 @@ public class ButtonsAndDashboardBindings {
             .ignoringDisable(true)
             .withName("Trim 0"));
     SmartDashboard.putData(
-        "Trim/SetPlus50",
-        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(50.0))
+        "Trim/SetPlus75",
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(75.0))
             .ignoringDisable(true)
-            .withName("Trim +50"));
+            .withName("Trim +75"));
     SmartDashboard.putData(
-        "Trim/SetPlus100",
-        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(100.0))
+        "Trim/SetPlus150",
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(150.0))
             .ignoringDisable(true)
-            .withName("Trim +100"));
+            .withName("Trim +150"));
 
     // Coordinated shooting controls (requires coordinator and launcher)
     if (shootingCoordinator != null && launcher != null) {
@@ -412,7 +412,11 @@ public class ButtonsAndDashboardBindings {
                   intake::stopRollers,
                   intake));
       if (spindexer != null) {
-        oi.getButtonBox1Button4().whileTrue(spindexer.reciprocateCommand());
+        // Only reciprocate spindexer when smart launch (Button 12) is NOT held,
+        // otherwise Button 4 steals the spindexer subsystem and cancels smart launch.
+        oi.getButtonBox1Button4()
+            .and(oi.getButtonBox1Button12().negate())
+            .whileTrue(spindexer.reciprocateCommand());
       }
 
       // Button 3: Retract and run rollers while held; on release, stop rollers but stay retracted
