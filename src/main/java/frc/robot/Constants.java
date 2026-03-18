@@ -113,8 +113,8 @@ public final class Constants {
 
     public static final double RED_PASS_TARGET_X = FieldConstants.fieldLength - BLUE_PASS_TARGET_X;
 
-    /** Pass target Y positions (offset from field center toward each trench). */
-    public static final double PASS_TARGET_Y_OFFSET = 1.75;
+    /** Pass target Y positions (offset from field center toward each outer wall). */
+    public static final double PASS_TARGET_Y_OFFSET = 2.66;
 
     public static final double RIGHT_PASS_TARGET_Y =
         FieldConstants.fieldWidth / 2 - PASS_TARGET_Y_OFFSET;

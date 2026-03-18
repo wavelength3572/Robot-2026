@@ -114,7 +114,9 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot0)
         .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot1)
         .iZone(config.getLauncherIZone());
-    leaderConfig.closedLoop.feedForward
+    leaderConfig
+        .closedLoop
+        .feedForward
         .sv(config.getLauncherKs(), config.getLauncherKv(), ClosedLoopSlot.kSlot0)
         .sv(config.getLauncherKs(), config.getLauncherKv(), ClosedLoopSlot.kSlot1);
 

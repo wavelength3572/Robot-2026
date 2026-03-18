@@ -131,9 +131,12 @@ public class ShootingCommands {
 
   // Spindexer RPM lerped by distance: close = max, far = min
   private static final LoggedTunableNumber spindexerCloseRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 250.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 350.0);
   private static final LoggedTunableNumber spindexerFarRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 100.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 300.0);
+  // Fixed spindexer RPM used in pass/neutral zones (no distance lerp)
+  private static final LoggedTunableNumber spindexerPassRPM =
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 350.0);
 
   // ===== LUT Dev Overrides (manual RPM/hood for data collection) =====
   private static final LoggedTunableNumber lutDevOverrideRPM =
@@ -188,11 +191,16 @@ public class ShootingCommands {
     return launcherRPM * motivatorLauncherRatio.get();
   }
 
-  /** Lerp spindexer RPM from distance — 350 RPM close (1.16m), 100 RPM far (5.35m). */
+  /** Lerp spindexer RPM from distance — close (1.16m) to far (5.35m). */
   public static double getSpindexerRPM(double distanceM) {
     double minDist = 1.16, maxDist = 5.35;
     double t = Math.max(0, Math.min(1, (distanceM - minDist) / (maxDist - minDist)));
     return spindexerCloseRPM.get() + t * (spindexerFarRPM.get() - spindexerCloseRPM.get());
+  }
+
+  /** Fixed spindexer RPM for pass/neutral zones. */
+  public static double getSpindexerPassRPM() {
+    return spindexerPassRPM.get();
   }
 
   /** Initialize tunables so they appear in the dashboard immediately. */
@@ -798,7 +806,10 @@ public class ShootingCommands {
                           @Override
                           public void run() {
                             double dist = coordinator.getDistanceToTarget();
-                            double spnRPM = getSpindexerRPM(dist > 0 ? dist : 1.16);
+                            double spnRPM =
+                                coordinator.isInPassZone()
+                                    ? getSpindexerPassRPM()
+                                    : getSpindexerRPM(dist > 0 ? dist : 1.16);
                             if (DriverStation.isTeleop()
                                 || coordinator.isRobotSlowEnoughForCurrentZone()) {
                               wasReciprocating = false;
@@ -1099,7 +1110,10 @@ public class ShootingCommands {
                         if (spindexerFeedOk) {
                           wasReciprocating = false;
                           double dist = coordinator.getDistanceToTarget();
-                          double spnRPM = getSpindexerRPM(dist > 0 ? dist : 1.16);
+                          double spnRPM =
+                              coordinator.isInPassZone()
+                                  ? getSpindexerPassRPM()
+                                  : getSpindexerRPM(dist > 0 ? dist : 1.16);
                           spindexer.setSpindexerVelocity(spnRPM);
                         } else if (!speedOk) {
                           wasReciprocating = true;
