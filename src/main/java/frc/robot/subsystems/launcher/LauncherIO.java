@@ -16,6 +16,8 @@ public interface LauncherIO {
     // Leader motor data (motor RPM, before gear ratio)
     public double leaderVelocityRPM = 0.0;
     public double leaderAppliedVolts = 0.0;
+    public double leaderAppliedOutput = 0.0;
+    public double leaderBusVoltage = 0.0;
     public double leaderCurrentAmps = 0.0;
     public double leaderTempCelsius = 0.0;
     public double iAccum = 0.0;
@@ -23,6 +25,8 @@ public interface LauncherIO {
     // Follower motor data (for monitoring even in follower mode)
     public double followerVelocityRPM = 0.0;
     public double followerAppliedVolts = 0.0;
+    public double followerAppliedOutput = 0.0;
+    public double followerBusVoltage = 0.0;
     public double followerCurrentAmps = 0.0;
     public double followerTempCelsius = 0.0;
 

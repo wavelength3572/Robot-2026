@@ -21,13 +21,19 @@ import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
 
 /**
- * LauncherIO implementation using two SparkFlex controllers with NEO Vortex motors. The follower
- * motor uses hardware follower mode with inverted output since the motors face opposite directions
+ * LauncherIO implementation using two SparkFlex controllers with NEO Vortex
+ * motors. The follower
+ * motor uses hardware follower mode with inverted output since the motors face
+ * opposite directions
  * on the same shaft.
  *
- * <p>Gear ratio: 1 motor rotation = 1.5 wheel rotations (wheel spins faster than motor)
+ * <p>
+ * Gear ratio: 1 motor rotation = 1.5 wheel rotations (wheel spins faster than
+ * motor)
  *
- * <p>All encoder readings are raw motor RPM. Conversions to wheel RPM are done in software.
+ * <p>
+ * All encoder readings are raw motor RPM. Conversions to wheel RPM are done in
+ * software.
  */
 public class LauncherIOSparkFlex implements LauncherIO {
   private final RobotConfig config;
@@ -43,10 +49,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
   private final double gearRatio; // 1 motor rotation = gearRatio wheel rotations
 
   // Connection debouncers
-  private final Debouncer leaderConnectedDebounce =
-      new Debouncer(0.5, Debouncer.DebounceType.kFalling);
-  private final Debouncer followerConnectedDebounce =
-      new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+  private final Debouncer leaderConnectedDebounce = new Debouncer(0.5, Debouncer.DebounceType.kFalling);
+  private final Debouncer followerConnectedDebounce = new Debouncer(0.5, Debouncer.DebounceType.kFalling);
 
   // Skip CAN reads when motors are disconnected to prevent loop overruns
   private final SparkConnection leaderConnection = new SparkConnection();
@@ -61,7 +65,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
   // Constants
   private static final double MAX_VELOCITY_RPM = 5000.0; // Max wheel RPM (safety limit)
 
-  // Velocity tolerance for at-setpoint check (set by subsystem via setVelocityTolerance)
+  // Velocity tolerance for at-setpoint check (set by subsystem via
+  // setVelocityTolerance)
   private double velocityToleranceRPM = 50.0;
 
   public LauncherIOSparkFlex() {
@@ -88,7 +93,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .voltageCompensation(12.0);
 
     // Reduce encoder velocity filter lag for faster PID response.
-    // REV defaults use a 64-tap FIR filter (~164ms window, ~82ms phase lag) which is
+    // REV defaults use a 64-tap FIR filter (~164ms window, ~82ms phase lag) which
+    // is
     // far too sluggish for flywheel recovery. These settings reduce the effective
     // measurement window to ~16ms (~8ms phase lag), giving the 1kHz onboard PID
     // much fresher velocity data to work with.
@@ -103,21 +109,17 @@ public class LauncherIOSparkFlex implements LauncherIO {
     double initKp = config.getLauncherKp();
     double initKi = config.getLauncherKi();
     double initKd = config.getLauncherKd();
-    leaderConfig
-        .closedLoop
+    leaderConfig.closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot0)
         .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot1)
         .iZone(config.getLauncherIZone());
-    leaderConfig
-        .closedLoop
-        .feedForward
-        .sv(config.getLauncherKs(),config.getLauncherKv(),ClosedLoopSlot.kSlot0)
-        .sv(config.getLauncherKs(),config.getLauncherKv(),ClosedLoopSlot.kSlot1);
+    leaderConfig.closedLoop.feedForward
+        .sv(config.getLauncherKs(), config.getLauncherKv(), ClosedLoopSlot.kSlot0)
+        .sv(config.getLauncherKs(), config.getLauncherKv(), ClosedLoopSlot.kSlot1);
 
     // Signal update rates
-    leaderConfig
-        .signals
+    leaderConfig.signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
         .appliedOutputPeriodMs(20)
@@ -127,9 +129,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
     tryUntilOk(
         leaderMotor,
         5,
-        () ->
-            leaderMotor.configure(
-                leaderConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+        () -> leaderMotor.configure(
+            leaderConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
 
     // Configure follower motor
     // In hardware follower mode, only the follow() inversion parameter matters
@@ -141,9 +142,10 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .voltageCompensation(12.0)
         .follow(leaderMotor, true);
 
+    followerConfig.encoder.uvwMeasurementPeriod(8).uvwAverageDepth(2);
+
     // Signal update rates for monitoring
-    followerConfig
-        .signals
+    followerConfig.signals
         .primaryEncoderVelocityAlwaysOn(true)
         .primaryEncoderVelocityPeriodMs(20)
         .appliedOutputPeriodMs(100)
@@ -153,9 +155,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
     tryUntilOk(
         followerMotor,
         5,
-        () ->
-            followerMotor.configure(
-                followerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
+        () -> followerMotor.configure(
+            followerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
 
     // Startup diagnostics
     System.out.println("[LauncherIOSparkFlex] ========== STARTUP ==========");
@@ -182,15 +183,15 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
   @Override
   public void updateInputs(LauncherIOInputs inputs) {
-    // Update leader motor inputs (skip reads if disconnected to prevent timeout delays)
+    // Update leader motor inputs (skip reads if disconnected to prevent timeout
+    // delays)
     if (!leaderConnection.isSkipping()) {
       sparkStickyFault = false;
       ifOk(leaderMotor, leaderEncoder::getVelocity, (value) -> leaderVelocityRPM = value);
       inputs.leaderVelocityRPM = leaderVelocityRPM;
-      ifOk(
-          leaderMotor,
-          new DoubleSupplier[] {leaderMotor::getAppliedOutput, leaderMotor::getBusVoltage},
-          (values) -> inputs.leaderAppliedVolts = values[0] * values[1]);
+      ifOk(leaderMotor, leaderMotor::getAppliedOutput, (value) -> inputs.leaderAppliedOutput = value);
+      ifOk(leaderMotor, leaderMotor::getBusVoltage, (value) -> inputs.leaderBusVoltage = value);
+      inputs.leaderAppliedVolts = inputs.leaderAppliedOutput * inputs.leaderBusVoltage;
       ifOk(leaderMotor, leaderMotor::getOutputCurrent, (value) -> inputs.leaderCurrentAmps = value);
       ifOk(leaderMotor, leaderController::getIAccum, (value) -> inputs.iAccum = value);
       inputs.leaderConnected = leaderConnectedDebounce.calculate(!sparkStickyFault);
@@ -199,17 +200,17 @@ public class LauncherIOSparkFlex implements LauncherIO {
       inputs.leaderConnected = false;
     }
 
-    // Update follower motor inputs (skip reads if disconnected to prevent timeout delays)
+    // Update follower motor inputs (skip reads if disconnected to prevent timeout
+    // delays)
     if (!followerConnection.isSkipping()) {
       sparkStickyFault = false;
       ifOk(
           followerMotor,
           followerEncoder::getVelocity,
           (value) -> inputs.followerVelocityRPM = value);
-      ifOk(
-          followerMotor,
-          new DoubleSupplier[] {followerMotor::getAppliedOutput, followerMotor::getBusVoltage},
-          (values) -> inputs.followerAppliedVolts = values[0] * values[1]);
+      ifOk(followerMotor, followerMotor::getAppliedOutput, (value) -> inputs.followerAppliedOutput = value);
+      ifOk(followerMotor, followerMotor::getBusVoltage, (value) -> inputs.followerBusVoltage = value);
+      inputs.followerAppliedVolts = inputs.followerAppliedOutput * inputs.followerBusVoltage;
       ifOk(
           followerMotor,
           followerMotor::getOutputCurrent,
@@ -243,8 +244,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Target and at-setpoint status
     inputs.targetVelocityRPM = currentTargetWheelRPM;
     inputs.leaderTargetRPM = wheelToMotorRPM(currentTargetWheelRPM);
-    inputs.atSetpoint =
-        Math.abs(inputs.wheelVelocityRPM - currentTargetWheelRPM) < this.velocityToleranceRPM;
+    inputs.atSetpoint = Math.abs(inputs.wheelVelocityRPM - currentTargetWheelRPM) < this.velocityToleranceRPM;
   }
 
   @Override
@@ -270,7 +270,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
     // Clear velocity target when in voltage mode (for SysId characterization)
     currentTargetWheelRPM = 0.0;
 
-    // Command leader directly - follower follows automatically via hardware follower mode
+    // Command leader directly - follower follows automatically via hardware
+    // follower mode
     leaderController.setSetpoint(volts, ControlType.kVoltage);
   }
 
@@ -284,8 +285,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
   @Override
   public void configurePID(double kP, double kI, double kD, double iZone) {
     var pidConfig = new SparkFlexConfig();
-    pidConfig
-        .closedLoop
+    pidConfig.closedLoop
         .pid(kP, kI, kD, ClosedLoopSlot.kSlot0)
         .pid(kP, kI, kD, ClosedLoopSlot.kSlot1)
         .iZone(iZone);
@@ -296,8 +296,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
   @Override
   public void configureFeedforward(double kS, double kV) {
     var ffConfig = new SparkFlexConfig();
-    ffConfig.closedLoop.feedForward.sv(kS,kV,ClosedLoopSlot.kSlot0);
-    ffConfig.closedLoop.feedForward.sv(kS,kV,ClosedLoopSlot.kSlot1);
+    ffConfig.closedLoop.feedForward.sv(kS, kV, ClosedLoopSlot.kSlot0);
+    ffConfig.closedLoop.feedForward.sv(kS, kV, ClosedLoopSlot.kSlot1);
     leaderMotor.configure(
         ffConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }
