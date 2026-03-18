@@ -257,7 +257,8 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
     // Select PID slot: Slot 1 has boosted kP for faster recovery during shooting
     ClosedLoopSlot slot = recoveryActive ? ClosedLoopSlot.kSlot1 : ClosedLoopSlot.kSlot0;
-    Logger.recordOutput("Launcher/UsingRecoveryPID", recoveryActive);
+    Logger.recordOutput("Launcher/RecoveryActive", recoveryActive);
+    Logger.recordOutput("Launcher/RecoveryArbFF", recoveryArbFF);
 
     // kVelocity with onboard kS/kV: PID + FF + arbFF all run at 1kHz on SparkFlex.
     // recoveryArbFF is pre-computed by Launcher.java proportional to target RPM.
