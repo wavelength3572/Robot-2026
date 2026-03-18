@@ -114,20 +114,20 @@ public class Intake extends SubsystemBase {
     retractMaxAcceleration = new LoggedTunableNumber("Tuning/Intake/Retract/MaxAcceleration", 50);
     retractOutputLimit = new LoggedTunableNumber("Tuning/Intake/Retract/OutputLimit", .5);
     // Agitation motion profile
-    agitationMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Agitation/MaxVelocity", 25);
+    agitationMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Agitation/MaxVelocity", 40);
     agitationMaxAcceleration =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/MaxAcceleration", 40);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/MaxAcceleration", 65);
     agitationRetractOutputLimit =
         new LoggedTunableNumber("Tuning/Intake/Agitation/RetractOutputLimit", 1.0);
     agitationRetractTarget =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractTarget", 0.035);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractTarget", 0.055);
     agitationTimeoutSec = new LoggedTunableNumber("Tuning/Intake/Agitation/TimeoutSec", 0.6);
-    agitationCoastTimeSec = new LoggedTunableNumber("Tuning/Intake/Agitation/CoastTimeSec", 0.1);
-    agitationFallTime = new LoggedTunableNumber("Tuning/Intake/Agitation/FallTimeSec", 0.2);
+    agitationCoastTimeSec = new LoggedTunableNumber("Tuning/Intake/Agitation/CoastTimeSec", 0.15);
+    agitationFallTime = new LoggedTunableNumber("Tuning/Intake/Agitation/FallTimeSec", 0.3);
     agitationSpeedThreshold =
         new LoggedTunableNumber("Tuning/Intake/Agitation/SpeedThresholdMps", 0.3);
     agitationStationaryDwellSec =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/StationaryDwellSec", 0.5);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/StationaryDwellSec", 0.3);
     // Shared
     rollerMinDeployPosition =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", 0.05);

@@ -43,7 +43,7 @@ public class Spindexer extends SubsystemBase {
   private boolean wasUnclogActive = false;
 
   private static final LoggedTunableNumber unclogRPM =
-      new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", 1000.0);
+      new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", 1500.0);
 
   // Auto-unclog — detects stall during FEEDING and briefly reverses to clear the jam.
   // Disabled by default; enable from dashboard when ready to test.
@@ -58,11 +58,11 @@ public class Spindexer extends SubsystemBase {
   private static final LoggedTunableNumber autoUnclogStallVelocityThreshold =
       new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallVelocityRPM", 50.0);
   private static final LoggedTunableNumber autoUnclogStallDurationSec =
-      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallDurationSec", 0.3);
+      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallDurationSec", 0.2);
   private static final LoggedTunableNumber autoUnclogReverseDurationSec =
-      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/ReverseDurationSec", 0.25);
+      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/ReverseDurationSec", 0.4);
   private static final LoggedTunableNumber autoUnclogMaxAttempts =
-      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/MaxAttempts", 3);
+      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/MaxAttempts", 5);
 
   // Reciprocation — gentle back-and-forth jostle to keep fuel loose when not actively feeding.
   // Call reciprocate() each cycle to jostle; it alternates direction on a timer.
