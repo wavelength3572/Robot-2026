@@ -89,15 +89,15 @@ public class ShootingCommands {
 
   // Hub shot — close-range shot into the hub
   private static final LoggedTunableNumber hubShotLauncherRPM =
-      new LoggedTunableNumber("Shots/HubShot/LauncherRPM", 2300.0);
+      new LoggedTunableNumber("Shots/HubShot/LauncherRPM", 2450.0);
   private static final LoggedTunableNumber hubShotHoodAngleDeg =
-      new LoggedTunableNumber("Shots/HubShot/HoodAngleDeg", 13.0);
+      new LoggedTunableNumber("Shots/HubShot/HoodAngleDeg", 15.0);
   private static final LoggedTunableNumber hubShotTurretAngleDeg =
       new LoggedTunableNumber("Shots/HubShot/TurretAngleDeg", -90);
   private static final LoggedTunableNumber hubShotMotivatorRPM =
       new LoggedTunableNumber("Shots/HubShot/MotivatorRPM", 1300.0);
   private static final LoggedTunableNumber hubShotSpindexerRPM =
-      new LoggedTunableNumber("Shots/HubShot/SpindexerRPM", 500.0);
+      new LoggedTunableNumber("Shots/HubShot/SpindexerRPM", 325.0);
 
   // Left trench shot
   private static final LoggedTunableNumber leftTrenchLauncherRPM =
@@ -131,9 +131,9 @@ public class ShootingCommands {
 
   // Spindexer RPM lerped by distance: close = max, far = min
   private static final LoggedTunableNumber spindexerCloseRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 225.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 325.0);
   private static final LoggedTunableNumber spindexerFarRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 225.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 325.0);
   // Fixed spindexer RPM used in pass/neutral zones (no distance lerp)
   private static final LoggedTunableNumber spindexerPassRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 350.0);
@@ -638,7 +638,10 @@ public class ShootingCommands {
                               hood.setHoodAngle(hoodDeg);
                             }
                             // Start motivator once launcher is at setpoint
-                            if (motivator != null && launcher.isReady() && turret.atTarget() && hood.atTarget()) {
+                            if (motivator != null
+                                && launcher.isReady()
+                                && turret.atTarget()
+                                && hood.atTarget()) {
                               motivator.setMotivatorVelocity(getMotivatorRPM(rpm));
                             }
                           }
@@ -670,8 +673,7 @@ public class ShootingCommands {
                           Logger.recordOutput("SmartLaunch/Ready/RobotSlow", robotSlow);
                           Logger.recordOutput("SmartLaunch/Ready/All", allReady);
                           return allReady;
-                        })
-                    ),
+                        })),
                 Commands.sequence(
                     Commands.waitSeconds(5.0),
                     Commands.runOnce(

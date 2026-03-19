@@ -124,31 +124,29 @@ public class ZoneDetector {
   }
 
   /**
-   * Check if the robot's bumper is still touching the alliance-neutral boundary tape.
+   * Check if the robot is on the alliance (near) side of the trench physical barrier.
    *
-   * <p>Game rule: shots only count if any part of the robot crosses the alliance zone boundary
-   * line. TRENCH_NEAR means our bumper still reaches that tape; TRENCH_FAR means we're entirely
-   * past it into neutral territory. The opponent's trench is always FAR.
+   * <p>The barrier sits at the hub center line. TRENCH_NEAR means the robot is between the alliance
+   * wall and the barrier; TRENCH_FAR means the robot is past the barrier toward neutral/opponent
+   * territory. The opponent's trench is always FAR.
    */
   private static boolean isOnAllianceSideOfTrench(double robotX, Alliance alliance) {
     double blueHubCenter = FieldConstants.LinesVertical.hubCenter;
     double redHubCenter = FieldConstants.LinesVertical.oppHubCenter;
-    double allianceLine = FieldConstants.LinesVertical.allianceZone;
-    double oppAllianceLine = FieldConstants.LinesVertical.oppAllianceZone;
 
     if (alliance == Alliance.Blue) {
       // If we're in the red-side trench, that's always FAR (opponent territory)
       double distToBlue = Math.abs(robotX - blueHubCenter);
       double distToRed = Math.abs(robotX - redHubCenter);
       if (distToRed < distToBlue) return false;
-      // NEAR if our bumper still touches the alliance zone tape
-      return robotX <= allianceLine + TURRET_RADIUS;
+      // NEAR if robot is on the alliance side of the hub center (physical barrier)
+      return robotX <= blueHubCenter;
     } else {
       double distToBlue = Math.abs(robotX - blueHubCenter);
       double distToRed = Math.abs(robotX - redHubCenter);
       if (distToBlue < distToRed) return false;
-      // NEAR if our bumper still touches the alliance zone tape
-      return robotX >= oppAllianceLine - TURRET_RADIUS;
+      // NEAR if robot is on the alliance side of the hub center (physical barrier)
+      return robotX >= redHubCenter;
     }
   }
 

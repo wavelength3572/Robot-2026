@@ -25,6 +25,7 @@ import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.HashSet;
 import java.util.Set;
+import org.littletonrobotics.junction.Logger;
 
 public class ButtonsAndDashboardBindings {
 
@@ -193,9 +194,49 @@ public class ButtonsAndDashboardBindings {
           ShootingCommands.smartLaunchCommand(
               launcher, shootingCoordinator, motivator, turret, hood, spindexer));
       SmartDashboard.putBoolean("Shots/SmartLaunch/SpeedLimitMode", false);
+
+      // Auto-track: toggle works while disabled; turret default command checks the flag
+      SmartDashboard.putBoolean("Shots/AutoTrack/Enabled", false);
       SmartDashboard.putData(
           "Shots/AutoTrack/Toggle",
-          ShootingCommands.autoTrackCommand(shootingCoordinator, turret, hood));
+          Commands.runOnce(
+                  () -> {
+                    boolean current = SmartDashboard.getBoolean("Shots/AutoTrack/Enabled", false);
+                    SmartDashboard.putBoolean("Shots/AutoTrack/Enabled", !current);
+                  })
+              .ignoringDisable(true)
+              .withName("Toggle AutoTrack"));
+
+      // Turret default command: auto-track when flag is enabled, otherwise do nothing
+      turret.setDefaultCommand(
+          Commands.run(
+                  () -> {
+                    if (SmartDashboard.getBoolean("Shots/AutoTrack/Enabled", false)) {
+                      ShotCalculator.ShotResult shot = shootingCoordinator.getCurrentShot();
+                      if (shot != null) {
+                        turret.setOutsideTurretAngle(shot.turretAngleDeg());
+                        boolean turretReady = turret.getState() == Turret.TurretState.READY;
+                        boolean aimReady = turretReady && shot.achievable();
+                        Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", aimReady);
+                        SmartDashboard.putString(
+                            "Match/Status/AutoTrackAimMode",
+                            shot.achievable() ? "Tracking" : "Out of Range");
+                        SmartDashboard.putBoolean("Match/Status/AutoTrackAimReady", aimReady);
+                      } else {
+                        Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", false);
+                      }
+                      Logger.recordOutput("SmartLaunch/AutoTrack/Active", true);
+                      SmartDashboard.putBoolean("Match/Status/AutoTracking", true);
+                    } else {
+                      Logger.recordOutput("SmartLaunch/AutoTrack/Active", false);
+                      Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", false);
+                      SmartDashboard.putBoolean("Match/Status/AutoTracking", false);
+                      SmartDashboard.putBoolean("Match/Status/AutoTrackAimReady", false);
+                      SmartDashboard.putString("Match/Status/AutoTrackAimMode", "Off");
+                    }
+                  },
+                  turret)
+              .withName("AutoTrackDefault"));
     }
 
     // Set fuel stored to 8 (works while disabled)
@@ -465,29 +506,25 @@ public class ButtonsAndDashboardBindings {
     // Launcher RPM trim — button box 1 axis knob (4 positions)
     // Axis values: -50 = (0,1), neutral = (0,-1), +50 = (-1,1), +100 = (1,1)
     // Three positions share Y+=1, so we use combo triggers to distinguish them.
-    Trigger yPos = oi.getButtonBox1YAxisPositive(); //-50
-    Trigger yNeg = oi.getButtonBox1YAxisNegative(); //+75
+    Trigger yPos = oi.getButtonBox1YAxisPositive(); // -50
+    Trigger yNeg = oi.getButtonBox1YAxisNegative(); // +75
     Trigger xNeg = oi.getButtonBox1XAxisNegative(); // 0 spot
-    Trigger xPos = oi.getButtonBox1XAxisPositive(); //+125
+    Trigger xPos = oi.getButtonBox1XAxisPositive(); // +125
 
     // -50 RPM: Y+
     yPos.onTrue(
-        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(-50.0))
-            .ignoringDisable(true));
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(-50.0)).ignoringDisable(true));
     // X-
     xNeg.onTrue(
-        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(0.0))
-            .ignoringDisable(true));
-  
-        // Y-
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(0.0)).ignoringDisable(true));
+
+    // Y-
     yNeg.onTrue(
-            Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(75.0))
-            .ignoringDisable(true));
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(75.0)).ignoringDisable(true));
 
     // X+
     xPos.onTrue(
-            Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(125.0))
-            .ignoringDisable(true));
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(125.0)).ignoringDisable(true));
 
     // Hub shot: Button 8 — fixed position launch for close-range hub shots
     if (launcher != null && turret != null) {
