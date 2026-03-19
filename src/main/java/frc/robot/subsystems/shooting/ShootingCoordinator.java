@@ -131,7 +131,7 @@ public class ShootingCoordinator extends SubsystemBase {
   // SHOOT_ON_THE_MOVE: max speed for hub shots in open alliance zone.
   // Used for both spindexer gating and active drive speed limiting.
   private final LoggedTunableNumber shootOnTheMoveSpeedMps =
-      new LoggedTunableNumber("Shots/SpeedLimits/ShootOnTheMoveSpeedMps", 1.25);
+      new LoggedTunableNumber("Shots/SpeedLimits/ShootOnTheMoveSpeedMps", .50);
   // SHOOT_STATIONARY: max speed for hub shots under trench (tight clearance, low hood).
   private final LoggedTunableNumber stationarySpeedMps =
       new LoggedTunableNumber("Shots/SpeedLimits/StationarySpeedMps", 0.3);

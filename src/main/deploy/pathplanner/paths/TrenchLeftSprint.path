@@ -86,11 +86,11 @@
       "rotationDegrees": -110.0
     },
     {
-      "waypointRelativePos": 1.59322033898305,
+      "waypointRelativePos": 1.2220248667850822,
       "rotationDegrees": -110.0
     },
     {
-      "waypointRelativePos": 3.075471698113213,
+      "waypointRelativePos": 2.451154529307283,
       "rotationDegrees": 90.0
     }
   ],
@@ -98,8 +98,8 @@
   "pointTowardsZones": [],
   "eventMarkers": [],
   "globalConstraints": {
-    "maxVelocity": 1.5,
-    "maxAcceleration": 1.5,
+    "maxVelocity": 2.25,
+    "maxAcceleration": 5.0,
     "maxAngularVelocity": 540.0,
     "maxAngularAcceleration": 720.0,
     "nominalVoltage": 12.0,
