@@ -104,19 +104,6 @@ public class MainBotConfig implements RobotConfig {
   private static final double wheelCOF = 1.2;
 
   // Turret configuration
-  private static final int turretMotorCanId = 50;
-  private static final double turretHeightMeters = 0.3597275;
-  private static final double turretInsideMaxAngleDeg = 180.0;
-  private static final double turretInsideMinAngleDeg = -180.0;
-  private static final double turretZeroOffset = 63.873;
-  private static final double turretOutsideMaxAngleDeg = turretInsideMaxAngleDeg + turretZeroOffset;
-  private static final double turretOutsideMinAngleDeg = turretInsideMinAngleDeg + turretZeroOffset;
-  private static final double turretAbsoluteEncoderOffset = 0.34028075; // 0.32391; // 0.3566515;
-  private static final int turretCurrentLimitAmps = 10;
-  private static final double turretKp = 0.15;
-  private static final double turretKd = 0.0;
-  private static final boolean turretMotorInverted = true;
-
   // Gear ratios:
   // - NEO 550 internal gearbox: 10:1
   // - External gearing from encoder to turret: 66:12 (~5.5:1)
@@ -126,6 +113,23 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretExternalGearRatio = 66.0 / 12.0; // ~5.5 (encoder to turret)
   private static final double turretMotorGearRatio = 10.0;
   private static final double turretGearRatio = turretExternalGearRatio * turretMotorGearRatio;
+
+  private static final int turretMotorCanId = 50;
+  private static final double turretHeightMeters = 0.3597275;
+  private static final double turretInsideMaxAngleDeg = 180.0;
+  private static final double turretInsideMinAngleDeg = -180.0;
+  private static final double turretZeroOffset = 63.873;
+  private static final double turretOutsideMaxAngleDeg = turretInsideMaxAngleDeg + turretZeroOffset;
+  private static final double turretOutsideMinAngleDeg = turretInsideMinAngleDeg + turretZeroOffset;
+  private static final double turretAbsoluteEncoderOffsetTweak =
+      1.07154; // This is in degrees. + is CCW
+  private static final double turretAbsoluteEncoderOffset =
+      0.32391 + (turretAbsoluteEncoderOffsetTweak / (360.0 / turretExternalGearRatio));
+
+  private static final int turretCurrentLimitAmps = 10;
+  private static final double turretKp = 0.15;
+  private static final double turretKd = 0.0;
+  private static final boolean turretMotorInverted = true;
 
   // Physical dimensions
   // Turret offset from robot center (in robot-relative coordinates)
