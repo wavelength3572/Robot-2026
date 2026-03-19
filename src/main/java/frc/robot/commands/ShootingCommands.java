@@ -644,9 +644,6 @@ public class ShootingCommands {
                           }
 
                           boolean launcherReady = launcher.isReady();
-                          boolean motivatorReady =
-                              motivator == null
-                                  || motivator.getState() == Motivator.MotivatorState.READY;
                           boolean turretReady = turret.getState() == Turret.TurretState.READY;
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
@@ -656,14 +653,12 @@ public class ShootingCommands {
 
                           boolean allReady =
                               launcherReady
-                                  && motivatorReady
                                   && turretReady
                                   && hoodReady
                                   && achievable
                                   && robotSlow;
 
                           Logger.recordOutput("SmartLaunch/Ready/Launcher", launcherReady);
-                          Logger.recordOutput("SmartLaunch/Ready/Motivator", motivatorReady);
                           Logger.recordOutput("SmartLaunch/Ready/Turret", turretReady);
                           Logger.recordOutput("SmartLaunch/Ready/Hood", hoodReady);
                           Logger.recordOutput("SmartLaunch/Ready/Achievable", achievable);
