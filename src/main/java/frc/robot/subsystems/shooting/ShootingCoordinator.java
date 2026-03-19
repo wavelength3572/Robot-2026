@@ -119,11 +119,12 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber lobStation3AdjustY =
       new LoggedTunableNumber("SmartLaunch/Pass/DriverStation/Station3/AdjustY", 0.0);
 
-  // Cached pass targets — only recomputed when tunables change
+  // Cached pass targets — recomputed when tunables or alliance change
   private Translation3d cachedLeftTarget = null;
   private Translation3d cachedRightTarget = null;
   private Translation3d cachedLobStation1Target = null;
   private Translation3d cachedLobStation3Target = null;
+  private DriverStation.Alliance cachedPassAlliance = null;
 
   // Match shot tracking (counts persist across auto→teleop transition)
   private int totalShots = 0;
@@ -319,15 +320,25 @@ public class ShootingCoordinator extends SubsystemBase {
               ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
               : Constants.StrategyConstants.RED_PASS_TARGET_X;
 
-      // Recompute symmetric pass targets only when tunables change
+      // Invalidate all cached targets when alliance changes
+      boolean allianceChanged = cachedPassAlliance != alliance;
+      if (allianceChanged) {
+        cachedPassAlliance = alliance;
+        cachedLeftTarget = null;
+        cachedLobStation1Target = null;
+      }
+
+      // Recompute symmetric pass targets when tunables or alliance change
       if (cachedLeftTarget == null
           || LoggedTunableNumber.hasChanged(
               passLeftAdjustX, passLeftAdjustY, passRightAdjustX, passRightAdjustY)) {
-        // Left trench target (high Y, with offsets, clamped to alliance zone)
+        // Left trench target (from driver perspective: high Y for blue, low Y for red)
+        double leftBaseY =
+            isBlueAlliance
+                ? Constants.StrategyConstants.LEFT_PASS_TARGET_Y
+                : Constants.StrategyConstants.RIGHT_PASS_TARGET_Y;
         double leftRawX = baseX + passLeftAdjustX.get() * (maxX - minX) / 2.0;
-        double leftRawY =
-            Constants.StrategyConstants.LEFT_PASS_TARGET_Y
-                + passLeftAdjustY.get() * (maxY - minY) / 2.0;
+        double leftRawY = leftBaseY + passLeftAdjustY.get() * (maxY - minY) / 2.0;
         cachedLeftTarget =
             new Translation3d(
                 Math.max(minX, Math.min(maxX, leftRawX)),
@@ -336,11 +347,13 @@ public class ShootingCoordinator extends SubsystemBase {
         Logger.recordOutput(
             "SmartLaunch/Pass/Symmetric/Left", new Pose3d(cachedLeftTarget, Rotation3d.kZero));
 
-        // Right trench target (low Y, with offsets, clamped to alliance zone)
+        // Right trench target (from driver perspective: low Y for blue, high Y for red)
+        double rightBaseY =
+            isBlueAlliance
+                ? Constants.StrategyConstants.RIGHT_PASS_TARGET_Y
+                : Constants.StrategyConstants.LEFT_PASS_TARGET_Y;
         double rightRawX = baseX + passRightAdjustX.get() * (maxX - minX) / 2.0;
-        double rightRawY =
-            Constants.StrategyConstants.RIGHT_PASS_TARGET_Y
-                + passRightAdjustY.get() * (maxY - minY) / 2.0;
+        double rightRawY = rightBaseY + passRightAdjustY.get() * (maxY - minY) / 2.0;
         cachedRightTarget =
             new Translation3d(
                 Math.max(minX, Math.min(maxX, rightRawX)),

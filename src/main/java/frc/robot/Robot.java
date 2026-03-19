@@ -8,7 +8,6 @@
 package frc.robot;
 
 import com.revrobotics.util.StatusLogger;
-import edu.wpi.first.hal.AllianceStationID;
 import edu.wpi.first.wpilibj.IterativeRobotBase;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Watchdog;
@@ -231,7 +230,6 @@ public class Robot extends LoggedRobot {
   @Override
   public void simulationInit() {
     DriverStationSim.setDsAttached(true);
-    DriverStationSim.setAllianceStationId(AllianceStationID.Blue1);
     DriverStationSim.notifyNewData();
   }
 
