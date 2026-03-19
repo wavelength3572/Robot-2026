@@ -7,13 +7,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRightShot"
+            "pathName": "TrenchRightSafe"
           }
         }
       ]
     }
   },
   "resetOdom": true,
-  "folder": "Old Autos",
+  "folder": "Comp",
   "choreoAuto": false
 }

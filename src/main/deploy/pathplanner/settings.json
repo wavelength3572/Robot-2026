@@ -7,11 +7,9 @@
     "Test Paths"
   ],
   "autoFolders": [
-    "Comp",
-    "CompSprint",
     "CompStationaryShoot",
-    "Old Autos",
-    "Test Maneuvers"
+    "CompSprint",
+    "Comp"
   ],
   "defaultMaxVel": 2.5,
   "defaultMaxAccel": 2.5,

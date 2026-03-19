@@ -12,7 +12,7 @@
         "y": 0.45088709677419503
       },
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "TrenchRightStart"
     },
     {
       "anchor": {
@@ -21,7 +21,7 @@
       },
       "prevControl": {
         "x": 7.253819736280989,
-        "y": 0.3841570503095457
+        "y": 0.38415705030954583
       },
       "nextControl": {
         "x": 9.62730633802817,
@@ -57,7 +57,7 @@
       },
       "nextControl": {
         "x": 6.703148228078146,
-        "y": 0.38608666515220347
+        "y": 0.3860866651522036
       },
       "isLocked": false,
       "linkedName": null
