@@ -482,8 +482,10 @@ public class ShootingCoordinator extends SubsystemBase {
         if (station == 3) return !isBlue;
       }
     }
-    // Default: symmetric Y-based selection (left trench = high Y)
-    return robotPose.getY() > FieldConstants.fieldWidth / 2.0;
+    // Default: symmetric Y-based selection. Left trench = high Y for blue,
+    // low Y for red (targets are already alliance-swapped, so flip selection).
+    boolean highY = robotPose.getY() > FieldConstants.fieldWidth / 2.0;
+    return RobotStatus.isBlueAlliance() ? highY : !highY;
   }
 
   // Tunable pass shot parameters

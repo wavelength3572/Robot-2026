@@ -1537,14 +1537,16 @@ public class ShootingCommands {
                     motivator)
                 : Commands.none(),
 
-            // Spindexer — feed only when stationary in near trench or alliance zone
+            // Spindexer — feed when stationary in a shoot or pass zone
             spindexer != null
                 ? Commands.run(
                     () -> {
                       ZoneDetector.Zone zone = coordinator.getCurrentZone();
                       boolean inShootZone =
                           zone == ZoneDetector.Zone.TRENCH_NEAR
-                              || zone == ZoneDetector.Zone.ALLIANCE;
+                              || zone == ZoneDetector.Zone.ALLIANCE
+                              || zone == ZoneDetector.Zone.NEUTRAL
+                              || zone == ZoneDetector.Zone.OPPONENT;
                       boolean stationary = coordinator.isRobotStationary();
                       boolean launcherReady = launcher.isReady();
                       boolean turretAimed = turret.getState() == Turret.TurretState.READY;
@@ -1614,7 +1616,10 @@ public class ShootingCommands {
                   boolean stationary = coordinator.isRobotStationary();
                   ZoneDetector.Zone zone = coordinator.getCurrentZone();
                   boolean inShootZone =
-                      zone == ZoneDetector.Zone.TRENCH_NEAR || zone == ZoneDetector.Zone.ALLIANCE;
+                      zone == ZoneDetector.Zone.TRENCH_NEAR
+                          || zone == ZoneDetector.Zone.ALLIANCE
+                          || zone == ZoneDetector.Zone.NEUTRAL
+                          || zone == ZoneDetector.Zone.OPPONENT;
                   return subsReady && stationary && inShootZone;
                 }),
             Commands.runOnce(
