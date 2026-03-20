@@ -545,6 +545,10 @@ public class ShootingCoordinator extends SubsystemBase {
       double distanceToTarget =
           Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
       currentDistanceM = distanceToTarget;
+      Logger.recordOutput("SmartLaunch/Status/TargetX", target.getX());
+      Logger.recordOutput("SmartLaunch/Status/TargetY", target.getY());
+      Logger.recordOutput("SmartLaunch/Status/TurretX", turretX);
+      Logger.recordOutput("SmartLaunch/Status/TurretY", turretY);
       Logger.recordOutput("SmartLaunch/Status/DistanceM", distanceToTarget);
     }
   }
