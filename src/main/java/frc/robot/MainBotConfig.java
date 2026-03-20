@@ -124,7 +124,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretAbsoluteEncoderOffsetTweak =
       0.0; // 2.827154; // This is in degrees. + is CCW
   private static final double turretAbsoluteEncoderOffset =
-      0.32391 + (turretAbsoluteEncoderOffsetTweak / (360.0 / turretExternalGearRatio));
+      0.1522 + (turretAbsoluteEncoderOffsetTweak / (360.0 / turretExternalGearRatio));
 
   private static final int turretCurrentLimitAmps = 20;
   private static final double turretKp = 0.12;

@@ -63,9 +63,10 @@ public class TurretIOSparkMax implements TurretIO {
 
   private double currentInsideAngleDegrees;
   private double currentOutsideAngleDegrees;
+  private static double constCurrentOutputLimit = 0.3;
 
   private static final LoggedTunableNumber turretOutputLimit =
-      new LoggedTunableNumber("Tuning/Turret/outputLimit", 0.5);
+      new LoggedTunableNumber("Tuning/Turret/outputLimit", constCurrentOutputLimit);
 
   public TurretIOSparkMax() {
     config = Constants.getRobotConfig();
@@ -104,7 +105,7 @@ public class TurretIOSparkMax implements TurretIO {
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(config.getTurretKp(), 0.0, config.getTurretKd())
-        .outputRange(-0.5, 0.5);
+        .outputRange(-constCurrentOutputLimit, constCurrentOutputLimit);
 
     // ========== HARDWARE SOFT LIMITS (Critical Safety Feature) ==========
     // These limits are enforced by the SparkMax itself, providing protection even
