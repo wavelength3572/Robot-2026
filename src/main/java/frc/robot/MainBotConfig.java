@@ -172,7 +172,7 @@ public class MainBotConfig implements RobotConfig {
   // Spindexer Configuration
   private static final int spindexerMotorCanId = 55;
   private static final int spindexerCurrentLimitAmps = 40;
-  private static final double spindexerKp = 0.00001;
+  private static final double spindexerKp = 0.0002;
   private static final double spindexerKi = 0.0;
   private static final double spindexerKd = 0.0;
 
