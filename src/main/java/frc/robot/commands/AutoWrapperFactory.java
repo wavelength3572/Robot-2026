@@ -108,9 +108,9 @@ public class AutoWrapperFactory {
     pathParallel.add(deployIntake(intake));
 
     // Stow hood in parallel with path start (after preload shooting) instead of blocking.
-    // Skip for AUTO_TRACKING_STATIONARY — the tracking command manages the hood itself.
+    // Skip for AUTO_SHOOT and AUTO_TRACKING_STATIONARY — those commands manage the hood.
     if (startStrategy == StartStrategy.SHOOT_PRELOADS
-        && pathStrategy != PathShootingStrategy.AUTO_TRACKING_STATIONARY) {
+        && pathStrategy == PathShootingStrategy.END_OF_PATH) {
       pathParallel.add(stowHood(hood));
     }
 

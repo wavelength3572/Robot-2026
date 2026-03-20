@@ -196,7 +196,7 @@ public class ButtonsAndDashboardBindings {
       SmartDashboard.putBoolean("Shots/SmartLaunch/SpeedLimitMode", false);
 
       // Auto-track: toggle works while disabled; turret default command checks the flag
-      SmartDashboard.putBoolean("Shots/AutoTrack/Enabled", false);
+      SmartDashboard.setDefaultBoolean("Shots/AutoTrack/Enabled", false);
       SmartDashboard.putData(
           "Shots/AutoTrack/Toggle",
           Commands.runOnce(
