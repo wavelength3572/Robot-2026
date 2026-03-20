@@ -147,11 +147,19 @@ public class Spindexer extends SubsystemBase {
           if (!stallTimer.isRunning()) {
             stallTimer.restart();
           }
-          if (stallTimer.hasElapsed(autoUnclogStallDurationSec.get())
-              && autoUnclogAttempts < (int) autoUnclogMaxAttempts.get()) {
-            autoUnclogInProgress = true;
-            autoUnclogAttempts++;
-            autoUnclogTimer.restart();
+          if (stallTimer.hasElapsed(autoUnclogStallDurationSec.get())) {
+            if (autoUnclogAttempts < (int) autoUnclogMaxAttempts.get()) {
+              autoUnclogInProgress = true;
+              autoUnclogAttempts++;
+              autoUnclogTimer.restart();
+            } else {
+              // Max attempts exhausted — disable auto-unclog, something is genuinely jammed
+              disableAutoUnclog();
+              SmartDashboard.putBoolean("Tuning/Spindexer/AutoUnclog/Enabled", false);
+              Logger.recordOutput(
+                  "Spindexer/AutoUnclog/Warning",
+                  "Auto-unclog disabled: max attempts exhausted, possible jam");
+            }
           }
         } else {
           stallTimer.stop();
