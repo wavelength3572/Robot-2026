@@ -138,7 +138,7 @@ public class ShootingCoordinator extends SubsystemBase {
   // SHOOT_STATIONARY: max speed for hub shots under trench (tight clearance, low
   // hood).
   private final LoggedTunableNumber stationarySpeedMps =
-      new LoggedTunableNumber("Shots/SpeedLimits/StationarySpeedMps", 0.3);
+      new LoggedTunableNumber("Shots/SpeedLimits/StationarySpeedMps", 0.1);
   // PASS / LONG_PASS: max speed for pass shots in neutral/opponent zones.
   private final LoggedTunableNumber passSpeedMps =
       new LoggedTunableNumber("Shots/SpeedLimits/PassSpeedMps", 3.0);
