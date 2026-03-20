@@ -767,7 +767,11 @@ public class ShootingCommands {
                         () -> {
                           ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                           double launcherRPM = getEffectiveRPM(s);
-                          motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                          if (turret.getState() == Turret.TurretState.FLIPPING) {
+                            motivator.stopMotivator();
+                          } else {
+                            motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                          }
                         },
                         motivator)
                     : Commands.none(),
@@ -789,7 +793,11 @@ public class ShootingCommands {
                             if (DriverStation.isTeleop()
                                 || coordinator.isRobotSlowEnoughForCurrentZone()) {
                               wasReciprocating = false;
-                              spindexer.setSpindexerVelocity(spnRPM);
+                              if (turret.getState() == Turret.TurretState.FLIPPING) {
+                                spindexer.stopSpindexer();
+                              } else {
+                                spindexer.setSpindexerVelocity(spnRPM);
+                              }
                             } else if (DriverStation.isAutonomous()) {
                               wasReciprocating = true;
                               spindexer.reciprocate();

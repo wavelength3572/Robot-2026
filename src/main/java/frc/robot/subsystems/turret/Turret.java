@@ -26,6 +26,7 @@ public class Turret extends SubsystemBase {
     ROTATING_CW,
     ROTATING_CCW,
     READY,
+    FLIPPING,
     DISCONNECTED
   }
 
@@ -135,6 +136,8 @@ public class Turret extends SubsystemBase {
       currentState = TurretState.LOCKED;
     } else if (atTarget()) {
       currentState = TurretState.READY;
+    } else if (Math.abs(getOutsideTargetAngle() - getOutsideCurrentAngle()) > 100) {
+      currentState = TurretState.FLIPPING;
     } else if (getOutsideTargetAngle() > getOutsideCurrentAngle()) {
       currentState = TurretState.ROTATING_CW;
     } else {
