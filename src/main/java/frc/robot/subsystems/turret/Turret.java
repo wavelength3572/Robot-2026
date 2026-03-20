@@ -1,5 +1,6 @@
 package frc.robot.subsystems.turret;
 
+import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
@@ -50,6 +51,13 @@ public class Turret extends SubsystemBase {
 
   // Tolerance for atTarget() — does NOT affect motor control
   private final double readyToleranceAngleDeg;
+
+  // Slew rate limiter to smooth turret setpoint and prevent vision-induced jitter.
+  // Units: degrees per second. Limits how fast the commanded angle can change.
+  private static final LoggedTunableNumber slewRate =
+      new LoggedTunableNumber("Tuning/Turret/SlewRateDegPerSec", 120.0);
+  private SlewRateLimiter angleSlewRateLimiter = new SlewRateLimiter(120.0);
+  private boolean slewInitialized = false;
 
   // How close to a limit (degrees) before safety indicators fire
   private static final double WARNING_ZONE_DEG = 20.0;
@@ -159,6 +167,7 @@ public class Turret extends SubsystemBase {
   /** Unlock the turret — allows movement commands again. */
   public void unlock() {
     locked = false;
+    slewInitialized = false; // re-prime filter from current position on next command
   }
 
   /**
@@ -188,7 +197,21 @@ public class Turret extends SubsystemBase {
   public void setOutsideTurretAngle(double angleDegrees) {
     if (locked) return;
     double clampedAngle = Math.max(outsideAngleMin, Math.min(outsideAngleMax, angleDegrees));
-    io.setOutsideTurretAngle(clampedAngle);
+
+    // Re-create limiter if tunable rate changed
+    if (LoggedTunableNumber.hasChanged(slewRate)) {
+      angleSlewRateLimiter = new SlewRateLimiter(slewRate.get());
+      slewInitialized = false;
+    }
+
+    // Prime the filter on first call so it doesn't ramp from zero
+    if (!slewInitialized) {
+      angleSlewRateLimiter.reset(clampedAngle);
+      slewInitialized = true;
+    }
+
+    double filteredAngle = angleSlewRateLimiter.calculate(clampedAngle);
+    io.setOutsideTurretAngle(filteredAngle);
   }
 
   /**
