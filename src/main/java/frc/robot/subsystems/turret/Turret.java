@@ -48,12 +48,8 @@ public class Turret extends SubsystemBase {
   private static final LoggedTunableNumber kD =
       new LoggedTunableNumber("Tuning/Turret/kD", Constants.getRobotConfig().getTurretKd());
 
-  // Note: Turret uses PD-only control (no kI, no feedforward). If steady-state error from
-  // friction becomes a problem, consider adding kI and/or kS.
-
-  // Tunable ready-gate tolerance for atTarget() — does NOT affect motor control
-  private static final LoggedTunableNumber readyToleranceAngleDeg =
-      new LoggedTunableNumber("Tuning/Turret/ReadyToleranceAngleDeg", 2.0);
+  // Tolerance for atTarget() — does NOT affect motor control
+  private final double readyToleranceAngleDeg;
 
   // How close to a limit (degrees) before safety indicators fire
   private static final double WARNING_ZONE_DEG = 20.0;
@@ -97,6 +93,8 @@ public class Turret extends SubsystemBase {
     outsideAngleMin = config.getTurretOutsideMinAngleDeg();
     outsideAngleMax = config.getTurretOutsideMaxAngleDeg();
     outsideCenterDeg = (outsideAngleMax + outsideAngleMin) / 2.0;
+
+    readyToleranceAngleDeg = config.getTurretToleranceAngleDeg();
   }
 
   @Override
@@ -414,7 +412,7 @@ public class Turret extends SubsystemBase {
   public boolean atTarget() {
     if (locked) return true;
     return Math.abs(getOutsideCurrentAngle() - getOutsideTargetAngle())
-        <= readyToleranceAngleDeg.get();
+        <= readyToleranceAngleDeg;
   }
 
   /**

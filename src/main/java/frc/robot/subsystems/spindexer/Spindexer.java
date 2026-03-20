@@ -353,7 +353,7 @@ public class Spindexer extends SubsystemBase {
       reciprocateTimer.restart();
     }
     double rpm = reciprocateRPM.get();
-    io.setSpindexerVelocity(reciprocateForward ? rpm : -rpm);
+    io.setSpindexerVelocity(reciprocateForward ? rpm : -rpm + -100);
     state = SpindexerState.RECIPROCATING;
   }
 

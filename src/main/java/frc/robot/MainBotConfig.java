@@ -129,6 +129,8 @@ public class MainBotConfig implements RobotConfig {
   private static final int turretCurrentLimitAmps = 10;
   private static final double turretKp = 0.15;
   private static final double turretKd = 0.0;
+  private static final double turretToleranceAngleDeg = 2.0;
+
   private static final boolean turretMotorInverted = true;
 
   // Physical dimensions
@@ -584,6 +586,11 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getTurretKd() {
     return turretKd;
+  }
+
+  @Override
+  public double getTurretToleranceAngleDeg() {
+    return turretToleranceAngleDeg;
   }
 
   // ========== Drive Configuration ==========

@@ -73,7 +73,7 @@ public class ShootingCommands {
       currentMode = mode;
       SmartDashboard.putString("Match/Status/Mode", mode.toString());
       SmartDashboard.putBoolean("Match/Status/Active", mode == ShootingMode.TEST);
-      System.out.println("[Shooting] Mode changed to: " + mode);
+      // System.out.println("[Shooting] Mode changed to: " + mode);
     }
   }
 
@@ -163,7 +163,7 @@ public class ShootingCommands {
       launcherTrimRPM = trimRPM;
       SmartDashboard.putNumber("Trim/LauncherRPM", trimRPM);
       Logger.recordOutput("Trim/LauncherRPM", trimRPM);
-      System.out.println("[Trim] Launcher RPM trim set to " + trimRPM);
+      // System.out.println("[Trim] Launcher RPM trim set to " + trimRPM);
     }
   }
 
@@ -437,12 +437,12 @@ public class ShootingCommands {
                   }
 
                   SmartDashboard.putString("Match/Status/State", "Positioning & Spinning Up");
-                  System.out.println(
-                      "[FixedShot] Positioning turret to "
-                          + turretAngle
-                          + "° and spinning up to "
-                          + launcherRPM
-                          + " RPM");
+                  // System.out.println(
+                  //     "[FixedShot] Positioning turret to "
+                  //         + turretAngle
+                  //         + "° and spinning up to "
+                  //         + launcherRPM
+                  //         + " RPM");
                 }),
 
             // Phase 2: Wait for everything to reach setpoint (with 5s timeout)
@@ -476,8 +476,8 @@ public class ShootingCommands {
                     Commands.waitSeconds(2.0),
                     Commands.runOnce(
                         () -> {
-                          System.out.println(
-                              "[FixedShot] WARNING: Setup timeout - continuing anyway!");
+                          // System.out.println(
+                          //     "[FixedShot] WARNING: Setup timeout - continuing anyway!");
                           SmartDashboard.putString(
                               "Match/Status/State", "TIMEOUT - continuing anyway");
                         }))),
@@ -556,7 +556,7 @@ public class ShootingCommands {
               }
               setMode(ShootingMode.COMPETITION);
               SmartDashboard.putString("Match/Status/State", "Stopped");
-              System.out.println("[FixedShot] Stopped");
+              // System.out.println("[FixedShot] Stopped");
             })
         .withName("FixedShot");
   }
@@ -622,7 +622,7 @@ public class ShootingCommands {
 
                   Logger.recordOutput("SmartLaunch/Phase", "SPIN_UP");
                   SmartDashboard.putString("Match/Status/State", "Smart Launch - Positioning");
-                  System.out.println("[SmartLaunch] Starting odometry-based launch");
+                  // System.out.println("[SmartLaunch] Starting odometry-based launch");
                 }),
 
             // Phase 2: Wait for all subsystems to reach setpoint (with 5s timeout)
@@ -674,37 +674,38 @@ public class ShootingCommands {
                         () -> {
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                           boolean launcherReady = launcher.isReady();
-                          boolean motivatorReady =
-                              motivator == null
-                                  || motivator.getState() == Motivator.MotivatorState.READY;
                           boolean turretReady = turret.getState() == Turret.TurretState.READY;
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
                           boolean achievable =
                               shot != null && (isLutDevOverrideActive() || shot.achievable());
                           Logger.recordOutput("SmartLaunch/Phase", "TIMED_OUT");
-                          System.out.println(
-                              "[SmartLaunch] WARNING: Setup timeout! Conditions: "
-                                  + "launcher="
-                                  + launcherReady
-                                  + " motivator="
-                                  + motivatorReady
-                                  + " turret="
-                                  + turretReady
-                                  + " hood="
-                                  + hoodReady
-                                  + " achievable="
-                                  + achievable
-                                  + (shot != null
-                                      ? " rpm="
-                                          + shot.launcherRPM()
-                                          + " hood="
-                                          + shot.hoodAngleDeg()
-                                          + " turret="
-                                          + shot.turretAngleDeg()
-                                      : " shot=null"));
+                          // System.out.println(
+                          //     "[SmartLaunch] WARNING: Setup timeout! Conditions: "
+                          //         + "launcher="
+                          //         + launcherReady
+                          //         + " motivator="
+                          //         + motivatorReady
+                          //         + " turret="
+                          //         + turretReady
+                          //         + " hood="
+                          //         + hoodReady
+                          //         + " achievable="
+                          //         + achievable
+                          //         + (shot != null
+                          //             ? " rpm="
+                          //                 + shot.launcherRPM()
+                          //                 + " hood="
+                          //                 + shot.hoodAngleDeg()
+                          //                 + " turret="
+                          //                 + shot.turretAngleDeg()
+                          //             : " shot=null"));
                           SmartDashboard.putString(
                               "Match/Status/State", "TIMEOUT - continuing anyway");
+                          Logger.recordOutput("SmartLaunch/Ready/Launcher", launcherReady);
+                          Logger.recordOutput("SmartLaunch/Ready/Turret", turretReady);
+                          Logger.recordOutput("SmartLaunch/Ready/Hood", hoodReady);
+                          Logger.recordOutput("SmartLaunch/Ready/Achievable", achievable);
                         }))),
 
             // Log ready state
@@ -828,8 +829,8 @@ public class ShootingCommands {
               coordinator.clearManualShotParameters();
               setMode(ShootingMode.COMPETITION);
               Logger.recordOutput("SmartLaunch/Phase", "IDLE");
-              SmartDashboard.putString("Match/Status/State", "Stopped");
-              System.out.println("[SmartLaunch] Stopped");
+              SmartDashboard.putString("Match/Status/State", "[SmartLaunch] Stopped");
+              // System.out.println("[SmartLaunch] Stopped");
             })
         .withName("SmartLaunch");
   }
@@ -873,7 +874,7 @@ public class ShootingCommands {
 
                   Logger.recordOutput("SmartLaunch/Phase", "SPIN_UP");
                   SmartDashboard.putString("Match/Status/State", "Smart Launch - Positioning");
-                  System.out.println("[SmartLaunch] Starting odometry-based launch");
+                  // System.out.println("[SmartLaunch] Starting odometry-based launch");
                 }),
 
             // Phase 2: Wait for all subsystems to reach setpoint (with 5s timeout)
@@ -961,28 +962,33 @@ public class ShootingCommands {
                           boolean achievable =
                               shot != null && (isLutDevOverrideActive() || shot.achievable());
                           Logger.recordOutput("SmartLaunch/Phase", "TIMED_OUT");
-                          System.out.println(
-                              "[SmartLaunch] WARNING: Setup timeout! Conditions: "
-                                  + "launcher="
-                                  + launcherReady
-                                  + " motivator="
-                                  + motivatorReady
-                                  + " turret="
-                                  + turretReady
-                                  + " hood="
-                                  + hoodReady
-                                  + " achievable="
-                                  + achievable
-                                  + (shot != null
-                                      ? " rpm="
-                                          + shot.launcherRPM()
-                                          + " hood="
-                                          + shot.hoodAngleDeg()
-                                          + " turret="
-                                          + shot.turretAngleDeg()
-                                      : " shot=null"));
+                          // System.out.println(
+                          //     "[SmartLaunch] WARNING: Setup timeout! Conditions: "
+                          //         + "launcher="
+                          //         + launcherReady
+                          //         + " motivator="
+                          //         + motivatorReady
+                          //         + " turret="
+                          //         + turretReady
+                          //         + " hood="
+                          //         + hoodReady
+                          //         + " achievable="
+                          //         + achievable
+                          //         + (shot != null
+                          //             ? " rpm="
+                          //                 + shot.launcherRPM()
+                          //                 + " hood="
+                          //                 + shot.hoodAngleDeg()
+                          //                 + " turret="
+                          //                 + shot.turretAngleDeg()
+                          //             : " shot=null"));
                           SmartDashboard.putString(
                               "Match/Status/State", "TIMEOUT - continuing anyway");
+                          Logger.recordOutput("SmartLaunch/Ready/Launcher", launcherReady);
+                          Logger.recordOutput("SmartLaunch/Ready/Motivator", motivatorReady);
+                          Logger.recordOutput("SmartLaunch/Ready/Turret", turretReady);
+                          Logger.recordOutput("SmartLaunch/Ready/Hood", hoodReady);
+                          Logger.recordOutput("SmartLaunch/Ready/Achievable", achievable);
                         }))),
 
             // Log ready state
@@ -1107,7 +1113,7 @@ public class ShootingCommands {
               setMode(ShootingMode.COMPETITION);
               Logger.recordOutput("SmartLaunch/Phase", "IDLE");
               SmartDashboard.putString("Match/Status/State", "Stopped");
-              System.out.println("[SmartLaunch] Stopped");
+              // System.out.println("[SmartLaunch] Stopped");
             })
         .withName("SmartLaunch");
   }
@@ -1178,7 +1184,7 @@ public class ShootingCommands {
             () -> {
               Logger.recordOutput("SmartLaunch/AutoTrack/Active", true);
               SmartDashboard.putBoolean("Match/Status/AutoTracking", true);
-              System.out.println("[AutoTrack] Started — turret tracking target");
+              // System.out.println("[AutoTrack] Started — turret tracking target");
             })
         .finallyDo(
             () -> {
@@ -1187,7 +1193,7 @@ public class ShootingCommands {
               SmartDashboard.putBoolean("Match/Status/AutoTracking", false);
               SmartDashboard.putBoolean("Match/Status/AutoTrackAimReady", false);
               SmartDashboard.putString("Match/Status/AutoTrackAimMode", "Off");
-              System.out.println("[AutoTrack] Stopped");
+              // System.out.println("[AutoTrack] Stopped");
             })
         .withName("AutoTrack");
   }
@@ -1281,7 +1287,7 @@ public class ShootingCommands {
                     // the spindexer actually starts feeding (launcher at setpoint).
                     feedingArmed[0] = true;
                     Logger.recordOutput("ContinuousSmartLaunch/FeedingArmed", true);
-                    System.out.println("[ContinuousSmartLaunch] Armed — entered pass zone");
+                    // System.out.println("[ContinuousSmartLaunch] Armed — entered pass zone");
                   }
                 }),
 
@@ -1418,9 +1424,9 @@ public class ShootingCommands {
               }
               Logger.recordOutput("ContinuousSmartLaunch/Active", true);
               Logger.recordOutput("ContinuousSmartLaunch/FeedingArmed", feedingArmed[0]);
-              System.out.println(
-                  "[ContinuousSmartLaunch] Started"
-                      + (armOnPassZone ? " (waiting for pass zone)" : " (armed immediately)"));
+              // System.out.println(
+              //     "[ContinuousSmartLaunch] Started"
+              //         + (armOnPassZone ? " (waiting for pass zone)" : " (armed immediately)"));
             })
         .withName("ContinuousSmartLaunch");
   }
@@ -1593,7 +1599,7 @@ public class ShootingCommands {
             () -> {
               launcher.setFeedingActive(true);
               Logger.recordOutput("AutoTrackStationary/Active", true);
-              System.out.println("[AutoTrackStationary] Started");
+              // System.out.println("[AutoTrackStationary] Started");
             })
         .withName("AutoTrackStationary");
   }
@@ -1730,9 +1736,9 @@ public class ShootingCommands {
     double hoodActual = hood != null ? hood.getCurrentAngle() : 0;
     double motTarget = motivator != null ? motivator.getMotivatorTargetRPM() : 0;
     double motActual = motivator != null ? motivator.getMotivatorWheelVelocity() : 0;
-    System.out.printf(
-        "[%s] Feeding — Launcher: %.0f/%.0f RPM | Hood: %.1f/%.1f° | Motivator: %.0f/%.0f RPM%n",
-        label, targetRPM, actualRPM, hoodTarget, hoodActual, motTarget, motActual);
+    // System.out.printf(
+    //     "[%s] Feeding — Launcher: %.0f/%.0f RPM | Hood: %.1f/%.1f° | Motivator: %.0f/%.0f RPM%n",
+    //     label, targetRPM, actualRPM, hoodTarget, hoodActual, motTarget, motActual);
   }
 
   // ===== LUT Dev Override Helpers =====
