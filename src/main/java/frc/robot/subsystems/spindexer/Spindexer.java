@@ -107,6 +107,9 @@ public class Spindexer extends SubsystemBase {
 
     // Default reciprocation on — toggle from Elastic dashboard
     SmartDashboard.putBoolean("Tuning/Spindexer/Reciprocate/Enabled", true);
+
+    // Default auto-unclog off — toggle from Elastic dashboard when ready to test
+    SmartDashboard.putBoolean("Tuning/Spindexer/AutoUnclog/Enabled", false);
   }
 
   @Override
@@ -115,6 +118,15 @@ public class Spindexer extends SubsystemBase {
     Logger.processInputs("Spindexer", spindexerInputs);
 
     Logger.recordOutput("Subsystems/SpindexerState", state.name());
+
+    // Sync auto-unclog enabled state from dashboard toggle
+    boolean dashAutoUnclog =
+        SmartDashboard.getBoolean("Tuning/Spindexer/AutoUnclog/Enabled", false);
+    if (dashAutoUnclog && !autoUnclogEnabled) {
+      enableAutoUnclog();
+    } else if (!dashAutoUnclog && autoUnclogEnabled) {
+      disableAutoUnclog();
+    }
 
     // Auto-unclog: detect stall during FEEDING and trigger a brief reverse burst.
     // Stall = high current + low velocity for a sustained period.
@@ -149,6 +161,10 @@ public class Spindexer extends SubsystemBase {
         stallTimer.stop();
       }
     }
+
+    Logger.recordOutput("Spindexer/AutoUnclog/Enabled", autoUnclogEnabled);
+    Logger.recordOutput("Spindexer/AutoUnclog/InProgress", autoUnclogInProgress);
+    Logger.recordOutput("Spindexer/AutoUnclog/Attempts", autoUnclogAttempts);
 
     // Reset auto-unclog attempt counter when we leave feeding
     if (state != SpindexerState.FEEDING && state != SpindexerState.AUTO_UNCLOGGING) {
