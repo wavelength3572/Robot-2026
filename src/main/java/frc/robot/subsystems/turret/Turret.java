@@ -411,8 +411,7 @@ public class Turret extends SubsystemBase {
    */
   public boolean atTarget() {
     if (locked) return true;
-    return Math.abs(getOutsideCurrentAngle() - getOutsideTargetAngle())
-        <= readyToleranceAngleDeg;
+    return Math.abs(getOutsideCurrentAngle() - getOutsideTargetAngle()) <= readyToleranceAngleDeg;
   }
 
   /**

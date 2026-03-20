@@ -16,6 +16,7 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.filter.Debouncer;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.SparkConnection;
 import java.util.function.DoubleSupplier;
 
@@ -63,6 +64,9 @@ public class TurretIOSparkMax implements TurretIO {
   private double currentInsideAngleDegrees;
   private double currentOutsideAngleDegrees;
 
+  private static final LoggedTunableNumber turretOutputLimit =
+      new LoggedTunableNumber("Tuning/Turret/outputLimit", 0.5);
+
   public TurretIOSparkMax() {
     config = Constants.getRobotConfig();
 
@@ -100,7 +104,7 @@ public class TurretIOSparkMax implements TurretIO {
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(config.getTurretKp(), 0.0, config.getTurretKd())
-        .outputRange(-0.25, 0.25);
+        .outputRange(-0.5, 0.5);
 
     // ========== HARDWARE SOFT LIMITS (Critical Safety Feature) ==========
     // These limits are enforced by the SparkMax itself, providing protection even
@@ -191,6 +195,9 @@ public class TurretIOSparkMax implements TurretIO {
 
   @Override
   public void updateInputs(TurretIOInputs inputs) {
+    if (LoggedTunableNumber.hasChanged(turretOutputLimit)) {
+      changeLimits(turretOutputLimit.get());
+    }
     // Update target angle (always, even if motor is disconnected)
     inputs.targetInsideAngleDeg = targetInsideDeg;
     inputs.targetOutsideAngleDeg = targetOutsideDeg;
@@ -284,5 +291,16 @@ public class TurretIOSparkMax implements TurretIO {
   /** Convert motor rotations to turret degrees */
   private double motorRotationsToDegrees(double rotations) {
     return rotations * 360.0 / totalGearRatio;
+  }
+
+  private void changeLimits(double outputTurretLimit) {
+    var motorConfig = new SparkMaxConfig();
+    motorConfig.closedLoop.outputRange(-outputTurretLimit, outputTurretLimit);
+    tryUntilOk(
+        motorSpark,
+        5,
+        () ->
+            motorSpark.configure(
+                motorConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters));
   }
 }

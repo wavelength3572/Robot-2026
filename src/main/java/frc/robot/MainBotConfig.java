@@ -126,10 +126,10 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretAbsoluteEncoderOffset =
       0.32391 + (turretAbsoluteEncoderOffsetTweak / (360.0 / turretExternalGearRatio));
 
-  private static final int turretCurrentLimitAmps = 10;
-  private static final double turretKp = 0.15;
-  private static final double turretKd = 0.0;
-  private static final double turretToleranceAngleDeg = 2.0;
+  private static final int turretCurrentLimitAmps = 20;
+  private static final double turretKp = 0.12;
+  private static final double turretKd = 2.0;
+  private static final double turretToleranceAngleDeg = 4.0;
 
   private static final boolean turretMotorInverted = true;
 
@@ -148,7 +148,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double launcherKp = 0.000023; // 0.00014;
   private static final double launcherKi = 0.0;
   private static final double launcherKd = 0.0; // 0.006;
-  private static final double launcherKv = 0.00181;
+  private static final double launcherKv = 0.00183;
   private static final double launcherKs = 0.198;
   private static final double launcherIZone = 100.0; // motor RPM - integral only below this error
 
