@@ -581,7 +581,7 @@ public class ShootingCommands {
       Turret turret,
       Hood hood,
       Spindexer spindexer) {
-    return smartLaunchCommandImpl(launcher, coordinator, motivator, turret, hood, spindexer);
+    return smartLaunchCommandSeq(launcher, coordinator, motivator, turret, hood, spindexer);
   }
 
   /**
@@ -711,7 +711,7 @@ public class ShootingCommands {
             // Log ready state
             Commands.runOnce(
                 () -> {
-                  Logger.recordOutput("SmartLaunch/Phase", "FIRING");
+                  Logger.recordOutput("SmartLaunch/Phase", "FIRING SEQ");
                   SmartDashboard.putString("Match/Status/State", "Smart Launch - Feeding");
                   ShotCalculator.ShotResult feedShot = coordinator.getCurrentShot();
                   logShotStatus(
@@ -994,7 +994,7 @@ public class ShootingCommands {
             // Log ready state
             Commands.runOnce(
                 () -> {
-                  Logger.recordOutput("SmartLaunch/Phase", "FIRING");
+                  Logger.recordOutput("SmartLaunch/Phase", "FIRING IMP");
                   SmartDashboard.putString("Match/Status/State", "Smart Launch - Feeding");
                   ShotCalculator.ShotResult feedShot = coordinator.getCurrentShot();
                   logShotStatus(
