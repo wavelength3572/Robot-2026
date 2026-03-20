@@ -891,7 +891,7 @@ public class RobotContainer {
         if (spindexer != null) {
           chooser.addOption(
               "[Util] Spindexer Simple FF Characterization",
-              SpindexerCommands.feedforwardCharacterization(spindexer));
+              SpindexerCommands.spindexerCharacterization(spindexer));
         }
       }
       return chooser;

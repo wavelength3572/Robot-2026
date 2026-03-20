@@ -43,7 +43,7 @@ public class Spindexer extends SubsystemBase {
   private boolean wasUnclogActive = false;
 
   private static final LoggedTunableNumber unclogRPM =
-      new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", 1000.0);
+      new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", 325.0);
 
   // Auto-unclog — detects stall during FEEDING and briefly reverses to clear the jam.
   // Disabled by default; enable from dashboard when ready to test.

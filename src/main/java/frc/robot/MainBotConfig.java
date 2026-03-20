@@ -178,7 +178,7 @@ public class MainBotConfig implements RobotConfig {
 
   private static final double spindexerKs = 0.23368;
   private static final double spindexerKv = 0.0021;
-  private static final double spindexerGearRatio = 1.0 / 3.0;
+  private static final double spindexerGearRatio = 1.0 / 9.0;
 
   // Intake Configuration
   private static final int intakeDeployMotorCanId = 45;

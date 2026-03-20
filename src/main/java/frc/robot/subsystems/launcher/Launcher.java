@@ -42,7 +42,7 @@ public class Launcher extends SubsystemBase {
 
   // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control
   private static final LoggedTunableNumber velocityToleranceRPM =
-      new LoggedTunableNumber("Tuning/Launcher/ReadyToleranceRPM", 75);
+      new LoggedTunableNumber("Tuning/Launcher/ReadyToleranceRPM", 100);
 
   // Recovery: threshold error (wheel RPM) to activate Slot 1
   private static final LoggedTunableNumber recoveryBoostThresholdRPM =
