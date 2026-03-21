@@ -107,7 +107,7 @@ public class ShootingCoordinator extends SubsystemBase {
   // Two-point trajectory tunables for pass shots (dashboard value in inches,
   // converted to meters)
   private final LoggedTunableNumber symmetricArcPeakHeightIn =
-      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightIn", 50.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightIn", 62.0);
   private final LoggedTunableNumber lobNetClearanceMarginM =
       new LoggedTunableNumber("SmartLaunch/Pass/Lob/NetClearanceMarginM", 0.3);
   private final LoggedTunableNumber lobMaxPeakHeightM =
@@ -644,7 +644,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Pass shot distance logged at 10Hz (RPM/hood already covered by Shots/Status/)
     if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("SmartLaunch/Status/DistanceM", horizontalDist);
+      Logger.recordOutput("SmartLaunch/Status/DistanceMCPT", horizontalDist);
     }
   }
 
@@ -733,7 +733,7 @@ public class ShootingCoordinator extends SubsystemBase {
       double distance =
           Math.sqrt(
               Math.pow(aim.getX() - turretPos[0], 2) + Math.pow(aim.getY() - turretPos[1], 2));
-      Logger.recordOutput("SmartLaunch/Status/DistanceM", distance);
+      Logger.recordOutput("SmartLaunch/Status/DistanceMLSS", distance);
 
       // Parametric TOF from physics (exit velocity + launch angle)
       double parametricTOF =
