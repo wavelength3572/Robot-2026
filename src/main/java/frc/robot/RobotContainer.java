@@ -15,13 +15,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.AutoWrapperFactory;
-import frc.robot.commands.DriveCommands;
-import frc.robot.commands.LauncherCommands;
-import frc.robot.commands.MotivatorCommands;
 import frc.robot.commands.ShootingCommands;
-import frc.robot.commands.SpindexerCommands;
 import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
@@ -865,43 +860,43 @@ public class RobotContainer {
           new LoggedDashboardChooser<>("Auto Choices", sendable);
 
       // Add SysId routines only on real robot (not in simulation)
-      if (Constants.currentMode != Constants.Mode.SIM) {
-        chooser.addOption(
-            "[Util] Drive Wheel Radius Characterization",
-            DriveCommands.wheelRadiusCharacterization(drive));
-        chooser.addOption(
-            "[Util] Drive Simple FF Characterization",
-            DriveCommands.feedforwardCharacterizationDrive(drive));
-        chooser.addOption(
-            "[Util] Drive SysId (Quasistatic Forward)",
-            drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
-        chooser.addOption(
-            "[Util] Drive SysId (Quasistatic Reverse)",
-            drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
-        chooser.addOption(
-            "[Util] Drive SysId (Dynamic Forward)",
-            drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
-        chooser.addOption(
-            "[Util] Drive SysId (Dynamic Reverse)",
-            drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+      // if (Constants.currentMode != Constants.Mode.SIM) {
+      //   chooser.addOption(
+      //       "[Util] Drive Wheel Radius Characterization",
+      //       DriveCommands.wheelRadiusCharacterization(drive));
+      //   chooser.addOption(
+      //       "[Util] Drive Simple FF Characterization",
+      //       DriveCommands.feedforwardCharacterizationDrive(drive));
+      //   chooser.addOption(
+      //       "[Util] Drive SysId (Quasistatic Forward)",
+      //       drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+      //   chooser.addOption(
+      //       "[Util] Drive SysId (Quasistatic Reverse)",
+      //       drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+      //   chooser.addOption(
+      //       "[Util] Drive SysId (Dynamic Forward)",
+      //       drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
+      //   chooser.addOption(
+      //       "[Util] Drive SysId (Dynamic Reverse)",
+      //       drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
-        if (launcher != null) {
-          chooser.addOption(
-              "[Util] Launcher Simple FF Characterization",
-              LauncherCommands.feedforwardCharacterization(launcher));
-        }
-        if (motivator != null) {
-          chooser.addOption(
-              "[Util] Motivator Simple FF Characterization",
-              MotivatorCommands.feedforwardCharacterization(motivator));
-        }
+      //   if (launcher != null) {
+      //     chooser.addOption(
+      //         "[Util] Launcher Simple FF Characterization",
+      //         LauncherCommands.feedforwardCharacterization(launcher));
+      //   }
+      //   if (motivator != null) {
+      //     chooser.addOption(
+      //         "[Util] Motivator Simple FF Characterization",
+      //         MotivatorCommands.feedforwardCharacterization(motivator));
+      //   }
 
-        if (spindexer != null) {
-          chooser.addOption(
-              "[Util] Spindexer Simple FF Characterization",
-              SpindexerCommands.spindexerCharacterization(spindexer));
-        }
-      }
+      //   if (spindexer != null) {
+      //     chooser.addOption(
+      //         "[Util] Spindexer Simple FF Characterization",
+      //         SpindexerCommands.spindexerCharacterization(spindexer));
+      //   }
+      // }
       return chooser;
     }
   }
