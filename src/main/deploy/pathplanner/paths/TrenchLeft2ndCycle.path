@@ -3,16 +3,16 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 4.083846153846154,
+        "x": 4.035169946332736,
         "y": 7.661377459749552
       },
       "prevControl": null,
       "nextControl": {
-        "x": 4.4777692550510375,
+        "x": 4.42909304753762,
         "y": 7.59201818868278
       },
       "isLocked": false,
-      "linkedName": "TrenchLeftIntakeOut"
+      "linkedName": "TrenchLeftLineStart"
     },
     {
       "anchor": {
