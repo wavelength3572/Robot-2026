@@ -137,7 +137,7 @@ public class ShootingCommands {
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 325.0);
   // Fixed spindexer RPM used in pass/neutral zones (no distance lerp)
   private static final LoggedTunableNumber spindexerPassRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 350.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 425.0);
 
   // ===== LUT Dev Overrides (manual RPM/hood for data collection) =====
   private static final LoggedTunableNumber lutDevOverrideRPM =
