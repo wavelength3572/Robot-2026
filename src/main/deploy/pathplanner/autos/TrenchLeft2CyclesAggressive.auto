@@ -7,19 +7,19 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRightAggressiveEndAtStart"
+            "pathName": "TrenchLeftAggressiveEndAtStart"
           }
         },
         {
           "type": "wait",
           "data": {
-            "waitTime": 4.5
+            "waitTime": 5.0
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRight2ndCycle"
+            "pathName": "TrenchLeft2ndCycle"
           }
         }
       ]

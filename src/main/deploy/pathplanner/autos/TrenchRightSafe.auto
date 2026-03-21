@@ -7,13 +7,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRightSprint"
+            "pathName": "TrenchRightSafe"
           }
         }
       ]
     }
   },
   "resetOdom": true,
-  "folder": "Comp",
+  "folder": "CompShootPreloadsEndofPath",
   "choreoAuto": false
 }

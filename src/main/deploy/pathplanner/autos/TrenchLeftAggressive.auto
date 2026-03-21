@@ -7,13 +7,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRight+HumanPlayer"
+            "pathName": "TrenchLeftAggressive"
           }
         }
       ]
     }
   },
   "resetOdom": true,
-  "folder": "CompStationaryShoot",
+  "folder": "CompSprintEndofPath",
   "choreoAuto": false
 }

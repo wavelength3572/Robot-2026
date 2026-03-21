@@ -7,9 +7,10 @@
     "Test Paths"
   ],
   "autoFolders": [
-    "CompStationaryShoot",
-    "CompSprint",
-    "Comp"
+    "CompShootPreloadsEndofPath",
+    "CompSprintEndofPath",
+    "CompSprintAutoShoot",
+    "CompSprintStationaryShoot"
   ],
   "defaultMaxVel": 2.5,
   "defaultMaxAccel": 2.5,
@@ -23,7 +24,7 @@
   "driveGearing": 5.143,
   "maxDriveSpeed": 5.45,
   "driveMotorType": "vortex",
-  "driveCurrentLimit": 60.0,
+  "driveCurrentLimit": 80.0,
   "wheelCOF": 1.2,
   "flModuleX": 0.232,
   "flModuleY": 0.327,

@@ -86,6 +86,7 @@ public class AutoWrapperFactory {
     List<Command> pathParallel = new ArrayList<>();
 
     // SPRINT autos suppress feeding until the robot first enters a pass zone.
+    // The armOnPassZone gate already prevents accidental shots at the hub.
     if (pathStrategy == PathShootingStrategy.AUTO_SHOOT) {
       boolean armOnPassZone = (startStrategy == StartStrategy.SPRINT);
       pathParallel.add(runPath(selectedAuto));
@@ -108,7 +109,20 @@ public class AutoWrapperFactory {
     pathParallel.add(deployIntake(intake));
 
     // Stow hood in parallel with path start (after preload shooting) instead of blocking.
-    // Skip for AUTO_SHOOT and AUTO_TRACKING_STATIONARY — those commands manage the hood.
+    // Skip for AUTO_SHOOT and AUTO_TRACKING_STATIONARY — those commands require the hood
+    // subsystem directly, so the default stow command won't run while they're active.
+    //
+    // Hood safety under the trench:
+    //   The ShootingCoordinator's trenchModeActive flag (set when zone is TRENCH_NEAR,
+    //   TRENCH_FAR, or BUMP) clamps hoodMax to Shots/TrenchMode/HoodMaxDeg (default 18°)
+    //   before the shot calculator runs. So even though AUTO_SHOOT blindly tracks the shot
+    //   angle and AUTO_TRACKING_STATIONARY only explicitly stows in TRENCH_FAR, the
+    //   coordinator's clamp ensures neither command can raise the hood above 18° in any
+    //   trench zone. The safety comes from the coordinator, not the commands themselves.
+    //
+    //   Remaining risk: the clamp applies when the zone *is* trench, not *before* entering
+    //   it. A fast transition from open field (hood at 40°+) into a trench zone could
+    //   briefly have the hood too high until the next periodic cycle stows it.
     if (startStrategy == StartStrategy.SHOOT_PRELOADS
         && pathStrategy == PathShootingStrategy.END_OF_PATH) {
       pathParallel.add(stowHood(hood));

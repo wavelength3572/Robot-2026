@@ -438,15 +438,17 @@ public class RobotContainer {
 
   /** Returns true for any folder that should receive the comp wrapper. */
   private static boolean isCompFolder(String folder) {
-    return "Comp".equals(folder)
-        || "CompSafe".equals(folder)
-        || "CompSprint".equals(folder)
-        || "CompStationaryShoot".equals(folder);
+    return "CompShootPreloadsEndofPath".equals(folder)
+        || "CompSprintAutoShoot".equals(folder)
+        || "CompSprintEndofPath".equals(folder)
+        || "CompSprintStationaryShoot".equals(folder);
   }
 
   /** Folder-based default for start strategy. CompSprint sprints; everything else shoots first. */
   private static AutoWrapperFactory.StartStrategy defaultStartStrategy(String folder) {
-    return "CompSprint".equals(folder)
+    return ("CompSprintAutoShoot".equals(folder)
+            || "CompSprintEndofPath".equals(folder)
+            || "CompSprintStationaryShoot".equals(folder))
         ? AutoWrapperFactory.StartStrategy.SPRINT
         : AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS;
   }
@@ -454,8 +456,9 @@ public class RobotContainer {
   /** Folder-based default for path shooting. CompSprint auto-shoots; everything else waits. */
   private static AutoWrapperFactory.PathShootingStrategy defaultPathShootingStrategy(
       String folder) {
-    if ("CompSprint".equals(folder)) return AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT;
-    if ("CompStationaryShoot".equals(folder))
+    if ("CompSprintAutoShoot".equals(folder))
+      return AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT;
+    if ("CompSprintStationaryShoot".equals(folder))
       return AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY;
     return AutoWrapperFactory.PathShootingStrategy.END_OF_PATH;
   }
@@ -829,29 +832,34 @@ public class RobotContainer {
     if (competitionMode) {
       SendableChooser<Command> sendable = new SendableChooser<>();
       sendable.setDefaultOption("None", Commands.none());
-      for (Map.Entry<String, String> entry : autoFolderMap.entrySet()) {
-        String rawName = entry.getKey();
-        String folder = entry.getValue();
-        String prefix = folderToPrefix(folder);
-        if (isCompFolder(folder)) {
-          String displayName = prefix + rawName;
-          displayToAutoName.put(displayName, rawName);
-          sendable.addOption(displayName, new PathPlannerAuto(rawName));
-        }
-      }
+      autoFolderMap.entrySet().stream()
+          .filter(e -> isCompFolder(e.getValue()))
+          .sorted(Map.Entry.comparingByKey())
+          .forEachOrdered(
+              entry -> {
+                String rawName = entry.getKey();
+                String folder = entry.getValue();
+                String prefix = folderToPrefix(folder);
+                String displayName = prefix + rawName;
+                displayToAutoName.put(displayName, rawName);
+                sendable.addOption(displayName, new PathPlannerAuto(rawName));
+              });
       return new LoggedDashboardChooser<>("Auto Choices", sendable);
     } else {
       // Practice mode: include all autos with prefixes, plus SysId utilities
       SendableChooser<Command> sendable = new SendableChooser<>();
       sendable.setDefaultOption("None", Commands.none());
-      for (Map.Entry<String, String> entry : autoFolderMap.entrySet()) {
-        String rawName = entry.getKey();
-        String folder = entry.getValue();
-        String prefix = folderToPrefix(folder);
-        String displayName = prefix + rawName;
-        displayToAutoName.put(displayName, rawName);
-        sendable.addOption(displayName, new PathPlannerAuto(rawName));
-      }
+      autoFolderMap.entrySet().stream()
+          .sorted(Map.Entry.comparingByKey())
+          .forEachOrdered(
+              entry -> {
+                String rawName = entry.getKey();
+                String folder = entry.getValue();
+                String prefix = folderToPrefix(folder);
+                String displayName = prefix + rawName;
+                displayToAutoName.put(displayName, rawName);
+                sendable.addOption(displayName, new PathPlannerAuto(rawName));
+              });
 
       LoggedDashboardChooser<Command> chooser =
           new LoggedDashboardChooser<>("Auto Choices", sendable);
@@ -900,12 +908,7 @@ public class RobotContainer {
 
   /** Map a PathPlanner folder name to a short display prefix for the auto chooser dropdown. */
   private static String folderToPrefix(String folder) {
-    return switch (folder) {
-      case "Comp", "CompSafe" -> "[Comp] ";
-      case "CompSprint" -> "[Sprint] ";
-      case "CompStationaryShoot" -> "[StationaryShoot] ";
-      default -> "[Bare] ";
-    };
+    return "";
   }
 
   /**

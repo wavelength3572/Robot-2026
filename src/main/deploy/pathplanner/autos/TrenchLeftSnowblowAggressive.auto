@@ -7,13 +7,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRightAggressive"
+            "pathName": "TrenchLeftSnowblowAggressive"
           }
         }
       ]
     }
   },
   "resetOdom": true,
-  "folder": "CompSprintEndofPath",
+  "folder": "CompSprintAutoShoot",
   "choreoAuto": false
 }
