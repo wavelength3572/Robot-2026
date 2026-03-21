@@ -53,7 +53,7 @@ public class TrajectoryOptimizer {
   private static final LoggedTunableNumber minRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MinRPM", 1500.0);
   private static final LoggedTunableNumber maxRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxRPM", 5000.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxRPM", 4000.0);
   private static final LoggedTunableNumber maxPeakHeightFt =
       new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxPeakHeightFt", 12.0);
 

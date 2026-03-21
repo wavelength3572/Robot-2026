@@ -107,7 +107,7 @@ public class ShootingCoordinator extends SubsystemBase {
   // Two-point trajectory tunables for pass shots (dashboard value in inches,
   // converted to meters)
   private final LoggedTunableNumber symmetricArcPeakHeightIn =
-      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightIn", 85.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightIn", 50.0);
   private final LoggedTunableNumber lobNetClearanceMarginM =
       new LoggedTunableNumber("SmartLaunch/Pass/Lob/NetClearanceMarginM", 0.3);
   private final LoggedTunableNumber lobMaxPeakHeightM =
