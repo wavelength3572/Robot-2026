@@ -7,13 +7,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRightAggressiveEndAtStart"
+            "pathName": "TrenchRightSafe"
           }
         },
         {
           "type": "wait",
           "data": {
-            "waitTime": 4.5
+            "waitTime": 5.0
           }
         },
         {

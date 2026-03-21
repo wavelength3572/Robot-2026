@@ -3,16 +3,16 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 4.51033870967742,
-        "y": 0.3923709677419367
+        "x": 4.473766129032259,
+        "y": 0.39968548387096914
       },
       "prevControl": null,
       "nextControl": {
-        "x": 4.9042618108823035,
-        "y": 0.4618302388087089
+        "x": 4.867689230237143,
+        "y": 0.4691447549377413
       },
       "isLocked": false,
-      "linkedName": "TrenchRightLineStart"
+      "linkedName": "TrenchRightIntakeOut"
     },
     {
       "anchor": {
@@ -32,16 +32,16 @@
     },
     {
       "anchor": {
-        "x": 6.199991935483871,
-        "y": 2.9231935483870974
+        "x": 6.13024647887324,
+        "y": 3.316426056338029
       },
       "prevControl": {
-        "x": 6.699991935483871,
-        "y": 2.9231935483870974
+        "x": 6.63024647887324,
+        "y": 3.316426056338029
       },
       "nextControl": {
-        "x": 5.699991935483871,
-        "y": 2.9231935483870974
+        "x": 5.63024647887324,
+        "y": 3.316426056338029
       },
       "isLocked": false,
       "linkedName": null
@@ -73,7 +73,7 @@
       },
       "nextControl": {
         "x": 5.95874326170099,
-        "y": 0.5476625076086035
+        "y": 0.5476625076086037
       },
       "isLocked": false,
       "linkedName": null
@@ -117,8 +117,8 @@
     }
   ],
   "globalConstraints": {
-    "maxVelocity": 2.5,
-    "maxAcceleration": 3.0,
+    "maxVelocity": 3.5,
+    "maxAcceleration": 4.0,
     "maxAngularVelocity": 540.0,
     "maxAngularAcceleration": 720.0,
     "nominalVoltage": 12.0,

@@ -58,7 +58,7 @@ public class MainBotConfig implements RobotConfig {
   private static final int backRightCanCoderId = 43;
 
   // Drive motor configuration
-  private static final int driveMotorCurrentLimit = 80;
+  private static final int driveMotorCurrentLimit = 55;
   private static final double wheelRadiusMeters = Units.inchesToMeters(1.983);
   private static final double driveMotorReduction =
       (50.0 / 14.0) * (17.0 / 27.0) * (45.0 / 15.0); // SDS MK4i L2
