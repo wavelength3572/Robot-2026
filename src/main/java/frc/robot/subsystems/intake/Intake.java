@@ -348,8 +348,11 @@ public class Intake extends SubsystemBase {
       rollersPending = false;
     }
 
-    // Safety interlock: force rollers off when deploy is too close to stowed
-    // If rollers were actively running, re-pend them so they restart when position recovers
+    // Safety interlock: force rollers off when deploy is too close to stowed.
+    // If rollers were actively running (rollersActivelyCommanded == true), re-pend them
+    // so they automatically restart when the arm recovers past rollerMinDeployPosition.
+    // This relies on callers (runIntake, setRollerVelocityWhenDeployed) setting
+    // rollersActivelyCommanded = true — see runIntake() fix for details.
     boolean rollersSafetyLocked = inputs.deployPositionRotations < rollerMinDeployPosition.get();
     if (rollersSafetyLocked) {
       if (rollersActivelyCommanded && !rollersPending) {
@@ -556,19 +559,34 @@ public class Intake extends SubsystemBase {
     return runOnce(this::toggleVelocityControl).withName("Intake: Toggle Velocity Control");
   }
 
-  /** Run rollers to intake game pieces. RPM varies based on deploy state. */
+  /**
+   * Run rollers to intake game pieces. RPM varies based on deploy state.
+   *
+   * <p>FIX: Previously, this method did not set rollersActivelyCommanded or activeRollerRPM. This
+   * caused rollers to permanently stop during auto if the safety interlock triggered (arm dipping
+   * below rollerMinDeployPosition). The safety re-pend logic in periodic() checks
+   * rollersActivelyCommanded to decide whether to re-pend stopped rollers — without it being set,
+   * rollers would never restart after a momentary safety lock. Now we set both fields up front so
+   * the safety interlock can properly re-pend and restart the rollers.
+   */
   public void runIntake() {
+    double rpm = deployCommanded ? ROLLER_INTAKE_RPM_DEPLOYED : ROLLER_INTAKE_RPM_RETRACTED;
+
+    // Mark rollers as actively commanded so the safety interlock in periodic() can
+    // re-pend them if the arm temporarily dips below the safe position threshold.
+    // Without this, a momentary safety lock during auto would kill rollers permanently.
+    activeRollerRPM = rpm;
+    rollersActivelyCommanded = true;
+
     if (isRollerSafetyLocked()) {
-      // Defer roller start until deploy reaches safe position
+      // Arm is still too close to stowed — defer roller start until deploy reaches safe position
       if (useVelocityControl) {
-        double rpm = deployCommanded ? ROLLER_INTAKE_RPM_DEPLOYED : ROLLER_INTAKE_RPM_RETRACTED;
         pendingRollerRPM = rpm;
         rollersPending = true;
       }
       return;
     }
     if (useVelocityControl) {
-      double rpm = deployCommanded ? ROLLER_INTAKE_RPM_DEPLOYED : ROLLER_INTAKE_RPM_RETRACTED;
       io.setRollerVelocity(rpm);
     } else {
       io.setRollerDutyCycle(ROLLER_INTAKE_SPEED);
