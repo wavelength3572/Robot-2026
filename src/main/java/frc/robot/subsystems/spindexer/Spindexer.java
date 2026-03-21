@@ -24,6 +24,7 @@ public class Spindexer extends SubsystemBase {
   private enum SpindexerState {
     STOPPED, // Motor off
     FEEDING, // Running at commanded velocity to deliver fuel
+    JAMMED, // Stall detected but auto-unclog is disabled (diagnostic only)
     SUPPRESSED, // Feeding suppressed by operator (motor held at 0)
     UNCLOGGING, // Reversed to clear a jam (manual)
     AUTO_UNCLOGGING, // Reversed to clear a detected stall (automatic)
@@ -31,6 +32,7 @@ public class Spindexer extends SubsystemBase {
   }
 
   private SpindexerState state = SpindexerState.STOPPED;
+  private boolean stallDetected = false;
 
   // When true, setSpindexerVelocity() sends 0 instead of the requested RPM.
   // Used by the driver to temporarily suppress feeding without interrupting shooting commands.
@@ -46,8 +48,8 @@ public class Spindexer extends SubsystemBase {
       new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", 325.0);
 
   // Auto-unclog — detects stall during FEEDING and briefly reverses to clear the jam.
-  // Disabled by default; enable from dashboard when ready to test.
-  private boolean autoUnclogEnabled = false;
+  // Enabled by default; toggle from dashboard to disable if needed.
+  private boolean autoUnclogEnabled = true;
   private boolean autoUnclogInProgress = false;
   private final Timer stallTimer = new Timer(); // How long stall condition has persisted
   private final Timer autoUnclogTimer = new Timer(); // How long the reverse burst has been running
@@ -55,8 +57,8 @@ public class Spindexer extends SubsystemBase {
 
   private static final LoggedTunableNumber autoUnclogStallCurrentThreshold =
       new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallCurrentAmps", 15.0);
-  private static final LoggedTunableNumber autoUnclogStallVelocityThreshold =
-      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallVelocityRPM", 50.0);
+  private static final LoggedTunableNumber autoUnclogStallVelocityErrorThreshold =
+      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallVelocityErrorRPM", 25.0);
   private static final LoggedTunableNumber autoUnclogStallDurationSec =
       new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallDurationSec", 0.3);
   private static final LoggedTunableNumber autoUnclogReverseDurationSec =
@@ -107,6 +109,9 @@ public class Spindexer extends SubsystemBase {
 
     // Default reciprocation on — toggle from Elastic dashboard
     SmartDashboard.putBoolean("Tuning/Spindexer/Reciprocate/Enabled", true);
+
+    // Auto-unclog on by default — toggle from dashboard to disable if needed
+    SmartDashboard.putBoolean("Tuning/Spindexer/AutoUnclog/Enabled", true);
   }
 
   @Override
@@ -116,42 +121,60 @@ public class Spindexer extends SubsystemBase {
 
     Logger.recordOutput("Subsystems/SpindexerState", state.name());
 
-    // Auto-unclog: detect stall during FEEDING and trigger a brief reverse burst.
-    // Stall = high current + low velocity for a sustained period.
-    if (autoUnclogEnabled && !unclogActive) {
+    // Read auto-unclog toggle from dashboard each cycle
+    boolean dashboardEnabled =
+        SmartDashboard.getBoolean("Tuning/Spindexer/AutoUnclog/Enabled", false);
+    if (dashboardEnabled && !autoUnclogEnabled) {
+      enableAutoUnclog();
+    } else if (!dashboardEnabled && autoUnclogEnabled) {
+      disableAutoUnclog();
+    }
+
+    // Stall detection: always runs so JAMMED state is visible in logs even when auto-unclog
+    // is disabled. Stall = high current + low velocity for a sustained period.
+    if (!unclogActive) {
       if (autoUnclogInProgress) {
         // Reverse burst in progress — check if duration has elapsed
         if (autoUnclogTimer.hasElapsed(autoUnclogReverseDurationSec.get())) {
           autoUnclogInProgress = false;
           autoUnclogTimer.stop();
           stallTimer.stop();
+          stallDetected = false;
           // State will return to FEEDING on next setSpindexerVelocity() call from shooting command
         }
-      } else if (state == SpindexerState.FEEDING) {
+      } else if (state == SpindexerState.FEEDING || state == SpindexerState.JAMMED) {
+        double velocityError =
+            Math.abs(spindexerInputs.targetRPM) - Math.abs(spindexerInputs.wheelRPM);
         boolean stalled =
             spindexerInputs.currentAmps > autoUnclogStallCurrentThreshold.get()
-                && Math.abs(spindexerInputs.wheelRPM) < autoUnclogStallVelocityThreshold.get();
+                && velocityError > autoUnclogStallVelocityErrorThreshold.get();
         if (stalled) {
           if (!stallTimer.isRunning()) {
             stallTimer.restart();
           }
-          if (stallTimer.hasElapsed(autoUnclogStallDurationSec.get())
-              && autoUnclogAttempts < (int) autoUnclogMaxAttempts.get()) {
-            autoUnclogInProgress = true;
-            autoUnclogAttempts++;
-            autoUnclogTimer.restart();
+          if (stallTimer.hasElapsed(autoUnclogStallDurationSec.get())) {
+            stallDetected = true;
+            if (autoUnclogEnabled && autoUnclogAttempts < (int) autoUnclogMaxAttempts.get()) {
+              autoUnclogInProgress = true;
+              autoUnclogAttempts++;
+              autoUnclogTimer.restart();
+            }
           }
         } else {
           stallTimer.stop();
+          stallDetected = false;
         }
       } else {
         // Not feeding — reset stall detection
         stallTimer.stop();
+        stallDetected = false;
       }
     }
 
     // Reset auto-unclog attempt counter when we leave feeding
-    if (state != SpindexerState.FEEDING && state != SpindexerState.AUTO_UNCLOGGING) {
+    if (state != SpindexerState.FEEDING
+        && state != SpindexerState.AUTO_UNCLOGGING
+        && state != SpindexerState.JAMMED) {
       autoUnclogAttempts = 0;
     }
 
@@ -203,7 +226,7 @@ public class Spindexer extends SubsystemBase {
       state = SpindexerState.SUPPRESSED;
     } else {
       io.setSpindexerVelocity(velocityRPM);
-      state = SpindexerState.FEEDING;
+      state = stallDetected ? SpindexerState.JAMMED : SpindexerState.FEEDING;
     }
   }
 
