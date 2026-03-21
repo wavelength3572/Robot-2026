@@ -398,9 +398,18 @@ public class ShootingCoordinator extends SubsystemBase {
       }
 
       switch (aimResult.mode()) {
-        case SHOOT_ON_THE_MOVE, SHOOT_STATIONARY -> {
+        case SHOOT_ON_THE_MOVE -> {
           Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub " + activeStrategy.getName());
           calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
+        }
+        case SHOOT_STATIONARY -> {
+          // Zero out field speeds to disable velocity compensation for stationary shots.
+          // The LUT velocity-comp threshold (0.1 m/s) matches the stationary speed gate,
+          // so when the robot decelerates through 0.1 m/s the LUT could calculate with
+          // a velocity-compensated (shorter) distance in the same cycle the speed gate
+          // allows firing — producing wrong RPM/hood for the actual distance.
+          Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub " + activeStrategy.getName());
+          calculateShotToHub(robotPose, new ChassisSpeeds(), isBlueAlliance);
         }
         case PASS -> {
           PassingStrategy strategy = passingStrategyChooser.getSelected();
@@ -730,19 +739,21 @@ public class ShootingCoordinator extends SubsystemBase {
           ShotCalculator.getTurretFieldPosition(
               robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
       Translation3d aim = currentShot.aimTarget();
-      double distance =
+      double aimDistance =
           Math.sqrt(
               Math.pow(aim.getX() - turretPos[0], 2) + Math.pow(aim.getY() - turretPos[1], 2));
-      Logger.recordOutput("SmartLaunch/Status/DistanceM", distance);
+      // Log velocity-compensated aim distance separately — don't overwrite the
+      // actual target distance already logged by calculateShotToTarget/PassToTarget.
+      Logger.recordOutput("SmartLaunch/Status/AimDistanceM", aimDistance);
 
       // Parametric TOF from physics (exit velocity + launch angle)
       double parametricTOF =
           ShotCalculator.calculateTimeOfFlight(
-              currentShot.exitVelocityMps(), currentShot.launchAngleRad(), distance);
+              currentShot.exitVelocityMps(), currentShot.launchAngleRad(), aimDistance);
       Logger.recordOutput("SmartLaunch/Parametric/TOF", parametricTOF);
 
       // LUT TOF from empirical data
-      Logger.recordOutput("SmartLaunch/LUT/TOF", lookupTable.lookupTOF(distance));
+      Logger.recordOutput("SmartLaunch/LUT/TOF", lookupTable.lookupTOF(aimDistance));
     }
   }
 
