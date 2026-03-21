@@ -27,10 +27,12 @@ public class Spindexer extends SubsystemBase {
     SUPPRESSED, // Feeding suppressed by operator (motor held at 0)
     UNCLOGGING, // Reversed to clear a jam (manual)
     AUTO_UNCLOGGING, // Reversed to clear a detected stall (automatic)
+    JAMMED, // Jam detected but auto-unclog disabled — logged only, no motor action
     RECIPROCATING // Gentle back-and-forth jostle to keep fuel loose
   }
 
   private SpindexerState state = SpindexerState.STOPPED;
+  private boolean stallDetected = false;
 
   // When true, setSpindexerVelocity() sends 0 instead of the requested RPM.
   // Used by the driver to temporarily suppress feeding without interrupting shooting commands.
@@ -54,11 +56,11 @@ public class Spindexer extends SubsystemBase {
   private int autoUnclogAttempts = 0; // Attempts this feeding session
 
   private static final LoggedTunableNumber autoUnclogStallCurrentThreshold =
-      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallCurrentAmps", 15.0);
+      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallCurrentAmps", 10.0);
   private static final LoggedTunableNumber autoUnclogStallVelocityThreshold =
-      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallVelocityRPM", 50.0);
+      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallRPMError", 20.0);
   private static final LoggedTunableNumber autoUnclogStallDurationSec =
-      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallDurationSec", 0.3);
+      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallDurationSec", 0.2);
   private static final LoggedTunableNumber autoUnclogReverseDurationSec =
       new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/ReverseDurationSec", 0.25);
   private static final LoggedTunableNumber autoUnclogMaxAttempts =
@@ -116,42 +118,54 @@ public class Spindexer extends SubsystemBase {
 
     Logger.recordOutput("Subsystems/SpindexerState", state.name());
 
-    // Auto-unclog: detect stall during FEEDING and trigger a brief reverse burst.
-    // Stall = high current + low velocity for a sustained period.
-    if (autoUnclogEnabled && !unclogActive) {
+    // Stall detection: always runs during FEEDING so we can see jam events in logs.
+    // Only triggers the reverse burst when autoUnclogEnabled.
+    if (!unclogActive) {
       if (autoUnclogInProgress) {
         // Reverse burst in progress — check if duration has elapsed
         if (autoUnclogTimer.hasElapsed(autoUnclogReverseDurationSec.get())) {
           autoUnclogInProgress = false;
+          stallDetected = false;
           autoUnclogTimer.stop();
           stallTimer.stop();
           // State will return to FEEDING on next setSpindexerVelocity() call from shooting command
         }
-      } else if (state == SpindexerState.FEEDING) {
+      } else if (state == SpindexerState.FEEDING || state == SpindexerState.JAMMED) {
+        double rpmError = Math.abs(spindexerInputs.targetRPM) - Math.abs(spindexerInputs.wheelRPM);
         boolean stalled =
-            spindexerInputs.currentAmps > autoUnclogStallCurrentThreshold.get()
-                && Math.abs(spindexerInputs.wheelRPM) < autoUnclogStallVelocityThreshold.get();
+            Math.abs(spindexerInputs.wheelRPM) > 100.0
+                && spindexerInputs.currentAmps > autoUnclogStallCurrentThreshold.get()
+                && rpmError > autoUnclogStallVelocityThreshold.get();
         if (stalled) {
           if (!stallTimer.isRunning()) {
             stallTimer.restart();
           }
           if (stallTimer.hasElapsed(autoUnclogStallDurationSec.get())
               && autoUnclogAttempts < (int) autoUnclogMaxAttempts.get()) {
-            autoUnclogInProgress = true;
-            autoUnclogAttempts++;
-            autoUnclogTimer.restart();
+            stallDetected = true;
+            if (autoUnclogEnabled) {
+              autoUnclogInProgress = true;
+              autoUnclogAttempts++;
+              autoUnclogTimer.restart();
+            } else {
+              state = SpindexerState.JAMMED;
+            }
           }
         } else {
           stallTimer.stop();
+          stallDetected = false;
         }
       } else {
         // Not feeding — reset stall detection
         stallTimer.stop();
+        stallDetected = false;
       }
     }
 
     // Reset auto-unclog attempt counter when we leave feeding
-    if (state != SpindexerState.FEEDING && state != SpindexerState.AUTO_UNCLOGGING) {
+    if (state != SpindexerState.FEEDING
+        && state != SpindexerState.AUTO_UNCLOGGING
+        && state != SpindexerState.JAMMED) {
       autoUnclogAttempts = 0;
     }
 
@@ -203,7 +217,7 @@ public class Spindexer extends SubsystemBase {
       state = SpindexerState.SUPPRESSED;
     } else {
       io.setSpindexerVelocity(velocityRPM);
-      state = SpindexerState.FEEDING;
+      state = stallDetected ? SpindexerState.JAMMED : SpindexerState.FEEDING;
     }
   }
 

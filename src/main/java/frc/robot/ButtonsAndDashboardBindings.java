@@ -581,6 +581,23 @@ public class ButtonsAndDashboardBindings {
       Trigger suppressTrigger = oi.getButtonBox1Button11();
       suppressTrigger.onTrue(Commands.runOnce(spindexer::suppressFeeding));
       suppressTrigger.onFalse(Commands.runOnce(spindexer::unsuppressFeeding));
+
+      // Auto-unclog toggle — off by default, enable from dashboard to act on detected jams
+      SmartDashboard.putBoolean("Tuning/Spindexer/AutoUnclog/Enabled", false);
+      SmartDashboard.putData(
+          "Tuning/Spindexer/AutoUnclog/Toggle",
+          Commands.runOnce(
+                  () -> {
+                    if (spindexer.isAutoUnclogEnabled()) {
+                      spindexer.disableAutoUnclog();
+                    } else {
+                      spindexer.enableAutoUnclog();
+                    }
+                    SmartDashboard.putBoolean(
+                        "Tuning/Spindexer/AutoUnclog/Enabled", spindexer.isAutoUnclogEnabled());
+                  })
+              .ignoringDisable(true)
+              .withName("Toggle AutoUnclog"));
     }
     ;
   }
