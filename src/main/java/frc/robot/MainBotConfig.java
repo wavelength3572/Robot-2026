@@ -124,7 +124,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretAbsoluteEncoderOffsetTweak =
       0.0; // 2.827154; // This is in degrees. + is CCW
   private static final double turretAbsoluteEncoderOffset =
-      0.1522 + (turretAbsoluteEncoderOffsetTweak / (360.0 / turretExternalGearRatio));
+      0.30148 + (turretAbsoluteEncoderOffsetTweak / (360.0 / turretExternalGearRatio));
 
   private static final int turretCurrentLimitAmps = 20;
   private static final double turretKp = 0.12;
@@ -193,7 +193,7 @@ public class MainBotConfig implements RobotConfig {
   private static final int intakeRollerCurrentLimit = 40;
   private static final double intakeDeployStowedPosition = 0.0;
   private static final double intakeDeployRetractedPosition = 0.0;
-  private static final double intakeDeployExtendedPosition = 0.055;
+  private static final double intakeDeployExtendedPosition = 0.085;
   // kP=100 caused massive oscillation because it saturates output for any error > 0.01 rotations
   // (total travel is only 0.13 rotations). REV recommends starting at kP=0.01 for rotations.
   // kP=5 gives 65% duty cycle at full travel error - strong but not saturated.

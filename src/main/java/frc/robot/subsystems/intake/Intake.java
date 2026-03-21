@@ -107,7 +107,7 @@ public class Intake extends SubsystemBase {
     deployMaxAcceleration =
         new LoggedTunableNumber(
             "Tuning/Intake/Deploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
-    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/Deploy/OutputLimit", 0.5);
+    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/Deploy/OutputLimit", 0.75);
     deployBrakeTime = new LoggedTunableNumber("Tuning/Intake/Deploy/BrakeTimeSec", 0.5);
     // Retract motion profile
     retractMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Retract/MaxVelocity", 30);
