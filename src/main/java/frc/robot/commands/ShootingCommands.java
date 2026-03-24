@@ -1464,6 +1464,10 @@ public class ShootingCommands {
       Hood hood,
       Spindexer spindexer) {
     final boolean[] motivatorStarted = {false};
+    // Arm feeding only after the robot has left the initial zone and re-entered a trench zone.
+    // This prevents premature firing when the command starts in the trench.
+    // State machine: NOT_LEFT (initial) -> LEFT_TRENCH (exited trench) -> ARMED (re-entered)
+    final int[] armState = {0}; // 0=NOT_LEFT, 1=LEFT_TRENCH, 2=ARMED
 
     return Commands.parallel(
             // Launcher — spin to hub RPM in tracking zones, idle otherwise
@@ -1527,7 +1531,7 @@ public class ShootingCommands {
                     hood)
                 : Commands.none(),
 
-            // Motivator — spin in tracking zones once launcher is ready
+            // Motivator — spin in tracking zones once launcher is ready AND feeding is armed
             motivator != null
                 ? Commands.run(
                     () -> {
@@ -1540,6 +1544,7 @@ public class ShootingCommands {
                         motivatorStarted[0] = false;
                         return;
                       }
+                      if (armState[0] != 2) return;
                       if (!motivatorStarted[0]) {
                         if (!launcher.isReady()) return;
                         motivatorStarted[0] = true;
@@ -1551,11 +1556,25 @@ public class ShootingCommands {
                     motivator)
                 : Commands.none(),
 
-            // Spindexer — feed when stationary in a shoot or pass zone
+            // Spindexer — feed when armed, stationary, in a shoot or pass zone
             spindexer != null
                 ? Commands.run(
                     () -> {
                       ZoneDetector.Zone zone = coordinator.getCurrentZone();
+
+                      // Arm feeding: must leave trench first, then re-enter
+                      boolean inTrench =
+                          zone == ZoneDetector.Zone.TRENCH_NEAR
+                              || zone == ZoneDetector.Zone.TRENCH_FAR;
+                      if (armState[0] == 0 && !inTrench) {
+                        armState[0] = 1; // left trench
+                      } else if (armState[0] == 1 && inTrench) {
+                        armState[0] = 2; // re-entered trench → armed
+                      }
+                      boolean armed = armState[0] == 2;
+                      Logger.recordOutput("AutoTrackStationary/Gate/ArmState", armState[0]);
+                      Logger.recordOutput("AutoTrackStationary/Gate/Armed", armed);
+
                       boolean inShootZone =
                           zone == ZoneDetector.Zone.TRENCH_NEAR
                               || zone == ZoneDetector.Zone.ALLIANCE
@@ -1570,7 +1589,12 @@ public class ShootingCommands {
                       Logger.recordOutput("AutoTrackStationary/Gate/LauncherReady", launcherReady);
                       Logger.recordOutput("AutoTrackStationary/Gate/TurretAimed", turretAimed);
 
-                      boolean feedOk = inShootZone && stationary && launcherReady && turretAimed;
+                      boolean feedOk =
+                          armed
+                              && inShootZone
+                              && stationary
+                              && launcherReady
+                              && turretAimed;
                       if (feedOk) {
                         launcher.setFeedingActive(true);
                         double dist = coordinator.getDistanceToTarget();
@@ -1586,7 +1610,8 @@ public class ShootingCommands {
 
             // Fire balls in simulation
             coordinator != null
-                ? createAutoTrackingSimFiringLoop(coordinator, launcher, motivator, turret, hood)
+                ? createAutoTrackingSimFiringLoop(
+                    coordinator, launcher, motivator, turret, hood, armState)
                 : Commands.none())
         .finallyDo(
             () -> {
@@ -1605,26 +1630,26 @@ public class ShootingCommands {
             })
         .beforeStarting(
             () -> {
-              launcher.setFeedingActive(true);
               Logger.recordOutput("AutoTrackStationary/Active", true);
-              // System.out.println("[AutoTrackStationary] Started");
             })
         .withName("AutoTrackStationary");
   }
 
   /**
-   * Sim firing loop for auto-tracking stationary. Gates on stationary + in shoot zone (near trench
-   * or alliance).
+   * Sim firing loop for auto-tracking stationary. Gates on armed + stationary + in shoot zone (near
+   * trench or alliance).
    */
   private static Command createAutoTrackingSimFiringLoop(
       ShootingCoordinator coordinator,
       Launcher launcher,
       Motivator motivator,
       Turret turret,
-      Hood hood) {
+      Hood hood,
+      int[] armState) {
     return Commands.sequence(
             Commands.waitUntil(
                 () -> {
+                  if (armState[0] != 2) return false;
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   boolean subsReady = isAllSubsystemsReady(launcher, motivator, turret, hood, shot);
                   boolean stationary = coordinator.isRobotStationary();
