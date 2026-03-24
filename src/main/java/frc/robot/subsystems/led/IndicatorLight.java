@@ -73,7 +73,7 @@ public class IndicatorLight extends SubsystemBase {
   private boolean on = false;
   private int skittleCount = 0;
 
-  private double countdownRemainingTime = 7.0;
+  private double countdownRemainingTime = 10.0;
   private double warningRemainingTime = 5.0;
 
   // Turret encoder validation supplier (set by RobotContainer)
@@ -466,13 +466,13 @@ public class IndicatorLight extends SubsystemBase {
     int numLEDs = wlLEDBuffer.getLength(); // 42
     int half = numLEDs / 2; // 21
 
-    // Phase 1: progressive fill (7.0s → 3.0s), Phase 2: full bar blink (3.0s → 0.0s)
+    // Phase 1: progressive fill (10.0s → 3.0s), Phase 2: full bar blink (3.0s → 0.0s)
     boolean phase2 = countdownRemainingTime <= 3.0;
 
     double blinkPeriod;
     if (!phase2) {
-      // Phase 1: blink period 0.4s → 0.15s as remainingTime goes 7.0 → 3.0
-      double t = 1.0 - (countdownRemainingTime - 3.0) / 4.0; // 0.0 → 1.0
+      // Phase 1: blink period 0.4s → 0.15s as remainingTime goes 10.0 → 3.0
+      double t = 1.0 - (countdownRemainingTime - 3.0) / 7.0; // 0.0 → 1.0
       t = Math.max(0.0, Math.min(1.0, t));
       blinkPeriod = 0.4 - t * (0.4 - 0.15);
     } else {
@@ -490,7 +490,7 @@ public class IndicatorLight extends SubsystemBase {
 
     if (!phase2) {
       // Phase 1: fill from both ends inward
-      double progress = 1.0 - (countdownRemainingTime - 3.0) / 4.0; // 0.0 → 1.0
+      double progress = 1.0 - (countdownRemainingTime - 3.0) / 7.0; // 0.0 → 1.0
       progress = Math.max(0.0, Math.min(1.0, progress));
       int ledsPerSide = Math.max(2, (int) Math.ceil(progress * half));
 
@@ -831,9 +831,9 @@ public class IndicatorLight extends SubsystemBase {
       return LED_EFFECTS.BLINK_RED;
     }
 
-    // Teleop: green when active, red when inactive, blink white 7s before going active
+    // Teleop: green when active, red when inactive, blink white 10s before going active
     HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getOfficialShiftInfo();
-    if (!shiftInfo.active() && shiftInfo.remainingTime() <= 7.0) {
+    if (!shiftInfo.active() && shiftInfo.remainingTime() <= 10.0) {
       countdownRemainingTime = shiftInfo.remainingTime();
       return LED_EFFECTS.COUNTDOWN_BLINK;
     } else if (shiftInfo.active() && shiftInfo.remainingTime() <= 5.0) {
