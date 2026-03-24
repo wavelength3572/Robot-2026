@@ -22,11 +22,10 @@ import frc.robot.util.LoggedTunableNumber;
  *   <li><b>OPPONENT</b> — their side. Long pass back to alliance zone.
  * </ol>
  *
- * <p>BUMP zones use the robot's physical dimensions as margin (any part of the chassis on the
- * ramp). TRENCH zones use the turret's field position with a small radius margin (~7 inches), since
- * what matters is whether the turret/hood is under the trench structure. Alliance sub-zones are
- * classified by distance from turret to hub. NEUTRAL/OPPONENT are X-axis-only with a small
- * hysteresis buffer.
+ * <p>BUMP zones use the physical bump geometry and require gyro pitch confirmation. TRENCH zone
+ * bounds include hood lead distance (~0.5m) so the hood starts lowering before reaching the
+ * physical structure. Alliance sub-zones are classified by distance from turret to hub.
+ * NEUTRAL/OPPONENT are X-axis-only with a small hysteresis buffer.
  */
 public class ZoneDetector {
 
@@ -76,20 +75,6 @@ public class ZoneDetector {
   public static double getZoneBoundaryFar() {
     return zoneBoundaryFar.get();
   }
-
-  /**
-   * Trench detection margin (~20 inches). Sized to give the hood enough lead distance to lower
-   * from max angle to 18 degrees even at max robot speed (~4 m/s). At 0.5m the hood gets ~125ms
-   * of lead time at full speed. This is the margin that triggers hood clamping.
-   */
-  public static final double TRENCH_MARGIN = 0.5; // ~20 inches — hood lead distance
-
-  /**
-   * Bump detection margin (~7 inches). Kept small because bump detection also requires gyro pitch
-   * confirmation (>= 5 deg), so it doesn't need the same lead distance as trench zones. A smaller
-   * margin prevents bump zones from overlapping with adjacent trench zones.
-   */
-  public static final double BUMP_MARGIN = 0.178; // ~7 inches — physical turret radius
 
   /** Small hysteresis buffer for X-based zone transitions (ALLIANCE↔NEUTRAL). */
   private static final double X_HYSTERESIS = 0.3;
@@ -161,14 +146,14 @@ public class ZoneDetector {
     turretX = Math.max(0, Math.min(fL, turretX));
     turretY = Math.max(0, Math.min(fW, turretY));
 
-    // --- Priority 1: 2D obstacle zones ---
-    // BUMP: turret over a bump ramp AND robot is tilted (small margin — pitch confirms)
-    if (FieldConstants.BumpZones.isInAnyBumpZone(turretX, turretY, BUMP_MARGIN)
+    // --- Priority 1: 2D obstacle zones (bounds include lead distance where needed) ---
+    // BUMP: turret over a bump ramp AND robot is tilted
+    if (FieldConstants.BumpZones.isInAnyBumpZone(turretX, turretY)
         && Math.abs(robotPitchDeg) >= BUMP_PITCH_THRESHOLD_DEG) {
       return Zone.BUMP;
     }
-    // TRENCH: turret near the overhead trench structure (large margin — hood needs lead time)
-    if (FieldConstants.TrenchZones.isInAnyTrenchZone(turretX, turretY, TRENCH_MARGIN)) {
+    // TRENCH: turret in trench zone (bounds already include hood lead distance)
+    if (FieldConstants.TrenchZones.isInAnyTrenchZone(turretX, turretY)) {
       boolean onAllianceSide = isOnAllianceSideOfTrench(robotX, alliance);
       return onAllianceSide ? Zone.ALLIANCE_TRENCH : Zone.NEUTRAL_TRENCH;
     }
