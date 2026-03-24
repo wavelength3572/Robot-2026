@@ -43,6 +43,13 @@ import org.littletonrobotics.junction.Logger;
  */
 public class ShootingCommands {
 
+  /** State machine for gating auto-track feeding until the robot has left and re-entered trench. */
+  private enum ArmState {
+    NOT_LEFT,
+    LEFT_TRENCH,
+    ARMED
+  }
+
   /** Shooting mode determines trajectory calculation and parameter source. */
   public enum ShootingMode {
     /** Auto-calculated trajectory to hub, optimized RPM/angle for distance (Shots/*). */
@@ -1466,8 +1473,7 @@ public class ShootingCommands {
     final boolean[] motivatorStarted = {false};
     // Arm feeding only after the robot has left the initial zone and re-entered a trench zone.
     // This prevents premature firing when the command starts in the trench.
-    // State machine: NOT_LEFT (initial) -> LEFT_TRENCH (exited trench) -> ARMED (re-entered)
-    final int[] armState = {0}; // 0=NOT_LEFT, 1=LEFT_TRENCH, 2=ARMED
+    final ArmState[] armState = {ArmState.NOT_LEFT};
 
     return Commands.parallel(
             // Launcher — spin to hub RPM in tracking zones, idle otherwise
@@ -1544,7 +1550,7 @@ public class ShootingCommands {
                         motivatorStarted[0] = false;
                         return;
                       }
-                      if (armState[0] != 2) return;
+                      if (armState[0] != ArmState.ARMED) return;
                       if (!motivatorStarted[0]) {
                         if (!launcher.isReady()) return;
                         motivatorStarted[0] = true;
@@ -1566,13 +1572,14 @@ public class ShootingCommands {
                       boolean inTrench =
                           zone == ZoneDetector.Zone.TRENCH_NEAR
                               || zone == ZoneDetector.Zone.TRENCH_FAR;
-                      if (armState[0] == 0 && !inTrench) {
-                        armState[0] = 1; // left trench
-                      } else if (armState[0] == 1 && inTrench) {
-                        armState[0] = 2; // re-entered trench → armed
+                      if (armState[0] == ArmState.NOT_LEFT && !inTrench) {
+                        armState[0] = ArmState.LEFT_TRENCH;
+                      } else if (armState[0] == ArmState.LEFT_TRENCH && inTrench) {
+                        armState[0] = ArmState.ARMED;
                       }
-                      boolean armed = armState[0] == 2;
-                      Logger.recordOutput("AutoTrackStationary/Gate/ArmState", armState[0]);
+                      boolean armed = armState[0] == ArmState.ARMED;
+                      Logger.recordOutput(
+                          "AutoTrackStationary/Gate/ArmState", armState[0].name());
                       Logger.recordOutput("AutoTrackStationary/Gate/Armed", armed);
 
                       boolean inShootZone =
@@ -1645,11 +1652,11 @@ public class ShootingCommands {
       Motivator motivator,
       Turret turret,
       Hood hood,
-      int[] armState) {
+      ArmState[] armState) {
     return Commands.sequence(
             Commands.waitUntil(
                 () -> {
-                  if (armState[0] != 2) return false;
+                  if (armState[0] != ArmState.ARMED) return false;
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   boolean subsReady = isAllSubsystemsReady(launcher, motivator, turret, hood, shot);
                   boolean stationary = coordinator.isRobotStationary();
