@@ -495,10 +495,22 @@ public class ButtonsAndDashboardBindings {
               },
               smartLaunchReqs);
       if (intake != null) {
-        smartLaunchCmd =
-            smartLaunchCmd.alongWith(
-                intake.agitateCommand(
-                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
+        // Rollers spin in all zones when intake is deployed (safety interlock handles retracted
+        // state)
+        Command rollerCmd =
+            intake.smartLaunchRollerCommand(
+                tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean);
+
+        // Agitation only in alliance zones — no need to jostle balls when passing
+        Command zoneGatedAgitation =
+            Commands.waitUntil(shootingCoordinator::isInAllianceZone)
+                .andThen(
+                    intake.agitateCommand(
+                        tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean))
+                .onlyWhile(shootingCoordinator::isInAllianceZone)
+                .repeatedly();
+
+        smartLaunchCmd = smartLaunchCmd.alongWith(zoneGatedAgitation, rollerCmd);
       }
       oi.getButtonBox1Button12().whileTrue(smartLaunchCmd);
 
@@ -540,6 +552,8 @@ public class ButtonsAndDashboardBindings {
         hubShotCmd =
             hubShotCmd.alongWith(
                 intake.agitateCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean),
+                intake.smartLaunchRollerCommand(
                     tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
       oi.getButtonBox1Button8().whileTrue(hubShotCmd);
@@ -552,6 +566,8 @@ public class ButtonsAndDashboardBindings {
         leftTrenchCmd =
             leftTrenchCmd.alongWith(
                 intake.agitateCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean),
+                intake.smartLaunchRollerCommand(
                     tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
       oi.getButtonBox1Button5().whileTrue(leftTrenchCmd);
@@ -564,6 +580,8 @@ public class ButtonsAndDashboardBindings {
         rightTrenchCmd =
             rightTrenchCmd.alongWith(
                 intake.agitateCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean),
+                intake.smartLaunchRollerCommand(
                     tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
       oi.getButtonBox1Button6().whileTrue(rightTrenchCmd);

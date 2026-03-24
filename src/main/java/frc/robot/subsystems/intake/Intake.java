@@ -835,6 +835,32 @@ public class Intake extends SubsystemBase {
         .withName("Intake: Deploy & Run");
   }
 
+  /**
+   * Command that runs intake rollers during SmartLaunch. Does NOT deploy or retract the intake —
+   * rollers only spin when the arm is already deployed (via the existing safety interlock in {@link
+   * #setRollerVelocityWhenDeployed}). Does NOT require the intake subsystem so it coexists with
+   * Button 4's deploy+roller command.
+   *
+   * @param rollerRPM Supplier for roller velocity in RPM
+   * @param intakeActive Supplier that returns true when Button 4 is held (yields roller control)
+   * @return Command that runs rollers until cancelled
+   */
+  public Command smartLaunchRollerCommand(DoubleSupplier rollerRPM, BooleanSupplier intakeActive) {
+    return Commands.run(
+            () -> {
+              if (!intakeActive.getAsBoolean()) {
+                setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
+              }
+            })
+        .finallyDo(
+            () -> {
+              if (!intakeActive.getAsBoolean()) {
+                stopRollers();
+              }
+            })
+        .withName("Intake: SmartLaunch Rollers");
+  }
+
   // ========== GENERAL CONTROL ==========
 
   /** Stop all motors. */
