@@ -39,6 +39,11 @@ public class AutoWrapperFactory {
     SPRINT
   }
 
+  // TODO: Stationary autos are firing before we want them to. Consider a system where
+  //       no auto fires until explicitly told to (e.g. a manual "arm" signal or a
+  //       sequenced fire command) instead of relying on stationary detection alone.
+  //       Need a better gating mechanism so the robot doesn't launch prematurely.
+
   /** Whether to auto-shoot during the path or only fire after the path completes. */
   public enum PathShootingStrategy {
     END_OF_PATH,
