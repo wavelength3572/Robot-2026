@@ -45,6 +45,25 @@ public final class ShotCalculator {
   private static final LoggedTunableNumber efficiencyFar =
       new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Far", 0.75);
 
+  // ========== Public Accessors for Efficiency Distance Breakpoints ==========
+  // Used by ZoneDetector to subdivide the alliance zone into close/mid/far using the same
+  // distance boundaries that drive efficiency interpolation — single source of truth.
+
+  /** Distance boundary between close and mid zones (meters). */
+  public static double getEfficiencyDistClose() {
+    return efficiencyDistClose.get();
+  }
+
+  /** Distance boundary between mid and far zones (meters). */
+  public static double getEfficiencyDistMid() {
+    return efficiencyDistMid.get();
+  }
+
+  /** Distance boundary for far zone start (meters). */
+  public static double getEfficiencyDistFar() {
+    return efficiencyDistFar.get();
+  }
+
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
   private static final double MAX_EXIT_VELOCITY = 15.0; // m/s

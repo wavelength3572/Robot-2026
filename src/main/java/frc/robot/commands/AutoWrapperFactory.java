@@ -118,10 +118,10 @@ public class AutoWrapperFactory {
     // subsystem directly, so the default stow command won't run while they're active.
     //
     // Hood safety under the trench:
-    //   The ShootingCoordinator's trenchModeActive flag (set when zone is TRENCH_NEAR,
-    //   TRENCH_FAR, or BUMP) clamps hoodMax to Shots/TrenchMode/HoodMaxDeg (default 18°)
+    //   The ShootingCoordinator's trenchModeActive flag (set when zone is ALLIANCE_TRENCH,
+    //   NEUTRAL_TRENCH, or BUMP) clamps hoodMax to Shots/TrenchMode/HoodMaxDeg (default 18°)
     //   before the shot calculator runs. So even though AUTO_SHOOT blindly tracks the shot
-    //   angle and AUTO_TRACKING_STATIONARY only explicitly stows in TRENCH_FAR, the
+    //   angle and AUTO_TRACKING_STATIONARY only explicitly stows in NEUTRAL_TRENCH, the
     //   coordinator's clamp ensures neither command can raise the hood above 18° in any
     //   trench zone. The safety comes from the coordinator, not the commands themselves.
     //

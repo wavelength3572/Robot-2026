@@ -45,16 +45,21 @@ public class ShootingCoordinator extends SubsystemBase {
   // Turret geometry config (immutable)
   private final ShotCalculator.TurretConfig turretConfig;
 
-  // TODO: Investigate zoned shooting with the Parametric/LUT fallback system.
-  //       Instead of one global strategy, divide the field into zones (e.g. close,
-  //       mid, far, trench) and let each zone pick its own strategy — parametric
-  //       where the physics model is accurate, LUT where we have good empirical
-  //       data, fallback only where neither is strong. This could also improve
-  //       launch efficiency: per-zone efficiency constants (or per-zone LUT tables)
-  //       would let us compensate for the fact that efficiency varies with distance
-  //       and angle rather than using a single global constant. Consider whether
-  //       zone boundaries should be distance-based rings, field-geometry zones, or
-  //       both.
+  // Zone-based strategy architecture (partially implemented):
+  //
+  // ZoneDetector now provides distance-refined alliance sub-zones:
+  //   ALLIANCE_CLOSE / ALLIANCE_MID / ALLIANCE_FAR
+  // Boundaries are tied to ShotCalculator's efficiency distance breakpoints
+  // (Shots/SmartLaunch/Efficiency/CloseDist, MidDist, FarDist) — single source of truth.
+  //
+  // TODO: Wire per-zone strategy selection. Each alliance sub-zone should be able to
+  //       pick its own ShotStrategy (parametric, LUT, or fallback) so they don't
+  //       poison each other. E.g. parametric may be strong at mid-range but weak at
+  //       close range where the physics model breaks down — close could default to
+  //       LUT while mid uses parametric. Per-zone LUT tables would also let us
+  //       maintain independent empirical data sets per distance band.
+  //       The strategyChooser dropdown could become a per-zone override, or a
+  //       ZonedShotStrategy that wraps Map<Zone, ShotStrategy>.
 
   // Shot strategy system — two completely independent modes:
   // Parametric: physics-based, tuned via single efficiency constant
@@ -91,14 +96,10 @@ public class ShootingCoordinator extends SubsystemBase {
   // Optional feeding suppression check — when true, launchFuel() is a no-op
   private BooleanSupplier feedingSuppressedSupplier = () -> false;
 
-  // TODO: Trench shot robustness — consider a dedicated trench interpolation zone
-  //       with its own LUT/parameters that isn't affected by the main shot strategy
-  //       or fallback logic. The current Parametric/LUT/Fallback system couples
-  //       trench shots to the same pipeline as open-field shots. A separate trench
-  //       interpolation path would let us tune trench accuracy independently.
-  //       May also want to rework the ParametricWithLUTFallback strategy so trench
-  //       shots always use known-good empirical data rather than falling back through
-  //       the general chain.
+  // Trench shots (ALLIANCE_TRENCH zone) already bypass the normal strategy pipeline
+  // via calculateTrenchHubShot() with fixed-hood parametric. When per-zone strategy
+  // selection is wired up (see TODO above), ALLIANCE_TRENCH could get its own dedicated
+  // LUT for empirical trench data, independent of the open-field tables.
 
   // Trench avoidance — always active; clamps hood angle when robot is under a
   // trench or bump.
@@ -315,14 +316,25 @@ public class ShootingCoordinator extends SubsystemBase {
               pitchDegSupplier.getAsDouble(),
               turretFieldPos[0],
               turretFieldPos[1]);
+      // Refine ALLIANCE into ALLIANCE_CLOSE/MID/FAR based on distance to aim target.
+      // Distance is computed early (turret pos → aim target) so zone refinement runs
+      // every cycle, not just on throttled logging ticks.
+      double distToAimTarget =
+          Math.hypot(
+              aimResult.target().getX() - turretFieldPos[0],
+              aimResult.target().getY() - turretFieldPos[1]);
+      currentDistanceM = distToAimTarget;
+      ZoneDetector.Zone refinedZone =
+          ZoneDetector.refineAllianceZone(aimResult.zone(), distToAimTarget);
+
       trenchModeActive =
-          aimResult.zone() == ZoneDetector.Zone.TRENCH_NEAR
-              || aimResult.zone() == ZoneDetector.Zone.TRENCH_FAR
-              || aimResult.zone() == ZoneDetector.Zone.BUMP;
+          refinedZone == ZoneDetector.Zone.ALLIANCE_TRENCH
+              || refinedZone == ZoneDetector.Zone.NEUTRAL_TRENCH
+              || refinedZone == ZoneDetector.Zone.BUMP;
 
       // Log zone and aim mode (throttled to 10Hz)
       if (periodicCounter % 5 == 0) {
-        Logger.recordOutput("SmartLaunch/Status/Zone", aimResult.zone().name());
+        Logger.recordOutput("SmartLaunch/Status/Zone", refinedZone.name());
         Logger.recordOutput("SmartLaunch/Status/AllowedAction", aimResult.mode().name());
       }
 
@@ -576,23 +588,12 @@ public class ShootingCoordinator extends SubsystemBase {
     }
     currentShot = activeResult;
 
-    // Throttle logging to ~10Hz
+    // Throttle target/distance logging to ~10Hz (distance itself is updated every
+    // cycle in updateShotCalculation for zone refinement)
     if (periodicCounter % 5 == 0) {
-      // Log distance to target
-      double robotHeadingRad = robotPose.getRotation().getRadians();
-      double[] turretFieldPos =
-          ShotCalculator.getTurretFieldPosition(
-              robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
-      double turretX = turretFieldPos[0];
-      double turretY = turretFieldPos[1];
-      double distanceToTarget =
-          Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
-      currentDistanceM = distanceToTarget;
       Logger.recordOutput("SmartLaunch/Status/TargetX", target.getX());
       Logger.recordOutput("SmartLaunch/Status/TargetY", target.getY());
-      Logger.recordOutput("SmartLaunch/Status/TurretX", turretX);
-      Logger.recordOutput("SmartLaunch/Status/TurretY", turretY);
-      Logger.recordOutput("SmartLaunch/Status/DistanceM", distanceToTarget);
+      Logger.recordOutput("SmartLaunch/Status/DistanceM", currentDistanceM);
     }
   }
 
@@ -961,16 +962,19 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Get the current zone the robot is in.
+   * Get the current zone the robot is in, refined to ALLIANCE_CLOSE/MID/FAR when distance is
+   * available.
    *
-   * @return Current zone, or ALLIANCE as fallback if pose is unavailable
+   * @return Current refined zone, or ALLIANCE as fallback if pose is unavailable
    */
   public ZoneDetector.Zone getCurrentZone() {
     if (robotPoseSupplier == null) return ZoneDetector.Zone.ALLIANCE;
     Pose2d robotPose = robotPoseSupplier.get();
     DriverStation.Alliance alliance = RobotStatus.getAlliance();
-    return ZoneDetector.getCurrentZone(
-        robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
+    ZoneDetector.Zone baseZone =
+        ZoneDetector.getCurrentZone(
+            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
+    return ZoneDetector.refineAllianceZone(baseZone, currentDistanceM > 0 ? currentDistanceM : 3.0);
   }
 
   /**
