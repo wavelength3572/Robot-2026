@@ -99,7 +99,7 @@ public class TurretAimingHelper {
 
     AimResult result =
         switch (zone) {
-          case ALLIANCE, ALLIANCE_CLOSE, ALLIANCE_MID, ALLIANCE_FAR -> {
+          case ALLIANCE_CLOSE, ALLIANCE_MID, ALLIANCE_FAR -> {
             Translation2d hubTarget =
                 (alliance == Alliance.Blue)
                     ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()

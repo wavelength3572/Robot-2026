@@ -7,6 +7,7 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import frc.robot.util.LoggedTunableNumber;
+import frc.robot.util.ZoneDetector;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -31,38 +32,16 @@ public final class ShotCalculator {
   // own arc (hood angle) requires to hit the hub, then dividing by the average surface velocity
   // at that RPM. Efficiency varies with distance/RPM — higher RPM (longer range) tends to have
   // more ball compression and slip, reducing effective efficiency.
-  // Breakpoints are tunable via NetworkTables under Shots/SmartLaunch/Efficiency/.
-  private static final LoggedTunableNumber efficiencyDistClose =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/CloseDist", 2.0);
-  private static final LoggedTunableNumber efficiencyDistMid =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/MidDist", 3.5);
-  private static final LoggedTunableNumber efficiencyDistFar =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/FarDist", 5.5);
+  //
+  // Distance breakpoints come from ZoneDetector's zone boundaries (Shots/Zones/CloseDist,
+  // MidDist, FarDist) — single source of truth for both zone classification and efficiency.
+  // Efficiency values are tunable via NetworkTables under Shots/SmartLaunch/Efficiency/.
   private static final LoggedTunableNumber efficiencyClose =
       new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Close", 0.774);
   private static final LoggedTunableNumber efficiencyMid =
       new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Mid", 0.774);
   private static final LoggedTunableNumber efficiencyFar =
       new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Far", 0.75);
-
-  // ========== Public Accessors for Efficiency Distance Breakpoints ==========
-  // Used by ZoneDetector to subdivide the alliance zone into close/mid/far using the same
-  // distance boundaries that drive efficiency interpolation — single source of truth.
-
-  /** Distance boundary between close and mid zones (meters). */
-  public static double getEfficiencyDistClose() {
-    return efficiencyDistClose.get();
-  }
-
-  /** Distance boundary between mid and far zones (meters). */
-  public static double getEfficiencyDistMid() {
-    return efficiencyDistMid.get();
-  }
-
-  /** Distance boundary for far zone start (meters). */
-  public static double getEfficiencyDistFar() {
-    return efficiencyDistFar.get();
-  }
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -118,9 +97,9 @@ public final class ShotCalculator {
    * breakpoints (close, mid, far). Clamps outside the breakpoint range.
    */
   public static double getEfficiency(double distanceMeters) {
-    double dClose = efficiencyDistClose.get();
-    double dMid = efficiencyDistMid.get();
-    double dFar = efficiencyDistFar.get();
+    double dClose = ZoneDetector.getZoneBoundaryClose();
+    double dMid = ZoneDetector.getZoneBoundaryMid();
+    double dFar = ZoneDetector.getZoneBoundaryFar();
     double eClose = efficiencyClose.get();
     double eMid = efficiencyMid.get();
     double eFar = efficiencyFar.get();

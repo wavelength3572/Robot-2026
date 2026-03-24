@@ -316,25 +316,23 @@ public class ShootingCoordinator extends SubsystemBase {
               pitchDegSupplier.getAsDouble(),
               turretFieldPos[0],
               turretFieldPos[1]);
-      // Refine ALLIANCE into ALLIANCE_CLOSE/MID/FAR based on distance to aim target.
-      // Distance is computed early (turret pos → aim target) so zone refinement runs
-      // every cycle, not just on throttled logging ticks.
-      double distToAimTarget =
+
+      // Update distance to aim target every cycle (for dashboard and shot calculations)
+      currentDistanceM =
           Math.hypot(
               aimResult.target().getX() - turretFieldPos[0],
               aimResult.target().getY() - turretFieldPos[1]);
-      currentDistanceM = distToAimTarget;
-      ZoneDetector.Zone refinedZone =
-          ZoneDetector.refineAllianceZone(aimResult.zone(), distToAimTarget);
 
+      // Zone is fully determined by position — ZoneDetector computes distance to hub
+      // internally for alliance sub-zone classification (CLOSE/MID/FAR).
       trenchModeActive =
-          refinedZone == ZoneDetector.Zone.ALLIANCE_TRENCH
-              || refinedZone == ZoneDetector.Zone.NEUTRAL_TRENCH
-              || refinedZone == ZoneDetector.Zone.BUMP;
+          aimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
+              || aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH
+              || aimResult.zone() == ZoneDetector.Zone.BUMP;
 
       // Log zone and aim mode (throttled to 10Hz)
       if (periodicCounter % 5 == 0) {
-        Logger.recordOutput("SmartLaunch/Status/Zone", refinedZone.name());
+        Logger.recordOutput("SmartLaunch/Status/Zone", aimResult.zone().name());
         Logger.recordOutput("SmartLaunch/Status/AllowedAction", aimResult.mode().name());
       }
 
@@ -965,16 +963,14 @@ public class ShootingCoordinator extends SubsystemBase {
    * Get the current zone the robot is in, refined to ALLIANCE_CLOSE/MID/FAR when distance is
    * available.
    *
-   * @return Current refined zone, or ALLIANCE as fallback if pose is unavailable
+   * @return Current zone, or ALLIANCE_MID as fallback if pose is unavailable
    */
   public ZoneDetector.Zone getCurrentZone() {
-    if (robotPoseSupplier == null) return ZoneDetector.Zone.ALLIANCE;
+    if (robotPoseSupplier == null) return ZoneDetector.Zone.ALLIANCE_MID;
     Pose2d robotPose = robotPoseSupplier.get();
     DriverStation.Alliance alliance = RobotStatus.getAlliance();
-    ZoneDetector.Zone baseZone =
-        ZoneDetector.getCurrentZone(
-            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
-    return ZoneDetector.refineAllianceZone(baseZone, currentDistanceM > 0 ? currentDistanceM : 3.0);
+    return ZoneDetector.getCurrentZone(
+        robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
   }
 
   /**

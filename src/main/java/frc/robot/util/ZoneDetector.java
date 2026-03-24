@@ -3,31 +3,30 @@ package frc.robot.util;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
 import frc.robot.FieldConstants;
-import frc.robot.subsystems.shooting.ShotCalculator;
+import frc.robot.util.LoggedTunableNumber;
 
 /**
- * Detects which field zone the robot is in for auto-shoot purposes.
+ * Detects which field zone the robot is in for auto-shoot purposes. Zone is purely a function of
+ * robot/turret position — single source of truth.
  *
- * <p>Eight zones, checked in priority order:
+ * <p>Seven zones, checked in priority order:
  *
  * <ol>
  *   <li><b>BUMP</b> — over the bump ramps flanking the hub. No shooting allowed.
  *   <li><b>ALLIANCE_TRENCH</b> — under trench in alliance zone. Hood clamped, can shoot hub.
  *   <li><b>NEUTRAL_TRENCH</b> — under trench in neutral zone. Hood clamped, no shooting.
- *   <li><b>ALLIANCE</b> — our scoring zone (generic). Refined by distance into:
- *       <ul>
- *         <li><b>ALLIANCE_CLOSE</b> — within efficiency close-distance breakpoint
- *         <li><b>ALLIANCE_MID</b> — between close and far efficiency breakpoints
- *         <li><b>ALLIANCE_FAR</b> — beyond efficiency far-distance breakpoint
- *       </ul>
+ *   <li><b>ALLIANCE_CLOSE</b> — alliance zone, within close-distance boundary of hub
+ *   <li><b>ALLIANCE_MID</b> — alliance zone, between close and far distance boundaries
+ *   <li><b>ALLIANCE_FAR</b> — alliance zone, beyond far-distance boundary
  *   <li><b>NEUTRAL</b> — mid-field. Pass shots allowed (speed-gated by tunable).
  *   <li><b>OPPONENT</b> — their side. Long pass back to alliance zone.
  * </ol>
  *
  * <p>BUMP zones use the robot's physical dimensions as margin (any part of the chassis on the
  * ramp). TRENCH zones use the turret's field position with a small radius margin (~7 inches), since
- * what matters is whether the turret/hood is under the trench structure. ALLIANCE/NEUTRAL/OPPONENT
- * are X-axis-only with a small hysteresis buffer.
+ * what matters is whether the turret/hood is under the trench structure. Alliance sub-zones are
+ * classified by distance from turret to hub. NEUTRAL/OPPONENT are X-axis-only with a small
+ * hysteresis buffer.
  */
 public class ZoneDetector {
 
@@ -39,18 +38,43 @@ public class ZoneDetector {
     ALLIANCE_TRENCH,
     /** Under trench in neutral zone — hood clamped, suppress shooting (just transiting). */
     NEUTRAL_TRENCH,
-    /** Alliance scoring zone — aim at hub, fire when slow. Generic; see ALLIANCE_CLOSE/MID/FAR. */
-    ALLIANCE,
-    /** Alliance zone, close to hub (within efficiency close-distance breakpoint). */
+    /** Alliance zone, close to hub (within close-distance boundary). */
     ALLIANCE_CLOSE,
-    /** Alliance zone, mid range (between efficiency close and far breakpoints). */
+    /** Alliance zone, mid range (between close and far distance boundaries). */
     ALLIANCE_MID,
-    /** Alliance zone, far from hub (beyond efficiency far-distance breakpoint). */
+    /** Alliance zone, far from hub (beyond far-distance boundary). */
     ALLIANCE_FAR,
     /** Neutral zone — pass shots, speed-gated. */
     NEUTRAL,
     /** Opponent side — long pass back to alliance zone. */
     OPPONENT
+  }
+
+  // ========== Alliance Sub-Zone Distance Boundaries ==========
+  // These tunables define the distance-to-hub boundaries between ALLIANCE_CLOSE, ALLIANCE_MID,
+  // and ALLIANCE_FAR. They are the single source of truth — ShotCalculator's efficiency
+  // interpolation also uses these boundaries so zone edges and efficiency breakpoints always agree.
+  // Tunable via NetworkTables under Shots/Zones/.
+  private static final LoggedTunableNumber zoneBoundaryClose =
+      new LoggedTunableNumber("Shots/Zones/CloseDist", 2.0);
+  private static final LoggedTunableNumber zoneBoundaryMid =
+      new LoggedTunableNumber("Shots/Zones/MidDist", 3.5);
+  private static final LoggedTunableNumber zoneBoundaryFar =
+      new LoggedTunableNumber("Shots/Zones/FarDist", 5.5);
+
+  /** Get the close zone boundary distance (meters). */
+  public static double getZoneBoundaryClose() {
+    return zoneBoundaryClose.get();
+  }
+
+  /** Get the mid zone boundary distance (meters). */
+  public static double getZoneBoundaryMid() {
+    return zoneBoundaryMid.get();
+  }
+
+  /** Get the far zone boundary distance (meters). */
+  public static double getZoneBoundaryFar() {
+    return zoneBoundaryFar.get();
   }
 
   /**
@@ -63,8 +87,8 @@ public class ZoneDetector {
   /** Small hysteresis buffer for X-based zone transitions (ALLIANCE↔NEUTRAL). */
   private static final double X_HYSTERESIS = 0.3;
 
-  /** Tracks the current X-based zone to apply hysteresis. */
-  private static Zone currentXZone = Zone.ALLIANCE;
+  /** Tracks whether we're in alliance area for hysteresis (true = alliance side). */
+  private static boolean inAllianceArea = true;
 
   /** Minimum gyro pitch (degrees) to confirm the robot is actually on a bump. */
   private static final double BUMP_PITCH_THRESHOLD_DEG = 5.0;
@@ -103,6 +127,9 @@ public class ZoneDetector {
    * since what matters is where the turret/hood is relative to the obstacle. Bump additionally
    * requires gyro tilt confirmation to avoid false positives on flat ground.
    *
+   * <p>Alliance sub-zone (CLOSE/MID/FAR) is determined by 2D distance from turret to the alliance
+   * hub center, using the zone boundary tunables under Shots/Zones/.
+   *
    * @param robotX Robot X position (field coords, used for X-based zone logic)
    * @param robotY Robot Y position (field coords)
    * @param alliance Current alliance
@@ -131,8 +158,35 @@ public class ZoneDetector {
     }
 
     // --- Priority 2: X-based field zones with hysteresis ---
-    currentXZone = calculateXZone(robotX, alliance);
-    return currentXZone;
+    boolean isAlliance = calculateIsAllianceArea(robotX, alliance);
+    inAllianceArea = isAlliance;
+
+    if (!isAlliance) {
+      return isInOpponentZone(robotX, alliance) ? Zone.OPPONENT : Zone.NEUTRAL;
+    }
+
+    // Alliance area — classify by distance from turret to hub
+    double hubX =
+        (alliance == Alliance.Blue)
+            ? FieldConstants.Hub.innerCenterPoint.getX()
+            : FieldConstants.Hub.oppInnerCenterPoint.getX();
+    double hubY =
+        (alliance == Alliance.Blue)
+            ? FieldConstants.Hub.innerCenterPoint.getY()
+            : FieldConstants.Hub.oppInnerCenterPoint.getY();
+    double distToHub = Math.hypot(turretX - hubX, turretY - hubY);
+    return classifyAllianceDistance(distToHub);
+  }
+
+  /**
+   * Classify alliance sub-zone by distance. Returns ALLIANCE_CLOSE, ALLIANCE_MID, or ALLIANCE_FAR.
+   */
+  private static Zone classifyAllianceDistance(double distanceM) {
+    double closeDist = zoneBoundaryClose.get();
+    double farDist = zoneBoundaryFar.get();
+    if (distanceM <= closeDist) return Zone.ALLIANCE_CLOSE;
+    if (distanceM >= farDist) return Zone.ALLIANCE_FAR;
+    return Zone.ALLIANCE_MID;
   }
 
   /**
@@ -162,82 +216,64 @@ public class ZoneDetector {
     }
   }
 
+  /** Check if robot X is in the opponent zone (far end of field). */
+  private static boolean isInOpponentZone(double robotX, Alliance alliance) {
+    double allianceZoneEnd = FieldConstants.LinesVertical.allianceZone;
+    double opponentZoneStart = FieldConstants.fieldLength - allianceZoneEnd;
+    if (alliance == Alliance.Blue) {
+      return robotX > opponentZoneStart;
+    } else {
+      return robotX < allianceZoneEnd;
+    }
+  }
+
   /**
-   * X-based zone calculation with hysteresis on the ALLIANCE↔NEUTRAL boundary.
+   * X-based alliance area check with hysteresis on the ALLIANCE↔NEUTRAL boundary.
    *
    * <p>Hysteresis prevents flickering when driving along the boundary.
+   *
+   * @return true if in alliance area, false if neutral/opponent
    */
-  private static Zone calculateXZone(double robotX, Alliance alliance) {
+  private static boolean calculateIsAllianceArea(double robotX, Alliance alliance) {
     double allianceZoneEnd = FieldConstants.LinesVertical.allianceZone;
     double opponentZoneStart = FieldConstants.fieldLength - allianceZoneEnd;
 
+    double boundary;
+    boolean allianceIsLowX;
     if (alliance == Alliance.Blue) {
-      // Blue: alliance is low-X, opponent is high-X
-      if (robotX > opponentZoneStart) return Zone.OPPONENT;
-      return applyHysteresis(robotX, allianceZoneEnd, true);
+      boundary = allianceZoneEnd;
+      allianceIsLowX = true;
     } else {
-      // Red: alliance is high-X, opponent is low-X
-      if (robotX < allianceZoneEnd) return Zone.OPPONENT;
-      return applyHysteresis(robotX, opponentZoneStart, false);
+      boundary = opponentZoneStart;
+      allianceIsLowX = false;
     }
-  }
 
-  /**
-   * Apply hysteresis at the alliance/neutral boundary.
-   *
-   * @param robotX Robot X position
-   * @param boundary The alliance zone edge X coordinate
-   * @param allianceIsLowX True for blue (alliance at low X), false for red (alliance at high X)
-   */
-  private static Zone applyHysteresis(double robotX, double boundary, boolean allianceIsLowX) {
     if (allianceIsLowX) {
-      // Blue: X < boundary = ALLIANCE, X > boundary = NEUTRAL
-      if (currentXZone == Zone.ALLIANCE) {
-        return (robotX > boundary + X_HYSTERESIS) ? Zone.NEUTRAL : Zone.ALLIANCE;
+      // Blue: X < boundary = alliance, X > boundary = neutral/opponent
+      if (inAllianceArea) {
+        return robotX <= boundary + X_HYSTERESIS;
       } else {
-        return (robotX < boundary - X_HYSTERESIS) ? Zone.ALLIANCE : Zone.NEUTRAL;
+        return robotX < boundary - X_HYSTERESIS;
       }
     } else {
-      // Red: X > boundary = ALLIANCE, X < boundary = NEUTRAL
-      if (currentXZone == Zone.ALLIANCE) {
-        return (robotX < boundary - X_HYSTERESIS) ? Zone.NEUTRAL : Zone.ALLIANCE;
+      // Red: X > boundary = alliance, X < boundary = neutral/opponent
+      if (inAllianceArea) {
+        return robotX >= boundary - X_HYSTERESIS;
       } else {
-        return (robotX > boundary + X_HYSTERESIS) ? Zone.ALLIANCE : Zone.NEUTRAL;
+        return robotX > boundary + X_HYSTERESIS;
       }
     }
   }
 
   /**
-   * Refine a generic ALLIANCE zone into ALLIANCE_CLOSE, ALLIANCE_MID, or ALLIANCE_FAR based on
-   * distance to hub. Uses the same efficiency distance breakpoints from {@link ShotCalculator} so
-   * zone boundaries and efficiency tuning share a single source of truth.
-   *
-   * <p>Non-ALLIANCE zones pass through unchanged. This is the only place alliance sub-zone
-   * classification happens — call it after {@link #getCurrentZone} when distance is known.
-   *
-   * @param zone The zone from getCurrentZone()
-   * @param distanceToTargetM Horizontal distance from turret to hub in meters
-   * @return Refined zone (ALLIANCE_CLOSE/MID/FAR) or the original zone if not ALLIANCE
-   */
-  public static Zone refineAllianceZone(Zone zone, double distanceToTargetM) {
-    if (zone != Zone.ALLIANCE) return zone;
-    double closeDist = ShotCalculator.getEfficiencyDistClose();
-    double farDist = ShotCalculator.getEfficiencyDistFar();
-    if (distanceToTargetM <= closeDist) return Zone.ALLIANCE_CLOSE;
-    if (distanceToTargetM >= farDist) return Zone.ALLIANCE_FAR;
-    return Zone.ALLIANCE_MID;
-  }
-
-  /**
-   * Check if a zone is any alliance-side zone (generic ALLIANCE or any sub-zone). Useful for
-   * checks that apply to the entire alliance area regardless of distance.
+   * Check if a zone is any alliance-side zone. Useful for checks that apply to the entire alliance
+   * area regardless of distance.
    *
    * @param zone The zone to check
-   * @return true if ALLIANCE, ALLIANCE_CLOSE, ALLIANCE_MID, or ALLIANCE_FAR
+   * @return true if ALLIANCE_CLOSE, ALLIANCE_MID, or ALLIANCE_FAR
    */
   public static boolean isAllianceZone(Zone zone) {
-    return zone == Zone.ALLIANCE
-        || zone == Zone.ALLIANCE_CLOSE
+    return zone == Zone.ALLIANCE_CLOSE
         || zone == Zone.ALLIANCE_MID
         || zone == Zone.ALLIANCE_FAR;
   }
