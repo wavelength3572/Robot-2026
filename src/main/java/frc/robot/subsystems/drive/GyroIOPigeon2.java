@@ -9,6 +9,7 @@ package frc.robot.subsystems.drive;
 
 import static frc.robot.subsystems.drive.DriveConstants.*;
 
+import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.Pigeon2Configuration;
 import com.ctre.phoenix6.hardware.Pigeon2;
@@ -43,10 +44,7 @@ public class GyroIOPigeon2 implements GyroIO {
 
   @Override
   public void updateInputs(GyroIOInputs inputs) {
-    // Read from auto-updated cache instead of blocking refreshAll().
-    // The yaw updates at odometryFrequency (250Hz) and yawVelocity at 50Hz automatically.
-    // Blocking refreshAll() adds ~5-10ms on a congested CAN bus for no benefit,
-    // since the odometry thread already reads gyro independently at 250Hz.
+    BaseStatusSignal.refreshAll(yaw, yawVelocity, pitch);
     inputs.connected = yaw.getStatus().isOK() && yawVelocity.getStatus().isOK();
     inputs.yawPosition = Rotation2d.fromDegrees(yaw.getValueAsDouble());
     inputs.yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
