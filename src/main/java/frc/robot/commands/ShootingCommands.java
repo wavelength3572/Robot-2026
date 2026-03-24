@@ -705,7 +705,13 @@ public class ShootingCommands {
                         } else {
                           spindexer.setSpindexerVelocity(spnRPM);
                         }
+                      } else if (feedingAllowed) {
+                        // Motivator spinning up but not at speed — hold spindexer still
+                        // to avoid pushing balls into the accelerating motivator
+                        launcher.setFeedingActive(false);
+                        spindexer.stopSpindexer();
                       } else {
+                        // Not firing — safe to reciprocate since motivator is stopped
                         launcher.setFeedingActive(false);
                         spindexer.reciprocate();
                       }
