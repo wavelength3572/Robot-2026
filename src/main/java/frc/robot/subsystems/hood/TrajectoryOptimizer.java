@@ -33,7 +33,7 @@ public class TrajectoryOptimizer {
   // PRIMARY TUNABLE: Descent angle (angle of line from hub edge to hub center)
   // Tune this to match the hub wall angle visually (60° matches well)
   private static final LoggedTunableNumber descentAngleDeg =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/DescentAngleDeg", 50.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/DescentAngleDeg", 45.0);
 
   // Minimum descent angle for fallback. When the preferred angle requires a hood position
   // below the mechanical limit (too close to hub), the optimizer steps down in 1° increments
@@ -119,9 +119,10 @@ public class TrajectoryOptimizer {
     double R = HUB_ENTRY_RADIUS;
     double D_edge = D - R; // Distance to hub edge
 
-    // Try preferred descent angle first, then step down if hood limits prevent the shot
+    // Try preferred descent angle first, then step down if hood limits prevent the shot.
+    // If preferred < min, clamp min down so the loop always executes at least once.
     double preferredDescent = descentAngleDeg.get();
-    double minDescent = minDescentAngleDeg.get();
+    double minDescent = Math.min(minDescentAngleDeg.get(), preferredDescent);
     OptimalShot lastFailure = null;
 
     for (double descent = preferredDescent; descent >= minDescent; descent -= 1.0) {
@@ -136,7 +137,11 @@ public class TrajectoryOptimizer {
       lastFailure = shot;
     }
 
-    // No descent angle worked — return the last failure
+    // No descent angle worked — return the last failure (should never be null now, but guard)
+    if (lastFailure == null) {
+      lastFailure =
+          new OptimalShot(0, 0, 0, 0, 0, preferredDescent, false, "No descent angles attempted");
+    }
     logDiagnostics(preferredDescent, lastFailure);
     return lastFailure;
   }

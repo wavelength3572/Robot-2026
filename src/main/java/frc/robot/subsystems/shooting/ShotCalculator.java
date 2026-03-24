@@ -26,15 +26,24 @@ public final class ShotCalculator {
   private static final double MAIN_WHEEL_RADIUS_METERS = 0.0381; // 3" diameter = 1.5" radius
   private static final double HOOD_SURFACE_SPEED_RATIO = 1.0 / 1.41; // hood rolls slower
 
-  // Mechanical roller-to-ball transfer efficiency (constant).
+  // Mechanical roller-to-ball transfer efficiency, interpolated by distance.
   // Derived from LUT calibration data by back-calculating the exit velocity each LUT entry's
   // own arc (hood angle) requires to hit the hub, then dividing by the average surface velocity
-  // at that RPM. Using the LUT's own arcs (not the parametric arc) isolates the true mechanical
-  // property from trajectory differences. Mean across 16 LUT points: 0.774, std dev: 0.027.
-  // Close-range entries (~1.16m) show lower efficiency (~0.71) due to the motivator being
-  // repositioned, which changes ball-roller contact geometry — but the LUT handles close range
-  // directly, so parametric mode only needs accuracy at mid/long range where 0.774 holds well.
-  private static final double LAUNCH_EFFICIENCY = 0.774;
+  // at that RPM. Efficiency varies with distance/RPM — higher RPM (longer range) tends to have
+  // more ball compression and slip, reducing effective efficiency.
+  // Breakpoints are tunable via NetworkTables under Shots/SmartLaunch/Efficiency/.
+  private static final LoggedTunableNumber efficiencyDistClose =
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/CloseDist", 2.0);
+  private static final LoggedTunableNumber efficiencyDistMid =
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/MidDist", 3.5);
+  private static final LoggedTunableNumber efficiencyDistFar =
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/FarDist", 5.5);
+  private static final LoggedTunableNumber efficiencyClose =
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Close", 0.774);
+  private static final LoggedTunableNumber efficiencyMid =
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Mid", 0.774);
+  private static final LoggedTunableNumber efficiencyFar =
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Far", 0.75);
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -85,14 +94,34 @@ public final class ShotCalculator {
     targetLauncherRPM = rpm;
   }
 
-  /** Get the launch efficiency constant. */
+  /**
+   * Get the launch efficiency interpolated by distance. Linearly interpolates between three tunable
+   * breakpoints (close, mid, far). Clamps outside the breakpoint range.
+   */
   public static double getEfficiency(double distanceMeters) {
-    return LAUNCH_EFFICIENCY;
+    double dClose = efficiencyDistClose.get();
+    double dMid = efficiencyDistMid.get();
+    double dFar = efficiencyDistFar.get();
+    double eClose = efficiencyClose.get();
+    double eMid = efficiencyMid.get();
+    double eFar = efficiencyFar.get();
+
+    if (distanceMeters <= dClose) {
+      return eClose;
+    } else if (distanceMeters <= dMid) {
+      double t = (distanceMeters - dClose) / (dMid - dClose);
+      return eClose + t * (eMid - eClose);
+    } else if (distanceMeters <= dFar) {
+      double t = (distanceMeters - dMid) / (dFar - dMid);
+      return eMid + t * (eFar - eMid);
+    } else {
+      return eFar;
+    }
   }
 
-  /** Get the launch efficiency constant. */
+  /** Get the launch efficiency at default mid-range distance. */
   public static double getEfficiency() {
-    return LAUNCH_EFFICIENCY;
+    return getEfficiency(3.0);
   }
 
   /**
@@ -102,7 +131,7 @@ public final class ShotCalculator {
    * efficiency.
    *
    * @param rpm Launcher wheel RPM
-   * @param distanceMeters Horizontal distance to target (unused, efficiency is constant)
+   * @param distanceMeters Horizontal distance to target (used for distance-dependent efficiency)
    */
   public static double calculateExitVelocityFromRPM(double rpm, double distanceMeters) {
     double mainSurfaceVelocity = (rpm * 2.0 * Math.PI * MAIN_WHEEL_RADIUS_METERS) / 60.0;
@@ -130,7 +159,7 @@ public final class ShotCalculator {
    * Get what RPM would be needed to achieve a target exit velocity at a given distance.
    *
    * @param targetExitVelocity Desired exit velocity in m/s
-   * @param distanceMeters Horizontal distance to target (unused, efficiency is constant)
+   * @param distanceMeters Horizontal distance to target (used for distance-dependent efficiency)
    * @return Required wheel RPM
    */
   public static double calculateRPMForVelocity(double targetExitVelocity, double distanceMeters) {

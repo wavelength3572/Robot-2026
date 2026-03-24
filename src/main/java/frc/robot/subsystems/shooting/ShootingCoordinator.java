@@ -65,6 +65,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final ParametricShotStrategy parametricStrategy = new ParametricShotStrategy();
   private final LUTShotStrategy lutStrategy;
   private final LUTShotStrategy alternateLutStrategy;
+  private final ParametricWithLUTFallbackStrategy parametricWithLutFallback;
   private ShotStrategy activeStrategy;
 
   // Visualizer (created during initialize)
@@ -169,12 +170,15 @@ public class ShootingCoordinator extends SubsystemBase {
     // model
     this.lutStrategy = new LUTShotStrategy(lookupTable);
     this.alternateLutStrategy = new LUTShotStrategy(alternateLookupTable);
-    this.activeStrategy = lutStrategy;
+    this.parametricWithLutFallback =
+        new ParametricWithLUTFallbackStrategy(parametricStrategy, lutStrategy);
+    this.activeStrategy = parametricStrategy;
 
-    // Strategy dropdown on dashboard — three options
-    strategyChooser.addOption("Parametric", "Parametric");
-    strategyChooser.setDefaultOption("LUT (Lookup Table)", "LUT");
+    // Strategy dropdown on dashboard — four options
+    strategyChooser.setDefaultOption("Parametric", "Parametric");
+    strategyChooser.addOption("LUT (Lookup Table)", "LUT");
     strategyChooser.addOption("LUT Alternate", "LUT_ALTERNATE");
+    strategyChooser.addOption("Parametric + LUT Fallback", "PARAMETRIC_LUT_FALLBACK");
     SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
 
     // Passing strategy chooser — how to pick left vs right pass target
@@ -988,6 +992,7 @@ public class ShootingCoordinator extends SubsystemBase {
     switch (selected) {
       case "LUT" -> newStrategy = lutStrategy;
       case "LUT_ALTERNATE" -> newStrategy = alternateLutStrategy;
+      case "PARAMETRIC_LUT_FALLBACK" -> newStrategy = parametricWithLutFallback;
       default -> newStrategy = parametricStrategy;
     }
 

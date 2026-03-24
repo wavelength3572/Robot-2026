@@ -132,12 +132,12 @@ public class ShootingCommands {
 
   // Spindexer RPM lerped by distance: close = max, far = min
   private static final LoggedTunableNumber spindexerCloseRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 325.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 550.0);
   private static final LoggedTunableNumber spindexerFarRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 325.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 550.0);
   // Fixed spindexer RPM used in pass/neutral zones (no distance lerp)
   private static final LoggedTunableNumber spindexerPassRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 425.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 550.0);
 
   // ===== LUT Dev Overrides (manual RPM/hood for data collection) =====
   private static final LoggedTunableNumber lutDevOverrideRPM =
