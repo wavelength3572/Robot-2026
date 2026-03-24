@@ -45,25 +45,10 @@ public class ShootingCoordinator extends SubsystemBase {
   // Turret geometry config (immutable)
   private final ShotCalculator.TurretConfig turretConfig;
 
-  // Zone-based strategy architecture (partially implemented):
-  //
-  // ZoneDetector now provides distance-refined alliance sub-zones:
-  //   ALLIANCE_CLOSE / ALLIANCE_MID / ALLIANCE_FAR
-  // Boundaries are tied to ShotCalculator's efficiency distance breakpoints
-  // (Shots/SmartLaunch/Efficiency/CloseDist, MidDist, FarDist) — single source of truth.
-  //
-  // TODO: Wire per-zone strategy selection. Each alliance sub-zone should be able to
-  //       pick its own ShotStrategy (parametric, LUT, or fallback) so they don't
-  //       poison each other. E.g. parametric may be strong at mid-range but weak at
-  //       close range where the physics model breaks down — close could default to
-  //       LUT while mid uses parametric. Per-zone LUT tables would also let us
-  //       maintain independent empirical data sets per distance band.
-  //       The strategyChooser dropdown could become a per-zone override, or a
-  //       ZonedShotStrategy that wraps Map<Zone, ShotStrategy>.
-
-  // Shot strategy system — two completely independent modes:
-  // Parametric: physics-based, tuned via single efficiency constant
-  // LUT: pure empirical data, no physics involved
+  // Shot strategy system: parametric (physics-based) with procedural fallback chain
+  // (NORMAL → FIXED_HOOD → RELAXED → LUT). Alliance sub-zones (CLOSE/MID/FAR) use
+  // continuous distance-based efficiency interpolation — no per-zone strategy needed.
+  // Trench shots bypass the strategy pipeline entirely via empirical RPM lerp.
   private final SendableChooser<String> strategyChooser = new SendableChooser<>();
 
   /** State machine for coordinated shooting. Drives feeding decisions in SmartLaunch. */
@@ -126,14 +111,9 @@ public class ShootingCoordinator extends SubsystemBase {
   // Optional feeding suppression check — when true, launchFuel() is a no-op
   private BooleanSupplier feedingSuppressedSupplier = () -> false;
 
-  // Trench shots (ALLIANCE_TRENCH zone) already bypass the normal strategy pipeline
-  // via calculateTrenchHubShot() with fixed-hood parametric. When per-zone strategy
-  // selection is wired up (see TODO above), ALLIANCE_TRENCH could get its own dedicated
-  // LUT for empirical trench data, independent of the open-field tables.
-
-  // Trench avoidance — always active; clamps hood angle when robot is under a
-  // trench or bump.
-  // Zone detection with robot-size margins is handled by ZoneDetector.
+  // Trench mode: hood clamped to trenchHoodMaxDeg, RPM from empirical lerp between
+  // two tested distance/RPM endpoints per trench side (Left/Right tunables below).
+  // Completely independent of the global strategy pipeline and launch efficiency.
   private final LoggedTunableNumber trenchHoodMaxDeg =
       new LoggedTunableNumber("Shots/TrenchMode/HoodMaxDeg", 18.0);
   // Trench RPM lerp: empirically tested endpoints per trench side. RPM interpolates
