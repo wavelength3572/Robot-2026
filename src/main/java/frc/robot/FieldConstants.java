@@ -309,48 +309,63 @@ public class FieldConstants {
    * Trench avoidance zones — rectangular regions where the robot must keep the hood low to fit
    * under the trench structure. All 4 trenches (both sides, both alliances) are defined here.
    *
-   * <p>Each zone is defined by X and Y bounds. The bounds include hood lead distance (~0.5m)
-   * so the robot enters the zone early enough for the hood to lower at max speed. The zone
-   * boundaries ARE the detection boundaries — no separate margin is applied at runtime.
+   * <p>Each zone is defined by X and Y bounds. The bounds include hood lead distance (~0.5m) so the
+   * robot enters the zone early enough for the hood to lower at max speed. The zone boundaries ARE
+   * the detection boundaries — no separate margin is applied at runtime.
    *
    * <p>Bounds are clamped to field walls so vision glitches can't trigger false zone entries.
    */
   public static class TrenchZones {
     /**
-     * Hood lead distance baked into zone bounds (~20 inches). At ~4 m/s this gives the hood
-     * ~125ms to lower from max angle to the trench-safe 18 degrees before reaching the
-     * physical structure.
+     * Hood lead distance baked into zone bounds (~20 inches). At ~4 m/s this gives the hood ~125ms
+     * to lower from max angle to the trench-safe 18 degrees before reaching the physical structure.
      */
     public static final double HOOD_LEAD_METERS = 0.5;
 
-    // X extent: trench depth centered on hub center line, expanded by lead distance
+    /**
+     * Extra X-direction extension beyond HOOD_LEAD_METERS. Widens each trench zone 0.5m further on
+     * each end so the alliance trench reaches deeper into the alliance zone and the neutral side
+     * reaches further into neutral/opponent territory.
+     */
+    public static final double X_EXTRA_LEAD_METERS = 0.5;
+
+    // X extent: trench depth centered on hub center line, expanded by lead + extra X lead
     private static final double halfDepth = LeftTrench.depth / 2.0;
 
-    // ---- Blue-side trenches (centered on hubCenter, expanded by HOOD_LEAD_METERS) ----
-    public static final double BLUE_LEFT_MIN_X = LinesVertical.hubCenter - halfDepth - HOOD_LEAD_METERS;
-    public static final double BLUE_LEFT_MAX_X = LinesVertical.hubCenter + halfDepth + HOOD_LEAD_METERS;
-    public static final double BLUE_LEFT_MIN_Y = fieldWidth - LeftTrench.openingWidth - HOOD_LEAD_METERS;
+    // ---- Blue-side trenches (centered on hubCenter, expanded by lead distances) ----
+    public static final double BLUE_LEFT_MIN_X =
+        LinesVertical.hubCenter - halfDepth - HOOD_LEAD_METERS - X_EXTRA_LEAD_METERS;
+    public static final double BLUE_LEFT_MAX_X =
+        LinesVertical.hubCenter + halfDepth + HOOD_LEAD_METERS + X_EXTRA_LEAD_METERS;
+    public static final double BLUE_LEFT_MIN_Y =
+        fieldWidth - LeftTrench.openingWidth - HOOD_LEAD_METERS;
     public static final double BLUE_LEFT_MAX_Y = fieldWidth; // field wall, no expansion needed
 
-    public static final double BLUE_RIGHT_MIN_X = LinesVertical.hubCenter - halfDepth - HOOD_LEAD_METERS;
-    public static final double BLUE_RIGHT_MAX_X = LinesVertical.hubCenter + halfDepth + HOOD_LEAD_METERS;
+    public static final double BLUE_RIGHT_MIN_X =
+        LinesVertical.hubCenter - halfDepth - HOOD_LEAD_METERS - X_EXTRA_LEAD_METERS;
+    public static final double BLUE_RIGHT_MAX_X =
+        LinesVertical.hubCenter + halfDepth + HOOD_LEAD_METERS + X_EXTRA_LEAD_METERS;
     public static final double BLUE_RIGHT_MIN_Y = 0; // field wall, no expansion needed
     public static final double BLUE_RIGHT_MAX_Y = RightTrench.openingWidth + HOOD_LEAD_METERS;
 
-    // ---- Red-side trenches (centered on oppHubCenter, expanded by HOOD_LEAD_METERS) ----
-    public static final double RED_LEFT_MIN_X = LinesVertical.oppHubCenter - halfDepth - HOOD_LEAD_METERS;
-    public static final double RED_LEFT_MAX_X = LinesVertical.oppHubCenter + halfDepth + HOOD_LEAD_METERS;
-    public static final double RED_LEFT_MIN_Y = fieldWidth - LeftTrench.openingWidth - HOOD_LEAD_METERS;
+    // ---- Red-side trenches (centered on oppHubCenter, expanded by lead distances) ----
+    public static final double RED_LEFT_MIN_X =
+        LinesVertical.oppHubCenter - halfDepth - HOOD_LEAD_METERS - X_EXTRA_LEAD_METERS;
+    public static final double RED_LEFT_MAX_X =
+        LinesVertical.oppHubCenter + halfDepth + HOOD_LEAD_METERS + X_EXTRA_LEAD_METERS;
+    public static final double RED_LEFT_MIN_Y =
+        fieldWidth - LeftTrench.openingWidth - HOOD_LEAD_METERS;
     public static final double RED_LEFT_MAX_Y = fieldWidth; // field wall
 
-    public static final double RED_RIGHT_MIN_X = LinesVertical.oppHubCenter - halfDepth - HOOD_LEAD_METERS;
-    public static final double RED_RIGHT_MAX_X = LinesVertical.oppHubCenter + halfDepth + HOOD_LEAD_METERS;
+    public static final double RED_RIGHT_MIN_X =
+        LinesVertical.oppHubCenter - halfDepth - HOOD_LEAD_METERS - X_EXTRA_LEAD_METERS;
+    public static final double RED_RIGHT_MAX_X =
+        LinesVertical.oppHubCenter + halfDepth + HOOD_LEAD_METERS + X_EXTRA_LEAD_METERS;
     public static final double RED_RIGHT_MIN_Y = 0; // field wall
     public static final double RED_RIGHT_MAX_Y = RightTrench.openingWidth + HOOD_LEAD_METERS;
 
     /**
-     * Check if a point is inside any of the 4 trench zones (bounds already include lead
-     * distance).
+     * Check if a point is inside any of the 4 trench zones (bounds already include lead distance).
      */
     public static boolean isInAnyTrenchZone(double x, double y) {
       return isInZone(x, y, BLUE_LEFT_MIN_X, BLUE_LEFT_MAX_X, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y)
@@ -359,9 +374,7 @@ public class FieldConstants {
           || isInZone(x, y, RED_RIGHT_MIN_X, RED_RIGHT_MAX_X, RED_RIGHT_MIN_Y, RED_RIGHT_MAX_Y);
     }
 
-    /**
-     * Get the name of the trench zone the point is in (for logging), or empty string if none.
-     */
+    /** Get the name of the trench zone the point is in (for logging), or empty string if none. */
     public static String getActiveTrenchZone(double x, double y) {
       if (isInZone(x, y, BLUE_LEFT_MIN_X, BLUE_LEFT_MAX_X, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y))
         return "BLUE_LEFT";
@@ -528,18 +541,31 @@ public class FieldConstants {
     double hubY = Hub.innerCenterPoint.getY();
     double closeDist = frc.robot.util.ZoneDetector.getZoneBoundaryClose();
     double midDist = frc.robot.util.ZoneDetector.getZoneBoundaryMid();
-    double farDist = frc.robot.util.ZoneDetector.getZoneBoundaryFar();
-    logArc("Visualizations/Zones/AllianceClose_Boundary", hubX, hubY, closeDist, 0, allianceX, 0, fieldWidth);
-    logArc("Visualizations/Zones/AllianceMid_Boundary", hubX, hubY, midDist, 0, allianceX, 0, fieldWidth);
-    logArc("Visualizations/Zones/AllianceFar_Boundary", hubX, hubY, farDist, 0, allianceX, 0, fieldWidth);
+    logArc(
+        "Visualizations/Zones/AllianceClose_Boundary",
+        hubX,
+        hubY,
+        closeDist,
+        0,
+        allianceX,
+        0,
+        fieldWidth);
+    logArc(
+        "Visualizations/Zones/AllianceMid_Boundary",
+        hubX,
+        hubY,
+        midDist,
+        0,
+        allianceX,
+        0,
+        fieldWidth);
   }
 
   /**
    * Log a closed rectangle outline as a Pose2d trajectory (5 points). Bounds are clamped to field
    * walls so visualized zones match what isInZone() actually checks.
    */
-  private static void logRect(
-      String key, double minX, double maxX, double minY, double maxY) {
+  private static void logRect(String key, double minX, double maxX, double minY, double maxY) {
     double x0 = Math.max(0, minX);
     double x1 = Math.min(fieldLength, maxX);
     double y0 = Math.max(0, minY);

@@ -3,7 +3,6 @@ package frc.robot.util;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
 import frc.robot.FieldConstants;
-import frc.robot.util.LoggedTunableNumber;
 
 /**
  * Detects which field zone the robot is in for auto-shoot purposes. Zone is purely a function of
@@ -184,9 +183,9 @@ public class ZoneDetector {
    */
   private static Zone classifyAllianceDistance(double distanceM) {
     double closeDist = zoneBoundaryClose.get();
-    double farDist = zoneBoundaryFar.get();
+    double midDist = zoneBoundaryMid.get();
     if (distanceM <= closeDist) return Zone.ALLIANCE_CLOSE;
-    if (distanceM >= farDist) return Zone.ALLIANCE_FAR;
+    if (distanceM >= midDist) return Zone.ALLIANCE_FAR;
     return Zone.ALLIANCE_MID;
   }
 
@@ -274,9 +273,7 @@ public class ZoneDetector {
    * @return true if ALLIANCE_CLOSE, ALLIANCE_MID, or ALLIANCE_FAR
    */
   public static boolean isAllianceZone(Zone zone) {
-    return zone == Zone.ALLIANCE_CLOSE
-        || zone == Zone.ALLIANCE_MID
-        || zone == Zone.ALLIANCE_FAR;
+    return zone == Zone.ALLIANCE_CLOSE || zone == Zone.ALLIANCE_MID || zone == Zone.ALLIANCE_FAR;
   }
 
   /** Get the appropriate pass target Y based on robot's Y position. */

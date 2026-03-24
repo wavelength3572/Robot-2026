@@ -367,8 +367,8 @@ public class TrajectoryOptimizer {
    * where the hood angle is constrained to a single value and we need to find the velocity that
    * lands the ball in the hub center.
    *
-   * <p>Math: given launch angle θ = 90° - hoodAngle and target at (D, H), solve projectile
-   * equation for velocity: v² = g·D² / (2·cos²(θ)·(D·tan(θ) - H))
+   * <p>Math: given launch angle θ = 90° - hoodAngle and target at (D, H), solve projectile equation
+   * for velocity: v² = g·D² / (2·cos²(θ)·(D·tan(θ) - H))
    *
    * @param turretPosition 3D position of turret on field
    * @param target 3D hub center target
