@@ -202,8 +202,7 @@ public class ShootingCoordinator extends SubsystemBase {
   // Used for both spindexer gating and active drive speed limiting.
   private final LoggedTunableNumber shootOnTheMoveSpeedMps =
       new LoggedTunableNumber("Shots/SpeedLimits/ShootOnTheMoveSpeedMps", 1.25);
-  // SHOOT_STATIONARY: max speed for hub shots under trench (tight clearance, low
-  // hood).
+  // Stationary threshold for autoTrackingStationaryCommand (robot must be nearly stopped).
   private final LoggedTunableNumber stationarySpeedMps =
       new LoggedTunableNumber("Shots/SpeedLimits/StationarySpeedMps", 0.1);
   // PASS / LONG_PASS: max speed for pass shots in neutral/opponent zones.
@@ -488,7 +487,7 @@ public class ShootingCoordinator extends SubsystemBase {
       }
 
       switch (aimResult.mode()) {
-        case SHOOT_ON_THE_MOVE, SHOOT_STATIONARY -> {
+        case SHOOT_ON_THE_MOVE -> {
           Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub " + activeStrategy.getName());
           calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
         }
@@ -623,14 +622,10 @@ public class ShootingCoordinator extends SubsystemBase {
 
       // Pick left or right trench lerp parameters based on robot Y position
       boolean isLeftTrench = robotPose.getY() > FieldConstants.fieldWidth / 2.0;
-      double dClose =
-          isLeftTrench ? trenchLeftCloseDistM.get() : trenchRightCloseDistM.get();
-      double dFar =
-          isLeftTrench ? trenchLeftFarDistM.get() : trenchRightFarDistM.get();
-      double rpmClose =
-          isLeftTrench ? trenchLeftCloseRPM.get() : trenchRightCloseRPM.get();
-      double rpmFar =
-          isLeftTrench ? trenchLeftFarRPM.get() : trenchRightFarRPM.get();
+      double dClose = isLeftTrench ? trenchLeftCloseDistM.get() : trenchRightCloseDistM.get();
+      double dFar = isLeftTrench ? trenchLeftFarDistM.get() : trenchRightFarDistM.get();
+      double rpmClose = isLeftTrench ? trenchLeftCloseRPM.get() : trenchRightCloseRPM.get();
+      double rpmFar = isLeftTrench ? trenchLeftFarRPM.get() : trenchRightFarRPM.get();
       // Lerp RPM between close and far, clamp outside
       double t = Math.max(0, Math.min(1, (distToHub - dClose) / (dFar - dClose)));
       double trenchRPM = rpmClose + t * (rpmFar - rpmClose);
@@ -647,15 +642,41 @@ public class ShootingCoordinator extends SubsystemBase {
               turretMax,
               turretConfig);
 
+      double trenchExitVelocity = ShotCalculator.calculateExitVelocityFromRPM(trenchRPM, distToHub);
+      double trenchLaunchAngleRad = Math.toRadians(90.0 - hoodMax);
+
+      // Velocity compensation: shift aim target to counteract robot movement during flight
+      Translation3d aimTarget =
+          new edu.wpi.first.math.geometry.Translation3d(
+              target.getX(), target.getY(), target.getZ());
+      double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+      if (robotSpeed > 0.1 && trenchExitVelocity > 0.1) {
+        double vx = trenchExitVelocity * Math.cos(trenchLaunchAngleRad);
+        double horizontalTof = (vx > 0.1) ? distToHub / vx : 0.0;
+        aimTarget = ShotCalculator.predictTargetPos(aimTarget, fieldSpeeds, horizontalTof);
+
+        // Recalculate turret angle to the velocity-compensated target
+        turretAngleDeg =
+            ShotCalculator.calculateOutsideTurretAngle(
+                robotPose.getX(),
+                robotPose.getY(),
+                robotPose.getRotation().getDegrees(),
+                aimTarget.getX(),
+                aimTarget.getY(),
+                currentTurretAngle,
+                turretMin,
+                turretMax,
+                turretConfig);
+      }
+
       activeResult =
           new ShotCalculator.ShotResult(
-              0, // exitVelocityMps not needed for lerp
+              trenchExitVelocity,
               trenchRPM,
-              0, // launchAngleRad not needed
+              trenchLaunchAngleRad,
               hoodMax, // fixed hood angle
               turretAngleDeg,
-              new edu.wpi.first.math.geometry.Translation3d(
-                  target.getX(), target.getY(), target.getZ()),
+              aimTarget,
               true);
 
       if (periodicCounter % 5 == 0) {
@@ -663,6 +684,7 @@ public class ShootingCoordinator extends SubsystemBase {
         Logger.recordOutput("SmartLaunch/TrenchLerp/DistToHub", distToHub);
         Logger.recordOutput("SmartLaunch/TrenchLerp/RPM", trenchRPM);
         Logger.recordOutput("SmartLaunch/TrenchLerp/T", t);
+        Logger.recordOutput("SmartLaunch/TrenchLerp/VelocityCompActive", robotSpeed > 0.1);
       }
       Logger.recordOutput("SmartLaunch/Status/UsingTrenchParametric", true);
     } else {
@@ -1023,7 +1045,6 @@ public class ShootingCoordinator extends SubsystemBase {
     double thresholdMps =
         switch (mode) {
           case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get();
-          case SHOOT_STATIONARY -> stationarySpeedMps.get();
           case PASS, LONG_PASS -> DriverStation.isAutonomous()
               ? autoPassSpeedMps.get()
               : passSpeedMps.get();
@@ -1048,6 +1069,20 @@ public class ShootingCoordinator extends SubsystemBase {
     if (cachedAimResult == null) return false;
     return cachedAimResult.mode() == TurretAimingHelper.AimMode.PASS
         || cachedAimResult.mode() == TurretAimingHelper.AimMode.LONG_PASS;
+  }
+
+  /**
+   * Check if the robot is in an alliance zone where hub shooting (and agitation) is appropriate.
+   *
+   * @return true if in ALLIANCE_CLOSE, ALLIANCE_MID, ALLIANCE_FAR, or ALLIANCE_TRENCH
+   */
+  public boolean isInAllianceZone() {
+    if (cachedAimResult == null) return true; // Default to alliance behavior
+    ZoneDetector.Zone zone = cachedAimResult.zone();
+    return zone == ZoneDetector.Zone.ALLIANCE_CLOSE
+        || zone == ZoneDetector.Zone.ALLIANCE_MID
+        || zone == ZoneDetector.Zone.ALLIANCE_FAR
+        || zone == ZoneDetector.Zone.ALLIANCE_TRENCH;
   }
 
   /**
@@ -1392,7 +1427,6 @@ public class ShootingCoordinator extends SubsystemBase {
     if (cachedAimResult == null) return Double.MAX_VALUE;
     return switch (cachedAimResult.mode()) {
       case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get() - 0.05;
-      case SHOOT_STATIONARY -> stationarySpeedMps.get() - 0.05;
       case PASS, LONG_PASS -> passSpeedMps.get() - 0.05;
       case NONE -> Double.MAX_VALUE;
     };

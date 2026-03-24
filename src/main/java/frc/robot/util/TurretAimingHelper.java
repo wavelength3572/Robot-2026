@@ -19,7 +19,7 @@ import frc.robot.FieldConstants;
  *
  * <ul>
  *   <li>ALLIANCE → SHOOT_ON_THE_MOVE (aim at hub, fire while driving)
- *   <li>ALLIANCE_TRENCH → SHOOT_STATIONARY (aim at hub, must be nearly stopped)
+ *   <li>ALLIANCE_TRENCH → SHOOT_ON_THE_MOVE (aim at hub, fire while driving)
  *   <li>NEUTRAL → PASS (aim at pass target)
  *   <li>OPPONENT → LONG_PASS (aggressive pass back to alliance zone)
  *   <li>NEUTRAL_TRENCH / BUMP → NONE (suppress shooting, keep last aim target)
@@ -29,10 +29,8 @@ public class TurretAimingHelper {
 
   /** Aiming mode based on robot position. */
   public enum AimMode {
-    /** Aim at hub and shoot while moving (alliance zone, open field). */
+    /** Aim at hub and shoot while moving (alliance zone, open field, trench). */
     SHOOT_ON_THE_MOVE,
-    /** Aim at hub and shoot only when nearly stationary (trench near side). */
-    SHOOT_STATIONARY,
     /** Aim at pass target and fire (neutral zone). */
     PASS,
     /** Aggressive pass from opponent zone — longer distance, steeper trajectory. */
