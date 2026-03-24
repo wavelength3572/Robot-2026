@@ -362,6 +362,126 @@ public class TrajectoryOptimizer {
             "OK - clearance %.1f in, descent %.1f deg", clearanceM / 0.0254, descentAngleDeg));
   }
 
+  /**
+   * Calculate a shot with a fixed (locked) hood angle, solving only for RPM. Used in trench mode
+   * where the hood angle is constrained to a single value and we need to find the velocity that
+   * lands the ball in the hub center.
+   *
+   * <p>Math: given launch angle θ = 90° - hoodAngle and target at (D, H), solve projectile
+   * equation for velocity: v² = g·D² / (2·cos²(θ)·(D·tan(θ) - H))
+   *
+   * @param turretPosition 3D position of turret on field
+   * @param target 3D hub center target
+   * @param fixedHoodAngleDeg The locked hood angle to use
+   * @return OptimalShot with the computed RPM (check achievable flag)
+   */
+  public static OptimalShot calculateFixedHoodShot(
+      Translation3d turretPosition, Translation3d target, double fixedHoodAngleDeg) {
+
+    double dx = target.getX() - turretPosition.getX();
+    double dy = target.getY() - turretPosition.getY();
+    double D = Math.sqrt(dx * dx + dy * dy); // Horizontal distance to hub center
+    double turretHeightM = turretPosition.getZ();
+    double H = HUB_CENTER_HEIGHT - turretHeightM; // Height delta to hub center
+
+    double launchAngleDeg = 90.0 - fixedHoodAngleDeg;
+    double theta = Math.toRadians(launchAngleDeg);
+    double cosTheta = Math.cos(theta);
+    double sinTheta = Math.sin(theta);
+    double tanTheta = Math.tan(theta);
+
+    // Solve: v² = g·D² / (2·cos²(θ)·(D·tan(θ) - H))
+    double denominator = 2.0 * cosTheta * cosTheta * (D * tanTheta - H);
+    if (denominator <= 0) {
+      return new OptimalShot(
+          0,
+          launchAngleDeg,
+          fixedHoodAngleDeg,
+          0,
+          0,
+          0,
+          false,
+          String.format(
+              "Trench fixed-hood: unreachable (denom=%.3f, D=%.2fm, H=%.2fm)", denominator, D, H));
+    }
+
+    double vSquared = GRAVITY * D * D / denominator;
+    double velocity = Math.sqrt(vSquared);
+
+    // Convert to RPM
+    double rpm = ShotCalculator.calculateRPMForVelocity(velocity, D);
+
+    // Check RPM limits
+    if (rpm < minRPM.get() || rpm > maxRPM.get()) {
+      return new OptimalShot(
+          rpm,
+          launchAngleDeg,
+          fixedHoodAngleDeg,
+          velocity,
+          0,
+          0,
+          false,
+          String.format(
+              "Trench fixed-hood: RPM %.0f outside [%.0f-%.0f]", rpm, minRPM.get(), maxRPM.get()));
+    }
+
+    // Calculate peak height
+    double vy0 = velocity * sinTheta;
+    double peakHeight = turretHeightM + (vy0 * vy0) / (2 * GRAVITY);
+
+    // Check peak height limit
+    double maxPeakHeightM = maxPeakHeightFt.get() * 0.3048;
+    if (peakHeight > maxPeakHeightM) {
+      return new OptimalShot(
+          rpm,
+          launchAngleDeg,
+          fixedHoodAngleDeg,
+          velocity,
+          peakHeight,
+          0,
+          false,
+          String.format(
+              "Trench fixed-hood: peak %.1fft > max %.1fft",
+              peakHeight / 0.3048, maxPeakHeightFt.get()));
+    }
+
+    // Compute where the ball is at the hub edge (D - R) to check clearance
+    double D_edge = D - HUB_ENTRY_RADIUS;
+    double vx = velocity * cosTheta;
+    if (vx > 0) {
+      double t_edge = D_edge / vx;
+      double y_edge = turretHeightM + vy0 * t_edge - 0.5 * GRAVITY * t_edge * t_edge;
+      double clearanceM = y_edge - HUB_LIP_HEIGHT;
+      double clearanceInches = clearanceM / 0.0254;
+
+      // Compute descent angle at hub entry for logging
+      double vy_edge = vy0 - GRAVITY * t_edge;
+      double descentAngle = Math.toDegrees(Math.atan2(-vy_edge, vx));
+
+      Logger.recordOutput("SmartLaunch/TrenchParametric/ClearanceInches", clearanceInches);
+      Logger.recordOutput("SmartLaunch/TrenchParametric/DescentAngleDeg", descentAngle);
+      Logger.recordOutput("SmartLaunch/TrenchParametric/RPM", rpm);
+      Logger.recordOutput("SmartLaunch/TrenchParametric/HoodAngleDeg", fixedHoodAngleDeg);
+      Logger.recordOutput("SmartLaunch/TrenchParametric/DistanceM", D);
+      Logger.recordOutput("SmartLaunch/TrenchParametric/PeakHeightM", peakHeight);
+
+      return new OptimalShot(
+          rpm,
+          launchAngleDeg,
+          fixedHoodAngleDeg,
+          velocity,
+          peakHeight,
+          descentAngle,
+          true,
+          String.format(
+              "Trench fixed-hood OK - clearance %.1f in, descent %.1f deg",
+              clearanceInches, descentAngle));
+    }
+
+    return new OptimalShot(
+        0, launchAngleDeg, fixedHoodAngleDeg, 0, 0, 0, false, "Trench fixed-hood: vx <= 0");
+  }
+
   /** Get the current descent angle setting in degrees. */
   public static double getDescentAngleDeg() {
     return descentAngleDeg.get();

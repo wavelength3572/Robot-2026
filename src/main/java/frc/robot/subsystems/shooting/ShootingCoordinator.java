@@ -543,18 +543,37 @@ public class ShootingCoordinator extends SubsystemBase {
     double turretMin = turret.getMinAngle();
     double turretMax = turret.getMaxAngle();
 
-    // Active strategy runs every cycle for control
-    ShotCalculator.ShotResult activeResult =
-        activeStrategy.calculateShot(
-            robotPose,
-            fieldSpeeds,
-            target,
-            turretConfig,
-            currentTurretAngle,
-            turretMin,
-            turretMax,
-            hoodMin,
-            hoodMax);
+    // In trench mode, use fixed-hood parametric: lock hood at trench max and solve for RPM.
+    // This bypasses the normal strategy pipeline since the standard parametric optimizer
+    // can't find valid trajectories with the constrained hood range.
+    ShotCalculator.ShotResult activeResult;
+    if (trenchModeActive) {
+      activeResult =
+          ShotCalculator.calculateTrenchHubShot(
+              robotPose,
+              fieldSpeeds,
+              target,
+              turretConfig,
+              currentTurretAngle,
+              turretMin,
+              turretMax,
+              hoodMax); // hoodMax is already clamped to trenchHoodMaxDeg
+      Logger.recordOutput("SmartLaunch/Status/UsingTrenchParametric", true);
+    } else {
+      // Normal strategy runs in open field
+      activeResult =
+          activeStrategy.calculateShot(
+              robotPose,
+              fieldSpeeds,
+              target,
+              turretConfig,
+              currentTurretAngle,
+              turretMin,
+              turretMax,
+              hoodMin,
+              hoodMax);
+      Logger.recordOutput("SmartLaunch/Status/UsingTrenchParametric", false);
+    }
     currentShot = activeResult;
 
     // Throttle logging to ~10Hz

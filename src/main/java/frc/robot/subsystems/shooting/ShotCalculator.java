@@ -473,6 +473,94 @@ public final class ShotCalculator {
   }
 
   /**
+   * Calculate shot parameters for the hub using a fixed (locked) hood angle. Used in trench mode
+   * where the hood is clamped to a single value and we solve only for RPM. Includes velocity
+   * compensation for robot movement.
+   *
+   * @param fixedHoodAngleDeg The locked hood angle (e.g., trench max of 18°)
+   */
+  public static ShotResult calculateTrenchHubShot(
+      Pose2d robotPose,
+      ChassisSpeeds fieldSpeeds,
+      Translation3d hubTarget,
+      TurretConfig config,
+      double currentTurretAngleDeg,
+      double effectiveMinDeg,
+      double effectiveMaxDeg,
+      double fixedHoodAngleDeg) {
+
+    double robotHeadingRad = robotPose.getRotation().getRadians();
+    double[] turretFieldPos =
+        getTurretFieldPosition(robotPose.getX(), robotPose.getY(), robotHeadingRad, config);
+    double turretX = turretFieldPos[0];
+    double turretY = turretFieldPos[1];
+    Translation3d turretPos = new Translation3d(turretX, turretY, config.heightMeters());
+
+    // Velocity compensation: adjust aim point for robot movement during flight
+    Translation3d aimTarget = hubTarget;
+    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+    if (robotSpeed > 0.1) {
+      TrajectoryOptimizer.OptimalShot initialShot =
+          TrajectoryOptimizer.calculateFixedHoodShot(turretPos, hubTarget, fixedHoodAngleDeg);
+
+      if (initialShot.achievable) {
+        double distanceToTarget =
+            Math.sqrt(
+                Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
+        double tof =
+            calculateTimeOfFlight(
+                initialShot.exitVelocityMps,
+                Math.toRadians(initialShot.launchAngleDeg),
+                distanceToTarget);
+
+        for (int i = 0; i < 3; i++) {
+          Translation3d candidate =
+              clampAimOffset(predictTargetPos(hubTarget, fieldSpeeds, tof), hubTarget);
+          double aimDistance =
+              Math.sqrt(
+                  Math.pow(candidate.getX() - turretX, 2)
+                      + Math.pow(candidate.getY() - turretY, 2));
+          TrajectoryOptimizer.OptimalShot refinedShot =
+              TrajectoryOptimizer.calculateFixedHoodShot(turretPos, candidate, fixedHoodAngleDeg);
+          if (!refinedShot.achievable) {
+            break;
+          }
+          aimTarget = candidate;
+          tof =
+              calculateTimeOfFlight(
+                  refinedShot.exitVelocityMps,
+                  Math.toRadians(refinedShot.launchAngleDeg),
+                  aimDistance);
+        }
+      }
+    }
+
+    TrajectoryOptimizer.OptimalShot optimalShot =
+        TrajectoryOptimizer.calculateFixedHoodShot(turretPos, aimTarget, fixedHoodAngleDeg);
+
+    double turretAngleDeg =
+        calculateOutsideTurretAngle(
+            robotPose.getX(),
+            robotPose.getY(),
+            robotPose.getRotation().getDegrees(),
+            aimTarget.getX(),
+            aimTarget.getY(),
+            currentTurretAngleDeg,
+            effectiveMinDeg,
+            effectiveMaxDeg,
+            config);
+
+    return new ShotResult(
+        optimalShot.exitVelocityMps,
+        optimalShot.rpm,
+        Math.toRadians(optimalShot.launchAngleDeg),
+        optimalShot.hoodAngleDeg,
+        turretAngleDeg,
+        aimTarget,
+        optimalShot.achievable);
+  }
+
+  /**
    * Calculate shot parameters for a pass to a ground-level target. Uses simple projectile physics
    * with a fixed launch angle instead of the hub-specific TrajectoryOptimizer.
    */
