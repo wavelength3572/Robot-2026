@@ -45,6 +45,17 @@ public class ShootingCoordinator extends SubsystemBase {
   // Turret geometry config (immutable)
   private final ShotCalculator.TurretConfig turretConfig;
 
+  // TODO: Investigate zoned shooting with the Parametric/LUT fallback system.
+  //       Instead of one global strategy, divide the field into zones (e.g. close,
+  //       mid, far, trench) and let each zone pick its own strategy — parametric
+  //       where the physics model is accurate, LUT where we have good empirical
+  //       data, fallback only where neither is strong. This could also improve
+  //       launch efficiency: per-zone efficiency constants (or per-zone LUT tables)
+  //       would let us compensate for the fact that efficiency varies with distance
+  //       and angle rather than using a single global constant. Consider whether
+  //       zone boundaries should be distance-based rings, field-geometry zones, or
+  //       both.
+
   // Shot strategy system — two completely independent modes:
   // Parametric: physics-based, tuned via single efficiency constant
   // LUT: pure empirical data, no physics involved
@@ -79,6 +90,15 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Optional feeding suppression check — when true, launchFuel() is a no-op
   private BooleanSupplier feedingSuppressedSupplier = () -> false;
+
+  // TODO: Trench shot robustness — consider a dedicated trench interpolation zone
+  //       with its own LUT/parameters that isn't affected by the main shot strategy
+  //       or fallback logic. The current Parametric/LUT/Fallback system couples
+  //       trench shots to the same pipeline as open-field shots. A separate trench
+  //       interpolation path would let us tune trench accuracy independently.
+  //       May also want to rework the ParametricWithLUTFallback strategy so trench
+  //       shots always use known-good empirical data rather than falling back through
+  //       the general chain.
 
   // Trench avoidance — always active; clamps hood angle when robot is under a
   // trench or bump.
