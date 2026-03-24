@@ -49,7 +49,7 @@ public class Spindexer extends SubsystemBase {
 
   // Auto-unclog — detects stall during FEEDING and briefly reverses to clear the jam.
   // Disabled by default; enable from dashboard when ready to test.
-  private boolean autoUnclogEnabled = false;
+  private boolean autoUnclogEnabled = true;
   private boolean autoUnclogInProgress = false;
   private final Timer stallTimer = new Timer(); // How long stall condition has persisted
   private final Timer autoUnclogTimer = new Timer(); // How long the reverse burst has been running
@@ -324,7 +324,7 @@ public class Spindexer extends SubsystemBase {
 
   // ========== Auto-Unclog ==========
 
-  /** Enable auto-unclog stall detection. Off by default — enable from dashboard for testing. */
+  /** Enable auto-unclog stall detection. On by default — disable from dashboard if needed. */
   public void enableAutoUnclog() {
     autoUnclogEnabled = true;
   }
