@@ -5,6 +5,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
@@ -27,11 +28,12 @@ public class Turret extends SubsystemBase {
     ROTATING_CCW,
     READY,
     FLIPPING,
+    STALLED,
     DISCONNECTED
   }
 
   private final TurretIO io;
-  private final TurretIOInputsAutoLogged inputs = new TurretIOInputsAutoLogged();
+  private final TurretIOInputsAutoLogged turretInputs = new TurretIOInputsAutoLogged();
 
   private final RobotConfig config;
 
@@ -51,6 +53,9 @@ public class Turret extends SubsystemBase {
 
   // Tolerance for atTarget() — does NOT affect motor control
   private final double readyToleranceAngleDeg;
+
+  private final Timer stallTimer = new Timer(); // How long stall condition has persisted
+  private boolean stallDetected = false;
 
   // How close to a limit (degrees) before safety indicators fire
   private static final double WARNING_ZONE_DEG = 20.0;
@@ -100,15 +105,15 @@ public class Turret extends SubsystemBase {
 
   @Override
   public void periodic() {
-    io.updateInputs(inputs);
-    Logger.processInputs("Turret", inputs);
+    io.updateInputs(turretInputs);
+    Logger.processInputs("Turret", turretInputs);
 
     // One-time startup encoder validation: check if the inside angle is near 0°
     // (the expected position when the team places the turret at the known setup position).
     // If the absolute encoder offset has physically shifted, this angle will be wrong.
-    if (!startupValidationDone && inputs.connected) {
+    if (!startupValidationDone && turretInputs.connected) {
       startupValidationDone = true;
-      double startupAngleError = Math.abs(inputs.currentInsideAngleDeg);
+      double startupAngleError = Math.abs(turretInputs.currentInsideAngleDeg);
       Logger.recordOutput("Turret/StartupAngleError", startupAngleError);
 
       if (startupAngleError >= ENCODER_ERROR_THRESHOLD_DEG) {
@@ -130,7 +135,7 @@ public class Turret extends SubsystemBase {
     }
 
     // Compute and log state
-    if (!inputs.connected) {
+    if (!turretInputs.connected) {
       currentState = TurretState.DISCONNECTED;
     } else if (locked) {
       currentState = TurretState.LOCKED;
@@ -143,6 +148,33 @@ public class Turret extends SubsystemBase {
     } else {
       currentState = TurretState.ROTATING_CCW;
     }
+
+    // See if we can detect a Jam
+    if (currentState == TurretState.READY
+        || currentState == TurretState.FLIPPING
+        || currentState == TurretState.ROTATING_CW
+        || currentState == TurretState.ROTATING_CCW) {
+      double positionError =
+          Math.abs(turretInputs.targetOutsideAngleDeg - turretInputs.currentOutsideAngleDeg);
+      boolean stalled = (turretInputs.currentAmps > 14.0 && positionError > 3.0);
+      if (stalled) {
+        if (!stallTimer.isRunning()) {
+          stallTimer.restart();
+        }
+        if (stallTimer.hasElapsed(.5)) {
+          stallDetected = true;
+          currentState = TurretState.STALLED;
+        }
+      } else {
+        stallTimer.stop();
+        stallDetected = false;
+      }
+
+    } else {
+      stallTimer.stop();
+      stallDetected = false;
+    }
+
     Logger.recordOutput("Subsystems/TurretState", currentState.name());
 
     // Push tunable PID changes to IO
@@ -386,7 +418,7 @@ public class Turret extends SubsystemBase {
    * @return Current angle in degrees
    */
   public double getOutsideCurrentAngle() {
-    return io.getOutsideCurrentAngle();
+    return turretInputs.currentOutsideAngleDeg;
   }
 
   /**
@@ -395,7 +427,7 @@ public class Turret extends SubsystemBase {
    * @return Target angle in degrees
    */
   public double getOutsideTargetAngle() {
-    return io.getOutsideTargetAngle();
+    return turretInputs.targetOutsideAngleDeg;
   }
 
   /**

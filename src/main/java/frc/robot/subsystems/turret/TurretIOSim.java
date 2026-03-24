@@ -92,16 +92,6 @@ public class TurretIOSim implements TurretIO {
   }
 
   @Override
-  public double getOutsideTargetAngle() {
-    return targetOutsideAngleDeg;
-  }
-
-  @Override
-  public double getOutsideCurrentAngle() {
-    return currentOutsideAngleDeg;
-  }
-
-  @Override
   public void stop() {
     // Stop sim motion — hold current position
     goalState = new TrapezoidProfile.State(currentState.position, 0);
