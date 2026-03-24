@@ -1570,8 +1570,8 @@ public class ShootingCommands {
 
                       // Arm feeding: must leave trench first, then re-enter
                       boolean inTrench =
-                          zone == ZoneDetector.Zone.TRENCH_NEAR
-                              || zone == ZoneDetector.Zone.TRENCH_FAR;
+                          zone == ZoneDetector.Zone.ALLIANCE_TRENCH
+                              || zone == ZoneDetector.Zone.NEUTRAL_TRENCH;
                       if (armState[0] == ArmState.NOT_LEFT && !inTrench) {
                         armState[0] = ArmState.LEFT_TRENCH;
                       } else if (armState[0] == ArmState.LEFT_TRENCH && inTrench) {
