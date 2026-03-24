@@ -98,6 +98,9 @@ public class Robot extends LoggedRobot {
     // Start AdvantageKit logger
     Logger.start();
 
+    // Log zone boundaries for AdvantageScope field visualization
+    FieldConstants.logZoneBoundaries();
+
     // Instantiate our RobotContainer. This will perform all our button bindings,
     // and put our autonomous chooser on the dashboard.
     robotContainer = new RobotContainer();

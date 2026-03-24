@@ -10,9 +10,11 @@ package frc.robot;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Contains information for location of field element and other useful reference points.
@@ -384,10 +386,13 @@ public class FieldConstants {
 
     static boolean isInZone(
         double x, double y, double minX, double maxX, double minY, double maxY, double margin) {
-      return x >= (minX - margin)
-          && x <= (maxX + margin)
-          && y >= (minY - margin)
-          && y <= (maxY + margin);
+      // Clamp effective bounds to field walls — zones should never extend outside the field.
+      // This prevents vision glitches (robot reported at negative X/Y) from triggering zones.
+      double effMinX = Math.max(0, minX - margin);
+      double effMaxX = Math.min(fieldLength, maxX + margin);
+      double effMinY = Math.max(0, minY - margin);
+      double effMaxY = Math.min(fieldWidth, maxY + margin);
+      return x >= effMinX && x <= effMaxX && y >= effMinY && y <= effMaxY;
     }
   }
 
@@ -438,6 +443,97 @@ public class FieldConstants {
           || TrenchZones.isInZone(
               x, y, RED_RIGHT_MIN_X, RED_RIGHT_MAX_X, RED_RIGHT_MIN_Y, RED_RIGHT_MAX_Y, margin);
     }
+  }
+
+  /**
+   * Log blue-side zone boundaries as Pose2d trajectory arrays for AdvantageScope's 2D field view.
+   * Call once at startup after Logger.start(). Uses the actual detection margin from ZoneDetector
+   * so visualized boundaries match what the code checks. Set each entry's display type to
+   * "Trajectory" in AdvantageScope to see connected outlines.
+   */
+  public static void logZoneBoundaries() {
+    // Use the actual margins from ZoneDetector so visualization matches detection
+    double tm = frc.robot.util.ZoneDetector.TRENCH_MARGIN; // trench detection margin
+    double bm = frc.robot.util.ZoneDetector.BUMP_MARGIN; // bump detection margin
+    double hub = LinesVertical.hubCenter;
+    double allianceX = LinesVertical.allianceZone;
+    double neutralEndX = fieldLength - allianceX; // opponent zone starts here
+
+    // ALLIANCE zone — rectangle from field origin to allianceZone line, full width
+    logRect("Visualizations/Zones/Alliance", 0, allianceX, 0, fieldWidth, 0);
+
+    // NEUTRAL zone — rectangle between alliance and opponent boundaries
+    logRect("Visualizations/Zones/Neutral", allianceX, neutralEndX, 0, fieldWidth, 0);
+
+    // TRENCH_NEAR — alliance-side half of each blue trench (X <= hubCenter)
+    logRect(
+        "Visualizations/Zones/TrenchNear_Left",
+        TrenchZones.BLUE_LEFT_MIN_X,
+        hub,
+        TrenchZones.BLUE_LEFT_MIN_Y,
+        TrenchZones.BLUE_LEFT_MAX_Y,
+        tm);
+    logRect(
+        "Visualizations/Zones/TrenchNear_Right",
+        TrenchZones.BLUE_RIGHT_MIN_X,
+        hub,
+        TrenchZones.BLUE_RIGHT_MIN_Y,
+        TrenchZones.BLUE_RIGHT_MAX_Y,
+        tm);
+
+    // TRENCH_FAR — neutral-side half of each blue trench (X > hubCenter)
+    logRect(
+        "Visualizations/Zones/TrenchFar_Left",
+        hub,
+        TrenchZones.BLUE_LEFT_MAX_X,
+        TrenchZones.BLUE_LEFT_MIN_Y,
+        TrenchZones.BLUE_LEFT_MAX_Y,
+        tm);
+    logRect(
+        "Visualizations/Zones/TrenchFar_Right",
+        hub,
+        TrenchZones.BLUE_RIGHT_MAX_X,
+        TrenchZones.BLUE_RIGHT_MIN_Y,
+        TrenchZones.BLUE_RIGHT_MAX_Y,
+        tm);
+
+    // BUMP — blue-side bump zones (smaller margin — pitch confirms)
+    logRect(
+        "Visualizations/Zones/Bump_Left",
+        BumpZones.BLUE_LEFT_MIN_X,
+        BumpZones.BLUE_LEFT_MAX_X,
+        BumpZones.BLUE_LEFT_MIN_Y,
+        BumpZones.BLUE_LEFT_MAX_Y,
+        bm);
+    logRect(
+        "Visualizations/Zones/Bump_Right",
+        BumpZones.BLUE_RIGHT_MIN_X,
+        BumpZones.BLUE_RIGHT_MAX_X,
+        BumpZones.BLUE_RIGHT_MIN_Y,
+        BumpZones.BLUE_RIGHT_MAX_Y,
+        bm);
+  }
+
+  /**
+   * Log a closed rectangle outline as a Pose2d trajectory (5 points). Bounds are clamped to field
+   * walls so visualized zones match what isInZone() actually checks.
+   */
+  private static void logRect(
+      String key, double minX, double maxX, double minY, double maxY, double margin) {
+    double x0 = Math.max(0, minX - margin);
+    double x1 = Math.min(fieldLength, maxX + margin);
+    double y0 = Math.max(0, minY - margin);
+    double y1 = Math.min(fieldWidth, maxY + margin);
+    Rotation2d r = new Rotation2d();
+    Logger.recordOutput(
+        key,
+        new Pose2d[] {
+          new Pose2d(x0, y0, r),
+          new Pose2d(x1, y0, r),
+          new Pose2d(x1, y1, r),
+          new Pose2d(x0, y1, r),
+          new Pose2d(x0, y0, r),
+        });
   }
 
   public enum AprilTagLayoutType {
