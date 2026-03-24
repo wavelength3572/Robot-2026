@@ -481,6 +481,20 @@ public class FieldConstants {
         TrenchZones.BLUE_RIGHT_MIN_Y,
         TrenchZones.BLUE_RIGHT_MAX_Y);
 
+    // OPPONENT_TRENCH — red-side trenches (opponent territory for blue alliance)
+    logRect(
+        "Visualizations/Zones/OpponentTrench_Left",
+        TrenchZones.RED_LEFT_MIN_X,
+        TrenchZones.RED_LEFT_MAX_X,
+        TrenchZones.RED_LEFT_MIN_Y,
+        TrenchZones.RED_LEFT_MAX_Y);
+    logRect(
+        "Visualizations/Zones/OpponentTrench_Right",
+        TrenchZones.RED_RIGHT_MIN_X,
+        TrenchZones.RED_RIGHT_MAX_X,
+        TrenchZones.RED_RIGHT_MIN_Y,
+        TrenchZones.RED_RIGHT_MAX_Y);
+
     // BUMP — blue-side bump zones (no lead distance — pitch confirms)
     logRect(
         "Visualizations/Zones/Bump_Left",
@@ -494,6 +508,20 @@ public class FieldConstants {
         BumpZones.BLUE_RIGHT_MAX_X,
         BumpZones.BLUE_RIGHT_MIN_Y,
         BumpZones.BLUE_RIGHT_MAX_Y);
+
+    // BUMP — red-side bump zones
+    logRect(
+        "Visualizations/Zones/OpponentBump_Left",
+        BumpZones.RED_LEFT_MIN_X,
+        BumpZones.RED_LEFT_MAX_X,
+        BumpZones.RED_LEFT_MIN_Y,
+        BumpZones.RED_LEFT_MAX_Y);
+    logRect(
+        "Visualizations/Zones/OpponentBump_Right",
+        BumpZones.RED_RIGHT_MIN_X,
+        BumpZones.RED_RIGHT_MAX_X,
+        BumpZones.RED_RIGHT_MIN_Y,
+        BumpZones.RED_RIGHT_MAX_Y);
 
     // ALLIANCE sub-zone arcs (CLOSE/MID/FAR distance boundaries from hub)
     double hubX = Hub.innerCenterPoint.getX();
