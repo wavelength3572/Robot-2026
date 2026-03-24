@@ -56,6 +56,7 @@ public class Turret extends SubsystemBase {
 
   private final Timer stallTimer = new Timer(); // How long stall condition has persisted
   private boolean stallDetected = false;
+  private double lastRequestedTargetAngle;
 
   // How close to a limit (degrees) before safety indicators fire
   private static final double WARNING_ZONE_DEG = 20.0;
@@ -137,6 +138,8 @@ public class Turret extends SubsystemBase {
     // Compute and log state
     if (!turretInputs.connected) {
       currentState = TurretState.DISCONNECTED;
+    } else if (currentState == TurretState.STALLED) {
+      currentState = TurretState.STALLED;
     } else if (locked) {
       currentState = TurretState.LOCKED;
     } else if (atTarget()) {
@@ -150,13 +153,17 @@ public class Turret extends SubsystemBase {
     }
 
     // See if we can detect a Jam
+    // If we get to a STALLED state then this code won't run anymore
+    // Until the code that does the stall procedure
+    // releases the STALLED state
     if (currentState == TurretState.READY
         || currentState == TurretState.FLIPPING
         || currentState == TurretState.ROTATING_CW
         || currentState == TurretState.ROTATING_CCW) {
       double positionError =
           Math.abs(turretInputs.targetOutsideAngleDeg - turretInputs.currentOutsideAngleDeg);
-      boolean stalled = (turretInputs.currentAmps > 14.0 && positionError > 3.0);
+      // boolean stalled = (turretInputs.currentAmps > 14.0 && positionError > 3.0);
+      boolean stalled = (turretInputs.currentAmps > 14.0);
       if (stalled) {
         if (!stallTimer.isRunning()) {
           stallTimer.restart();
@@ -169,7 +176,6 @@ public class Turret extends SubsystemBase {
         stallTimer.stop();
         stallDetected = false;
       }
-
     } else {
       stallTimer.stop();
       stallDetected = false;
@@ -223,7 +229,25 @@ public class Turret extends SubsystemBase {
   public void setOutsideTurretAngle(double angleDegrees) {
     if (locked) return;
     double clampedAngle = Math.max(outsideAngleMin, Math.min(outsideAngleMax, angleDegrees));
-    io.setOutsideTurretAngle(clampedAngle);
+    lastRequestedTargetAngle = clampedAngle;
+    Logger.recordOutput("Turret/lastRequestedTargetAngle", lastRequestedTargetAngle);
+    if (currentState == TurretState.STALLED) {
+      if (lastRequestedTargetAngle >= getOutsideCurrentAngle()) {
+        io.setOutsideTurretAngle(90.0);
+        if (Math.abs(90.0 - getOutsideCurrentAngle()) <= 2.0) {
+          currentState = TurretState.ROTATING_CCW;
+          io.setOutsideTurretAngle(lastRequestedTargetAngle);
+        }
+      } else {
+        io.setOutsideTurretAngle(179.0);
+        if (Math.abs(179.0 - getOutsideCurrentAngle()) <= 2.0) {
+          currentState = TurretState.ROTATING_CW;
+          io.setOutsideTurretAngle(lastRequestedTargetAngle);
+        }
+      }
+    } else {
+      io.setOutsideTurretAngle(lastRequestedTargetAngle);
+    }
   }
 
   /**
@@ -279,7 +303,7 @@ public class Turret extends SubsystemBase {
       }
     }
 
-    io.setOutsideTurretAngle(bestAngle);
+    setOutsideTurretAngle(bestAngle);
   }
 
   /**
@@ -446,7 +470,8 @@ public class Turret extends SubsystemBase {
    */
   public boolean atTarget() {
     if (locked) return true;
-    return Math.abs(getOutsideCurrentAngle() - getOutsideTargetAngle()) <= readyToleranceAngleDeg;
+    // If we are not stalled and within Tolerance
+    return currentState != TurretState.STALLED && Math.abs(getOutsideCurrentAngle() - getOutsideTargetAngle()) <= readyToleranceAngleDeg;
   }
 
   /**

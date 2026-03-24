@@ -218,7 +218,7 @@ public class ButtonsAndDashboardBindings {
                       ShotCalculator.ShotResult shot = shootingCoordinator.getCurrentShot();
                       if (shot != null) {
                         turret.setOutsideTurretAngle(shot.turretAngleDeg());
-                        boolean turretReady = turret.getState() == Turret.TurretState.READY;
+                        boolean turretReady = turret.atTarget();
                         boolean aimReady = turretReady && shot.achievable();
                         Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", aimReady);
                         SmartDashboard.putString(

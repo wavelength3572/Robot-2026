@@ -685,7 +685,7 @@ public class ShootingCoordinator extends SubsystemBase {
     boolean launcherReady = launcher != null && launcher.isReady();
     boolean motivatorReady =
         motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
-    boolean turretReady = turret.getState() == Turret.TurretState.READY;
+    boolean turretReady = turret.atTarget();
     boolean hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
     boolean achievable = currentShot != null && currentShot.achievable();
 
@@ -1127,7 +1127,7 @@ public class ShootingCoordinator extends SubsystemBase {
       boolean launcherReady = launcher != null && launcher.isReady();
       boolean motivatorReady =
           motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
-      boolean turretReady = turret.getState() == Turret.TurretState.READY;
+      boolean turretReady = turret.atTarget();
       boolean hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
       boolean achievable = currentShot.achievable();
       readiness =

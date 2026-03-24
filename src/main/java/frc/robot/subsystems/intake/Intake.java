@@ -310,7 +310,7 @@ public class Intake extends SubsystemBase {
           movingFirstCycle = false;
           break;
         }
-        if (deployAtTarget()) {
+        if (retractAtTarget()) {
           // At retracted position — MAXMotion continues holding, brake mode already set
           deployState = DeployState.RETRACTED;
         }
@@ -523,6 +523,11 @@ public class Intake extends SubsystemBase {
 
   /** Check if the deploy mechanism is at target. */
   public boolean deployAtTarget() {
+    return Math.abs(inputs.deployPositionRotations - inputs.deployTargetPosition) > 0;
+  }
+
+    /** Check if the deploy mechanism is at target. */
+  public boolean retractAtTarget() {
     return Math.abs(inputs.deployPositionRotations - inputs.deployTargetPosition)
         <= deployTolerance.get();
   }
