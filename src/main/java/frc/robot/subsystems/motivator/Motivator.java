@@ -97,6 +97,12 @@ public class Motivator extends SubsystemBase {
     io.setMotivatorVelocity(velocityRPM);
   }
 
+  /** Run motivator at the specified open-loop voltage (negative = reverse). */
+  public void setMotivatorVoltage(double volts) {
+    motivatorRunning = volts != 0.0;
+    io.setMotivatorVoltage(volts);
+  }
+
   /** Stop only motivator motor 1. */
   public void stopMotivator() {
     motivatorRunning = false;

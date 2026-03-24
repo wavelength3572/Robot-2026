@@ -625,6 +625,29 @@ public class ShootingCommands {
                   // System.out.println("[SmartLaunch] Starting odometry-based launch");
                 }),
 
+            // Phase 1.5: Brief reverse pulse to clear balls from motivator/spindexer
+            // while the launcher is spinning up
+            Commands.sequence(
+                Commands.runOnce(
+                    () -> {
+                      if (motivator != null) {
+                        motivator.setMotivatorVoltage(-3.0);
+                      }
+                      if (spindexer != null) {
+                        spindexer.reverseSpindexer(250.0);
+                      }
+                    }),
+                Commands.waitSeconds(0.2),
+                Commands.runOnce(
+                    () -> {
+                      if (motivator != null) {
+                        motivator.stopMotivator();
+                      }
+                      if (spindexer != null) {
+                        spindexer.stopSpindexer();
+                      }
+                    })),
+
             // Phase 2: Wait for all subsystems to reach setpoint (with 5s timeout)
             Commands.race(
                 Commands.sequence(
