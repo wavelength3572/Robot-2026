@@ -111,7 +111,7 @@ public class TurretAimingHelper {
                 (alliance == Alliance.Blue)
                     ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()
                     : FieldConstants.Hub.oppInnerCenterPoint.toTranslation2d();
-            yield new AimResult(hubTarget, AimMode.SHOOT_STATIONARY, zone);
+            yield new AimResult(hubTarget, AimMode.SHOOT_ON_THE_MOVE, zone);
           }
           case NEUTRAL -> {
             double targetX =

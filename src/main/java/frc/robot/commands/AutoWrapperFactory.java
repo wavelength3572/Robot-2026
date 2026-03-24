@@ -85,60 +85,63 @@ public class AutoWrapperFactory {
       steps.add(initialSmartLaunch(launcher, coordinator, motivator, turret, hood, spindexer));
     }
 
-    // Build the path command with shooting and intake deploy in parallel.
-    // Intake deploy and hood stow (if SHOOT_PRELOADS) run alongside the path instead of
-    // sequentially before it, saving ~0.25-1.0s of auto time.
-    List<Command> pathParallel = new ArrayList<>();
-
-    // SPRINT autos suppress feeding until the robot first enters a pass zone.
-    // The armOnPassZone gate already prevents accidental shots at the hub.
-    if (pathStrategy == PathShootingStrategy.AUTO_SHOOT) {
-      boolean armOnPassZone = (startStrategy == StartStrategy.SPRINT);
-      pathParallel.add(runPath(selectedAuto));
-      pathParallel.add(
-          ShootingCommands.continuousSmartLaunchCommand(
-                  launcher, coordinator, motivator, turret, hood, spindexer, armOnPassZone)
-              .asProxy());
-    } else if (pathStrategy == PathShootingStrategy.AUTO_TRACKING_STATIONARY) {
-      pathParallel.add(runPath(selectedAuto));
-      pathParallel.add(
-          ShootingCommands.autoTrackingStationaryCommand(
-                  launcher, coordinator, motivator, turret, hood, spindexer)
-              .asProxy());
-    } else {
-      // END_OF_PATH: run the path only
-      pathParallel.add(runPath(selectedAuto));
+    // Determine arm trigger for sprint-start protection:
+    //   - SHOOT_PRELOADS: IMMEDIATE — fire as soon as subsystems are ready
+    //   - SPRINT + AUTO_SHOOT: ON_PASS_ZONE — arm when first entering neutral/opponent zone
+    //   - SPRINT + STATIONARY: ON_TRENCH_RETURN — arm when entering alliance trench after neutral
+    ShootingCoordinator.ArmTrigger trigger = ShootingCoordinator.ArmTrigger.IMMEDIATE;
+    if (startStrategy == StartStrategy.SPRINT) {
+      trigger =
+          (pathStrategy == PathShootingStrategy.AUTO_SHOOT)
+              ? ShootingCoordinator.ArmTrigger.ON_PASS_ZONE
+              : ShootingCoordinator.ArmTrigger.ON_TRENCH_RETURN;
     }
 
-    // Deploy intake in parallel with path start instead of sequentially before
+    // Build the path + intake deploy to run together
+    List<Command> pathParallel = new ArrayList<>();
+    pathParallel.add(runPath(selectedAuto));
     pathParallel.add(deployIntake(intake));
 
-    // Stow hood in parallel with path start (after preload shooting) instead of blocking.
-    // Skip for AUTO_SHOOT and AUTO_TRACKING_STATIONARY — those commands require the hood
-    // subsystem directly, so the default stow command won't run while they're active.
-    //
-    // Hood safety under the trench:
-    //   The ShootingCoordinator's trenchModeActive flag (set when zone is ALLIANCE_TRENCH,
-    //   NEUTRAL_TRENCH, or BUMP) clamps hoodMax to Shots/TrenchMode/HoodMaxDeg (default 18°)
-    //   before the shot calculator runs. So even though AUTO_SHOOT blindly tracks the shot
-    //   angle and AUTO_TRACKING_STATIONARY only explicitly stows in NEUTRAL_TRENCH, the
-    //   coordinator's clamp ensures neither command can raise the hood above 18° in any
-    //   trench zone. The safety comes from the coordinator, not the commands themselves.
-    //
-    //   Remaining risk: the clamp applies when the zone *is* trench, not *before* entering
-    //   it. A fast transition from open field (hood at 40°+) into a trench zone could
-    //   briefly have the hood too high until the next periodic cycle stows it.
+    // Stow hood after preload shooting (only needed for END_OF_PATH since SmartLaunch2
+    // owns the hood subsystem in the other strategies).
     if (startStrategy == StartStrategy.SHOOT_PRELOADS
         && pathStrategy == PathShootingStrategy.END_OF_PATH) {
       pathParallel.add(stowHood(hood));
     }
 
-    steps.add(Commands.parallel(pathParallel.toArray(Command[]::new)));
+    Command pathWithIntake = Commands.parallel(pathParallel.toArray(Command[]::new));
 
-    // Always: fire remaining balls after path (with agitation to shake loose stuck balls)
-    steps.add(
-        postPathSmartLaunchWithAgitation(
-            launcher, coordinator, motivator, turret, hood, spindexer, intake));
+    // For AUTO_SHOOT and AUTO_TRACKING_STATIONARY: SmartLaunch2 runs for the ENTIRE auto
+    // (path + post-path). It doesn't die when the path ends — the path is just one step
+    // in the sequence that runs underneath it. After the path, the robot is stationary and
+    // SmartLaunch2 keeps firing until auto ends.
+    //
+    // For END_OF_PATH: SmartLaunch2 only runs after the path completes.
+    if (pathStrategy == PathShootingStrategy.AUTO_SHOOT
+        || pathStrategy == PathShootingStrategy.AUTO_TRACKING_STATIONARY) {
+      // Path runs as a sequence step, SmartLaunch2 wraps the whole thing in parallel.
+      // When the path ends, the sequence moves to a "wait forever" that keeps SmartLaunch2
+      // alive until auto ends (the overall auto timeout or disable kills everything).
+      Command pathThenWait =
+          Commands.sequence(
+              pathWithIntake,
+              // Agitate intake after path to shake loose stuck balls while still shooting
+              intake != null
+                  ? intake.agitateCommand(() -> 2000.0, () -> false).asProxy()
+                  : Commands.idle());
+      steps.add(
+          Commands.parallel(
+              pathThenWait,
+              ShootingCommands.smartLaunch2Command(
+                      launcher, coordinator, motivator, turret, hood, spindexer, trigger)
+                  .asProxy()));
+    } else {
+      // END_OF_PATH: run path first, then shoot
+      steps.add(pathWithIntake);
+      steps.add(
+          postPathSmartLaunchWithAgitation(
+              launcher, coordinator, motivator, turret, hood, spindexer, intake));
+    }
 
     return Commands.sequence(steps.toArray(Command[]::new))
         .finallyDo(() -> teardown(launcher, motivator, intake));
@@ -189,7 +192,7 @@ public class AutoWrapperFactory {
       Turret turret,
       Hood hood,
       Spindexer spindexer) {
-    return ShootingCommands.smartLaunchCommand(
+    return ShootingCommands.smartLaunch2Command(
             launcher, coordinator, motivator, turret, hood, spindexer)
         .withTimeout(2.5)
         .asProxy();
@@ -218,7 +221,7 @@ public class AutoWrapperFactory {
       Spindexer spindexer,
       Intake intake) {
     Command smartLaunch =
-        ShootingCommands.smartLaunchCommand(
+        ShootingCommands.smartLaunch2Command(
                 launcher, coordinator, motivator, turret, hood, spindexer)
             .withTimeout(10.0)
             .asProxy();

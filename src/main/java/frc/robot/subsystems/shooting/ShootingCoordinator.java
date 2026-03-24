@@ -66,6 +66,35 @@ public class ShootingCoordinator extends SubsystemBase {
   // LUT: pure empirical data, no physics involved
   private final SendableChooser<String> strategyChooser = new SendableChooser<>();
 
+  /** State machine for coordinated shooting. Drives feeding decisions in SmartLaunch. */
+  public enum CoordinatorState {
+    /** SmartLaunch not active — no shooting. */
+    IDLE,
+    /** Initial spinup — subsystems moving to first targets, not ready to fire. */
+    SPINNING_UP,
+    /** All subsystems at target — feeding allowed. */
+    FIRING,
+    /** Big setpoint change in progress (turret flip, trench transition, aim mode change). */
+    TRANSITIONING,
+    /** Operator hold-fire — subsystems track but feeding suppressed by operator. */
+    OPERATOR_SUPPRESSED,
+    /** In a no-shoot zone (NEUTRAL_TRENCH or BUMP) — cannot fire. */
+    ZONE_SUPPRESSED
+  }
+
+  /**
+   * Arming trigger for sprint-start autos. Controls when the state machine is allowed to transition
+   * from SPINNING_UP to FIRING. Prevents shooting preloads at the start of sprint autos.
+   */
+  public enum ArmTrigger {
+    /** Teleop / shoot-preloads — armed immediately, no gating. */
+    IMMEDIATE,
+    /** Sprint + AUTO_SHOOT — arm when first entering a pass zone (NEUTRAL/OPPONENT). */
+    ON_PASS_ZONE,
+    /** Sprint + STATIONARY — arm when entering alliance trench after visiting neutral zone. */
+    ON_TRENCH_RETURN
+  }
+
   /** Strategy for selecting which pass target (left vs right trench) to use. */
   public enum PassingStrategy {
     /** Pick target based on robot's Y position relative to field center. */
@@ -82,6 +111,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LUTShotStrategy lutStrategy;
   private final LUTShotStrategy alternateLutStrategy;
   private final ParametricWithLUTFallbackStrategy parametricWithLutFallback;
+  private final ParametricWithProceduralFallbackStrategy parametricWithProceduralFallback;
   private ShotStrategy activeStrategy;
 
   // Visualizer (created during initialize)
@@ -106,7 +136,38 @@ public class ShootingCoordinator extends SubsystemBase {
   // Zone detection with robot-size margins is handled by ZoneDetector.
   private final LoggedTunableNumber trenchHoodMaxDeg =
       new LoggedTunableNumber("Shots/TrenchMode/HoodMaxDeg", 18.0);
+  // Trench RPM lerp: empirically tested endpoints per trench side. RPM interpolates
+  // linearly between close and far distances, clamped outside. Hood stays fixed at
+  // trenchHoodMaxDeg. Independent of global launch efficiency — trench tuning won't
+  // affect alliance zone shots. Left = high-Y trench, Right = low-Y trench.
+  private final LoggedTunableNumber trenchLeftCloseDistM =
+      new LoggedTunableNumber("Shots/TrenchMode/Left/CloseDistM", 3.094);
+  private final LoggedTunableNumber trenchLeftCloseRPM =
+      new LoggedTunableNumber("Shots/TrenchMode/Left/CloseRPM", 2650.0);
+  private final LoggedTunableNumber trenchLeftFarDistM =
+      new LoggedTunableNumber("Shots/TrenchMode/Left/FarDistM", 3.732);
+  private final LoggedTunableNumber trenchLeftFarRPM =
+      new LoggedTunableNumber("Shots/TrenchMode/Left/FarRPM", 3151.0);
+  private final LoggedTunableNumber trenchRightCloseDistM =
+      new LoggedTunableNumber("Shots/TrenchMode/Right/CloseDistM", 3.103);
+  private final LoggedTunableNumber trenchRightCloseRPM =
+      new LoggedTunableNumber("Shots/TrenchMode/Right/CloseRPM", 2650.0);
+  private final LoggedTunableNumber trenchRightFarDistM =
+      new LoggedTunableNumber("Shots/TrenchMode/Right/FarDistM", 3.743);
+  private final LoggedTunableNumber trenchRightFarRPM =
+      new LoggedTunableNumber("Shots/TrenchMode/Right/FarRPM", 3156.0);
   private boolean trenchModeActive = false; // true when robot is in a trench or bump zone
+
+  // ========== CoordinatorState Machine ==========
+  // Centralized state that drives feeding decisions in SmartLaunch commands.
+  // Updated every cycle in updateCoordinatorState() after shot calculation.
+  private CoordinatorState coordinatorState = CoordinatorState.IDLE;
+  private boolean smartLaunchActive = false;
+  private boolean previousTrenchMode = false;
+  private TurretAimingHelper.AimMode previousAimMode = null;
+  private ArmTrigger armTrigger = ArmTrigger.IMMEDIATE;
+  private boolean armed = true; // true = feeding allowed once subsystems ready
+  private boolean hasVisitedNeutral = false; // tracks whether robot has been to neutral zone
 
   // Cached aim result — computed once per cycle in updateShotCalculation(), used by all zone
   // queries (isRobotSlowEnoughForCurrentZone, isInPassZone, getCurrentZone, getZoneSpeedLimitMps)
@@ -160,7 +221,7 @@ public class ShootingCoordinator extends SubsystemBase {
   // SHOOT_ON_THE_MOVE: max speed for hub shots in open alliance zone.
   // Used for both spindexer gating and active drive speed limiting.
   private final LoggedTunableNumber shootOnTheMoveSpeedMps =
-      new LoggedTunableNumber("Shots/SpeedLimits/ShootOnTheMoveSpeedMps", .50);
+      new LoggedTunableNumber("Shots/SpeedLimits/ShootOnTheMoveSpeedMps", 1.25);
   // SHOOT_STATIONARY: max speed for hub shots under trench (tight clearance, low
   // hood).
   private final LoggedTunableNumber stationarySpeedMps =
@@ -168,6 +229,11 @@ public class ShootingCoordinator extends SubsystemBase {
   // PASS / LONG_PASS: max speed for pass shots in neutral/opponent zones.
   private final LoggedTunableNumber passSpeedMps =
       new LoggedTunableNumber("Shots/SpeedLimits/PassSpeedMps", 3.0);
+  // Auto-specific pass speed — lower than teleop to work with PathPlanner speed zones.
+  // Set a PathPlanner velocity constraint (e.g. 1.0 m/s) in the pass zone, and this
+  // threshold just above it (1.1 m/s) so passing only happens during the slow segment.
+  private final LoggedTunableNumber autoPassSpeedMps =
+      new LoggedTunableNumber("Shots/SpeedLimits/AutoPassSpeedMps", 1.1);
 
   /**
    * Creates a new ShootingCoordinator.
@@ -197,6 +263,8 @@ public class ShootingCoordinator extends SubsystemBase {
     this.alternateLutStrategy = new LUTShotStrategy(alternateLookupTable);
     this.parametricWithLutFallback =
         new ParametricWithLUTFallbackStrategy(parametricStrategy, lutStrategy);
+    this.parametricWithProceduralFallback =
+        new ParametricWithProceduralFallbackStrategy(lutStrategy);
     this.activeStrategy = parametricStrategy;
 
     // Strategy dropdown on dashboard — four options
@@ -204,6 +272,7 @@ public class ShootingCoordinator extends SubsystemBase {
     strategyChooser.addOption("LUT (Lookup Table)", "LUT");
     strategyChooser.addOption("LUT Alternate", "LUT_ALTERNATE");
     strategyChooser.addOption("Parametric + LUT Fallback", "PARAMETRIC_LUT_FALLBACK");
+    strategyChooser.addOption("Parametric + Procedural Fallback", "PARAMETRIC_PROCEDURAL_FALLBACK");
     SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
 
     // Passing strategy chooser — how to pick left vs right pass target
@@ -271,6 +340,7 @@ public class ShootingCoordinator extends SubsystemBase {
     // see strategy comparisons and shot parameters before enabling.
     periodicCounter++;
     updateShotCalculation(alliance, isBlueAlliance);
+    updateCoordinatorState();
     if (periodicCounter % 5 == 0) {
       logShotState();
     }
@@ -559,21 +629,61 @@ public class ShootingCoordinator extends SubsystemBase {
     double turretMin = turret.getMinAngle();
     double turretMax = turret.getMaxAngle();
 
-    // In trench mode, use fixed-hood parametric: lock hood at trench max and solve for RPM.
-    // This bypasses the normal strategy pipeline since the standard parametric optimizer
-    // can't find valid trajectories with the constrained hood range.
+    // In trench mode, use empirical RPM lerp: interpolate between two tested endpoints
+    // (close and far distance) with fixed hood angle. No physics solver — pure empirical
+    // data, independent of the global launch efficiency.
     ShotCalculator.ShotResult activeResult;
     if (trenchModeActive) {
-      activeResult =
-          ShotCalculator.calculateTrenchHubShot(
-              robotPose,
-              fieldSpeeds,
-              target,
-              turretConfig,
+      double robotHeadingRad = robotPose.getRotation().getRadians();
+      double[] turretFieldPos =
+          ShotCalculator.getTurretFieldPosition(
+              robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
+      double distToHub =
+          Math.hypot(target.getX() - turretFieldPos[0], target.getY() - turretFieldPos[1]);
+
+      // Pick left or right trench lerp parameters based on robot Y position
+      boolean isLeftTrench = robotPose.getY() > FieldConstants.fieldWidth / 2.0;
+      double dClose =
+          isLeftTrench ? trenchLeftCloseDistM.get() : trenchRightCloseDistM.get();
+      double dFar =
+          isLeftTrench ? trenchLeftFarDistM.get() : trenchRightFarDistM.get();
+      double rpmClose =
+          isLeftTrench ? trenchLeftCloseRPM.get() : trenchRightCloseRPM.get();
+      double rpmFar =
+          isLeftTrench ? trenchLeftFarRPM.get() : trenchRightFarRPM.get();
+      // Lerp RPM between close and far, clamp outside
+      double t = Math.max(0, Math.min(1, (distToHub - dClose) / (dFar - dClose)));
+      double trenchRPM = rpmClose + t * (rpmFar - rpmClose);
+
+      double turretAngleDeg =
+          ShotCalculator.calculateOutsideTurretAngle(
+              robotPose.getX(),
+              robotPose.getY(),
+              robotPose.getRotation().getDegrees(),
+              target.getX(),
+              target.getY(),
               currentTurretAngle,
               turretMin,
               turretMax,
-              hoodMax); // hoodMax is already clamped to trenchHoodMaxDeg
+              turretConfig);
+
+      activeResult =
+          new ShotCalculator.ShotResult(
+              0, // exitVelocityMps not needed for lerp
+              trenchRPM,
+              0, // launchAngleRad not needed
+              hoodMax, // fixed hood angle
+              turretAngleDeg,
+              new edu.wpi.first.math.geometry.Translation3d(
+                  target.getX(), target.getY(), target.getZ()),
+              true);
+
+      if (periodicCounter % 5 == 0) {
+        Logger.recordOutput("SmartLaunch/TrenchLerp/Side", isLeftTrench ? "LEFT" : "RIGHT");
+        Logger.recordOutput("SmartLaunch/TrenchLerp/DistToHub", distToHub);
+        Logger.recordOutput("SmartLaunch/TrenchLerp/RPM", trenchRPM);
+        Logger.recordOutput("SmartLaunch/TrenchLerp/T", t);
+      }
       Logger.recordOutput("SmartLaunch/Status/UsingTrenchParametric", true);
     } else {
       // Normal strategy runs in open field
@@ -598,6 +708,10 @@ public class ShootingCoordinator extends SubsystemBase {
       Logger.recordOutput("SmartLaunch/Status/TargetX", target.getX());
       Logger.recordOutput("SmartLaunch/Status/TargetY", target.getY());
       Logger.recordOutput("SmartLaunch/Status/DistanceM", currentDistanceM);
+      if (currentShot != null && currentShot.aimTarget() != null) {
+        Logger.recordOutput("SmartLaunch/Status/AimTargetX", currentShot.aimTarget().getX());
+        Logger.recordOutput("SmartLaunch/Status/AimTargetY", currentShot.aimTarget().getY());
+      }
     }
   }
 
@@ -930,7 +1044,9 @@ public class ShootingCoordinator extends SubsystemBase {
         switch (mode) {
           case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get();
           case SHOOT_STATIONARY -> stationarySpeedMps.get();
-          case PASS, LONG_PASS -> passSpeedMps.get();
+          case PASS, LONG_PASS -> DriverStation.isAutonomous()
+              ? autoPassSpeedMps.get()
+              : passSpeedMps.get();
           case NONE -> 0.0;
         };
     boolean slowEnough = mode != TurretAimingHelper.AimMode.NONE && robotSpeedMps <= thresholdMps;
@@ -989,6 +1105,191 @@ public class ShootingCoordinator extends SubsystemBase {
     return trenchModeActive;
   }
 
+  // ========== CoordinatorState Machine API ==========
+
+  /**
+   * Notify the coordinator that SmartLaunch has started or stopped. Called by the SmartLaunch
+   * command on start/end to drive IDLE transitions. Uses IMMEDIATE arm trigger (teleop default).
+   */
+  public void setSmartLaunchActive(boolean active) {
+    setSmartLaunchActive(active, ArmTrigger.IMMEDIATE);
+  }
+
+  /**
+   * Notify the coordinator that SmartLaunch has started or stopped, with a specific arm trigger.
+   * For sprint autos, use ON_PASS_ZONE or ON_TRENCH_RETURN to prevent shooting preloads at start.
+   */
+  public void setSmartLaunchActive(boolean active, ArmTrigger trigger) {
+    this.smartLaunchActive = active;
+    if (!active) {
+      coordinatorState = CoordinatorState.IDLE;
+      armed = true;
+      hasVisitedNeutral = false;
+    } else if (coordinatorState == CoordinatorState.IDLE) {
+      coordinatorState = CoordinatorState.SPINNING_UP;
+      armTrigger = trigger;
+      armed = (trigger == ArmTrigger.IMMEDIATE);
+      hasVisitedNeutral = false;
+      // Initialize previous-state tracking so the first cycle doesn't false-trigger transitions
+      previousTrenchMode = trenchModeActive;
+      previousAimMode = cachedAimResult != null ? cachedAimResult.mode() : null;
+    }
+  }
+
+  /** Get the current coordinator state. */
+  public CoordinatorState getCoordinatorState() {
+    return coordinatorState;
+  }
+
+  /**
+   * Check if feeding is allowed by the coordinator state machine. Only true in FIRING state — all
+   * subsystems at target, no transitions in progress, no suppression active.
+   */
+  public boolean isFeedingAllowed() {
+    return coordinatorState == CoordinatorState.FIRING;
+  }
+
+  /**
+   * Update the coordinator state machine. Called every cycle from periodic() after shot
+   * calculation. Uses event-driven entry (specific triggers) and condition-driven exit (subsystem
+   * readiness) to avoid false positives during normal shoot-on-the-move tracking.
+   */
+  private void updateCoordinatorState() {
+    // Not active — stay idle
+    if (!smartLaunchActive) {
+      coordinatorState = CoordinatorState.IDLE;
+      return;
+    }
+
+    ZoneDetector.Zone currentZone =
+        cachedAimResult != null ? cachedAimResult.zone() : ZoneDetector.Zone.ALLIANCE_MID;
+    TurretAimingHelper.AimMode currentAimMode =
+        cachedAimResult != null ? cachedAimResult.mode() : null;
+
+    // --- Arming logic (sprint-start protection) ---
+    // Track whether the robot has visited neutral/opponent zone
+    if (currentZone == ZoneDetector.Zone.NEUTRAL || currentZone == ZoneDetector.Zone.OPPONENT) {
+      hasVisitedNeutral = true;
+    }
+    // Check arm conditions based on trigger type
+    if (!armed) {
+      switch (armTrigger) {
+        case IMMEDIATE -> armed = true;
+        case ON_PASS_ZONE -> {
+          // Arm when entering pass zone (neutral/opponent)
+          if (hasVisitedNeutral) {
+            armed = true;
+            Logger.recordOutput("SmartLaunch/Armed", true);
+          }
+        }
+        case ON_TRENCH_RETURN -> {
+          // Arm when entering alliance trench after having visited neutral
+          if (hasVisitedNeutral && currentZone == ZoneDetector.Zone.ALLIANCE_TRENCH) {
+            armed = true;
+            Logger.recordOutput("SmartLaunch/Armed", true);
+          }
+        }
+      }
+    }
+
+    // --- Zone suppression check (highest priority) ---
+    boolean inNoShootZone =
+        currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH || currentZone == ZoneDetector.Zone.BUMP;
+    if (inNoShootZone) {
+      coordinatorState = CoordinatorState.ZONE_SUPPRESSED;
+      // Still update previous values so we detect the transition OUT correctly
+      previousTrenchMode = trenchModeActive;
+      previousAimMode = currentAimMode;
+      return;
+    }
+
+    // --- Leaving zone suppression → transition (subsystems need to settle) ---
+    if (coordinatorState == CoordinatorState.ZONE_SUPPRESSED) {
+      coordinatorState = CoordinatorState.TRANSITIONING;
+      previousTrenchMode = trenchModeActive;
+      previousAimMode = currentAimMode;
+      return;
+    }
+
+    // --- Operator suppression check ---
+    if (feedingSuppressedSupplier.getAsBoolean()) {
+      if (coordinatorState == CoordinatorState.FIRING
+          || coordinatorState == CoordinatorState.OPERATOR_SUPPRESSED) {
+        coordinatorState = CoordinatorState.OPERATOR_SUPPRESSED;
+      }
+      previousTrenchMode = trenchModeActive;
+      previousAimMode = currentAimMode;
+      return;
+    }
+
+    // --- Detect transition triggers (only from FIRING state) ---
+    if (coordinatorState == CoordinatorState.FIRING) {
+      boolean trenchChanged = (trenchModeActive != previousTrenchMode);
+      boolean aimModeChanged = (currentAimMode != previousAimMode);
+      boolean turretFlipping = (turret.getState() == Turret.TurretState.FLIPPING);
+
+      if (trenchChanged || aimModeChanged || turretFlipping) {
+        coordinatorState = CoordinatorState.TRANSITIONING;
+      }
+    }
+
+    // --- Update previous values for next cycle's change detection ---
+    previousTrenchMode = trenchModeActive;
+    previousAimMode = currentAimMode;
+
+    // --- Readiness check for state advancement ---
+    boolean launcherReady = launcher != null && launcher.isReady();
+    boolean turretReady = turret.getState() == Turret.TurretState.READY;
+    boolean hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
+    boolean shotAchievable = currentShot != null && currentShot.achievable();
+    boolean turretNotFlipping = turret.getState() != Turret.TurretState.FLIPPING;
+    boolean speedOk = isRobotSlowEnoughForCurrentZone();
+    boolean allReady =
+        armed && launcherReady && turretReady && hoodReady && shotAchievable && speedOk;
+
+    switch (coordinatorState) {
+      case SPINNING_UP -> {
+        if (allReady) {
+          coordinatorState = CoordinatorState.FIRING;
+        }
+      }
+      case TRANSITIONING -> {
+        if (allReady && turretNotFlipping) {
+          coordinatorState = CoordinatorState.FIRING;
+        }
+      }
+      case OPERATOR_SUPPRESSED -> {
+        // feedingSuppressed was already checked above and returned false to reach here
+        if (allReady) {
+          coordinatorState = CoordinatorState.FIRING;
+        }
+      }
+      case FIRING -> {
+        // Drop back to SPINNING_UP if robot exceeds zone speed threshold
+        if (!speedOk) {
+          coordinatorState = CoordinatorState.SPINNING_UP;
+        }
+        // Other transitions out (trench, turret flip, etc.) are handled by trigger checks above
+      }
+      default -> {
+        // IDLE handled at top
+      }
+    }
+
+    // Log state and readiness (throttled to 10Hz)
+    if (periodicCounter % 5 == 0) {
+      Logger.recordOutput("SmartLaunch/CoordinatorState", coordinatorState.name());
+      Logger.recordOutput("SmartLaunch/Armed", armed);
+      Logger.recordOutput("SmartLaunch/HasVisitedNeutral", hasVisitedNeutral);
+      Logger.recordOutput("SmartLaunch/SM/LauncherReady", launcherReady);
+      Logger.recordOutput("SmartLaunch/SM/TurretReady", turretReady);
+      Logger.recordOutput("SmartLaunch/SM/HoodReady", hoodReady);
+      Logger.recordOutput("SmartLaunch/SM/ShotAchievable", shotAchievable);
+      Logger.recordOutput("SmartLaunch/SM/SpeedOk", speedOk);
+      Logger.recordOutput("SmartLaunch/SM/AllReady", allReady);
+    }
+  }
+
   /**
    * Calculate shot to the alliance hub (for one-shot button presses).
    *
@@ -1024,6 +1325,7 @@ public class ShootingCoordinator extends SubsystemBase {
       case "LUT" -> newStrategy = lutStrategy;
       case "LUT_ALTERNATE" -> newStrategy = alternateLutStrategy;
       case "PARAMETRIC_LUT_FALLBACK" -> newStrategy = parametricWithLutFallback;
+      case "PARAMETRIC_PROCEDURAL_FALLBACK" -> newStrategy = parametricWithProceduralFallback;
       default -> newStrategy = parametricStrategy;
     }
 

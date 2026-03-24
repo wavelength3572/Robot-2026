@@ -193,8 +193,6 @@ public class ButtonsAndDashboardBindings {
           "Shots/SmartLaunch/Fire",
           ShootingCommands.smartLaunchCommand(
               launcher, shootingCoordinator, motivator, turret, hood, spindexer));
-      SmartDashboard.putBoolean("Shots/SmartLaunch/SpeedLimitMode", false);
-
       // Auto-track: toggle works while disabled; turret default command checks the flag
       // TODO: Only enable auto-tracking when we are in the alliance zone AND we have
       //       completed at least one smart launch. This avoids unnecessary turret movement
@@ -483,14 +481,18 @@ public class ButtonsAndDashboardBindings {
       if (hood != null) smartLaunchReqs.add(hood);
       if (motivator != null) smartLaunchReqs.add(motivator);
       if (spindexer != null) smartLaunchReqs.add(spindexer);
+      SmartDashboard.putBoolean("Shots/SmartLaunch/UseStateMachine", false);
       Command smartLaunchCmd =
           Commands.defer(
-              () ->
-                  SmartDashboard.getBoolean("Shots/SmartLaunch/SpeedLimitMode", false)
-                      ? ShootingCommands.smartLaunchWithSpeedLimitCommand(
-                          launcher, shootingCoordinator, motivator, turret, hood, spindexer)
-                      : ShootingCommands.smartLaunchCommand(
-                          launcher, shootingCoordinator, motivator, turret, hood, spindexer),
+              () -> {
+                if (SmartDashboard.getBoolean("Shots/SmartLaunch/UseStateMachine", false)) {
+                  return ShootingCommands.smartLaunch2Command(
+                      launcher, shootingCoordinator, motivator, turret, hood, spindexer);
+                } else {
+                  return ShootingCommands.smartLaunchCommand(
+                      launcher, shootingCoordinator, motivator, turret, hood, spindexer);
+                }
+              },
               smartLaunchReqs);
       if (intake != null) {
         smartLaunchCmd =

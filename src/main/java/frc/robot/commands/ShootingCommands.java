@@ -585,6 +585,173 @@ public class ShootingCommands {
   }
 
   /**
+   * State-machine-driven SmartLaunch command. Uses CoordinatorState to gate feeding instead of
+   * implementing its own multi-phase sequence. The coordinator state machine handles zone
+   * suppression, operator hold-fire, turret flips, and trench transitions — the command just reads
+   * the state and drives subsystems accordingly.
+   *
+   * <p>Subsystem sequencing: hood/launcher/turret always track targets. Motivator starts when
+   * coordinator says FIRING. Spindexer feeds only when motivator is at speed.
+   *
+   * @param launcher The launcher subsystem
+   * @param coordinator The shooting coordinator (owns the state machine)
+   * @param motivator The motivator subsystem (can be null)
+   * @param turret The turret subsystem
+   * @param hood The hood subsystem (can be null)
+   * @param spindexer The spindexer subsystem (can be null)
+   * @return Command that tracks and fires based on coordinator state while held
+   */
+  public static Command smartLaunch2Command(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer) {
+    return smartLaunch2Command(
+        launcher,
+        coordinator,
+        motivator,
+        turret,
+        hood,
+        spindexer,
+        ShootingCoordinator.ArmTrigger.IMMEDIATE);
+  }
+
+  /**
+   * State-machine-driven SmartLaunch with configurable arm trigger. For sprint autos, use
+   * ON_PASS_ZONE or ON_TRENCH_RETURN to prevent shooting preloads at the start.
+   */
+  public static Command smartLaunch2Command(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer,
+      ShootingCoordinator.ArmTrigger armTrigger) {
+
+    return Commands.parallel(
+            // Launcher — always track the current shot RPM
+            Commands.run(
+                () -> {
+                  ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                  if (shot != null) {
+                    double rpm = getEffectiveRPM(shot);
+                    double hoodDeg = getEffectiveHoodDeg(shot);
+                    launcher.setVelocity(rpm);
+                    coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
+                  }
+                },
+                launcher),
+
+            // Turret — always track the current shot angle
+            Commands.run(
+                () -> {
+                  ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                  if (shot != null) {
+                    turret.setOutsideTurretAngle(shot.turretAngleDeg());
+                  }
+                },
+                turret),
+
+            // Hood — always track the current shot angle (coordinator already clamps in trench)
+            hood != null
+                ? Commands.run(
+                    () -> {
+                      ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                      if (shot != null) {
+                        hood.setHoodAngle(getEffectiveHoodDeg(shot));
+                      }
+                    },
+                    hood)
+                : Commands.none(),
+
+            // Motivator — spin when coordinator says FIRING (launcher/turret/hood at target).
+            // Motivator must be at speed before spindexer feeds, but must NOT spin before
+            // aiming is correct — errant balls fly off if motivator pushes balls into a
+            // launcher that isn't aimed. Sequence: aim → FIRING → motivator → spindexer.
+            motivator != null
+                ? Commands.run(
+                    () -> {
+                      if (coordinator.isFeedingAllowed()) {
+                        ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                        double launcherRPM = getEffectiveRPM(s);
+                        motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                      } else {
+                        motivator.stopMotivator();
+                      }
+                    },
+                    motivator)
+                : Commands.none(),
+
+            // Spindexer — feed only when coordinator allows AND motivator is at speed
+            spindexer != null
+                ? Commands.run(
+                    () -> {
+                      boolean feedingAllowed = coordinator.isFeedingAllowed();
+                      boolean motivatorReady =
+                          motivator == null
+                              || motivator.getState() == Motivator.MotivatorState.READY;
+                      if (feedingAllowed && motivatorReady) {
+                        launcher.setFeedingActive(true);
+                        double dist = coordinator.getDistanceToTarget();
+                        double spnRPM =
+                            coordinator.isInPassZone()
+                                ? getSpindexerPassRPM()
+                                : getSpindexerRPM(dist > 0 ? dist : 1.16);
+                        if (turret.getState() == Turret.TurretState.FLIPPING) {
+                          spindexer.stopSpindexer();
+                        } else {
+                          spindexer.setSpindexerVelocity(spnRPM);
+                        }
+                      } else {
+                        launcher.setFeedingActive(false);
+                        spindexer.reciprocate();
+                      }
+                    },
+                    spindexer)
+                : Commands.none(),
+
+            // Fire balls in simulation
+            createSimFiringLoop(coordinator, launcher, turret))
+        .beforeStarting(
+            () -> {
+              setMode(ShootingMode.COMPETITION);
+              coordinator.setSmartLaunchActive(true, armTrigger);
+
+              // Start a LUT batch
+              ShotVisualizer vis = coordinator.getVisualizer();
+              if (vis != null) {
+                coordinator.getBatchRecorder().startBatch(vis.getFuelCount());
+              }
+
+              Logger.recordOutput("SmartLaunch/Phase", "SM_ACTIVE");
+              SmartDashboard.putString("Match/Status/State", "SmartLaunch 2.0 - Active");
+            })
+        .finallyDo(
+            () -> {
+              coordinator.setSmartLaunchActive(false);
+              launcher.setFeedingActive(false);
+              launcher.stop();
+              if (motivator != null) {
+                motivator.stopMotivator();
+              }
+              if (spindexer != null) {
+                spindexer.stopSpindexer();
+              }
+              if (hood != null) {
+                hood.setHoodAngle(hood.getMinAngle());
+              }
+              coordinator.clearManualShotParameters();
+              setMode(ShootingMode.COMPETITION);
+              Logger.recordOutput("SmartLaunch/Phase", "IDLE");
+              SmartDashboard.putString("Match/Status/State", "[SmartLaunch 2.0] Stopped");
+            })
+        .withName("SmartLaunch2");
+  }
+
+  /**
    * Core smart launch Sequenced. Uses zone-aware speed gating for both readiness checks and
    * spindexer feeding.
    */
@@ -1124,33 +1291,6 @@ public class ShootingCommands {
               // System.out.println("[SmartLaunch] Stopped");
             })
         .withName("SmartLaunch");
-  }
-
-  /**
-   * Smart launch with drive speed limiting. Sets a global speed limit on the default drive command
-   * while active. When released, the speed limit ramps back up smoothly (via {@link
-   * DriveCommands#clearSpeedLimit()}) to prevent sudden acceleration if the driver is pushing the
-   * stick forward.
-   *
-   * @param launcher The launcher subsystem
-   * @param coordinator The shooting coordinator
-   * @param motivator The motivator subsystem (can be null)
-   * @param turret The turret subsystem
-   * @param hood The hood subsystem (can be null)
-   * @param spindexer The spindexer subsystem (can be null)
-   * @return Command that aims, fires, and limits drive speed while held
-   */
-  public static Command smartLaunchWithSpeedLimitCommand(
-      Launcher launcher,
-      ShootingCoordinator coordinator,
-      Motivator motivator,
-      Turret turret,
-      Hood hood,
-      Spindexer spindexer) {
-    return smartLaunchCommandImpl(launcher, coordinator, motivator, turret, hood, spindexer)
-        .beforeStarting(() -> DriveCommands.setSpeedLimit(coordinator.getShootOnTheMoveSpeedMps()))
-        .finallyDo(() -> DriveCommands.clearSpeedLimit())
-        .withName("SmartLaunch (Speed Limited)");
   }
 
   /**
@@ -1708,26 +1848,22 @@ public class ShootingCommands {
       return Commands.sequence(
               Commands.waitUntil(
                   () ->
-                      turret.getState() == Turret.TurretState.READY
-                          && launcher.isReady()
-                          && coordinator.isRobotSlowEnoughForCurrentZone()),
+                      coordinator.isFeedingAllowed()
+                          && turret.getState() == Turret.TurretState.READY
+                          && launcher.isReady()),
               Commands.runOnce(
                   () -> {
+                    ShotVisualizer visualizer = coordinator.getVisualizer();
+                    if (visualizer != null && visualizer.getFuelCount() <= 0) return;
                     coordinator.launchFuel();
                     launcher.notifyBallFired();
                     Logger.recordOutput("ShotLog/LastShotTime", Timer.getFPGATimestamp());
 
-                    ShotVisualizer visualizer = coordinator.getVisualizer();
                     int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
                     Logger.recordOutput("ShotLog/FuelRemaining", fuelRemaining);
                   }),
               Commands.waitSeconds(MIN_SHOT_INTERVAL_SECONDS))
-          .repeatedly()
-          .until(
-              () -> {
-                ShotVisualizer visualizer = coordinator.getVisualizer();
-                return visualizer == null || visualizer.getFuelCount() <= 0;
-              });
+          .repeatedly();
 
     } else {
       return Commands.none();

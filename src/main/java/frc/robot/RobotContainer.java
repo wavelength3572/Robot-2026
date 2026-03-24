@@ -707,10 +707,10 @@ public class RobotContainer {
               intake));
     }
 
-    // SmartLaunch: full smartLaunch command for PathPlanner event zones
+    // SmartLaunch: state-machine-driven version (zone-aware, transition-safe)
     NamedCommands.registerCommand(
         "SmartLaunch",
-        ShootingCommands.smartLaunchCommand(
+        ShootingCommands.smartLaunch2Command(
             launcher, shootingCoordinator, motivator, turret, hood, spindexer));
 
     // holdFire / releaseFire: suppress/allow feeding during auto paths.
