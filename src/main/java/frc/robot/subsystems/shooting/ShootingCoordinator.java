@@ -108,6 +108,10 @@ public class ShootingCoordinator extends SubsystemBase {
       new LoggedTunableNumber("Shots/TrenchMode/HoodMaxDeg", 18.0);
   private boolean trenchModeActive = false; // true when robot is in a trench or bump zone
 
+  // Cached aim result — computed once per cycle in updateShotCalculation(), used by all zone
+  // queries (isRobotSlowEnoughForCurrentZone, isInPassZone, getCurrentZone, getZoneSpeedLimitMps)
+  private TurretAimingHelper.AimResult cachedAimResult = null;
+
   // Visualizer throttle — run at 10Hz instead of 50Hz (pure display, not control)
   private int visualizerCounter = 0;
   private static final int VISUALIZER_DIVISOR = 10; // 50Hz / 10 = 5Hz
@@ -316,6 +320,8 @@ public class ShootingCoordinator extends SubsystemBase {
               pitchDegSupplier.getAsDouble(),
               turretFieldPos[0],
               turretFieldPos[1]);
+
+      cachedAimResult = aimResult;
 
       // Update distance to aim target every cycle (for dashboard and shot calculations)
       currentDistanceM =
@@ -914,26 +920,20 @@ public class ShootingCoordinator extends SubsystemBase {
    * @return true if the robot speed is within the zone's firing threshold
    */
   public boolean isRobotSlowEnoughForCurrentZone() {
-    if (fieldSpeedsSupplier == null || robotPoseSupplier == null) return true;
+    if (fieldSpeedsSupplier == null || cachedAimResult == null) return true;
 
     ChassisSpeeds speeds = fieldSpeedsSupplier.get();
     double robotSpeedMps = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
 
-    Pose2d robotPose = robotPoseSupplier.get();
-    DriverStation.Alliance alliance = RobotStatus.getAlliance();
-    TurretAimingHelper.AimResult aimResult =
-        TurretAimingHelper.getAimTarget(
-            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
-
+    TurretAimingHelper.AimMode mode = cachedAimResult.mode();
     double thresholdMps =
-        switch (aimResult.mode()) {
+        switch (mode) {
           case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get();
           case SHOOT_STATIONARY -> stationarySpeedMps.get();
           case PASS, LONG_PASS -> passSpeedMps.get();
           case NONE -> 0.0;
         };
-    boolean slowEnough =
-        aimResult.mode() != TurretAimingHelper.AimMode.NONE && robotSpeedMps <= thresholdMps;
+    boolean slowEnough = mode != TurretAimingHelper.AimMode.NONE && robotSpeedMps <= thresholdMps;
 
     Logger.recordOutput("SmartLaunch/SpeedCheck/RobotMps", robotSpeedMps);
     Logger.recordOutput("SmartLaunch/SpeedCheck/ThresholdMps", thresholdMps);
@@ -949,14 +949,9 @@ public class ShootingCoordinator extends SubsystemBase {
    * @return true if the robot is in a zone where passing is the aim mode
    */
   public boolean isInPassZone() {
-    if (robotPoseSupplier == null) return false;
-    Pose2d robotPose = robotPoseSupplier.get();
-    DriverStation.Alliance alliance = RobotStatus.getAlliance();
-    TurretAimingHelper.AimResult aimResult =
-        TurretAimingHelper.getAimTarget(
-            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
-    return aimResult.mode() == TurretAimingHelper.AimMode.PASS
-        || aimResult.mode() == TurretAimingHelper.AimMode.LONG_PASS;
+    if (cachedAimResult == null) return false;
+    return cachedAimResult.mode() == TurretAimingHelper.AimMode.PASS
+        || cachedAimResult.mode() == TurretAimingHelper.AimMode.LONG_PASS;
   }
 
   /**
@@ -966,11 +961,8 @@ public class ShootingCoordinator extends SubsystemBase {
    * @return Current zone, or ALLIANCE_MID as fallback if pose is unavailable
    */
   public ZoneDetector.Zone getCurrentZone() {
-    if (robotPoseSupplier == null) return ZoneDetector.Zone.ALLIANCE_MID;
-    Pose2d robotPose = robotPoseSupplier.get();
-    DriverStation.Alliance alliance = RobotStatus.getAlliance();
-    return ZoneDetector.getCurrentZone(
-        robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
+    if (cachedAimResult == null) return ZoneDetector.Zone.ALLIANCE_MID;
+    return cachedAimResult.zone();
   }
 
   /**
@@ -1115,13 +1107,8 @@ public class ShootingCoordinator extends SubsystemBase {
    * speed for zones where shooting is suppressed (NONE).
    */
   public double getZoneSpeedLimitMps() {
-    if (robotPoseSupplier == null) return Double.MAX_VALUE;
-    Pose2d robotPose = robotPoseSupplier.get();
-    DriverStation.Alliance alliance = RobotStatus.getAlliance();
-    TurretAimingHelper.AimResult aimResult =
-        TurretAimingHelper.getAimTarget(
-            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
-    return switch (aimResult.mode()) {
+    if (cachedAimResult == null) return Double.MAX_VALUE;
+    return switch (cachedAimResult.mode()) {
       case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get() - 0.05;
       case SHOOT_STATIONARY -> stationarySpeedMps.get() - 0.05;
       case PASS, LONG_PASS -> passSpeedMps.get() - 0.05;
