@@ -242,8 +242,7 @@ public class TrajectoryOptimizer {
         (result.hoodAngleDeg < hoodMinAngleDeg) ? hoodMinAngleDeg : hoodMaxAngleDeg;
     OptimalShot fixedResult = calculateFixedHoodShot(turretPosition, target, nearestLimit);
     if (fixedResult.achievable) {
-      Logger.recordOutput(
-          "SmartLaunch/Parametric/FallbackLevel", FallbackLevel.FIXED_HOOD.name());
+      Logger.recordOutput("SmartLaunch/Parametric/FallbackLevel", FallbackLevel.FIXED_HOOD.name());
       Logger.recordOutput("SmartLaunch/Parametric/FallbackChain", chain);
       return new OptimalShot(
           fixedResult.rpm,
@@ -261,8 +260,7 @@ public class TrajectoryOptimizer {
     double otherLimit = (nearestLimit == hoodMaxAngleDeg) ? hoodMinAngleDeg : hoodMaxAngleDeg;
     OptimalShot altResult = calculateFixedHoodShot(turretPosition, target, otherLimit);
     if (altResult.achievable) {
-      Logger.recordOutput(
-          "SmartLaunch/Parametric/FallbackLevel", FallbackLevel.FIXED_HOOD.name());
+      Logger.recordOutput("SmartLaunch/Parametric/FallbackLevel", FallbackLevel.FIXED_HOOD.name());
       Logger.recordOutput("SmartLaunch/Parametric/FallbackChain", chain);
       return new OptimalShot(
           altResult.rpm,
@@ -341,7 +339,15 @@ public class TrajectoryOptimizer {
     if (lastFailure == null) {
       lastFailure =
           new OptimalShot(
-              0, 0, 0, 0, 0, maxDescent, false, "Relaxed: no descent angles attempted", 2);
+              0,
+              0,
+              0,
+              0,
+              0,
+              maxDescent,
+              false,
+              "Relaxed: no descent angles attempted",
+              FallbackLevel.RELAXED);
     }
     return lastFailure;
   }

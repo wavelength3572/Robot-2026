@@ -424,8 +424,7 @@ public final class ShotCalculator {
           // Single-pass horizontal TOF: stable, no iteration.
           // Lateral drift depends on horizontal flight time, not total arc time.
           double vx =
-              initialShot.exitVelocityMps
-                  * Math.cos(Math.toRadians(initialShot.launchAngleDeg));
+              initialShot.exitVelocityMps * Math.cos(Math.toRadians(initialShot.launchAngleDeg));
           double horizontalTof = (vx > 0.1) ? distanceToTarget / vx : 0.0;
           aimTarget = predictTargetPos(hubTarget, fieldSpeeds, horizontalTof);
         } else {
@@ -527,8 +526,7 @@ public final class ShotCalculator {
 
         if (useHorizontalTOF.get() > 0.5) {
           double vx =
-              initialShot.exitVelocityMps
-                  * Math.cos(Math.toRadians(initialShot.launchAngleDeg));
+              initialShot.exitVelocityMps * Math.cos(Math.toRadians(initialShot.launchAngleDeg));
           double horizontalTof = (vx > 0.1) ? distanceToTarget / vx : 0.0;
           aimTarget = predictTargetPos(hubTarget, fieldSpeeds, horizontalTof);
         } else {
@@ -628,11 +626,11 @@ public final class ShotCalculator {
       if (initialShot.achievable) {
         double distanceToTarget =
             Math.sqrt(
-                Math.pow(hubTarget.getX() - turretX, 2)
-                    + Math.pow(hubTarget.getY() - turretY, 2));
+                Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
         // Use horizontal distance / horizontal velocity for a more stable estimate
         // than total TOF (which is inflated by the steep launch angle).
-        double vx = initialShot.exitVelocityMps * Math.cos(Math.toRadians(initialShot.launchAngleDeg));
+        double vx =
+            initialShot.exitVelocityMps * Math.cos(Math.toRadians(initialShot.launchAngleDeg));
         double horizontalTof = (vx > 0.1) ? distanceToTarget / vx : 0.0;
         aimTarget = predictTargetPos(hubTarget, fieldSpeeds, horizontalTof);
       }
