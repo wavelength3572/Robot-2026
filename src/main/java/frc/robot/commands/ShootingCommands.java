@@ -1481,9 +1481,9 @@ public class ShootingCommands {
                 () -> {
                   ZoneDetector.Zone zone = coordinator.getCurrentZone();
                   boolean inTrackZone =
-                      zone == ZoneDetector.Zone.TRENCH_FAR
-                          || zone == ZoneDetector.Zone.TRENCH_NEAR
-                          || zone == ZoneDetector.Zone.ALLIANCE;
+                      zone == ZoneDetector.Zone.NEUTRAL_TRENCH
+                          || zone == ZoneDetector.Zone.ALLIANCE_TRENCH
+                          || ZoneDetector.isAllianceZone(zone);
                   if (!inTrackZone) {
                     launcher.setVelocity(2000);
                     return;
@@ -1503,9 +1503,9 @@ public class ShootingCommands {
                 () -> {
                   ZoneDetector.Zone zone = coordinator.getCurrentZone();
                   boolean inTrackZone =
-                      zone == ZoneDetector.Zone.TRENCH_FAR
-                          || zone == ZoneDetector.Zone.TRENCH_NEAR
-                          || zone == ZoneDetector.Zone.ALLIANCE;
+                      zone == ZoneDetector.Zone.NEUTRAL_TRENCH
+                          || zone == ZoneDetector.Zone.ALLIANCE_TRENCH
+                          || ZoneDetector.isAllianceZone(zone);
                   if (!inTrackZone) return;
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
@@ -1521,12 +1521,12 @@ public class ShootingCommands {
                 ? Commands.run(
                     () -> {
                       ZoneDetector.Zone zone = coordinator.getCurrentZone();
-                      if (zone == ZoneDetector.Zone.TRENCH_FAR) {
+                      if (zone == ZoneDetector.Zone.NEUTRAL_TRENCH) {
                         hood.setHoodAngle(hood.getMinAngle());
                         return;
                       }
-                      if (zone != ZoneDetector.Zone.TRENCH_NEAR
-                          && zone != ZoneDetector.Zone.ALLIANCE) {
+                      if (zone != ZoneDetector.Zone.ALLIANCE_TRENCH
+                          && !ZoneDetector.isAllianceZone(zone)) {
                         return;
                       }
                       ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
@@ -1543,9 +1543,9 @@ public class ShootingCommands {
                     () -> {
                       ZoneDetector.Zone zone = coordinator.getCurrentZone();
                       boolean inTrackZone =
-                          zone == ZoneDetector.Zone.TRENCH_FAR
-                              || zone == ZoneDetector.Zone.TRENCH_NEAR
-                              || zone == ZoneDetector.Zone.ALLIANCE;
+                          zone == ZoneDetector.Zone.NEUTRAL_TRENCH
+                              || zone == ZoneDetector.Zone.ALLIANCE_TRENCH
+                              || ZoneDetector.isAllianceZone(zone);
                       if (!inTrackZone) {
                         motivatorStarted[0] = false;
                         return;
@@ -1583,8 +1583,8 @@ public class ShootingCommands {
                       Logger.recordOutput("AutoTrackStationary/Gate/Armed", armed);
 
                       boolean inShootZone =
-                          zone == ZoneDetector.Zone.TRENCH_NEAR
-                              || zone == ZoneDetector.Zone.ALLIANCE
+                          zone == ZoneDetector.Zone.ALLIANCE_TRENCH
+                              || ZoneDetector.isAllianceZone(zone)
                               || zone == ZoneDetector.Zone.NEUTRAL
                               || zone == ZoneDetector.Zone.OPPONENT;
                       boolean stationary = coordinator.isRobotStationary();
@@ -1662,8 +1662,8 @@ public class ShootingCommands {
                   boolean stationary = coordinator.isRobotStationary();
                   ZoneDetector.Zone zone = coordinator.getCurrentZone();
                   boolean inShootZone =
-                      zone == ZoneDetector.Zone.TRENCH_NEAR
-                          || zone == ZoneDetector.Zone.ALLIANCE
+                      zone == ZoneDetector.Zone.ALLIANCE_TRENCH
+                          || ZoneDetector.isAllianceZone(zone)
                           || zone == ZoneDetector.Zone.NEUTRAL
                           || zone == ZoneDetector.Zone.OPPONENT;
                   return subsReady && stationary && inShootZone;

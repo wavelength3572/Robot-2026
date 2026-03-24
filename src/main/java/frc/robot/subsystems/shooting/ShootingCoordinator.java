@@ -45,16 +45,21 @@ public class ShootingCoordinator extends SubsystemBase {
   // Turret geometry config (immutable)
   private final ShotCalculator.TurretConfig turretConfig;
 
-  // TODO: Investigate zoned shooting with the Parametric/LUT fallback system.
-  //       Instead of one global strategy, divide the field into zones (e.g. close,
-  //       mid, far, trench) and let each zone pick its own strategy — parametric
-  //       where the physics model is accurate, LUT where we have good empirical
-  //       data, fallback only where neither is strong. This could also improve
-  //       launch efficiency: per-zone efficiency constants (or per-zone LUT tables)
-  //       would let us compensate for the fact that efficiency varies with distance
-  //       and angle rather than using a single global constant. Consider whether
-  //       zone boundaries should be distance-based rings, field-geometry zones, or
-  //       both.
+  // Zone-based strategy architecture (partially implemented):
+  //
+  // ZoneDetector now provides distance-refined alliance sub-zones:
+  //   ALLIANCE_CLOSE / ALLIANCE_MID / ALLIANCE_FAR
+  // Boundaries are tied to ShotCalculator's efficiency distance breakpoints
+  // (Shots/SmartLaunch/Efficiency/CloseDist, MidDist, FarDist) — single source of truth.
+  //
+  // TODO: Wire per-zone strategy selection. Each alliance sub-zone should be able to
+  //       pick its own ShotStrategy (parametric, LUT, or fallback) so they don't
+  //       poison each other. E.g. parametric may be strong at mid-range but weak at
+  //       close range where the physics model breaks down — close could default to
+  //       LUT while mid uses parametric. Per-zone LUT tables would also let us
+  //       maintain independent empirical data sets per distance band.
+  //       The strategyChooser dropdown could become a per-zone override, or a
+  //       ZonedShotStrategy that wraps Map<Zone, ShotStrategy>.
 
   // Shot strategy system — two completely independent modes:
   // Parametric: physics-based, tuned via single efficiency constant
@@ -91,14 +96,10 @@ public class ShootingCoordinator extends SubsystemBase {
   // Optional feeding suppression check — when true, launchFuel() is a no-op
   private BooleanSupplier feedingSuppressedSupplier = () -> false;
 
-  // TODO: Trench shot robustness — consider a dedicated trench interpolation zone
-  //       with its own LUT/parameters that isn't affected by the main shot strategy
-  //       or fallback logic. The current Parametric/LUT/Fallback system couples
-  //       trench shots to the same pipeline as open-field shots. A separate trench
-  //       interpolation path would let us tune trench accuracy independently.
-  //       May also want to rework the ParametricWithLUTFallback strategy so trench
-  //       shots always use known-good empirical data rather than falling back through
-  //       the general chain.
+  // Trench shots (ALLIANCE_TRENCH zone) already bypass the normal strategy pipeline
+  // via calculateTrenchHubShot() with fixed-hood parametric. When per-zone strategy
+  // selection is wired up (see TODO above), ALLIANCE_TRENCH could get its own dedicated
+  // LUT for empirical trench data, independent of the open-field tables.
 
   // Trench avoidance — always active; clamps hood angle when robot is under a
   // trench or bump.
@@ -106,6 +107,10 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber trenchHoodMaxDeg =
       new LoggedTunableNumber("Shots/TrenchMode/HoodMaxDeg", 18.0);
   private boolean trenchModeActive = false; // true when robot is in a trench or bump zone
+
+  // Cached aim result — computed once per cycle in updateShotCalculation(), used by all zone
+  // queries (isRobotSlowEnoughForCurrentZone, isInPassZone, getCurrentZone, getZoneSpeedLimitMps)
+  private TurretAimingHelper.AimResult cachedAimResult = null;
 
   // Visualizer throttle — run at 10Hz instead of 50Hz (pure display, not control)
   private int visualizerCounter = 0;
@@ -315,9 +320,20 @@ public class ShootingCoordinator extends SubsystemBase {
               pitchDegSupplier.getAsDouble(),
               turretFieldPos[0],
               turretFieldPos[1]);
+
+      cachedAimResult = aimResult;
+
+      // Update distance to aim target every cycle (for dashboard and shot calculations)
+      currentDistanceM =
+          Math.hypot(
+              aimResult.target().getX() - turretFieldPos[0],
+              aimResult.target().getY() - turretFieldPos[1]);
+
+      // Zone is fully determined by position — ZoneDetector computes distance to hub
+      // internally for alliance sub-zone classification (CLOSE/MID/FAR).
       trenchModeActive =
-          aimResult.zone() == ZoneDetector.Zone.TRENCH_NEAR
-              || aimResult.zone() == ZoneDetector.Zone.TRENCH_FAR
+          aimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
+              || aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH
               || aimResult.zone() == ZoneDetector.Zone.BUMP;
 
       // Log zone and aim mode (throttled to 10Hz)
@@ -543,37 +559,45 @@ public class ShootingCoordinator extends SubsystemBase {
     double turretMin = turret.getMinAngle();
     double turretMax = turret.getMaxAngle();
 
-    // Active strategy runs every cycle for control
-    ShotCalculator.ShotResult activeResult =
-        activeStrategy.calculateShot(
-            robotPose,
-            fieldSpeeds,
-            target,
-            turretConfig,
-            currentTurretAngle,
-            turretMin,
-            turretMax,
-            hoodMin,
-            hoodMax);
+    // In trench mode, use fixed-hood parametric: lock hood at trench max and solve for RPM.
+    // This bypasses the normal strategy pipeline since the standard parametric optimizer
+    // can't find valid trajectories with the constrained hood range.
+    ShotCalculator.ShotResult activeResult;
+    if (trenchModeActive) {
+      activeResult =
+          ShotCalculator.calculateTrenchHubShot(
+              robotPose,
+              fieldSpeeds,
+              target,
+              turretConfig,
+              currentTurretAngle,
+              turretMin,
+              turretMax,
+              hoodMax); // hoodMax is already clamped to trenchHoodMaxDeg
+      Logger.recordOutput("SmartLaunch/Status/UsingTrenchParametric", true);
+    } else {
+      // Normal strategy runs in open field
+      activeResult =
+          activeStrategy.calculateShot(
+              robotPose,
+              fieldSpeeds,
+              target,
+              turretConfig,
+              currentTurretAngle,
+              turretMin,
+              turretMax,
+              hoodMin,
+              hoodMax);
+      Logger.recordOutput("SmartLaunch/Status/UsingTrenchParametric", false);
+    }
     currentShot = activeResult;
 
-    // Throttle logging to ~10Hz
+    // Throttle target/distance logging to ~10Hz (distance itself is updated every
+    // cycle in updateShotCalculation for zone refinement)
     if (periodicCounter % 5 == 0) {
-      // Log distance to target
-      double robotHeadingRad = robotPose.getRotation().getRadians();
-      double[] turretFieldPos =
-          ShotCalculator.getTurretFieldPosition(
-              robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
-      double turretX = turretFieldPos[0];
-      double turretY = turretFieldPos[1];
-      double distanceToTarget =
-          Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
-      currentDistanceM = distanceToTarget;
       Logger.recordOutput("SmartLaunch/Status/TargetX", target.getX());
       Logger.recordOutput("SmartLaunch/Status/TargetY", target.getY());
-      Logger.recordOutput("SmartLaunch/Status/TurretX", turretX);
-      Logger.recordOutput("SmartLaunch/Status/TurretY", turretY);
-      Logger.recordOutput("SmartLaunch/Status/DistanceM", distanceToTarget);
+      Logger.recordOutput("SmartLaunch/Status/DistanceM", currentDistanceM);
     }
   }
 
@@ -896,26 +920,20 @@ public class ShootingCoordinator extends SubsystemBase {
    * @return true if the robot speed is within the zone's firing threshold
    */
   public boolean isRobotSlowEnoughForCurrentZone() {
-    if (fieldSpeedsSupplier == null || robotPoseSupplier == null) return true;
+    if (fieldSpeedsSupplier == null || cachedAimResult == null) return true;
 
     ChassisSpeeds speeds = fieldSpeedsSupplier.get();
     double robotSpeedMps = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
 
-    Pose2d robotPose = robotPoseSupplier.get();
-    DriverStation.Alliance alliance = RobotStatus.getAlliance();
-    TurretAimingHelper.AimResult aimResult =
-        TurretAimingHelper.getAimTarget(
-            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
-
+    TurretAimingHelper.AimMode mode = cachedAimResult.mode();
     double thresholdMps =
-        switch (aimResult.mode()) {
+        switch (mode) {
           case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get();
           case SHOOT_STATIONARY -> stationarySpeedMps.get();
           case PASS, LONG_PASS -> passSpeedMps.get();
           case NONE -> 0.0;
         };
-    boolean slowEnough =
-        aimResult.mode() != TurretAimingHelper.AimMode.NONE && robotSpeedMps <= thresholdMps;
+    boolean slowEnough = mode != TurretAimingHelper.AimMode.NONE && robotSpeedMps <= thresholdMps;
 
     Logger.recordOutput("SmartLaunch/SpeedCheck/RobotMps", robotSpeedMps);
     Logger.recordOutput("SmartLaunch/SpeedCheck/ThresholdMps", thresholdMps);
@@ -931,27 +949,20 @@ public class ShootingCoordinator extends SubsystemBase {
    * @return true if the robot is in a zone where passing is the aim mode
    */
   public boolean isInPassZone() {
-    if (robotPoseSupplier == null) return false;
-    Pose2d robotPose = robotPoseSupplier.get();
-    DriverStation.Alliance alliance = RobotStatus.getAlliance();
-    TurretAimingHelper.AimResult aimResult =
-        TurretAimingHelper.getAimTarget(
-            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
-    return aimResult.mode() == TurretAimingHelper.AimMode.PASS
-        || aimResult.mode() == TurretAimingHelper.AimMode.LONG_PASS;
+    if (cachedAimResult == null) return false;
+    return cachedAimResult.mode() == TurretAimingHelper.AimMode.PASS
+        || cachedAimResult.mode() == TurretAimingHelper.AimMode.LONG_PASS;
   }
 
   /**
-   * Get the current zone the robot is in.
+   * Get the current zone the robot is in, refined to ALLIANCE_CLOSE/MID/FAR when distance is
+   * available.
    *
-   * @return Current zone, or ALLIANCE as fallback if pose is unavailable
+   * @return Current zone, or ALLIANCE_MID as fallback if pose is unavailable
    */
   public ZoneDetector.Zone getCurrentZone() {
-    if (robotPoseSupplier == null) return ZoneDetector.Zone.ALLIANCE;
-    Pose2d robotPose = robotPoseSupplier.get();
-    DriverStation.Alliance alliance = RobotStatus.getAlliance();
-    return ZoneDetector.getCurrentZone(
-        robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
+    if (cachedAimResult == null) return ZoneDetector.Zone.ALLIANCE_MID;
+    return cachedAimResult.zone();
   }
 
   /**
@@ -1096,13 +1107,8 @@ public class ShootingCoordinator extends SubsystemBase {
    * speed for zones where shooting is suppressed (NONE).
    */
   public double getZoneSpeedLimitMps() {
-    if (robotPoseSupplier == null) return Double.MAX_VALUE;
-    Pose2d robotPose = robotPoseSupplier.get();
-    DriverStation.Alliance alliance = RobotStatus.getAlliance();
-    TurretAimingHelper.AimResult aimResult =
-        TurretAimingHelper.getAimTarget(
-            robotPose.getX(), robotPose.getY(), alliance, pitchDegSupplier.getAsDouble());
-    return switch (aimResult.mode()) {
+    if (cachedAimResult == null) return Double.MAX_VALUE;
+    return switch (cachedAimResult.mode()) {
       case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get() - 0.05;
       case SHOOT_STATIONARY -> stationarySpeedMps.get() - 0.05;
       case PASS, LONG_PASS -> passSpeedMps.get() - 0.05;

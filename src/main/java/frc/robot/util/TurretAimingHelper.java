@@ -19,10 +19,10 @@ import frc.robot.FieldConstants;
  *
  * <ul>
  *   <li>ALLIANCE → SHOOT_ON_THE_MOVE (aim at hub, fire while driving)
- *   <li>TRENCH_NEAR → SHOOT_STATIONARY (aim at hub, must be nearly stopped)
+ *   <li>ALLIANCE_TRENCH → SHOOT_STATIONARY (aim at hub, must be nearly stopped)
  *   <li>NEUTRAL → PASS (aim at pass target)
  *   <li>OPPONENT → LONG_PASS (aggressive pass back to alliance zone)
- *   <li>TRENCH_FAR / BUMP → NONE (suppress shooting, keep last aim target)
+ *   <li>NEUTRAL_TRENCH / BUMP → NONE (suppress shooting, keep last aim target)
  * </ul>
  */
 public class TurretAimingHelper {
@@ -99,14 +99,14 @@ public class TurretAimingHelper {
 
     AimResult result =
         switch (zone) {
-          case ALLIANCE -> {
+          case ALLIANCE_CLOSE, ALLIANCE_MID, ALLIANCE_FAR -> {
             Translation2d hubTarget =
                 (alliance == Alliance.Blue)
                     ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()
                     : FieldConstants.Hub.oppInnerCenterPoint.toTranslation2d();
             yield new AimResult(hubTarget, AimMode.SHOOT_ON_THE_MOVE, zone);
           }
-          case TRENCH_NEAR -> {
+          case ALLIANCE_TRENCH -> {
             Translation2d hubTarget =
                 (alliance == Alliance.Blue)
                     ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()
@@ -130,7 +130,7 @@ public class TurretAimingHelper {
             double targetY = ZoneDetector.getPassTargetY(robotY);
             yield new AimResult(new Translation2d(targetX, targetY), AimMode.LONG_PASS, zone);
           }
-          case TRENCH_FAR, BUMP -> {
+          case NEUTRAL_TRENCH, BUMP -> {
             // Keep last aim target for smooth turret motion, but suppress firing
             if (lastResult != null) {
               yield new AimResult(lastResult.target(), AimMode.NONE, zone);

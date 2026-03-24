@@ -7,6 +7,7 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import frc.robot.util.LoggedTunableNumber;
+import frc.robot.util.ZoneDetector;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -31,13 +32,10 @@ public final class ShotCalculator {
   // own arc (hood angle) requires to hit the hub, then dividing by the average surface velocity
   // at that RPM. Efficiency varies with distance/RPM — higher RPM (longer range) tends to have
   // more ball compression and slip, reducing effective efficiency.
-  // Breakpoints are tunable via NetworkTables under Shots/SmartLaunch/Efficiency/.
-  private static final LoggedTunableNumber efficiencyDistClose =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/CloseDist", 2.0);
-  private static final LoggedTunableNumber efficiencyDistMid =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/MidDist", 3.5);
-  private static final LoggedTunableNumber efficiencyDistFar =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/FarDist", 5.5);
+  //
+  // Distance breakpoints come from ZoneDetector's zone boundaries (Shots/Zones/CloseDist,
+  // MidDist, FarDist) — single source of truth for both zone classification and efficiency.
+  // Efficiency values are tunable via NetworkTables under Shots/SmartLaunch/Efficiency/.
   private static final LoggedTunableNumber efficiencyClose =
       new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Close", 0.774);
   private static final LoggedTunableNumber efficiencyMid =
@@ -99,9 +97,9 @@ public final class ShotCalculator {
    * breakpoints (close, mid, far). Clamps outside the breakpoint range.
    */
   public static double getEfficiency(double distanceMeters) {
-    double dClose = efficiencyDistClose.get();
-    double dMid = efficiencyDistMid.get();
-    double dFar = efficiencyDistFar.get();
+    double dClose = ZoneDetector.getZoneBoundaryClose();
+    double dMid = ZoneDetector.getZoneBoundaryMid();
+    double dFar = ZoneDetector.getZoneBoundaryFar();
     double eClose = efficiencyClose.get();
     double eMid = efficiencyMid.get();
     double eFar = efficiencyFar.get();
@@ -449,6 +447,94 @@ public final class ShotCalculator {
     TrajectoryOptimizer.OptimalShot optimalShot =
         TrajectoryOptimizer.calculateOptimalShot(
             turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
+
+    double turretAngleDeg =
+        calculateOutsideTurretAngle(
+            robotPose.getX(),
+            robotPose.getY(),
+            robotPose.getRotation().getDegrees(),
+            aimTarget.getX(),
+            aimTarget.getY(),
+            currentTurretAngleDeg,
+            effectiveMinDeg,
+            effectiveMaxDeg,
+            config);
+
+    return new ShotResult(
+        optimalShot.exitVelocityMps,
+        optimalShot.rpm,
+        Math.toRadians(optimalShot.launchAngleDeg),
+        optimalShot.hoodAngleDeg,
+        turretAngleDeg,
+        aimTarget,
+        optimalShot.achievable);
+  }
+
+  /**
+   * Calculate shot parameters for the hub using a fixed (locked) hood angle. Used in trench mode
+   * where the hood is clamped to a single value and we solve only for RPM. Includes velocity
+   * compensation for robot movement.
+   *
+   * @param fixedHoodAngleDeg The locked hood angle (e.g., trench max of 18°)
+   */
+  public static ShotResult calculateTrenchHubShot(
+      Pose2d robotPose,
+      ChassisSpeeds fieldSpeeds,
+      Translation3d hubTarget,
+      TurretConfig config,
+      double currentTurretAngleDeg,
+      double effectiveMinDeg,
+      double effectiveMaxDeg,
+      double fixedHoodAngleDeg) {
+
+    double robotHeadingRad = robotPose.getRotation().getRadians();
+    double[] turretFieldPos =
+        getTurretFieldPosition(robotPose.getX(), robotPose.getY(), robotHeadingRad, config);
+    double turretX = turretFieldPos[0];
+    double turretY = turretFieldPos[1];
+    Translation3d turretPos = new Translation3d(turretX, turretY, config.heightMeters());
+
+    // Velocity compensation: adjust aim point for robot movement during flight
+    Translation3d aimTarget = hubTarget;
+    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+    if (robotSpeed > 0.1) {
+      TrajectoryOptimizer.OptimalShot initialShot =
+          TrajectoryOptimizer.calculateFixedHoodShot(turretPos, hubTarget, fixedHoodAngleDeg);
+
+      if (initialShot.achievable) {
+        double distanceToTarget =
+            Math.sqrt(
+                Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
+        double tof =
+            calculateTimeOfFlight(
+                initialShot.exitVelocityMps,
+                Math.toRadians(initialShot.launchAngleDeg),
+                distanceToTarget);
+
+        for (int i = 0; i < 3; i++) {
+          Translation3d candidate =
+              clampAimOffset(predictTargetPos(hubTarget, fieldSpeeds, tof), hubTarget);
+          double aimDistance =
+              Math.sqrt(
+                  Math.pow(candidate.getX() - turretX, 2)
+                      + Math.pow(candidate.getY() - turretY, 2));
+          TrajectoryOptimizer.OptimalShot refinedShot =
+              TrajectoryOptimizer.calculateFixedHoodShot(turretPos, candidate, fixedHoodAngleDeg);
+          if (!refinedShot.achievable) {
+            break;
+          }
+          aimTarget = candidate;
+          tof =
+              calculateTimeOfFlight(
+                  refinedShot.exitVelocityMps,
+                  Math.toRadians(refinedShot.launchAngleDeg),
+                  aimDistance);
+        }
+      }
+    }
+
+    TrajectoryOptimizer.OptimalShot optimalShot =
+        TrajectoryOptimizer.calculateFixedHoodShot(turretPos, aimTarget, fixedHoodAngleDeg);
 
     double turretAngleDeg =
         calculateOutsideTurretAngle(
