@@ -526,7 +526,7 @@ public class Intake extends SubsystemBase {
     return Math.abs(inputs.deployPositionRotations - inputs.deployTargetPosition) > 0;
   }
 
-    /** Check if the deploy mechanism is at target. */
+  /** Check if the deploy mechanism is at target. */
   public boolean retractAtTarget() {
     return Math.abs(inputs.deployPositionRotations - inputs.deployTargetPosition)
         <= deployTolerance.get();

@@ -790,7 +790,8 @@ public class ShootingCommands {
                         () -> {
                           ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                           double launcherRPM = getEffectiveRPM(s);
-                          if (turret.getState() == Turret.TurretState.FLIPPING || turret.getState() == Turret.TurretState.STALLED) {
+                          if (turret.getState() == Turret.TurretState.FLIPPING
+                              || turret.getState() == Turret.TurretState.STALLED) {
                             motivator.stopMotivator();
                           } else {
                             motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
