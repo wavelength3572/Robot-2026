@@ -457,10 +457,10 @@ public class ButtonsAndDashboardBindings {
             DriveCommands.joystickDriveAtAngle(
                 drive, oi::getTranslateX, oi::getTranslateY, () -> Rotation2d.fromDegrees(90.0)));
 
-    // Shoot button (interlink button 13): while held, cap drive speed to guarantee
+    // X-stance button (interlink button 13): while held, cap drive speed to guarantee
     // firing in the current zone (alliance → SOTM threshold, neutral → pass threshold).
     if (shootingCoordinator != null) {
-      oi.getShootButton()
+      oi.getLockWheels()
           .whileTrue(
               Commands.run(
                       () -> DriveCommands.setSpeedLimit(shootingCoordinator.getZoneSpeedLimitMps()))

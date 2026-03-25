@@ -121,6 +121,11 @@ public class InterLinkDXOI implements OperatorInterface {
   }
 
   @Override
+  public Trigger getLockWheels() {
+    return interLinkJoystickJoystickButtons[13]; // Round Push Button on Top Left of Controller
+  }
+
+  @Override
   public Trigger getButtonV() {
     return interLinkJoystickJoystickButtons[1]; // Button v bottom left of top face - up position
   }
