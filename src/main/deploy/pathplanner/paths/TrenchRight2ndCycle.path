@@ -3,16 +3,16 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 4.51033870967742,
-        "y": 0.3923709677419367
+        "x": 3.990492957746479,
+        "y": 0.8732746478873241
       },
       "prevControl": null,
       "nextControl": {
-        "x": 4.9042618108823035,
-        "y": 0.4618302388087089
+        "x": 4.6200564516129035,
+        "y": 0.5752338709677429
       },
       "isLocked": false,
-      "linkedName": "TrenchRightLineStart"
+      "linkedName": "TrenchRightShoot"
     },
     {
       "anchor": {
@@ -94,15 +94,19 @@
   ],
   "rotationTargets": [
     {
-      "waypointRelativePos": 1.5192926045016077,
-      "rotationDegrees": 100.0
-    },
-    {
-      "waypointRelativePos": 2.704983922829581,
+      "waypointRelativePos": 0.4863344051446944,
       "rotationDegrees": -90.0
     },
     {
-      "waypointRelativePos": 3.749999999999999,
+      "waypointRelativePos": 0.9525723472668828,
+      "rotationDegrees": 80.0
+    },
+    {
+      "waypointRelativePos": 1.4911575562700987,
+      "rotationDegrees": 100.0
+    },
+    {
+      "waypointRelativePos": 2.733118971061093,
       "rotationDegrees": -90.0
     }
   ],
@@ -132,7 +136,7 @@
   "folder": "Auto Paths",
   "idealStartingState": {
     "velocity": 0,
-    "rotation": 90.0
+    "rotation": -90.0
   },
   "useDefaultConstraints": false
 }
