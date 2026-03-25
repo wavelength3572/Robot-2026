@@ -168,6 +168,55 @@ public class ShootingCoordinator extends SubsystemBase {
   private int visualizerCounter = 0;
   private static final int VISUALIZER_DIVISOR = 10; // 50Hz / 10 = 5Hz
 
+  // ===== Operator Turret Angle Trim =====
+  // Rotates the aim target around the turret position so the entire shot pipeline
+  // (turret angle, velocity compensation, achievability) adjusts naturally.
+  // Positive = counter-clockwise / left, Negative = clockwise / right.
+  private static final double TURRET_TRIM_STEP_DEG = 0.5;
+  private static final double TURRET_TRIM_MAX_DEG = 3.0;
+  private static double turretTrimDeg = 0.0;
+
+  /** Nudge the turret trim left (CCW) by 0.5 deg. Clamped to +/- 3.0 deg. */
+  public static void trimLeft() {
+    setTurretTrimDeg(turretTrimDeg + TURRET_TRIM_STEP_DEG);
+  }
+
+  /** Nudge the turret trim right (CW) by 0.5 deg. Clamped to +/- 3.0 deg. */
+  public static void trimRight() {
+    setTurretTrimDeg(turretTrimDeg - TURRET_TRIM_STEP_DEG);
+  }
+
+  /** Reset the turret trim to zero. */
+  public static void resetTurretTrim() {
+    setTurretTrimDeg(0.0);
+  }
+
+  private static void setTurretTrimDeg(double trimDeg) {
+    turretTrimDeg = Math.max(-TURRET_TRIM_MAX_DEG, Math.min(TURRET_TRIM_MAX_DEG, trimDeg));
+    SmartDashboard.putNumber("Trim/TurretDeg", turretTrimDeg);
+    Logger.recordOutput("Trim/TurretDeg", turretTrimDeg);
+  }
+
+  /** Get the current turret trim offset in degrees. */
+  public static double getTurretTrimDeg() {
+    return turretTrimDeg;
+  }
+
+  /**
+   * Rotate a 3D aim target around the turret's field position by the current trim angle. Returns
+   * the original target when trim is zero.
+   */
+  private Translation3d applyTurretTrim(Translation3d target, double turretX, double turretY) {
+    if (turretTrimDeg == 0.0) return target;
+    double dx = target.getX() - turretX;
+    double dy = target.getY() - turretY;
+    double trimRad = Math.toRadians(turretTrimDeg);
+    double cos = Math.cos(trimRad);
+    double sin = Math.sin(trimRad);
+    return new Translation3d(
+        turretX + dx * cos - dy * sin, turretY + dx * sin + dy * cos, target.getZ());
+  }
+
   // Current shot data
   private ShotCalculator.ShotResult currentShot = null;
   private double currentDistanceM = -1;
@@ -607,6 +656,15 @@ public class ShootingCoordinator extends SubsystemBase {
   private void calculateShotToTarget(
       Pose2d robotPose, ChassisSpeeds fieldSpeeds, Translation3d target) {
 
+    // Apply operator turret trim — rotate aim target around turret field position
+    if (turretTrimDeg != 0.0) {
+      double headingRad = robotPose.getRotation().getRadians();
+      double[] tfp =
+          ShotCalculator.getTurretFieldPosition(
+              robotPose.getX(), robotPose.getY(), headingRad, turretConfig);
+      target = applyTurretTrim(target, tfp[0], tfp[1]);
+    }
+
     // Update active strategy based on tunable selector
     updateActiveStrategy();
 
@@ -750,6 +808,9 @@ public class ShootingCoordinator extends SubsystemBase {
             robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
     double turretX = turretFieldPos[0];
     double turretY = turretFieldPos[1];
+
+    // Apply operator turret trim — rotate aim target around turret field position
+    target = applyTurretTrim(target, turretX, turretY);
 
     double horizontalDist =
         Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));

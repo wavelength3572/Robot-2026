@@ -154,6 +154,24 @@ public class ButtonsAndDashboardBindings {
             .ignoringDisable(true)
             .withName("Trim +150"));
 
+    // Turret angle trim buttons — nudge aim left/right by 0.5 deg, max +/- 3 deg
+    SmartDashboard.putData(
+        "Trim/TurretLeft",
+        Commands.runOnce(() -> ShootingCoordinator.trimLeft())
+            .ignoringDisable(true)
+            .withName("Turret Trim Left"));
+    SmartDashboard.putData(
+        "Trim/TurretRight",
+        Commands.runOnce(() -> ShootingCoordinator.trimRight())
+            .ignoringDisable(true)
+            .withName("Turret Trim Right"));
+    SmartDashboard.putData(
+        "Trim/TurretReset",
+        Commands.runOnce(() -> ShootingCoordinator.resetTurretTrim())
+            .ignoringDisable(true)
+            .withName("Turret Trim Reset"));
+    SmartDashboard.putNumber("Trim/TurretDeg", ShootingCoordinator.getTurretTrimDeg());
+
     // Coordinated shooting controls (requires coordinator and launcher)
     if (shootingCoordinator != null && launcher != null) {
       configureShootingControls();
