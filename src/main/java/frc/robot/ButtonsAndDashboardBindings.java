@@ -485,7 +485,7 @@ public class ButtonsAndDashboardBindings {
       Command smartLaunchCmd =
           Commands.defer(
               () -> {
-                if (SmartDashboard.getBoolean("Shots/SmartLaunch/UseStateMachine", false)) {
+                if (SmartDashboard.getBoolean("Shots/SmartLaunch/UseStateMachine", true)) {
                   return ShootingCommands.smartLaunch2Command(
                       launcher, shootingCoordinator, motivator, turret, hood, spindexer);
                 } else {

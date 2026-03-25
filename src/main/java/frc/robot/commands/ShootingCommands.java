@@ -128,7 +128,12 @@ public class ShootingCommands {
 
   // Motivator RPM as a ratio of launcher RPM: motivatorRPM = launcherRPM * ratio
   private static final LoggedTunableNumber motivatorLauncherRatio =
-      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorLauncherRatio", 0.565);
+      new LoggedTunableNumber(
+          "Shots/SmartLaunch/MotivatorLauncherRatio", 0.565); // consider .68 was .565
+
+  // Fixed motivator RPM used in trench mode (overrides ratio-based calculation)
+  private static final LoggedTunableNumber trenchMotivatorRPM =
+      new LoggedTunableNumber("Shots/SmartLaunch/TrenchMotivatorRPM", 1800.0);
 
   // Spindexer RPM lerped by distance: close = max, far = min
   private static final LoggedTunableNumber spindexerCloseRPM =
@@ -193,6 +198,19 @@ public class ShootingCommands {
     return launcherRPM * motivatorLauncherRatio.get();
   }
 
+  /**
+   * Derive motivator RPM, using a flat tunable RPM in trench mode instead of the ratio.
+   *
+   * @param launcherRPM current launcher RPM (used for ratio in non-trench mode)
+   * @param isTrenchMode true when the robot is in trench mode
+   */
+  public static double getMotivatorRPM(double launcherRPM, boolean isTrenchMode) {
+    if (isTrenchMode) {
+      return trenchMotivatorRPM.get();
+    }
+    return launcherRPM * motivatorLauncherRatio.get();
+  }
+
   /** Lerp spindexer RPM from distance — close (1.16m) to far (5.35m). */
   public static double getSpindexerRPM(double distanceM) {
     double minDist = 1.16, maxDist = 5.35;
@@ -225,6 +243,8 @@ public class ShootingCommands {
     rightTrenchTurretAngleDeg.get();
     rightTrenchMotivatorRPM.get();
     rightTrenchSpindexerRPM.get();
+
+    trenchMotivatorRPM.get();
 
     // LUT Dev override tunables
     lutDevOverrideRPM.get();
@@ -677,7 +697,8 @@ public class ShootingCommands {
                       if (coordinator.isFeedingAllowed()) {
                         ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                         double launcherRPM = getEffectiveRPM(s);
-                        motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                        motivator.setMotivatorVelocity(
+                            getMotivatorRPM(launcherRPM, coordinator.isTrenchModeActive()));
                       } else {
                         motivator.stopMotivator();
                       }
@@ -841,7 +862,8 @@ public class ShootingCommands {
                                 && launcher.isReady()
                                 && turret.atTarget()
                                 && hood.atTarget()) {
-                              motivator.setMotivatorVelocity(getMotivatorRPM(rpm));
+                              motivator.setMotivatorVelocity(
+                                  getMotivatorRPM(rpm, coordinator.isTrenchModeActive()));
                             }
                           }
 
@@ -967,7 +989,8 @@ public class ShootingCommands {
                               || turret.getState() == Turret.TurretState.STALLED) {
                             motivator.stopMotivator();
                           } else {
-                            motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                            motivator.setMotivatorVelocity(
+                                getMotivatorRPM(launcherRPM, coordinator.isTrenchModeActive()));
                           }
                         },
                         motivator)
@@ -1066,7 +1089,7 @@ public class ShootingCommands {
                       hood.setHoodAngle(getEffectiveHoodDeg(shot));
                     }
                     if (motivator != null) {
-                      double motRPM = getMotivatorRPM(rpm);
+                      double motRPM = getMotivatorRPM(rpm, coordinator.isTrenchModeActive());
                       motivator.setMotivatorVelocity(motRPM);
                     }
                   }
@@ -1099,7 +1122,8 @@ public class ShootingCommands {
                             }
                             // Start motivator once launcher is at setpoint
                             if (motivator != null && launcher.isReady()) {
-                              motivator.setMotivatorVelocity(getMotivatorRPM(rpm));
+                              motivator.setMotivatorVelocity(
+                                  getMotivatorRPM(rpm, coordinator.isTrenchModeActive()));
                             }
                           }
 
@@ -1255,7 +1279,8 @@ public class ShootingCommands {
                         () -> {
                           ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                           double launcherRPM = getEffectiveRPM(s);
-                          motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                          motivator.setMotivatorVelocity(
+                              getMotivatorRPM(launcherRPM, coordinator.isTrenchModeActive()));
                         },
                         motivator)
                     : Commands.none(),
@@ -1548,7 +1573,8 @@ public class ShootingCommands {
                       }
                       ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                       double launcherRPM = getEffectiveRPM(s);
-                      motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                      motivator.setMotivatorVelocity(
+                          getMotivatorRPM(launcherRPM, coordinator.isTrenchModeActive()));
                     },
                     motivator)
                 : Commands.none(),
@@ -1743,7 +1769,8 @@ public class ShootingCommands {
                       }
                       ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                       double launcherRPM = getEffectiveRPM(s);
-                      motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
+                      motivator.setMotivatorVelocity(
+                          getMotivatorRPM(launcherRPM, coordinator.isTrenchModeActive()));
                     },
                     motivator)
                 : Commands.none(),

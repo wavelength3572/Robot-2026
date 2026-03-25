@@ -244,14 +244,15 @@ public class ShootingCoordinator extends SubsystemBase {
         new ParametricWithLUTFallbackStrategy(parametricStrategy, lutStrategy);
     this.parametricWithProceduralFallback =
         new ParametricWithProceduralFallbackStrategy(lutStrategy);
-    this.activeStrategy = parametricStrategy;
+    this.activeStrategy = parametricWithProceduralFallback;
 
     // Strategy dropdown on dashboard — four options
-    strategyChooser.setDefaultOption("Parametric", "Parametric");
+    strategyChooser.addOption("Parametric", "Parametric");
     strategyChooser.addOption("LUT (Lookup Table)", "LUT");
     strategyChooser.addOption("LUT Alternate", "LUT_ALTERNATE");
     strategyChooser.addOption("Parametric + LUT Fallback", "PARAMETRIC_LUT_FALLBACK");
-    strategyChooser.addOption("Parametric + Procedural Fallback", "PARAMETRIC_PROCEDURAL_FALLBACK");
+    strategyChooser.setDefaultOption(
+        "Parametric + Procedural Fallback", "PARAMETRIC_PROCEDURAL_FALLBACK");
     SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
 
     // Passing strategy chooser — how to pick left vs right pass target
@@ -1333,15 +1334,16 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Update the active strategy based on the dashboard dropdown. */
   private void updateActiveStrategy() {
     String selected = strategyChooser.getSelected();
-    if (selected == null) selected = "Parametric";
+    if (selected == null) selected = "PARAMETRIC_PROCEDURAL_FALLBACK";
 
     ShotStrategy newStrategy;
     switch (selected) {
+      case "Parametric" -> newStrategy = parametricStrategy;
       case "LUT" -> newStrategy = lutStrategy;
       case "LUT_ALTERNATE" -> newStrategy = alternateLutStrategy;
       case "PARAMETRIC_LUT_FALLBACK" -> newStrategy = parametricWithLutFallback;
       case "PARAMETRIC_PROCEDURAL_FALLBACK" -> newStrategy = parametricWithProceduralFallback;
-      default -> newStrategy = parametricStrategy;
+      default -> newStrategy = parametricWithProceduralFallback;
     }
 
     if (newStrategy != activeStrategy) {
