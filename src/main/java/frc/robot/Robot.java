@@ -114,7 +114,6 @@ public class Robot extends LoggedRobot {
     canAliases.put(59, "Launcher Follower");
     canAliases.put(60, "Hood");
 
-    URCL.start(canAliases);
     Logger.registerURCL(URCL.startExternal(canAliases));
     StatusLogger.disableAutoLogging(); // Disable REVLib's built-in logging
 
