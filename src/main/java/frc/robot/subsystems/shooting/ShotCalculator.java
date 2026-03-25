@@ -1,11 +1,11 @@
 package frc.robot.subsystems.shooting;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.subsystems.hood.TrajectoryOptimizer;
 import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.ZoneDetector;
@@ -38,11 +38,11 @@ public final class ShotCalculator {
   // MidDist, FarDist) — single source of truth for both zone classification and efficiency.
   // Efficiency values are tunable via NetworkTables under Shots/SmartLaunch/Efficiency/.
   private static final LoggedTunableNumber efficiencyClose =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Close", 0.774);
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Close", 0.69); //was .774
   private static final LoggedTunableNumber efficiencyMid =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Mid", 0.774);
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Mid", 0.68); //was .774
   private static final LoggedTunableNumber efficiencyFar =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Far", 0.75);
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Far", 0.81); //was .75
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -424,7 +424,8 @@ public final class ShotCalculator {
             Math.sqrt(
                 Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
 
-        if (SmartDashboard.getBoolean("Shots/VelocityComp/UseHorizontalTOF", USE_HORIZONTAL_TOF_DEFAULT)) {
+        if (SmartDashboard.getBoolean(
+            "Shots/VelocityComp/UseHorizontalTOF", USE_HORIZONTAL_TOF_DEFAULT)) {
           // Single-pass horizontal TOF: stable, no iteration.
           // Lateral drift depends on horizontal flight time, not total arc time.
           double vx =
@@ -528,7 +529,8 @@ public final class ShotCalculator {
             Math.sqrt(
                 Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
 
-        if (SmartDashboard.getBoolean("Shots/VelocityComp/UseHorizontalTOF", USE_HORIZONTAL_TOF_DEFAULT)) {
+        if (SmartDashboard.getBoolean(
+            "Shots/VelocityComp/UseHorizontalTOF", USE_HORIZONTAL_TOF_DEFAULT)) {
           double vx =
               initialShot.exitVelocityMps * Math.cos(Math.toRadians(initialShot.launchAngleDeg));
           double horizontalTof = (vx > 0.1) ? distanceToTarget / vx : 0.0;
