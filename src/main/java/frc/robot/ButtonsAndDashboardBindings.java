@@ -481,7 +481,7 @@ public class ButtonsAndDashboardBindings {
       if (hood != null) smartLaunchReqs.add(hood);
       if (motivator != null) smartLaunchReqs.add(motivator);
       if (spindexer != null) smartLaunchReqs.add(spindexer);
-      SmartDashboard.putBoolean("Shots/SmartLaunch/UseStateMachine", false);
+      SmartDashboard.putBoolean("Shots/SmartLaunch/UseStateMachine", true);
       Command smartLaunchCmd =
           Commands.defer(
               () -> {
