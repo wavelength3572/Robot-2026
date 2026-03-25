@@ -262,9 +262,6 @@ public class ShootingCoordinator extends SubsystemBase {
   // Used for both spindexer gating and active drive speed limiting.
   private final LoggedTunableNumber shootOnTheMoveSpeedMps =
       new LoggedTunableNumber("Shots/SpeedLimits/ShootOnTheMoveSpeedMps", 1.25);
-  // Stationary threshold for autoTrackingStationaryCommand (robot must be nearly stopped).
-  private final LoggedTunableNumber stationarySpeedMps =
-      new LoggedTunableNumber("Shots/SpeedLimits/StationarySpeedMps", 0.1);
   // PASS / LONG_PASS: max speed for pass shots in neutral/opponent zones.
   private final LoggedTunableNumber passSpeedMps =
       new LoggedTunableNumber("Shots/SpeedLimits/PassSpeedMps", 3.0);
@@ -1175,19 +1172,6 @@ public class ShootingCoordinator extends SubsystemBase {
   public ZoneDetector.Zone getCurrentZone() {
     if (cachedAimResult == null) return ZoneDetector.Zone.ALLIANCE_MID;
     return cachedAimResult.zone();
-  }
-
-  /**
-   * Check if the robot is stationary (speed <= stationarySpeedMps tunable). Used by auto-tracking
-   * stationary shooting strategy.
-   *
-   * @return true if the robot speed is within the stationary threshold
-   */
-  public boolean isRobotStationary() {
-    if (fieldSpeedsSupplier == null) return true;
-    ChassisSpeeds speeds = fieldSpeedsSupplier.get();
-    double robotSpeedMps = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
-    return robotSpeedMps <= stationarySpeedMps.get();
   }
 
   // ========== Trench Avoidance Mode ==========
