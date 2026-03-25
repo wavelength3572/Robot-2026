@@ -454,7 +454,7 @@ public class ShootingCommands {
                           boolean motivatorReady =
                               motivator == null
                                   || motivator.getState() == Motivator.MotivatorState.READY;
-                          boolean turretReady = turret.getState() == Turret.TurretState.READY;
+                          boolean turretReady = turret.atTarget();
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
 
@@ -467,7 +467,7 @@ public class ShootingCommands {
                           boolean motivatorReady =
                               motivator == null
                                   || motivator.getState() == Motivator.MotivatorState.READY;
-                          boolean turretReady = turret.getState() == Turret.TurretState.READY;
+                          boolean turretReady = turret.atTarget();
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
                           return launcherReady && motivatorReady && turretReady && hoodReady;
@@ -798,6 +798,29 @@ public class ShootingCommands {
                   // System.out.println("[SmartLaunch] Starting odometry-based launch");
                 }),
 
+            // Phase 1.5: Brief reverse pulse to clear balls from motivator/spindexer
+            // while the launcher is spinning up
+            Commands.sequence(
+                Commands.runOnce(
+                    () -> {
+                      if (motivator != null) {
+                        motivator.setMotivatorVoltage(-3.0);
+                      }
+                      if (spindexer != null) {
+                        spindexer.reverseSpindexer(250.0);
+                      }
+                    }),
+                Commands.waitSeconds(0.2),
+                Commands.runOnce(
+                    () -> {
+                      if (motivator != null) {
+                        motivator.stopMotivator();
+                      }
+                      if (spindexer != null) {
+                        spindexer.stopSpindexer();
+                      }
+                    })),
+
             // Phase 2: Wait for all subsystems to reach setpoint (with 5s timeout)
             Commands.race(
                 Commands.sequence(
@@ -823,7 +846,7 @@ public class ShootingCommands {
                           }
 
                           boolean launcherReady = launcher.isReady();
-                          boolean turretReady = turret.getState() == Turret.TurretState.READY;
+                          boolean turretReady = turret.atTarget();
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
                           boolean achievable =
@@ -847,7 +870,7 @@ public class ShootingCommands {
                         () -> {
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                           boolean launcherReady = launcher.isReady();
-                          boolean turretReady = turret.getState() == Turret.TurretState.READY;
+                          boolean turretReady = turret.atTarget();
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
                           boolean achievable =
@@ -940,7 +963,8 @@ public class ShootingCommands {
                         () -> {
                           ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                           double launcherRPM = getEffectiveRPM(s);
-                          if (turret.getState() == Turret.TurretState.FLIPPING) {
+                          if (turret.getState() == Turret.TurretState.FLIPPING
+                              || turret.getState() == Turret.TurretState.STALLED) {
                             motivator.stopMotivator();
                           } else {
                             motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM));
@@ -1300,6 +1324,33 @@ public class ShootingCommands {
   }
 
   /**
+   * Smart launch with drive speed limiting. Sets a global speed limit on the default drive command
+   * while active. When released, the speed limit ramps back up smoothly (via {@link
+   * DriveCommands#clearSpeedLimit()}) to prevent sudden acceleration if the driver is pushing the
+   * stick forward.
+   *
+   * @param launcher The launcher subsystem
+   * @param coordinator The shooting coordinator
+   * @param motivator The motivator subsystem (can be null)
+   * @param turret The turret subsystem
+   * @param hood The hood subsystem (can be null)
+   * @param spindexer The spindexer subsystem (can be null)
+   * @return Command that aims, fires, and limits drive speed while held
+   */
+  public static Command smartLaunchWithSpeedLimitCommand(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer) {
+    return smartLaunchCommandImpl(launcher, coordinator, motivator, turret, hood, spindexer)
+        .beforeStarting(() -> DriveCommands.setSpeedLimit(coordinator.getShootOnTheMoveSpeedMps()))
+        .finallyDo(() -> DriveCommands.clearSpeedLimit())
+        .withName("SmartLaunch (Speed Limited)");
+  }
+
+  /**
    * Auto-tracking command. Continuously aims turret and hood at the calculated target based on
    * odometry. When used as a toggle, keeps the turret/hood pre-aimed so that firing commands
    * (smartLaunch, hub shot, etc.) can skip the positioning phase — they interrupt this command via
@@ -1321,7 +1372,7 @@ public class ShootingCommands {
 
                 // Auto-track specific: aim readiness (turret only, hood handled by fire
                 // commands)
-                boolean turretReady = turret.getState() == Turret.TurretState.READY;
+                boolean turretReady = turret.atTarget();
                 boolean aimReady = turretReady && shot.achievable();
                 Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", aimReady);
 
@@ -1373,7 +1424,7 @@ public class ShootingCommands {
       ShotCalculator.ShotResult shot) {
     return launcher.isReady()
         && (motivator == null || motivator.getState() == Motivator.MotivatorState.READY)
-        && turret.getState() == Turret.TurretState.READY
+        && turret.atTarget()
         && (hood == null || hood.getState() == Hood.HoodState.READY)
         && shot != null
         && (isLutDevOverrideActive() || shot.achievable());
@@ -1515,7 +1566,7 @@ public class ShootingCommands {
                       public void run() {
                         boolean armed = feedingArmed[0];
                         boolean launcherReady = launcher.isReady();
-                        boolean turretAimed = turret.getState() == Turret.TurretState.READY;
+                        boolean turretAimed = turret.atTarget();
                         boolean speedOk = coordinator.isRobotSlowEnoughForCurrentZone();
                         Logger.recordOutput("ContinuousSmartLaunch/Gate/Armed", armed);
                         Logger.recordOutput(
@@ -1709,7 +1760,7 @@ public class ShootingCommands {
                               || zone == ZoneDetector.Zone.OPPONENT;
                       boolean stationary = coordinator.isRobotStationary();
                       boolean launcherReady = launcher.isReady();
-                      boolean turretAimed = turret.getState() == Turret.TurretState.READY;
+                      boolean turretAimed = turret.atTarget();
 
                       Logger.recordOutput("AutoTrackStationary/Gate/InShootZone", inShootZone);
                       Logger.recordOutput("AutoTrackStationary/Gate/Stationary", stationary);
@@ -1854,9 +1905,9 @@ public class ShootingCommands {
       return Commands.sequence(
               Commands.waitUntil(
                   () ->
-                      coordinator.isFeedingAllowed()
-                          && turret.getState() == Turret.TurretState.READY
-                          && launcher.isReady()),
+                      turret.getState() == Turret.TurretState.READY
+                          && launcher.isReady()
+                          && coordinator.isRobotSlowEnoughForCurrentZone()),
               Commands.runOnce(
                   () -> {
                     ShotVisualizer visualizer = coordinator.getVisualizer();
