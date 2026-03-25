@@ -239,11 +239,11 @@ public class Turret extends SubsystemBase {
         if (lastRequestedTargetAngle >= getOutsideCurrentAngle()) {
           // trying to move CCW
           // To Target an angle 90 degrees CW
-          stallTargetAngle = getOutsideCurrentAngle() + 90;
+          stallTargetAngle = getOutsideCurrentAngle() - 90;
         } else {
           // Trying to move CW
           // To Target an angle 90 degrees CCW
-          stallTargetAngle = getOutsideCurrentAngle() - 90;
+          stallTargetAngle = getOutsideCurrentAngle() + 90;
         }
         // Make the target the Max angle in either direction if the 90 degree
         // offset pushed it out of that range.
