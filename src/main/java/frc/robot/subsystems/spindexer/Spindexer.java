@@ -48,8 +48,8 @@ public class Spindexer extends SubsystemBase {
       new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", 325.0);
 
   // Auto-unclog — detects stall during FEEDING and briefly reverses to clear the jam.
-  // Disabled by default; enable from dashboard when ready to test.
-  private boolean autoUnclogEnabled = false;
+  // Enabled by default; can be toggled from dashboard if needed.
+  private boolean autoUnclogEnabled = true;
   private boolean autoUnclogInProgress = false;
   private final Timer stallTimer = new Timer(); // How long stall condition has persisted
   private final Timer autoUnclogTimer = new Timer(); // How long the reverse burst has been running
