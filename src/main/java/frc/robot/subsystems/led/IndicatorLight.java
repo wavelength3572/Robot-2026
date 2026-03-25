@@ -15,6 +15,7 @@ import frc.robot.subsystems.led.IndicatorLightConstants.LED_EFFECTS;
 import frc.robot.util.HubShiftUtil;
 import java.util.Random;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.Logger;
 
 public class IndicatorLight extends SubsystemBase {
 
@@ -221,6 +222,7 @@ public class IndicatorLight extends SubsystemBase {
     if (LED_State != LED_EFFECTS.BLINK) {
       LED_State = currentColor_GOAL;
     }
+    Logger.recordOutput("LEDs/State", LED_State.name());
     switch (LED_State) {
       case RED -> setActiveBuffer(wlRedLEDBuffer);
       case YELLOW -> setActiveBuffer(wlYellowLEDBuffer);
@@ -467,13 +469,15 @@ public class IndicatorLight extends SubsystemBase {
     int numLEDs = wlLEDBuffer.getLength(); // 42
     int half = numLEDs / 2; // 21
 
-    // Phase 1: progressive fill (10.0s → 3.0s), Phase 2: full bar blink (3.0s → 0.0s)
+    // Phase 1: progressive fill (cutoff → 3.0s), Phase 2: full bar blink (3.0s → 0.0s)
+    double cutoff = HubShiftUtil.preActiveCutoffSeconds.get();
+    double phase1Duration = Math.max(cutoff - 3.0, 0.1); // avoid divide-by-zero
     boolean phase2 = countdownRemainingTime <= 3.0;
 
     double blinkPeriod;
     if (!phase2) {
-      // Phase 1: blink period 0.4s → 0.15s as remainingTime goes 10.0 → 3.0
-      double t = 1.0 - (countdownRemainingTime - 3.0) / 7.0; // 0.0 → 1.0
+      // Phase 1: blink period 0.4s → 0.15s as remainingTime goes cutoff → 3.0
+      double t = 1.0 - (countdownRemainingTime - 3.0) / phase1Duration; // 0.0 → 1.0
       t = Math.max(0.0, Math.min(1.0, t));
       blinkPeriod = 0.4 - t * (0.4 - 0.15);
     } else {
@@ -491,7 +495,7 @@ public class IndicatorLight extends SubsystemBase {
 
     if (!phase2) {
       // Phase 1: fill from both ends inward
-      double progress = 1.0 - (countdownRemainingTime - 3.0) / 7.0; // 0.0 → 1.0
+      double progress = 1.0 - (countdownRemainingTime - 3.0) / phase1Duration; // 0.0 → 1.0
       progress = Math.max(0.0, Math.min(1.0, progress));
       int ledsPerSide = Math.max(2, (int) Math.ceil(progress * half));
 
@@ -832,9 +836,10 @@ public class IndicatorLight extends SubsystemBase {
       return LED_EFFECTS.BLINK_RED;
     }
 
-    // Teleop: green when active, red when inactive, blink white 10s before going active
-    HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getOfficialShiftInfo();
-    if (!shiftInfo.active() && shiftInfo.remainingTime() <= 10.0) {
+    // Teleop: green when active, red when inactive, countdown blink before going active
+    HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getShiftedShiftInfo();
+    if (!shiftInfo.active()
+        && shiftInfo.remainingTime() <= HubShiftUtil.preActiveCutoffSeconds.get()) {
       countdownRemainingTime = shiftInfo.remainingTime();
       return LED_EFFECTS.COUNTDOWN_BLINK;
     } else if (shiftInfo.active() && shiftInfo.remainingTime() <= 5.0) {

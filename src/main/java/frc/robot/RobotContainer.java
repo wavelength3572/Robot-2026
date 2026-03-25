@@ -65,6 +65,7 @@ import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 public class RobotContainer {
@@ -251,19 +252,39 @@ public class RobotContainer {
       shootingCoordinator = new ShootingCoordinator(turret, hood, launcher, motivator, spindexer);
       shootingCoordinator.initialize(
           drive::getPose, drive::getFieldRelativeSpeeds, drive::getPitchDeg);
-      // Gate launching: suppress if spindexer is suppressed OR hub shift is inactive
+      // Gate launching: zone-aware hub shift gating with pre-active cutoff
       // (unless "Ignore Hub State" dashboard toggle is on)
       shootingCoordinator.setFeedingSuppressedSupplier(
           () -> {
-            // Auto holdFire suppression (toggled by named commands)
+            // Auto hold-fire (autonomous named commands) — unconditional
             if (autoFeedingSuppressed) return true;
-            // Spindexer operator suppression (button box)
-            if (spindexer != null && spindexer.isFeedingSuppressed()) return true;
-            // Hub shift gating (skip if override is on)
+
+            // Compute hub-shift suppression (only when Ignore Hub State is OFF)
+            boolean hubSuppressed = false;
             if (!SmartDashboard.getBoolean("Match/Ignore Hub State", false)) {
-              return !HubShiftUtil.getShiftedShiftInfo().active();
+              HubShiftUtil.ShiftInfo shifted = HubShiftUtil.getShiftedShiftInfo();
+
+              if (!shifted.active()) {
+                double cutoff = HubShiftUtil.preActiveCutoffSeconds.get();
+                if (shifted.remainingTime() <= cutoff) {
+                  // Pre-active cutoff: suppress ALL (stop passing, reposition)
+                  hubSuppressed = true;
+                } else if (shootingCoordinator.isInAllianceZone()) {
+                  // Alliance zone + inactive: can't score
+                  hubSuppressed = true;
+                }
+                // else: neutral/opponent zone + inactive + outside cutoff: passing OK
+              }
             }
-            return false;
+            Logger.recordOutput("HubShift/AutoSuppressed", hubSuppressed);
+
+            // Operator hold-fire — checked AFTER so we can detect conflict
+            boolean operatorSuppressed = spindexer != null && spindexer.isFeedingSuppressed();
+            // Log: operator blocking firing that hub state allows
+            Logger.recordOutput(
+                "HubShift/OperatorOverridingAllowed", operatorSuppressed && !hubSuppressed);
+
+            return hubSuppressed || operatorSuppressed;
           });
     } else {
       shootingCoordinator = null;
