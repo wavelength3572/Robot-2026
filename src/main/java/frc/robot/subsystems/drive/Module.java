@@ -74,6 +74,10 @@ public class Module {
     io.setTurnPosition(Rotation2d.kZero);
   }
 
+  public void setDriveMotorCurrentLimits(double currentLimit) {
+    io.setDriveMotorCurrentLimits(currentLimit);
+  }
+
   /** Disables all outputs to motors. */
   public void stop() {
     io.setDriveOpenLoop(0.0);

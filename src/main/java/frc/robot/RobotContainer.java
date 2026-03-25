@@ -662,6 +662,15 @@ public class RobotContainer {
   }
 
   /**
+   * Get the drive subsystem.
+   *
+   * @return drive subsystem or null if not present
+   */
+  public Drive getDrive() {
+    return drive;
+  }
+
+  /**
    * Check if the motivator subsystem is present on this robot.
    *
    * @return true if motivator exists
