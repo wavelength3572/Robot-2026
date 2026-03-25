@@ -207,10 +207,27 @@ public class ButtonsAndDashboardBindings {
           "Shots/RightTrench/Fire",
           ShootingCommands.rightTrenchShotCommand(
               launcher, shootingCoordinator, motivator, turret, hood, spindexer));
-      SmartDashboard.putData(
-          "Shots/SmartLaunch/Fire",
-          ShootingCommands.smartLaunchCommand(
-              launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+      {
+        Set<Subsystem> dashSmartLaunchReqs = new HashSet<>();
+        dashSmartLaunchReqs.add(launcher);
+        dashSmartLaunchReqs.add(turret);
+        if (hood != null) dashSmartLaunchReqs.add(hood);
+        if (motivator != null) dashSmartLaunchReqs.add(motivator);
+        if (spindexer != null) dashSmartLaunchReqs.add(spindexer);
+        SmartDashboard.putData(
+            "Shots/SmartLaunch/Fire",
+            Commands.defer(
+                () -> {
+                  if (SmartDashboard.getBoolean("Shots/SmartLaunch/UseStateMachine", true)) {
+                    return ShootingCommands.smartLaunch2Command(
+                        launcher, shootingCoordinator, motivator, turret, hood, spindexer);
+                  } else {
+                    return ShootingCommands.smartLaunchCommand(
+                        launcher, shootingCoordinator, motivator, turret, hood, spindexer);
+                  }
+                },
+                dashSmartLaunchReqs));
+      }
       // Auto-track: toggle works while disabled; turret default command checks the flag
       // TODO: Only enable auto-tracking when we are in the alliance zone AND we have
       //       completed at least one smart launch. This avoids unnecessary turret movement

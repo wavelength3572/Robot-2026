@@ -49,7 +49,7 @@ public class LauncherIOSim implements LauncherIO {
       new LoggedTunableNumber("Sim/Launcher/SimSpinupTime", 0.75);
 
   private static final LoggedTunableNumber recoveryTimeSeconds =
-      new LoggedTunableNumber("Sim/Launcher/SimRecoveryTime", 0.19);
+      new LoggedTunableNumber("Sim/Launcher/SimRecoveryTime", 0.05);
 
   // Optional variation for more realistic testing (set to 0 to disable)
   private static final LoggedTunableNumber spinupTimeVariation =
@@ -169,9 +169,9 @@ public class LauncherIOSim implements LauncherIO {
 
   @Override
   public void notifyBallFired() {
-    // Start recovery transition - RPM drops briefly then recovers
-    // The drop amount is internal (just enough for visual feedback)
-    double visualRpmDrop = targetWheelRPM * 0.3; // 30% drop for visual effect
+    // Start recovery transition - RPM drops then recovers
+    // Real flywheel drops ~200 RPM per shot (~7% at 3000 RPM)
+    double visualRpmDrop = targetWheelRPM * 0.07;
     currentWheelRPM = Math.max(0, currentWheelRPM - visualRpmDrop);
 
     // Start recovery transition back to target
