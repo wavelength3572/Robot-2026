@@ -135,7 +135,7 @@ public class ShootingCommands {
   private static final LoggedTunableNumber spindexerCloseRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 550.0);
   private static final LoggedTunableNumber spindexerFarRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 550.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 325.0);
   // Fixed spindexer RPM used in pass/neutral zones (no distance lerp)
   private static final LoggedTunableNumber spindexerPassRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 550.0);
@@ -693,7 +693,7 @@ public class ShootingCommands {
                   if (shot != null) {
                     double rpm = getEffectiveRPM(shot);
                     double hoodDeg = getEffectiveHoodDeg(shot);
-                    launcher.setVelocity(rpm);
+                    launcher.setVelocity(coordinator.shouldIdleLauncher() ? 0 : rpm);
                     coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
                   }
                 },
@@ -829,7 +829,7 @@ public class ShootingCommands {
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
                     double rpm = getEffectiveRPM(shot);
-                    launcher.setVelocity(rpm);
+                    launcher.setVelocity(coordinator.shouldIdleLauncher() ? 0 : rpm);
                     if (hood != null) {
                       hood.setHoodAngle(getEffectiveHoodDeg(shot));
                     }
@@ -882,7 +882,7 @@ public class ShootingCommands {
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                           if (shot != null) {
                             double rpm = getEffectiveRPM(shot);
-                            launcher.setVelocity(rpm);
+                            launcher.setVelocity(coordinator.shouldIdleLauncher() ? 0 : rpm);
                             if (hood != null) {
                               hood.setHoodAngle(getEffectiveHoodDeg(shot));
                             }
@@ -962,7 +962,7 @@ public class ShootingCommands {
                       if (shot != null) {
                         double rpm = getEffectiveRPM(shot);
                         double hoodDeg = getEffectiveHoodDeg(shot);
-                        launcher.setVelocity(rpm);
+                        launcher.setVelocity(coordinator.shouldIdleLauncher() ? 0 : rpm);
                         // Cache params so recordBatchCommand can read them after SmartLaunch ends
                         coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
                       }

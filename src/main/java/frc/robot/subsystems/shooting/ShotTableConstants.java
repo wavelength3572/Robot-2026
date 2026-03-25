@@ -29,10 +29,12 @@ public final class ShotTableConstants {
     // {3.700, 3350, 18.0, 1.240}, // was 3225, perfect distance with 125 trim so upping permanently
     // {3.750, 3375, 18.0, 1.240}, // was 3225
     // Long range
-    { 3.900, 3300, 22.0, 1.28}, // was tested at 3050, 20, but practice match 1 it fell really short at this exact distance,
+    {
+      3.900, 3300, 22.0, 1.28
+    }, // was tested at 3050, 20, but practice match 1 it fell really short at this exact distance,
     // bumping 250 and 2 degrees
-    {4.152, 3300, 34.0, 1.33}, // tested - okay
-    {4.903, 3550, 34.0, 1.38}, // tried to make this a little lobbier +1deg +100RPM untested
+    // {4.152, 3300, 34.0, 1.33}, // tested - okay
+    {4.887, 3650, 42.0, 1.38}, // tried to make this a little lobbier +1deg +100RPM untested
   };
 
   // ===== ALTERNATE LUT TABLE =====

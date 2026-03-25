@@ -1150,6 +1150,15 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
+   * Check if the launcher should idle at 0 RPM. True when the operator is suppressing feeding and
+   * the robot is outside alliance zones (neutral/opponent), where there is no reason to keep the
+   * flywheel spinning.
+   */
+  public boolean shouldIdleLauncher() {
+    return feedingSuppressedSupplier.getAsBoolean() && !isInAllianceZone();
+  }
+
+  /**
    * Check if the robot is in an alliance zone where hub shooting (and agitation) is appropriate.
    *
    * @return true if in ALLIANCE_CLOSE, ALLIANCE_MID, ALLIANCE_FAR, or ALLIANCE_TRENCH

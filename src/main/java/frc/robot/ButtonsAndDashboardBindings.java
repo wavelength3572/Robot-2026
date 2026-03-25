@@ -657,16 +657,11 @@ public class ButtonsAndDashboardBindings {
               .ignoringDisable(true)
               .withName("Toggle AutoUnclog"));
     }
-    ;
+
+    // Turret aim trim — nudge aim CCW/CW by 0.5 deg per press, max +/- 3 deg
+    oi.getButtonBox1Button7()
+        .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimLeft()).ignoringDisable(true));
+    oi.getButtonBox1Button10()
+        .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimRight()).ignoringDisable(true));
   }
-
-  /**
-   * Runs intake rollers at shooting RPM while a shooting command is active, but only when the
-   * intake is retracted. If the intake is deployed, does nothing so the normal roller speed is not
-   * interrupted.
-   */
-
-  // Climb Extend: button 7
-  // Climb(retract) : button 10
-  // Turret Lock: button 1
 }
