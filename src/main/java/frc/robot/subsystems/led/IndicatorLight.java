@@ -10,6 +10,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants;
 import frc.robot.subsystems.led.IndicatorLightConstants.LED_EFFECTS;
 import frc.robot.util.HubShiftUtil;
 import java.util.Random;
@@ -854,5 +855,14 @@ public class IndicatorLight extends SubsystemBase {
     currentActiveBuffer = buffer;
     buffer.flushToBuffer();
     wlLED.setData(buffer.getInternalBuffer());
+
+    // Sim-only: publish LED colors as hex strings for Elastic Multi Color View widget
+    if (Constants.currentMode == Constants.Mode.SIM) {
+      String[] colors = new String[buffer.getLength()];
+      for (int i = 0; i < buffer.getLength(); i++) {
+        colors[i] = buffer.getLED(i).toHexString();
+      }
+      SmartDashboard.putStringArray("Sim/LED Strip", colors);
+    }
   }
 }
