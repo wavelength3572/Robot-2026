@@ -338,6 +338,20 @@ public class ModuleIOSpark implements ModuleIO {
   }
 
   @Override
+  public void setDriveMotorCurrentLimits(double currentLimit) {
+    var driveConfig = new SparkMaxConfig();
+    driveConfig.smartCurrentLimit(driveMotorCurrentLimit);
+    tryUntilOk(
+        driveSpark,
+        5,
+        () ->
+            driveSpark.configure(
+                driveConfig,
+                ResetMode.kNoResetSafeParameters,
+                com.revrobotics.PersistMode.kNoPersistParameters));
+  }
+
+  @Override
   public void setTurnPosition(Rotation2d rotation) {
     turnController.setSetpoint(rotation.getRadians(), ControlType.kPosition);
   }

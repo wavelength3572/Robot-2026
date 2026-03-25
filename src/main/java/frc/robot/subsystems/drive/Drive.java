@@ -228,6 +228,12 @@ public class Drive extends SubsystemBase {
     runVelocity(ZERO_SPEEDS);
   }
 
+  public void setDriveMotorCurrentLimits(double currentLimit) {
+    for (var module : modules) {
+      module.setDriveMotorCurrentLimits(currentLimit);
+    }
+  }
+
   /**
    * Stops the drive and turns the modules to an X arrangement to resist movement. The modules will
    * return to their normal orientations the next time a nonzero velocity is requested.
