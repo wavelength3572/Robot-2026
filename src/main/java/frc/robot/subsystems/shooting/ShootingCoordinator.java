@@ -136,7 +136,18 @@ public class ShootingCoordinator extends SubsystemBase {
       new LoggedTunableNumber("Shots/TrenchMode/Right/FarDistM", 3.743);
   private final LoggedTunableNumber trenchRightFarRPM =
       new LoggedTunableNumber("Shots/TrenchMode/Right/FarRPM", 3156.0);
+  // Trench motivator RPM lerp: same distance endpoints as launcher, independent RPM values.
+  // Both default to 1800 — adjust far value to tune motivator speed at longer trench distances.
+  private final LoggedTunableNumber trenchLeftMotivatorCloseRPM =
+      new LoggedTunableNumber("Shots/TrenchMode/Left/MotivatorCloseRPM", 1800.0);
+  private final LoggedTunableNumber trenchLeftMotivatorFarRPM =
+      new LoggedTunableNumber("Shots/TrenchMode/Left/MotivatorFarRPM", 1800.0);
+  private final LoggedTunableNumber trenchRightMotivatorCloseRPM =
+      new LoggedTunableNumber("Shots/TrenchMode/Right/MotivatorCloseRPM", 1800.0);
+  private final LoggedTunableNumber trenchRightMotivatorFarRPM =
+      new LoggedTunableNumber("Shots/TrenchMode/Right/MotivatorFarRPM", 1800.0);
   private boolean trenchModeActive = false; // true when robot is in a trench or bump zone
+  private double trenchMotivatorRPM = 1800.0; // lerped motivator RPM for current trench position
 
   // ========== CoordinatorState Machine ==========
   // Centralized state that drives feeding decisions in SmartLaunch commands.
@@ -631,6 +642,13 @@ public class ShootingCoordinator extends SubsystemBase {
       double t = Math.max(0, Math.min(1, (distToHub - dClose) / (dFar - dClose)));
       double trenchRPM = rpmClose + t * (rpmFar - rpmClose);
 
+      // Lerp motivator RPM using the same t (same distance endpoints)
+      double motClose =
+          isLeftTrench ? trenchLeftMotivatorCloseRPM.get() : trenchRightMotivatorCloseRPM.get();
+      double motFar =
+          isLeftTrench ? trenchLeftMotivatorFarRPM.get() : trenchRightMotivatorFarRPM.get();
+      trenchMotivatorRPM = motClose + t * (motFar - motClose);
+
       double turretAngleDeg =
           ShotCalculator.calculateOutsideTurretAngle(
               robotPose.getX(),
@@ -684,6 +702,7 @@ public class ShootingCoordinator extends SubsystemBase {
         Logger.recordOutput("SmartLaunch/TrenchLerp/Side", isLeftTrench ? "LEFT" : "RIGHT");
         Logger.recordOutput("SmartLaunch/TrenchLerp/DistToHub", distToHub);
         Logger.recordOutput("SmartLaunch/TrenchLerp/RPM", trenchRPM);
+        Logger.recordOutput("SmartLaunch/TrenchLerp/MotivatorRPM", trenchMotivatorRPM);
         Logger.recordOutput("SmartLaunch/TrenchLerp/T", t);
         Logger.recordOutput("SmartLaunch/TrenchLerp/VelocityCompActive", robotSpeed > 0.1);
       }
@@ -870,7 +889,7 @@ public class ShootingCoordinator extends SubsystemBase {
         "SmartLaunch/Target/Achievable", currentShot != null && currentShot.achievable());
     Logger.recordOutput(
         "SmartLaunch/Target/MotivatorRPM",
-        frc.robot.commands.ShootingCommands.getMotivatorRPM(targetRPM));
+        frc.robot.commands.ShootingCommands.getMotivatorRPM(targetRPM, this));
     Logger.recordOutput(
         "SmartLaunch/Target/SpindexerRPM",
         frc.robot.commands.ShootingCommands.getSpindexerRPM(currentDistanceM));
@@ -1119,6 +1138,14 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   public boolean isTrenchModeActive() {
     return trenchModeActive;
+  }
+
+  /**
+   * Get the distance-lerped motivator RPM for the current trench position. Only meaningful when
+   * trench mode is active.
+   */
+  public double getTrenchMotivatorRPM() {
+    return trenchMotivatorRPM;
   }
 
   // ========== CoordinatorState Machine API ==========

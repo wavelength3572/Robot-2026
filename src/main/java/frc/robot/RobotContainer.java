@@ -564,6 +564,10 @@ public class RobotContainer {
     return shootingCoordinator;
   }
 
+  public Spindexer getSpindexer() {
+    return spindexer;
+  }
+
   /**
    * Get the vision subsystem if it exists (SquareBot only).
    *
@@ -693,6 +697,11 @@ public class RobotContainer {
           "resetSim", ShootingCommands.resetSimulationCommand(shootingCoordinator));
       NamedCommands.registerCommand(
           "resetStartingField", ShootingCommands.resetStartingFieldCommand(shootingCoordinator));
+    }
+
+    // Agitate: shake loose stuck balls (used between cycles in multi-path autos)
+    if (intake != null) {
+      NamedCommands.registerCommand("Agitate", intake.agitateCommand(() -> 2000.0, () -> false));
     }
 
     // RunIntake: deploy intake and start rollers (used by Depot auto)

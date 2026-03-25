@@ -203,6 +203,11 @@ public class Robot extends LoggedRobot {
       robotContainer.getShootingCoordinator().resetShotCounts();
     }
 
+    // Enable auto-unclog so jams are cleared automatically (no driver available in auto)
+    if (robotContainer.getSpindexer() != null) {
+      robotContainer.getSpindexer().enableAutoUnclog();
+    }
+
     autonomousCommand = robotContainer.getAutonomousCommand();
 
     // schedule the autonomous command (example)
