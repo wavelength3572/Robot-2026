@@ -13,25 +13,23 @@ public final class ShotTableConstants {
   // Format: {distance_m, rpm, hood_angle_deg, measured_tof_s}
   public static final double[][] BASELINE_TABLE = {
     // Close range
-    {1.300, 2400, 15.0, 1.070},
-    {1.750, 2500, 16.0, 1.150},
-    {1.880, 2550, 17.0, 1.160},
+    {1.300, 2450, 15.0, 1.070}, // hub shot fixed shot
+    // {1.750, 2500, 16.0, 1.150},
+    // {1.880, 2550, 17.0, 1.160},
 
     // Mid range
-    {1.963, 2575, 15.5, 1.160},
-    {2.200, 2600, 15.5, 1.161},
-    {2.500, 2750, 15.5, 1.175},
-    {2.818, 2850, 15.5, 1.190},
+    // {1.963, 2575, 15.5, 1.160},
+    {2.200, 2650, 18.0, 1.161}, // left trench fixed shot
+    // {2.500, 2750, 15.5, 1.175},
+    // {2.818, 2850, 15.5, 1.190},
     // {2.900, 2625, 18.0, 1.210},
-    {3.008, 2900, 18.0, 1.220}, // was L2650, short when trimmed to 2811, so going to 2900
-    {3.300, 3100, 18.0, 1.220}, // new point to edge us above linear
-    {3.586, 3175, 18.0, 1.230},
-    {3.700, 3350, 18.0, 1.240}, // was 3225, perfect distance with 125 trim so upping permanently
-    {3.750, 3375, 18.0, 1.240}, // was 3225
+    // {3.008, 2900, 18.0, 1.220}, // was L2650, short when trimmed to 2811, so going to 2900
+    // {3.300, 3100, 18.0, 1.220}, // new point to edge us above linear
+    // {3.586, 3175, 18.0, 1.230},
+    // {3.700, 3350, 18.0, 1.240}, // was 3225, perfect distance with 125 trim so upping permanently
+    // {3.750, 3375, 18.0, 1.240}, // was 3225
     // Long range
-    {
-      3.900, 3300, 22.0, 1.28
-    }, // was tested at 3050, 20, but practice match 1 it fell really short at this exact distance,
+    { 3.900, 3300, 22.0, 1.28}, // was tested at 3050, 20, but practice match 1 it fell really short at this exact distance,
     // bumping 250 and 2 degrees
     {4.152, 3300, 34.0, 1.33}, // tested - okay
     {4.903, 3550, 34.0, 1.38}, // tried to make this a little lobbier +1deg +100RPM untested

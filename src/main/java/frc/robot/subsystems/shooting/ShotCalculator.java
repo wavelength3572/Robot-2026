@@ -38,11 +38,11 @@ public final class ShotCalculator {
   // MidDist, FarDist) — single source of truth for both zone classification and efficiency.
   // Efficiency values are tunable via NetworkTables under Shots/SmartLaunch/Efficiency/.
   private static final LoggedTunableNumber efficiencyClose =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Close", 0.69); //was .774
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Close", 0.69); // was .774
   private static final LoggedTunableNumber efficiencyMid =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Mid", 0.68); //was .774
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Mid", 0.68); // was .774
   private static final LoggedTunableNumber efficiencyFar =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Far", 0.81); //was .75
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Far", 0.81); // was .75
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
