@@ -55,7 +55,6 @@ public class Turret extends SubsystemBase {
   private final double readyToleranceAngleDeg;
 
   private final Timer stallTimer = new Timer(); // How long stall condition has persisted
-  private boolean stallDetected = false;
   private double lastRequestedTargetAngle = -1000;
   private double stallTargetAngle = -1000;
 
@@ -170,17 +169,14 @@ public class Turret extends SubsystemBase {
           stallTimer.restart();
         }
         if (stallTimer.hasElapsed(.5)) {
-          stallDetected = true;
           currentState = TurretState.STALLED;
           setOutsideTurretAngle(turretInputs.targetOutsideAngleDeg);
         }
       } else {
         stallTimer.stop();
-        stallDetected = false;
       }
     } else {
       stallTimer.stop();
-      stallDetected = false;
     }
 
     Logger.recordOutput("Subsystems/TurretState", currentState.name());
@@ -239,11 +235,11 @@ public class Turret extends SubsystemBase {
         if (lastRequestedTargetAngle >= getOutsideCurrentAngle()) {
           // trying to move CCW
           // To Target an angle 90 degrees CW
-          stallTargetAngle = getOutsideCurrentAngle() - 90;
+          stallTargetAngle = getOutsideCurrentAngle() - 110;
         } else {
           // Trying to move CW
           // To Target an angle 90 degrees CCW
-          stallTargetAngle = getOutsideCurrentAngle() + 90;
+          stallTargetAngle = getOutsideCurrentAngle() + 110;
         }
         // Make the target the Max angle in either direction if the 90 degree
         // offset pushed it out of that range.
@@ -332,6 +328,18 @@ public class Turret extends SubsystemBase {
   public void setTurretVolts(double volts) {
     if (locked) return;
     io.setTurretVolts(volts);
+  }
+
+  public void forceTurretOutOfStallState() {
+    // This is used for when the turret is in a STALL state and the user
+    // released the shoot button before the STALL resolved naturally
+    // We will have the turret seek its current angle so there is no
+    // motor pressure and get it out of the STALL state
+    // So, when the button is pressed again either
+    // the stall is resolved anyways and the turret operates normally
+    // or it will just stall again and we are probably screwed
+    currentState = TurretState.ROTATING_CCW;
+    setOutsideTurretAngle(getOutsideCurrentAngle());
   }
 
   /**

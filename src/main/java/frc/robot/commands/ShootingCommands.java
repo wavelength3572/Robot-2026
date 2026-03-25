@@ -16,6 +16,7 @@ import frc.robot.subsystems.shooting.ShotVisualizer;
 import frc.robot.subsystems.shooting.StationaryShotBatchRecorder;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
+import frc.robot.subsystems.turret.Turret.TurretState;
 import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.ZoneDetector;
@@ -414,42 +415,64 @@ public class ShootingCommands {
             // Phase 1: Spin up and position all subsystems in parallel
             Commands.runOnce(
                 () -> {
-                  if (coordinator != null) {}
-
                   double turretAngle = turretAngleDegSupplier.getAsDouble();
                   double hoodAngle = hoodAngleDegSupplier.getAsDouble();
                   double launcherRPM = trimmedLauncherRPM.getAsDouble();
 
-                  turret.setOutsideTurretAngle(turretAngle);
-
+                  launcher.setVelocity(launcherRPM);
                   if (hood != null) {
                     hood.setHoodAngle(hoodAngle);
                   }
+                  turret.setOutsideTurretAngle(turretAngle);
 
-                  launcher.setVelocity(launcherRPM);
+                  if (motivator != null) {
+                    motivator.stopMotivator();
+                    // motivator.setMotivatorVelocity(motivatorRPMSupplier.getAsDouble());
+                  }
 
                   if (coordinator != null) {
                     coordinator.setManualShotParameters(launcherRPM, hoodAngle, turretAngle);
                   }
 
-                  if (motivator != null) {
-                    motivator.setMotivatorVelocity(motivatorRPMSupplier.getAsDouble());
-                  }
-
-                  SmartDashboard.putString("Match/Status/State", "Positioning & Spinning Up");
-                  // System.out.println(
-                  //     "[FixedShot] Positioning turret to "
-                  //         + turretAngle
-                  //         + "° and spinning up to "
-                  //         + launcherRPM
-                  //         + " RPM");
+                  SmartDashboard.putString("Match/Status/State", "Fixed Launch - Positioning");
                 }),
 
-            // Phase 2: Wait for everything to reach setpoint (with 5s timeout)
+            // Phase 1.5: Brief reverse pulse to clear balls from motivator/spindexer
+            // while the launcher is spinning up
+            Commands.sequence(
+                Commands.runOnce(
+                    () -> {
+                      if (motivator != null) {
+                        motivator.setMotivatorVoltage(-1.0);
+                      }
+                      if (spindexer != null) {
+                        spindexer.reverseSpindexer(250.0);
+                      }
+                    }),
+                Commands.waitSeconds(0.2),
+                Commands.runOnce(
+                    () -> {
+                      if (motivator != null) {
+                        motivator.stopMotivator();
+                      }
+                      if (spindexer != null) {
+                        spindexer.stopSpindexer();
+                      }
+                    })),
+
+            // Phase 2: Wait for everything to reach setpoint (with 2s timeout)
             Commands.race(
                 Commands.sequence(
                     Commands.waitUntil(
                         () -> {
+                          if (motivator != null
+                              && launcher.isReady()
+                              && turret.atTarget()
+                              && hood.atTarget()) {
+                            motivator.setMotivatorVelocity(
+                                getMotivatorRPM(motivatorRPMSupplier.getAsDouble()));
+                          }
+
                           boolean launcherReady = launcher.isReady();
                           boolean motivatorReady =
                               motivator == null
@@ -458,18 +481,6 @@ public class ShootingCommands {
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
 
-                          return launcherReady && motivatorReady && turretReady && hoodReady;
-                        }),
-                    Commands.waitSeconds(0.1),
-                    Commands.waitUntil(
-                        () -> {
-                          boolean launcherReady = launcher.isReady();
-                          boolean motivatorReady =
-                              motivator == null
-                                  || motivator.getState() == Motivator.MotivatorState.READY;
-                          boolean turretReady = turret.atTarget();
-                          boolean hoodReady =
-                              hood == null || hood.getState() == Hood.HoodState.READY;
                           return launcherReady && motivatorReady && turretReady && hoodReady;
                         })),
                 Commands.sequence(
@@ -479,7 +490,7 @@ public class ShootingCommands {
                           // System.out.println(
                           //     "[FixedShot] WARNING: Setup timeout - continuing anyway!");
                           SmartDashboard.putString(
-                              "Match/Status/State", "TIMEOUT - continuing anyway");
+                              "Match/Status/State", "Fixed Launch TIMEOUT - continuing anyway");
                         }))),
 
             // Log ready state
@@ -517,14 +528,15 @@ public class ShootingCommands {
                         () -> hood.setHoodAngle(hoodAngleDegSupplier.getAsDouble()), hood)
                     : Commands.none(),
 
-                // Keep motivator running (gated on turret alignment)
+                // Keep motivator running
                 motivator != null
                     ? Commands.run(
                         () -> {
-                          if (turret.atTarget()) {
-                            motivator.setMotivatorVelocity(motivatorRPMSupplier.getAsDouble());
-                          } else {
+                          if (turret.getState() == Turret.TurretState.FLIPPING
+                              || turret.getState() == Turret.TurretState.STALLED) {
                             motivator.stopMotivator();
+                          } else {
+                            motivator.setMotivatorVelocity(motivatorRPMSupplier.getAsDouble());
                           }
                         },
                         motivator)
@@ -543,6 +555,9 @@ public class ShootingCommands {
                     : Commands.none()))
         .finallyDo(
             () -> {
+              if (turret.getState() == TurretState.STALLED) {
+                turret.forceTurretOutOfStallState();
+              }
               launcher.setFeedingActive(false);
               launcher.stop();
               if (motivator != null) {
@@ -554,8 +569,11 @@ public class ShootingCommands {
               if (coordinator != null) {
                 coordinator.clearManualShotParameters();
               }
+              if (hood != null) {
+                hood.setHoodAngle(hood.getMinAngle());
+              }
               setMode(ShootingMode.COMPETITION);
-              SmartDashboard.putString("Match/Status/State", "Stopped");
+              SmartDashboard.putString("Match/Status/State", "Fixed Launch Stopped");
               // System.out.println("[FixedShot] Stopped");
             })
         .withName("FixedShot");
@@ -631,7 +649,7 @@ public class ShootingCommands {
                 Commands.runOnce(
                     () -> {
                       if (motivator != null) {
-                        motivator.setMotivatorVoltage(-3.0);
+                        motivator.setMotivatorVoltage(-1.0);
                       }
                       if (spindexer != null) {
                         spindexer.reverseSpindexer(250.0);
@@ -648,7 +666,7 @@ public class ShootingCommands {
                       }
                     })),
 
-            // Phase 2: Wait for all subsystems to reach setpoint (with 5s timeout)
+            // Phase 2: Wait for all subsystems to reach setpoint (with 2s timeout)
             Commands.race(
                 Commands.sequence(
                     Commands.waitUntil(
@@ -673,21 +691,27 @@ public class ShootingCommands {
                           }
 
                           boolean launcherReady = launcher.isReady();
+                          boolean motivatorReady =
+                              motivator == null
+                                  || motivator.getState() == Motivator.MotivatorState.READY;
                           boolean turretReady = turret.atTarget();
                           boolean hoodReady =
                               hood == null || hood.getState() == Hood.HoodState.READY;
                           boolean achievable =
                               shot != null && (isLutDevOverrideActive() || shot.achievable());
-                          // boolean robotSlow = coordinator.isRobotSlowEnoughForCurrentZone();
 
                           boolean allReady =
-                              launcherReady && turretReady && hoodReady && achievable;
+                              launcherReady
+                                  && motivatorReady
+                                  && turretReady
+                                  && hoodReady
+                                  && achievable;
 
                           Logger.recordOutput("SmartLaunch/Ready/Launcher", launcherReady);
+                          Logger.recordOutput("SmartLaunch/Ready/Motivator", motivatorReady);
                           Logger.recordOutput("SmartLaunch/Ready/Turret", turretReady);
                           Logger.recordOutput("SmartLaunch/Ready/Hood", hoodReady);
                           Logger.recordOutput("SmartLaunch/Ready/Achievable", achievable);
-                          // Logger.recordOutput("SmartLaunch/Ready/RobotSlow", robotSlow);
                           Logger.recordOutput("SmartLaunch/Ready/All", allReady);
                           return allReady;
                         })),
@@ -703,26 +727,6 @@ public class ShootingCommands {
                           boolean achievable =
                               shot != null && (isLutDevOverrideActive() || shot.achievable());
                           Logger.recordOutput("SmartLaunch/Phase", "TIMED_OUT");
-                          // System.out.println(
-                          //     "[SmartLaunch] WARNING: Setup timeout! Conditions: "
-                          //         + "launcher="
-                          //         + launcherReady
-                          //         + " motivator="
-                          //         + motivatorReady
-                          //         + " turret="
-                          //         + turretReady
-                          //         + " hood="
-                          //         + hoodReady
-                          //         + " achievable="
-                          //         + achievable
-                          //         + (shot != null
-                          //             ? " rpm="
-                          //                 + shot.launcherRPM()
-                          //                 + " hood="
-                          //                 + shot.hoodAngleDeg()
-                          //                 + " turret="
-                          //                 + shot.turretAngleDeg()
-                          //             : " shot=null"));
                           SmartDashboard.putString(
                               "Match/Status/State", "TIMEOUT - continuing anyway");
                           Logger.recordOutput("SmartLaunch/Ready/Launcher", launcherReady);
@@ -817,7 +821,8 @@ public class ShootingCommands {
                             if (DriverStation.isTeleop()
                                 || coordinator.isRobotSlowEnoughForCurrentZone()) {
                               wasReciprocating = false;
-                              if (turret.getState() == Turret.TurretState.FLIPPING) {
+                              if (turret.getState() == TurretState.FLIPPING
+                                  || turret.getState() == Turret.TurretState.STALLED) {
                                 spindexer.stopSpindexer();
                               } else {
                                 spindexer.setSpindexerVelocity(spnRPM);
@@ -844,6 +849,9 @@ public class ShootingCommands {
                 createSimFiringLoop(coordinator, launcher, turret)))
         .finallyDo(
             () -> {
+              if (turret.getState() == TurretState.STALLED) {
+                turret.forceTurretOutOfStallState();
+              }
               launcher.setFeedingActive(false);
               launcher.stop();
               if (motivator != null) {
@@ -861,7 +869,7 @@ public class ShootingCommands {
               coordinator.clearManualShotParameters();
               setMode(ShootingMode.COMPETITION);
               Logger.recordOutput("SmartLaunch/Phase", "IDLE");
-              SmartDashboard.putString("Match/Status/State", "[SmartLaunch] Stopped");
+              SmartDashboard.putString("Match/Status/State", "SmartLaunch Stopped");
               // System.out.println("[SmartLaunch] Stopped");
             })
         .withName("SmartLaunch");
