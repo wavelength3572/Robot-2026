@@ -471,7 +471,8 @@ public class Turret extends SubsystemBase {
   public boolean atTarget() {
     if (locked) return true;
     // If we are not stalled and within Tolerance
-    return currentState != TurretState.STALLED && Math.abs(getOutsideCurrentAngle() - getOutsideTargetAngle()) <= readyToleranceAngleDeg;
+    return currentState != TurretState.STALLED
+        && Math.abs(getOutsideCurrentAngle() - getOutsideTargetAngle()) <= readyToleranceAngleDeg;
   }
 
   /**
