@@ -309,7 +309,7 @@ public class RobotContainer {
     registerNamedCommands();
 
     // Dashboard toggle: ignore hub shift state (bypass launch gating)
-    SmartDashboard.putBoolean("Match/Ignore Hub State", true);
+    SmartDashboard.putBoolean("Match/Ignore Hub State", false);
 
     // Alliance win override chooser (for HubShiftUtil shift schedule)
     allianceWinChooser = new LoggedDashboardChooser<>("Alliance Win Override");
@@ -362,7 +362,7 @@ public class RobotContainer {
     }
 
     // Dashboard toggle: defaults to competition mode (safe for matches)
-    SmartDashboard.putBoolean("Competition Mode", false);
+    SmartDashboard.putBoolean("Competition Mode", true);
     autoChooser = buildAutoChooserForMode(true);
 
     // Auton strategy choosers — created once; selection resets when auto changes.

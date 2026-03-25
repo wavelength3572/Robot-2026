@@ -1,6 +1,7 @@
 package frc.robot.subsystems.shooting;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
@@ -55,8 +56,11 @@ public final class ShotCalculator {
 
   // When true, use single-pass horizontal TOF for velocity compensation (stable, physically
   // correct). When false, use the old 3-iteration total TOF refinement loop.
-  private static final LoggedTunableNumber useHorizontalTOF =
-      new LoggedTunableNumber("Shots/VelocityComp/UseHorizontalTOF", 1.0);
+  private static final boolean USE_HORIZONTAL_TOF_DEFAULT = true;
+
+  static {
+    SmartDashboard.putBoolean("Shots/VelocityComp/UseHorizontalTOF", USE_HORIZONTAL_TOF_DEFAULT);
+  }
 
   // ========== Launcher RPM Tracking ==========
   // currentLauncherRPM = what the launcher is actually doing right now
@@ -420,7 +424,7 @@ public final class ShotCalculator {
             Math.sqrt(
                 Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
 
-        if (useHorizontalTOF.get() > 0.5) {
+        if (SmartDashboard.getBoolean("Shots/VelocityComp/UseHorizontalTOF", USE_HORIZONTAL_TOF_DEFAULT)) {
           // Single-pass horizontal TOF: stable, no iteration.
           // Lateral drift depends on horizontal flight time, not total arc time.
           double vx =
@@ -524,7 +528,7 @@ public final class ShotCalculator {
             Math.sqrt(
                 Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
 
-        if (useHorizontalTOF.get() > 0.5) {
+        if (SmartDashboard.getBoolean("Shots/VelocityComp/UseHorizontalTOF", USE_HORIZONTAL_TOF_DEFAULT)) {
           double vx =
               initialShot.exitVelocityMps * Math.cos(Math.toRadians(initialShot.launchAngleDeg));
           double horizontalTof = (vx > 0.1) ? distanceToTarget / vx : 0.0;
