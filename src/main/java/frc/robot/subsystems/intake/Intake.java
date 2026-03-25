@@ -806,12 +806,14 @@ public class Intake extends SubsystemBase {
               restoreNormalDeployConfig();
               io.stopDeploy(); // Anchor target to current pos before configure() calls
               io.setDeployBrakeMode(true);
-              stopRollers();
               if (wasDeployed[0]) {
+                // Was deployed before agitation — resume rollers so the next path can intake
+                runIntake();
                 brakeTimer.restart();
                 deployState = DeployState.AGITATE_SETTLING;
               } else {
                 // Was retracted before agitation — go straight to retract hold
+                stopRollers();
                 applyRetractMotionConfig();
                 io.setDeployPosition(deployStowedPosition);
                 deployState = DeployState.RETRACTED;
