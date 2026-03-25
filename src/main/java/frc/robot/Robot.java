@@ -18,6 +18,8 @@ import frc.robot.commands.DriveCommands;
 import frc.robot.util.FuelSim;
 import frc.robot.util.HubShiftUtil;
 import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.Map;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -92,7 +94,28 @@ public class Robot extends LoggedRobot {
     }
 
     // Initialize URCL
-    Logger.registerURCL(URCL.startExternal());
+    // Build the CAN ID alias map
+    Map<Integer, String> canAliases = new HashMap<>();
+    canAliases.put(11, "FL Drive");
+    canAliases.put(12, "FL Turn");
+    canAliases.put(21, "FR Drive");
+    canAliases.put(22, "FR Turn");
+    canAliases.put(30, "Climber");
+    canAliases.put(31, "BL Drive");
+    canAliases.put(32, "BL Turn");
+    canAliases.put(41, "BR Drive");
+    canAliases.put(42, "BR Turn");
+    canAliases.put(45, "Intake Deploy");
+    canAliases.put(46, "Intake Rolelr");
+    canAliases.put(50, "Turret");
+    canAliases.put(55, "Spindexer");
+    canAliases.put(56, "Motivator");
+    canAliases.put(58, "Launcher Leader");
+    canAliases.put(59, "Launcher Follower");
+    canAliases.put(60, "Hood");
+
+    URCL.start(canAliases);
+    Logger.registerURCL(URCL.startExternal(canAliases));
     StatusLogger.disableAutoLogging(); // Disable REVLib's built-in logging
 
     // Start AdvantageKit logger

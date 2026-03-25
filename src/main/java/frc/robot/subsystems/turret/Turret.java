@@ -56,7 +56,8 @@ public class Turret extends SubsystemBase {
 
   private final Timer stallTimer = new Timer(); // How long stall condition has persisted
   private boolean stallDetected = false;
-  private double lastRequestedTargetAngle;
+  private double lastRequestedTargetAngle = -1000;
+  private double stallTargetAngle = -1000;
 
   // How close to a limit (degrees) before safety indicators fire
   private static final double WARNING_ZONE_DEG = 20.0;
@@ -171,6 +172,7 @@ public class Turret extends SubsystemBase {
         if (stallTimer.hasElapsed(.5)) {
           stallDetected = true;
           currentState = TurretState.STALLED;
+          setOutsideTurretAngle(turretInputs.targetOutsideAngleDeg);
         }
       } else {
         stallTimer.stop();
@@ -232,20 +234,30 @@ public class Turret extends SubsystemBase {
     lastRequestedTargetAngle = clampedAngle;
     Logger.recordOutput("Turret/lastRequestedTargetAngle", lastRequestedTargetAngle);
     if (currentState == TurretState.STALLED) {
-      if (lastRequestedTargetAngle >= getOutsideCurrentAngle()) {
-        io.setOutsideTurretAngle(90.0);
-        if (Math.abs(90.0 - getOutsideCurrentAngle()) <= 2.0) {
-          currentState = TurretState.ROTATING_CCW;
-          io.setOutsideTurretAngle(lastRequestedTargetAngle);
+      if (stallTargetAngle == -1000) {
+        // first time since detecting stall
+        if (lastRequestedTargetAngle >= getOutsideCurrentAngle()) {
+          // trying to move CCW
+          // To Target an angle 90 degrees CW
+          stallTargetAngle = getOutsideCurrentAngle() + 90;
+        } else {
+          // Trying to move CW
+          // To Target an angle 90 degrees CCW
+          stallTargetAngle = getOutsideCurrentAngle() - 90;
         }
-      } else {
-        io.setOutsideTurretAngle(179.0);
-        if (Math.abs(179.0 - getOutsideCurrentAngle()) <= 2.0) {
-          currentState = TurretState.ROTATING_CW;
-          io.setOutsideTurretAngle(lastRequestedTargetAngle);
-        }
+        // Make the target the Max angle in either direction if the 90 degree
+        // offset pushed it out of that range.
+        // This prevents trying to flip
+        stallTargetAngle = Math.max(outsideAngleMin, Math.min(outsideAngleMax, stallTargetAngle));
+      }
+      io.setOutsideTurretAngle(stallTargetAngle);
+      if (Math.abs(stallTargetAngle - getOutsideCurrentAngle()) <= 2.0) {
+        currentState = TurretState.ROTATING_CCW;
+        stallTargetAngle = -1000;
+        io.setOutsideTurretAngle(lastRequestedTargetAngle);
       }
     } else {
+      stallTargetAngle = -1000;
       io.setOutsideTurretAngle(lastRequestedTargetAngle);
     }
   }
