@@ -573,6 +573,14 @@ public class ShootingCoordinator extends SubsystemBase {
             new Pose3d(cachedLobStation3Target, Rotation3d.kZero));
       }
 
+      // Reset movingInTrench for non-hub-shot modes. The flag is only updated inside
+      // calculateShotToTarget (called for SHOOT_ON_THE_MOVE/NONE), but PASS/LONG_PASS
+      // call calculatePassToTarget instead, leaving the flag stale from the last trench visit.
+      if (aimResult.mode() == TurretAimingHelper.AimMode.PASS
+          || aimResult.mode() == TurretAimingHelper.AimMode.LONG_PASS) {
+        movingInTrench = false;
+      }
+
       switch (aimResult.mode()) {
         case SHOOT_ON_THE_MOVE -> {
           Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub " + activeStrategy.getName());
