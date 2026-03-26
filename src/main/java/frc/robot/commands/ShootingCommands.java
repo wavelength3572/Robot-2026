@@ -693,7 +693,7 @@ public class ShootingCommands {
                   if (shot != null) {
                     double rpm = getEffectiveRPM(shot);
                     double hoodDeg = getEffectiveHoodDeg(shot);
-                    launcher.setVelocity(coordinator.shouldIdleLauncher() ? 0 : rpm);
+                    launcher.setVelocity(coordinator.isTransitStowActive() ? 0 : rpm);
                     coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
                   }
                 },
@@ -714,7 +714,7 @@ public class ShootingCommands {
             hood != null
                 ? Commands.run(
                     () -> {
-                      if (coordinator.shouldIdleLauncher()) {
+                      if (coordinator.isTransitStowActive()) {
                         hood.setHoodAngle(hood.getMinAngle());
                       } else {
                         ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
@@ -834,9 +834,12 @@ public class ShootingCommands {
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
                     double rpm = getEffectiveRPM(shot);
-                    launcher.setVelocity(coordinator.shouldIdleLauncher() ? 0 : rpm);
+                    launcher.setVelocity(coordinator.isTransitStowActive() ? 0 : rpm);
                     if (hood != null) {
-                      hood.setHoodAngle(getEffectiveHoodDeg(shot));
+                      hood.setHoodAngle(
+                          coordinator.isTransitStowActive()
+                              ? hood.getMinAngle()
+                              : getEffectiveHoodDeg(shot));
                     }
                     turret.setOutsideTurretAngle(shot.turretAngleDeg());
                     if (motivator != null) {
@@ -887,9 +890,12 @@ public class ShootingCommands {
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                           if (shot != null) {
                             double rpm = getEffectiveRPM(shot);
-                            launcher.setVelocity(coordinator.shouldIdleLauncher() ? 0 : rpm);
+                            launcher.setVelocity(coordinator.isTransitStowActive() ? 0 : rpm);
                             if (hood != null) {
-                              hood.setHoodAngle(getEffectiveHoodDeg(shot));
+                              hood.setHoodAngle(
+                                  coordinator.isTransitStowActive()
+                                      ? hood.getMinAngle()
+                                      : getEffectiveHoodDeg(shot));
                             }
                             turret.setOutsideTurretAngle(shot.turretAngleDeg());
                             // Start motivator once launcher is at setpoint
@@ -967,7 +973,7 @@ public class ShootingCommands {
                       if (shot != null) {
                         double rpm = getEffectiveRPM(shot);
                         double hoodDeg = getEffectiveHoodDeg(shot);
-                        launcher.setVelocity(coordinator.shouldIdleLauncher() ? 0 : rpm);
+                        launcher.setVelocity(coordinator.isTransitStowActive() ? 0 : rpm);
                         // Cache params so recordBatchCommand can read them after SmartLaunch ends
                         coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
                       }
@@ -984,13 +990,17 @@ public class ShootingCommands {
                     },
                     turret),
 
-                // Keep hood tracking
+                // Keep hood tracking — stow to min angle during transit
                 hood != null
                     ? Commands.run(
                         () -> {
-                          ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
-                          if (shot != null) {
-                            hood.setHoodAngle(getEffectiveHoodDeg(shot));
+                          if (coordinator.isTransitStowActive()) {
+                            hood.setHoodAngle(hood.getMinAngle());
+                          } else {
+                            ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                            if (shot != null) {
+                              hood.setHoodAngle(getEffectiveHoodDeg(shot));
+                            }
                           }
                         },
                         hood)

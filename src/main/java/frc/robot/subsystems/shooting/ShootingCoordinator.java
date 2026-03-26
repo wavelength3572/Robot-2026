@@ -1201,11 +1201,12 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Check if the launcher should idle at 0 RPM. True when the operator is suppressing feeding and
-   * the robot is outside alliance zones (neutral/opponent), where there is no reason to keep the
-   * flywheel spinning.
+   * Check if shooting subsystems should stow for transit. True when the operator is suppressing
+   * feeding and the robot is outside alliance zones (neutral/opponent). When active, the launcher
+   * idles to 0 RPM and the hood drops to its minimum angle so the robot can pass through the
+   * trench unimpeded.
    */
-  public boolean shouldIdleLauncher() {
+  public boolean isTransitStowActive() {
     return feedingSuppressedSupplier.getAsBoolean() && !isInAllianceZone();
   }
 
