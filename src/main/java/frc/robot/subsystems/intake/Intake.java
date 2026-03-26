@@ -77,9 +77,7 @@ public class Intake extends SubsystemBase {
     deployKP = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kP", config.getIntakeDeployKp());
     deployKI = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kI", config.getIntakeDeployKi());
     deployKD = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kD", config.getIntakeDeployKd());
-    deployStowedPos =
-        new LoggedTunableNumber(
-            "Tuning/Intake/IntakeDeploy/StowedPosition", config.getIntakeDeployStowedPosition());
+    deployStowedPos = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/StowedPosition", config.getIntakeDeployStowedPosition());
     deployExtendedPos =
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/ExtendedPosition",
@@ -125,9 +123,9 @@ public class Intake extends SubsystemBase {
     agitationCoastTimeSec = new LoggedTunableNumber("Tuning/Intake/Agitation/CoastTimeSec", 0.1);
     agitationFallTime = new LoggedTunableNumber("Tuning/Intake/Agitation/FallTimeSec", 0.2);
     agitationSpeedThreshold =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/SpeedThresholdMps", 0.3);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/SpeedThresholdMps", 0.05);
     agitationStationaryDwellSec =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/StationaryDwellSec", 0.5);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/StationaryDwellSec", 2.0);
     // Shared
     rollerMinDeployPosition =
         new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", 0.05);
