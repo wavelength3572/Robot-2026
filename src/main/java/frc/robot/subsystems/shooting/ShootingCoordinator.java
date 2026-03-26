@@ -1383,6 +1383,20 @@ public class ShootingCoordinator extends SubsystemBase {
     return coordinatorState == CoordinatorState.FIRING;
   }
 
+  private boolean firingEntryPending = false;
+
+  /**
+   * Returns true exactly once each time the coordinator enters FIRING state. Used by
+   * continuousSmartLaunch to trigger a brief reverse pulse before feeding forward.
+   */
+  public boolean consumeFiringEntry() {
+    if (firingEntryPending) {
+      firingEntryPending = false;
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Update the coordinator state machine. Called every cycle from periodic() after shot
    * calculation. Uses event-driven entry (specific triggers) and condition-driven exit (subsystem
@@ -1481,6 +1495,8 @@ public class ShootingCoordinator extends SubsystemBase {
     boolean allReady =
         armed && launcherReady && turretReady && hoodReady && shotAchievable && speedOk;
 
+    CoordinatorState prevState = coordinatorState;
+
     switch (coordinatorState) {
       case SPINNING_UP -> {
         if (allReady) {
@@ -1508,6 +1524,11 @@ public class ShootingCoordinator extends SubsystemBase {
       default -> {
         // IDLE handled at top
       }
+    }
+
+    // Flag entry into FIRING so consumeFiringEntry() can trigger a reverse pulse
+    if (coordinatorState == CoordinatorState.FIRING && prevState != CoordinatorState.FIRING) {
+      firingEntryPending = true;
     }
 
     // Log state and readiness (throttled to 10Hz)

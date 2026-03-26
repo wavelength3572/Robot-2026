@@ -724,22 +724,47 @@ public class ShootingCommands {
             // Motivator — spin when coordinator says FIRING (launcher/turret/hood at target).
             // Motivator must be at speed before spindexer feeds, but must NOT spin before
             // aiming is correct — errant balls fly off if motivator pushes balls into a
-            // launcher that isn't aimed. Sequence: aim → FIRING → motivator → spindexer.
+            // launcher that isn't aimed. Sequence: aim → FIRING → reverse pulse → motivator →
+            // spindexer.
+            // Brief reverse pulse on FIRING entry clears balls from the motivator/launcher
+            // interface so the first shot isn't clipped by a partially engaged ball.
             motivator != null
                 ? Commands.run(
-                    () -> {
-                      if (coordinator.isFeedingAllowed()) {
-                        ShotCalculator.ShotResult s = coordinator.getCurrentShot();
-                        double launcherRPM = getEffectiveRPM(s);
-                        motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM, coordinator));
-                      } else {
-                        motivator.stopMotivator();
+                    new Runnable() {
+                      private final Timer reversePulseTimer = new Timer();
+                      private boolean reversing = false;
+                      private static final double REVERSE_PULSE_SEC = 0.2;
+
+                      @Override
+                      public void run() {
+                        if (coordinator.consumeFiringEntry()) {
+                          reversing = true;
+                          reversePulseTimer.restart();
+                          motivator.setMotivatorVoltage(-1.0);
+                          return;
+                        }
+                        if (reversing) {
+                          if (reversePulseTimer.hasElapsed(REVERSE_PULSE_SEC)) {
+                            reversing = false;
+                          } else {
+                            return; // still reversing
+                          }
+                        }
+                        if (coordinator.isFeedingAllowed()) {
+                          ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                          double launcherRPM = getEffectiveRPM(s);
+                          motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM, coordinator));
+                        } else {
+                          motivator.stopMotivator();
+                        }
                       }
                     },
                     motivator)
                 : Commands.none(),
 
-            // Spindexer — feed only when coordinator allows AND motivator is at speed
+            // Spindexer — feed only when coordinator allows AND motivator is at speed.
+            // During the motivator's reverse pulse, motivatorReady will be false so the
+            // spindexer naturally holds off until the pulse completes.
             spindexer != null
                 ? Commands.run(
                     () -> {
