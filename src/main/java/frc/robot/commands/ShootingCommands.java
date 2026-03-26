@@ -709,13 +709,18 @@ public class ShootingCommands {
                 },
                 turret),
 
-            // Hood — always track the current shot angle (coordinator already clamps in trench)
+            // Hood — track the current shot angle, but drop to min when suppress fire is held
+            // outside alliance zones so the robot can drive through the trench unimpeded
             hood != null
                 ? Commands.run(
                     () -> {
-                      ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
-                      if (shot != null) {
-                        hood.setHoodAngle(getEffectiveHoodDeg(shot));
+                      if (coordinator.shouldIdleLauncher()) {
+                        hood.setHoodAngle(hood.getMinAngle());
+                      } else {
+                        ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                        if (shot != null) {
+                          hood.setHoodAngle(getEffectiveHoodDeg(shot));
+                        }
                       }
                     },
                     hood)
