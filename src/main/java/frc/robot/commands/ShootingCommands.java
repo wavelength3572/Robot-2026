@@ -693,7 +693,7 @@ public class ShootingCommands {
                   if (shot != null) {
                     double rpm = getEffectiveRPM(shot);
                     double hoodDeg = getEffectiveHoodDeg(shot);
-                    launcher.setVelocity(coordinator.shouldIdleLauncher() ? 0 : rpm);
+                    launcher.setVelocity(coordinator.getEffectiveLauncherRPM(rpm));
                     coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
                   }
                 },
@@ -829,7 +829,7 @@ public class ShootingCommands {
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
                     double rpm = getEffectiveRPM(shot);
-                    launcher.setVelocity(coordinator.shouldIdleLauncher() ? 0 : rpm);
+                    launcher.setVelocity(coordinator.getEffectiveLauncherRPM(rpm));
                     if (hood != null) {
                       hood.setHoodAngle(getEffectiveHoodDeg(shot));
                     }
@@ -882,7 +882,7 @@ public class ShootingCommands {
                           ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                           if (shot != null) {
                             double rpm = getEffectiveRPM(shot);
-                            launcher.setVelocity(coordinator.shouldIdleLauncher() ? 0 : rpm);
+                            launcher.setVelocity(coordinator.getEffectiveLauncherRPM(rpm));
                             if (hood != null) {
                               hood.setHoodAngle(getEffectiveHoodDeg(shot));
                             }
@@ -962,7 +962,7 @@ public class ShootingCommands {
                       if (shot != null) {
                         double rpm = getEffectiveRPM(shot);
                         double hoodDeg = getEffectiveHoodDeg(shot);
-                        launcher.setVelocity(coordinator.shouldIdleLauncher() ? 0 : rpm);
+                        launcher.setVelocity(coordinator.getEffectiveLauncherRPM(rpm));
                         // Cache params so recordBatchCommand can read them after SmartLaunch ends
                         coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
                       }

@@ -165,7 +165,11 @@ public class ShootingCoordinator extends SubsystemBase {
   // Prevents oscillation from speed noise around the moving threshold.
   private final LoggedTunableNumber trenchStationarySettleTimeSec =
       new LoggedTunableNumber("Shots/TrenchMode/StationarySettleSec", 0.25);
+  private final LoggedTunableNumber trenchIdleLauncherRPM =
+      new LoggedTunableNumber("Shots/TrenchMode/IdleLauncherRPM", 1500.0);
   private boolean trenchHoodSafetyActive = false;
+  private boolean movingInTrench =
+      false; // true when robot is moving (or settling) in a trench zone
   private double lastMovingInTrenchTimestamp = 0.0;
 
   // ========== CoordinatorState Machine ==========
@@ -703,11 +707,15 @@ public class ShootingCoordinator extends SubsystemBase {
         lastMovingInTrenchTimestamp = Timer.getFPGATimestamp();
       }
       double timeSinceMoving = Timer.getFPGATimestamp() - lastMovingInTrenchTimestamp;
+      boolean effectivelyMoving = isMoving || timeSinceMoving < trenchStationarySettleTimeSec.get();
       // Clamp hood to minimum (13°) when moving; keep clamped until settled for the full delay.
       // Speed limit (managed in updateTrenchHoodSafety) only applies while hood is above 18°.
-      if (isMoving || timeSinceMoving < trenchStationarySettleTimeSec.get()) {
+      if (effectivelyMoving) {
         hoodMax = hoodMin;
       }
+      movingInTrench = effectivelyMoving;
+    } else {
+      movingInTrench = false;
     }
 
     // Trench RPM lerp (only when trenchModeEnabled and moving in trench)
@@ -1167,6 +1175,9 @@ public class ShootingCoordinator extends SubsystemBase {
   public boolean isRobotSlowEnoughForCurrentZone() {
     if (fieldSpeedsSupplier == null || cachedAimResult == null) return true;
 
+    // Never fire while moving in a trench zone — must be stationary (and settled)
+    if (movingInTrench) return false;
+
     ChassisSpeeds speeds = fieldSpeedsSupplier.get();
     double robotSpeedMps = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
 
@@ -1207,6 +1218,17 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   public boolean shouldIdleLauncher() {
     return feedingSuppressedSupplier.getAsBoolean() && !isInAllianceZone();
+  }
+
+  /**
+   * Get the effective launcher RPM, accounting for trench idle and operator suppression. Returns 0
+   * when shouldIdleLauncher() is true, the trench idle RPM when moving in a trench zone, or the
+   * full shot RPM otherwise.
+   */
+  public double getEffectiveLauncherRPM(double shotRPM) {
+    if (shouldIdleLauncher()) return 0;
+    if (movingInTrench) return trenchIdleLauncherRPM.get();
+    return shotRPM;
   }
 
   /**
