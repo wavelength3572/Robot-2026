@@ -740,14 +740,20 @@ public class ShootingCommands {
                         if (coordinator.consumeFiringEntry()) {
                           reversing = true;
                           reversePulseTimer.restart();
-                          motivator.setMotivatorVoltage(-1.0);
-                          return;
+                        }
+                        // Cancel reverse pulse if we leave FIRING (e.g. speed exceeded)
+                        if (reversing && !coordinator.isFeedingAllowed()) {
+                          reversing = false;
+                          Logger.recordOutput("SmartLaunch/ReversePulse/State", "CANCELLED");
                         }
                         if (reversing) {
                           if (reversePulseTimer.hasElapsed(REVERSE_PULSE_SEC)) {
                             reversing = false;
+                            Logger.recordOutput("SmartLaunch/ReversePulse/State", "DONE");
                           } else {
-                            return; // still reversing
+                            motivator.setMotivatorVoltage(-1.0);
+                            Logger.recordOutput("SmartLaunch/ReversePulse/State", "REVERSING");
+                            return;
                           }
                         }
                         if (coordinator.isFeedingAllowed()) {

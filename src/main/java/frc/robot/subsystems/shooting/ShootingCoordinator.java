@@ -182,6 +182,10 @@ public class ShootingCoordinator extends SubsystemBase {
   private ArmTrigger armTrigger = ArmTrigger.IMMEDIATE;
   private boolean armed = true; // true = feeding allowed once subsystems ready
   private boolean hasVisitedNeutral = false; // tracks whether robot has been to neutral zone
+  private final Timer readyTimeoutTimer = new Timer();
+  private boolean readyTimeoutRunning = false;
+  private static final LoggedTunableNumber readyTimeoutSec =
+      new LoggedTunableNumber("Shots/SmartLaunch/ReadyTimeoutSec", 3.0);
 
   // Cached aim result — computed once per cycle in updateShotCalculation(), used by all zone
   // queries (isRobotSlowEnoughForCurrentZone, isInPassZone, getCurrentZone, getZoneSpeedLimitMps)
@@ -1359,11 +1363,14 @@ public class ShootingCoordinator extends SubsystemBase {
       coordinatorState = CoordinatorState.IDLE;
       armed = true;
       hasVisitedNeutral = false;
+      readyTimeoutRunning = false;
     } else if (coordinatorState == CoordinatorState.IDLE) {
       coordinatorState = CoordinatorState.SPINNING_UP;
       armTrigger = trigger;
       armed = (trigger == ArmTrigger.IMMEDIATE);
       hasVisitedNeutral = false;
+      readyTimeoutTimer.restart();
+      readyTimeoutRunning = true;
       // Initialize previous-state tracking so the first cycle doesn't false-trigger transitions
       previousTrenchMode = trenchModeActive;
       previousAimMode = cachedAimResult != null ? cachedAimResult.mode() : null;
@@ -1443,97 +1450,130 @@ public class ShootingCoordinator extends SubsystemBase {
     // --- Zone suppression check (highest priority) ---
     boolean inNoShootZone =
         currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH || currentZone == ZoneDetector.Zone.BUMP;
+
+    // Readiness variables — declared here so they're available for logging in all paths
+    boolean launcherReady = false;
+    boolean turretReady = false;
+    boolean hoodReady = false;
+    boolean shotAchievable = false;
+    boolean speedOk = false;
+    boolean allReady = false;
+
+    CoordinatorState prevState = coordinatorState;
+
     if (inNoShootZone) {
       coordinatorState = CoordinatorState.ZONE_SUPPRESSED;
+      readyTimeoutRunning = false;
       // Still update previous values so we detect the transition OUT correctly
       previousTrenchMode = trenchModeActive;
       previousAimMode = currentAimMode;
-      return;
-    }
-
-    // --- Leaving zone suppression → transition (subsystems need to settle) ---
-    if (coordinatorState == CoordinatorState.ZONE_SUPPRESSED) {
+    } else if (coordinatorState == CoordinatorState.ZONE_SUPPRESSED) {
+      // --- Leaving zone suppression → transition (subsystems need to settle) ---
       coordinatorState = CoordinatorState.TRANSITIONING;
+      readyTimeoutTimer.restart();
+      readyTimeoutRunning = true;
       previousTrenchMode = trenchModeActive;
       previousAimMode = currentAimMode;
-      return;
-    }
-
-    // --- Operator suppression check ---
-    if (feedingSuppressedSupplier.getAsBoolean()) {
+    } else if (feedingSuppressedSupplier.getAsBoolean()) {
+      // --- Operator suppression check ---
       if (coordinatorState == CoordinatorState.FIRING
           || coordinatorState == CoordinatorState.OPERATOR_SUPPRESSED) {
         coordinatorState = CoordinatorState.OPERATOR_SUPPRESSED;
       }
+      readyTimeoutRunning = false;
       previousTrenchMode = trenchModeActive;
       previousAimMode = currentAimMode;
-      return;
+    } else {
+      // --- Detect transition triggers (only from FIRING state) ---
+      if (coordinatorState == CoordinatorState.FIRING) {
+        boolean trenchChanged = (trenchModeActive != previousTrenchMode);
+        boolean aimModeChanged = (currentAimMode != previousAimMode);
+        boolean turretFlipping = (turret.getState() == Turret.TurretState.FLIPPING);
+
+        if (trenchChanged || aimModeChanged || turretFlipping) {
+          coordinatorState = CoordinatorState.TRANSITIONING;
+          readyTimeoutTimer.restart();
+          readyTimeoutRunning = true;
+        }
+      }
+
+      // --- Update previous values for next cycle's change detection ---
+      previousTrenchMode = trenchModeActive;
+      previousAimMode = currentAimMode;
+
+      // --- Readiness check for state advancement ---
+      launcherReady = launcher != null && launcher.isReady();
+      turretReady = turret.getState() == Turret.TurretState.READY;
+      hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
+      shotAchievable = currentShot != null && currentShot.achievable();
+      boolean turretNotFlipping = turret.getState() != Turret.TurretState.FLIPPING;
+      speedOk = isRobotSlowEnoughForCurrentZone();
+      allReady = armed && launcherReady && turretReady && hoodReady && shotAchievable && speedOk;
+
+      // --- Timeout: force FIRING if stuck in SPINNING_UP too long ---
+      boolean timeoutForced = false;
+      if (readyTimeoutRunning
+          && readyTimeoutTimer.hasElapsed(readyTimeoutSec.get())
+          && coordinatorState == CoordinatorState.SPINNING_UP) {
+        coordinatorState = CoordinatorState.FIRING;
+        readyTimeoutRunning = false;
+        timeoutForced = true;
+        Logger.recordOutput("SmartLaunch/TimeoutForced", true);
+      } else {
+        Logger.recordOutput("SmartLaunch/TimeoutForced", false);
+      }
+
+      if (!timeoutForced) {
+        switch (coordinatorState) {
+          case SPINNING_UP -> {
+            if (allReady) {
+              coordinatorState = CoordinatorState.FIRING;
+            }
+          }
+          case TRANSITIONING -> {
+            if (allReady && turretNotFlipping) {
+              coordinatorState = CoordinatorState.FIRING;
+            }
+          }
+          case OPERATOR_SUPPRESSED -> {
+            // feedingSuppressed was already checked above and returned false to reach here
+            if (allReady) {
+              coordinatorState = CoordinatorState.FIRING;
+            }
+          }
+          case FIRING -> {
+            // Drop back to SPINNING_UP if robot exceeds zone speed threshold
+            if (!speedOk) {
+              coordinatorState = CoordinatorState.SPINNING_UP;
+              readyTimeoutTimer.restart();
+              readyTimeoutRunning = true;
+            }
+            // Other transitions out (trench, turret flip, etc.) handled by trigger checks above
+          }
+          default -> {
+            // IDLE handled at top
+          }
+        }
+      }
+
+      // Stop timeout timer when we reach FIRING normally
+      if (coordinatorState == CoordinatorState.FIRING) {
+        readyTimeoutRunning = false;
+      }
     }
 
-    // --- Detect transition triggers (only from FIRING state) ---
-    if (coordinatorState == CoordinatorState.FIRING) {
-      boolean trenchChanged = (trenchModeActive != previousTrenchMode);
-      boolean aimModeChanged = (currentAimMode != previousAimMode);
-      boolean turretFlipping = (turret.getState() == Turret.TurretState.FLIPPING);
-
-      if (trenchChanged || aimModeChanged || turretFlipping) {
-        coordinatorState = CoordinatorState.TRANSITIONING;
-      }
-    }
-
-    // --- Update previous values for next cycle's change detection ---
-    previousTrenchMode = trenchModeActive;
-    previousAimMode = currentAimMode;
-
-    // --- Readiness check for state advancement ---
-    boolean launcherReady = launcher != null && launcher.isReady();
-    boolean turretReady = turret.getState() == Turret.TurretState.READY;
-    boolean hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
-    boolean shotAchievable = currentShot != null && currentShot.achievable();
-    boolean turretNotFlipping = turret.getState() != Turret.TurretState.FLIPPING;
-    boolean speedOk = isRobotSlowEnoughForCurrentZone();
-    boolean allReady =
-        armed && launcherReady && turretReady && hoodReady && shotAchievable && speedOk;
-
-    CoordinatorState prevState = coordinatorState;
-
-    switch (coordinatorState) {
-      case SPINNING_UP -> {
-        if (allReady) {
-          coordinatorState = CoordinatorState.FIRING;
-        }
-      }
-      case TRANSITIONING -> {
-        if (allReady && turretNotFlipping) {
-          coordinatorState = CoordinatorState.FIRING;
-        }
-      }
-      case OPERATOR_SUPPRESSED -> {
-        // feedingSuppressed was already checked above and returned false to reach here
-        if (allReady) {
-          coordinatorState = CoordinatorState.FIRING;
-        }
-      }
-      case FIRING -> {
-        // Drop back to SPINNING_UP if robot exceeds zone speed threshold
-        if (!speedOk) {
-          coordinatorState = CoordinatorState.SPINNING_UP;
-        }
-        // Other transitions out (trench, turret flip, etc.) are handled by trigger checks above
-      }
-      default -> {
-        // IDLE handled at top
-      }
-    }
-
-    // Flag entry into FIRING so consumeFiringEntry() can trigger a reverse pulse
+    // Flag every entry into FIRING so consumeFiringEntry() can trigger a reverse pulse.
     if (coordinatorState == CoordinatorState.FIRING && prevState != CoordinatorState.FIRING) {
       firingEntryPending = true;
+      Logger.recordOutput("SmartLaunch/ReversePulse/FiringEntrySet", true);
+    } else {
+      Logger.recordOutput("SmartLaunch/ReversePulse/FiringEntrySet", false);
     }
 
-    // Log state and readiness (throttled to 10Hz)
+    // Log state every cycle (50Hz) — always reached regardless of which branch executed
+    Logger.recordOutput("SmartLaunch/CoordinatorState", coordinatorState.name());
+    // Readiness details throttled to 10Hz (less critical)
     if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("SmartLaunch/CoordinatorState", coordinatorState.name());
       Logger.recordOutput("SmartLaunch/Armed", armed);
       Logger.recordOutput("SmartLaunch/HasVisitedNeutral", hasVisitedNeutral);
       Logger.recordOutput("SmartLaunch/SM/LauncherReady", launcherReady);
