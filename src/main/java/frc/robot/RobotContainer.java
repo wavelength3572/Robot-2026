@@ -309,7 +309,7 @@ public class RobotContainer {
     registerNamedCommands();
 
     // Dashboard toggle: ignore hub shift state (bypass launch gating)
-    SmartDashboard.putBoolean("Match/Ignore Hub State", false);
+    SmartDashboard.putBoolean("Match/Ignore Hub State", true);
 
     // Alliance win override chooser (for HubShiftUtil shift schedule)
     allianceWinChooser = new LoggedDashboardChooser<>("Alliance Win Override");

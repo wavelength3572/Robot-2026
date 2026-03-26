@@ -38,11 +38,13 @@ public final class ShotCalculator {
   // MidDist, FarDist) — single source of truth for both zone classification and efficiency.
   // Efficiency values are tunable via NetworkTables under Shots/SmartLaunch/Efficiency/.
   private static final LoggedTunableNumber efficiencyClose =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Close", 0.69); // was .774
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Close", 0.7); // was .774
   private static final LoggedTunableNumber efficiencyMid =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Mid", 0.68); // was .774
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Mid", 0.7); // was .774
   private static final LoggedTunableNumber efficiencyFar =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Far", 0.81); // was .75
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Far", 0.7); // was .75
+  private static final LoggedTunableNumber efficiencyCorner =
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Corner", 0.7);
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -102,16 +104,18 @@ public final class ShotCalculator {
   }
 
   /**
-   * Get the launch efficiency interpolated by distance. Linearly interpolates between three tunable
-   * breakpoints (close, mid, far). Clamps outside the breakpoint range.
+   * Get the launch efficiency interpolated by distance. Linearly interpolates between four tunable
+   * breakpoints (close, mid, far, corner). Clamps outside the breakpoint range.
    */
   public static double getEfficiency(double distanceMeters) {
     double dClose = ZoneDetector.getZoneBoundaryClose();
     double dMid = ZoneDetector.getZoneBoundaryMid();
     double dFar = ZoneDetector.getZoneBoundaryFar();
+    double dCorner = ZoneDetector.getZoneBoundaryCorner();
     double eClose = efficiencyClose.get();
     double eMid = efficiencyMid.get();
     double eFar = efficiencyFar.get();
+    double eCorner = efficiencyCorner.get();
 
     if (distanceMeters <= dClose) {
       return eClose;
@@ -121,8 +125,11 @@ public final class ShotCalculator {
     } else if (distanceMeters <= dFar) {
       double t = (distanceMeters - dMid) / (dFar - dMid);
       return eMid + t * (eFar - eMid);
+    } else if (distanceMeters <= dCorner) {
+      double t = (distanceMeters - dFar) / (dCorner - dFar);
+      return eFar + t * (eCorner - eFar);
     } else {
-      return eFar;
+      return eCorner;
     }
   }
 

@@ -6,12 +6,14 @@ import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.FieldConstants;
+import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
@@ -111,6 +113,10 @@ public class ShootingCoordinator extends SubsystemBase {
   // Optional feeding suppression check — when true, launchFuel() is a no-op
   private BooleanSupplier feedingSuppressedSupplier = () -> false;
 
+  // Master toggle for trench mode. When false, the normal smartShot strategy runs
+  // even under the trench (hood is not clamped, no empirical RPM lerp).
+  private boolean trenchModeEnabled = false;
+
   // Trench mode: hood clamped to trenchHoodMaxDeg, RPM from empirical lerp between
   // two tested distance/RPM endpoints per trench side (Left/Right tunables below).
   // Completely independent of the global strategy pipeline and launch efficiency.
@@ -148,6 +154,19 @@ public class ShootingCoordinator extends SubsystemBase {
       new LoggedTunableNumber("Shots/TrenchMode/Right/MotivatorFarRPM", 1800.0);
   private boolean trenchModeActive = false; // true when robot is in a trench or bump zone
   private double trenchMotivatorRPM = 1800.0; // lerped motivator RPM for current trench position
+
+  // Trench hood safety: limits drive speed when hood is above safe angle while moving in trench.
+  // Protects the hood from hitting the trench structure during transit.
+  private final LoggedTunableNumber trenchSafetySpeedLimitMps =
+      new LoggedTunableNumber("Shots/TrenchMode/SafetySpeedLimitMps", 2.0);
+  private final LoggedTunableNumber trenchMovingThresholdMps =
+      new LoggedTunableNumber("Shots/TrenchMode/MovingThresholdMps", 0.1);
+  // Settle time: robot must be stationary for this long before hood is allowed back up.
+  // Prevents oscillation from speed noise around the moving threshold.
+  private final LoggedTunableNumber trenchStationarySettleTimeSec =
+      new LoggedTunableNumber("Shots/TrenchMode/StationarySettleSec", 0.25);
+  private boolean trenchHoodSafetyActive = false;
+  private double lastMovingInTrenchTimestamp = 0.0;
 
   // ========== CoordinatorState Machine ==========
   // Centralized state that drives feeding decisions in SmartLaunch commands.
@@ -378,6 +397,7 @@ public class ShootingCoordinator extends SubsystemBase {
     periodicCounter++;
     updateShotCalculation(alliance, isBlueAlliance);
     updateCoordinatorState();
+    updateTrenchHoodSafety();
     if (periodicCounter % 5 == 0) {
       logShotState();
     }
@@ -439,9 +459,10 @@ public class ShootingCoordinator extends SubsystemBase {
       // Zone is fully determined by position — ZoneDetector computes distance to hub
       // internally for alliance sub-zone classification (CLOSE/MID/FAR).
       trenchModeActive =
-          aimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
-              || aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH
-              || aimResult.zone() == ZoneDetector.Zone.BUMP;
+          trenchModeEnabled
+              && (aimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
+                  || aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH
+                  || aimResult.zone() == ZoneDetector.Zone.BUMP);
 
       // Log zone and aim mode (throttled to 10Hz)
       if (periodicCounter % 5 == 0) {
@@ -667,19 +688,47 @@ public class ShootingCoordinator extends SubsystemBase {
 
     double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
     double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
+
+    // Safety: always clamp hood to trench-safe angle when moving in a trench zone,
+    // regardless of trenchModeEnabled. Prevents the hood from hitting the trench structure.
+    // When stationary in trench, full hood range is allowed for better shot accuracy.
+    boolean inTrenchZone =
+        cachedAimResult != null
+            && (cachedAimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
+                || cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH);
+    if (inTrenchZone) {
+      double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+      boolean isMoving = robotSpeed > trenchMovingThresholdMps.get();
+      if (isMoving) {
+        lastMovingInTrenchTimestamp = Timer.getFPGATimestamp();
+      }
+      double timeSinceMoving = Timer.getFPGATimestamp() - lastMovingInTrenchTimestamp;
+      // Clamp hood to minimum (13°) when moving; keep clamped until settled for the full delay.
+      // Speed limit (managed in updateTrenchHoodSafety) only applies while hood is above 18°.
+      if (isMoving || timeSinceMoving < trenchStationarySettleTimeSec.get()) {
+        hoodMax = hoodMin;
+      }
+    }
+
+    // Trench RPM lerp (only when trenchModeEnabled and moving in trench)
+    boolean useTrenchLerp = false;
     if (trenchModeActive) {
-      hoodMax = Math.min(hoodMax, trenchHoodMaxDeg.get());
+      double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+      if (robotSpeed > trenchMovingThresholdMps.get()) {
+        useTrenchLerp = true;
+      }
     }
 
     double currentTurretAngle = turret.getOutsideCurrentAngle();
     double turretMin = turret.getMinAngle();
     double turretMax = turret.getMaxAngle();
 
-    // In trench mode, use empirical RPM lerp: interpolate between two tested endpoints
-    // (close and far distance) with fixed hood angle. No physics solver — pure empirical
-    // data, independent of the global launch efficiency.
+    // In trench mode while moving, use empirical RPM lerp: interpolate between two tested
+    // endpoints (close and far distance) with fixed hood angle. No physics solver — pure
+    // empirical data, independent of the global launch efficiency.
+    // When stationary in trench, the normal strategy runs with full hood range.
     ShotCalculator.ShotResult activeResult;
-    if (trenchModeActive) {
+    if (useTrenchLerp) {
       double robotHeadingRad = robotPose.getRotation().getRadians();
       double[] turretFieldPos =
           ShotCalculator.getTurretFieldPosition(
@@ -785,6 +834,8 @@ public class ShootingCoordinator extends SubsystemBase {
       Logger.recordOutput("SmartLaunch/Status/TargetX", target.getX());
       Logger.recordOutput("SmartLaunch/Status/TargetY", target.getY());
       Logger.recordOutput("SmartLaunch/Status/DistanceM", currentDistanceM);
+      Logger.recordOutput(
+          "SmartLaunch/Status/Efficiency", ShotCalculator.getEfficiency(currentDistanceM));
       if (currentShot != null && currentShot.aimTarget() != null) {
         Logger.recordOutput("SmartLaunch/Status/AimTargetX", currentShot.aimTarget().getX());
         Logger.recordOutput("SmartLaunch/Status/AimTargetY", currentShot.aimTarget().getY());
@@ -1186,12 +1237,26 @@ public class ShootingCoordinator extends SubsystemBase {
   // ========== Trench Avoidance Mode ==========
 
   /**
-   * Check if trench avoidance is currently active (robot is in a trench zone). Trench clamping is
-   * always enabled — there is no toggle. The hood is clamped whenever the robot is detected inside
-   * any trench zone.
+   * Check if trench avoidance is currently active (robot is in a trench zone and trench mode is
+   * enabled). When trench mode is disabled, this always returns false.
    */
   public boolean isTrenchModeActive() {
     return trenchModeActive;
+  }
+
+  /** Toggle trench mode on/off. */
+  public void toggleTrenchMode() {
+    trenchModeEnabled = !trenchModeEnabled;
+  }
+
+  /** Enable or disable trench mode. When disabled, smartShot runs normally under the trench. */
+  public void setTrenchModeEnabled(boolean enabled) {
+    this.trenchModeEnabled = enabled;
+  }
+
+  /** Check whether trench mode is enabled. */
+  public boolean isTrenchModeEnabled() {
+    return trenchModeEnabled;
   }
 
   /**
@@ -1200,6 +1265,56 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   public double getTrenchMotivatorRPM() {
     return trenchMotivatorRPM;
+  }
+
+  /**
+   * Check if trench hood safety is active (hood above safe angle while moving in trench). When
+   * active, drive speed is limited and shooting is suppressed until the hood lowers.
+   */
+  public boolean isTrenchHoodSafetyActive() {
+    return trenchHoodSafetyActive;
+  }
+
+  /**
+   * Update trench hood safety state. When moving in a trench zone with the hood physically above
+   * the safe angle (trenchHoodMaxDeg), limits drive speed to trenchSafetySpeedLimitMps and lets the
+   * hood lower. Shooting is naturally suppressed because the hood won't be at its target yet. Once
+   * the hood reaches the safe angle, the speed limit is cleared.
+   */
+  private void updateTrenchHoodSafety() {
+    boolean wasActive = trenchHoodSafetyActive;
+
+    boolean inTrenchZone =
+        cachedAimResult != null
+            && (cachedAimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
+                || cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH);
+
+    if (inTrenchZone && hood != null && fieldSpeedsSupplier != null) {
+      ChassisSpeeds speeds = fieldSpeedsSupplier.get();
+      double robotSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
+      boolean isMoving = robotSpeed > trenchMovingThresholdMps.get();
+      if (isMoving) {
+        lastMovingInTrenchTimestamp = Timer.getFPGATimestamp();
+      }
+      double timeSinceMoving = Timer.getFPGATimestamp() - lastMovingInTrenchTimestamp;
+      boolean effectivelyMoving = isMoving || timeSinceMoving < trenchStationarySettleTimeSec.get();
+      boolean hoodAboveSafe = hood.getCurrentAngle() > trenchHoodMaxDeg.get();
+
+      trenchHoodSafetyActive = effectivelyMoving && hoodAboveSafe;
+    } else {
+      trenchHoodSafetyActive = false;
+    }
+
+    // Apply or release drive speed limit on state transitions
+    if (trenchHoodSafetyActive) {
+      DriveCommands.setSpeedLimit(trenchSafetySpeedLimitMps.get());
+    } else if (wasActive) {
+      DriveCommands.clearSpeedLimit();
+    }
+
+    if (periodicCounter % 5 == 0) {
+      Logger.recordOutput("SmartLaunch/TrenchHoodSafety/Active", trenchHoodSafetyActive);
+    }
   }
 
   // ========== CoordinatorState Machine API ==========
@@ -1507,11 +1622,12 @@ public class ShootingCoordinator extends SubsystemBase {
    * speed for zones where shooting is suppressed (NONE).
    */
   public double getZoneSpeedLimitMps() {
-    if (cachedAimResult == null) return Double.MAX_VALUE;
+    double maxSpeed = Constants.getRobotConfig().getMaxSpeedMetersPerSec();
+    if (cachedAimResult == null) return maxSpeed;
     return switch (cachedAimResult.mode()) {
       case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get() - 0.05;
       case PASS, LONG_PASS -> passSpeedMps.get() - 0.05;
-      case NONE -> Double.MAX_VALUE;
+      case NONE -> maxSpeed;
     };
   }
 

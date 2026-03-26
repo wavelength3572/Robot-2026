@@ -153,6 +153,8 @@ public class LUTShotStrategy implements ShotStrategy {
     double launchAngleRad = Math.toRadians(launchAngleDeg);
 
     // RPM comes directly from LUT (+ any clamp compensation)
+    double efficiency = ShotCalculator.getEfficiency(finalDistance);
+    Logger.recordOutput("SmartLaunch/LUT/Efficiency", efficiency);
     double exitVelocityMps =
         ShotCalculator.calculateExitVelocityFromRPM(effectiveRPM, finalDistance);
 

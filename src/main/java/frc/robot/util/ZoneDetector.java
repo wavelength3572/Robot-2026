@@ -58,7 +58,9 @@ public class ZoneDetector {
   private static final LoggedTunableNumber zoneBoundaryMid =
       new LoggedTunableNumber("Shots/Zones/MidDist", 3.5);
   private static final LoggedTunableNumber zoneBoundaryFar =
-      new LoggedTunableNumber("Shots/Zones/FarDist", 5.5);
+      new LoggedTunableNumber("Shots/Zones/FarDist", 4.1);
+  private static final LoggedTunableNumber zoneBoundaryCorner =
+      new LoggedTunableNumber("Shots/Zones/CornerDist", 5.1);
 
   /** Get the close zone boundary distance (meters). */
   public static double getZoneBoundaryClose() {
@@ -73,6 +75,11 @@ public class ZoneDetector {
   /** Get the far zone boundary distance (meters). */
   public static double getZoneBoundaryFar() {
     return zoneBoundaryFar.get();
+  }
+
+  /** Get the corner zone boundary distance (meters). */
+  public static double getZoneBoundaryCorner() {
+    return zoneBoundaryCorner.get();
   }
 
   /** Small hysteresis buffer for X-based zone transitions (ALLIANCE↔NEUTRAL). */
