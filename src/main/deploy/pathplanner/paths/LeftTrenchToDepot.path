@@ -48,12 +48,12 @@
     },
     {
       "anchor": {
-        "x": 2.849943548387097,
-        "y": 5.571048387096774
+        "x": 2.6158790322580647,
+        "y": 5.475959677419355
       },
       "prevControl": {
-        "x": 2.599943548387097,
-        "y": 5.571048387096774
+        "x": 2.3658790322580647,
+        "y": 5.475959677419355
       },
       "nextControl": null,
       "isLocked": false,
@@ -64,6 +64,10 @@
     {
       "waypointRelativePos": 0.6930091185410332,
       "rotationDegrees": -119.99999999999999
+    },
+    {
+      "waypointRelativePos": 1.637892376681617,
+      "rotationDegrees": -110.0
     }
   ],
   "constraintZones": [],
@@ -79,7 +83,7 @@
   },
   "goalEndState": {
     "velocity": 0.0,
-    "rotation": -95.0
+    "rotation": 145.0
   },
   "reversed": false,
   "folder": "Auto Paths",

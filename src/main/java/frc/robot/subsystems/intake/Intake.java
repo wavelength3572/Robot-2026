@@ -77,7 +77,9 @@ public class Intake extends SubsystemBase {
     deployKP = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kP", config.getIntakeDeployKp());
     deployKI = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kI", config.getIntakeDeployKi());
     deployKD = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kD", config.getIntakeDeployKd());
-    deployStowedPos = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/StowedPosition", config.getIntakeDeployStowedPosition());
+    deployStowedPos =
+        new LoggedTunableNumber(
+            "Tuning/Intake/IntakeDeploy/StowedPosition", config.getIntakeDeployStowedPosition());
     deployExtendedPos =
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/ExtendedPosition",
@@ -162,7 +164,6 @@ public class Intake extends SubsystemBase {
 
   private DeployState deployState = DeployState.RETRACTED;
   private final Timer brakeTimer = new Timer();
-
   // ========== MECHANISM 2D VISUALIZATION ==========
   // Canvas dimensions (meters) — side view of robot
   private static final double MECH_CANVAS_WIDTH = 1.0;
