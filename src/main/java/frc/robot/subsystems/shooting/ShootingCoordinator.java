@@ -199,7 +199,7 @@ public class ShootingCoordinator extends SubsystemBase {
   // Rotates the aim target around the turret position so the entire shot pipeline
   // (turret angle, velocity compensation, achievability) adjusts naturally.
   // Positive = counter-clockwise / left, Negative = clockwise / right.
-  private static final double TURRET_TRIM_STEP_DEG = 0.5;
+  private static final double TURRET_TRIM_STEP_DEG = 1.0;
   private static final double TURRET_TRIM_MAX_DEG = 3.0;
   private static double turretTrimDeg = 0.0;
 
