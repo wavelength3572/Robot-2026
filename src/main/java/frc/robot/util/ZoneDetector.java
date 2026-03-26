@@ -160,7 +160,7 @@ public class ZoneDetector {
     }
     // TRENCH: turret in trench zone (bounds already include hood lead distance)
     if (FieldConstants.TrenchZones.isInAnyTrenchZone(turretX, turretY)) {
-      boolean onAllianceSide = isOnAllianceSideOfTrench(robotX, alliance);
+      boolean onAllianceSide = isOnAllianceSideOfTrench(turretX, alliance);
       return onAllianceSide ? Zone.ALLIANCE_TRENCH : Zone.NEUTRAL_TRENCH;
     }
 
