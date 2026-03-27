@@ -1187,9 +1187,6 @@ public class ShootingCoordinator extends SubsystemBase {
   public boolean isRobotSlowEnoughForCurrentZone() {
     if (fieldSpeedsSupplier == null || cachedAimResult == null) return true;
 
-    // Never fire while moving in a trench zone — must be stationary (and settled)
-    if (movingInTrench) return false;
-
     ChassisSpeeds speeds = fieldSpeedsSupplier.get();
     double robotSpeedMps = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
 
@@ -1207,6 +1204,10 @@ public class ShootingCoordinator extends SubsystemBase {
     Logger.recordOutput("SmartLaunch/SpeedCheck/RobotMps", robotSpeedMps);
     Logger.recordOutput("SmartLaunch/SpeedCheck/ThresholdMps", thresholdMps);
     Logger.recordOutput("SmartLaunch/SpeedCheck/SlowEnough", slowEnough);
+    Logger.recordOutput("SmartLaunch/SpeedCheck/movingInTrench", movingInTrench);
+
+    // Never fire while moving in a trench zone — must be stationary (and settled)
+    if (movingInTrench) return false;
 
     return slowEnough;
   }

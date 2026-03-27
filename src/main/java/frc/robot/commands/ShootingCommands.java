@@ -129,16 +129,16 @@ public class ShootingCommands {
   // Motivator RPM as a ratio of launcher RPM: motivatorRPM = launcherRPM * ratio
   private static final LoggedTunableNumber motivatorLauncherRatio =
       new LoggedTunableNumber(
-          "Shots/SmartLaunch/MotivatorLauncherRatio", 0.4); // consider .68 was .565
+          "Shots/SmartLaunch/MotivatorLauncherRatio", 0.2); // consider .68 was .565
 
   // Spindexer RPM lerped by distance: close = max, far = min
   private static final LoggedTunableNumber spindexerCloseRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 550.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 300.0);
   private static final LoggedTunableNumber spindexerFarRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 375.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 300.0);
   // Fixed spindexer RPM used in pass/neutral zones (no distance lerp)
   private static final LoggedTunableNumber spindexerPassRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 425.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 375.0);
 
   // ===== LUT Dev Overrides (manual RPM/hood for data collection) =====
   private static final LoggedTunableNumber lutDevOverrideRPM =
