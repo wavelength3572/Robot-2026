@@ -104,11 +104,11 @@ public class SpindexerIOSparkMax implements SpindexerIO {
                 motor1Config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
 
     // Startup diagnostics
-    System.out.println("[SpindexerIOSparkFlex] ========== STARTUP ==========");
-    System.out.println("[SpindexerIOSparkFlex] Spindexer 1 CAN ID: " + config.getSpindexerCanId());
+    System.out.println("[SpindexerIOSparkMax] ========== STARTUP ==========");
+    System.out.println("[SpindexerIOSparkMax] Spindexer 1 CAN ID: " + config.getSpindexerCanId());
     System.out.println(
-        "[SpindexerIOSparkFlex] Spindexer Current Limit: " + config.getSpindexerCurrentLimit());
-    System.out.println("[SpindexerIOSparkFlex] ==============================");
+        "[SpindexerIOSparkMax] Spindexer Current Limit: " + config.getSpindexerCurrentLimit());
+    System.out.println("[SpindexerIOSparkMax] ==============================");
   }
 
   /** Convert motor RPM to wheel RPM */

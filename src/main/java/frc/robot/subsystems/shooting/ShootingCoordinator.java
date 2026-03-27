@@ -185,7 +185,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final Timer readyTimeoutTimer = new Timer();
   private boolean readyTimeoutRunning = false;
   private static final LoggedTunableNumber readyTimeoutSec =
-      new LoggedTunableNumber("Shots/SmartLaunch/ReadyTimeoutSec", 3.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/ReadyTimeoutSec", 1.5);
 
   // Cached aim result — computed once per cycle in updateShotCalculation(), used by all zone
   // queries (isRobotSlowEnoughForCurrentZone, isInPassZone, getCurrentZone, getZoneSpeedLimitMps)

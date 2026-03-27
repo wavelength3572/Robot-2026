@@ -73,7 +73,6 @@ public class ShootingCommands {
       currentMode = mode;
       SmartDashboard.putString("Match/Status/Mode", mode.toString());
       SmartDashboard.putBoolean("Match/Status/Active", mode == ShootingMode.TEST);
-      // System.out.println("[Shooting] Mode changed to: " + mode);
     }
   }
 
@@ -164,7 +163,6 @@ public class ShootingCommands {
       launcherTrimRPM = trimRPM;
       SmartDashboard.putNumber("Trim/LauncherRPM", trimRPM);
       Logger.recordOutput("Trim/LauncherRPM", trimRPM);
-      // System.out.println("[Trim] Launcher RPM trim set to " + trimRPM);
     }
   }
 
@@ -523,8 +521,6 @@ public class ShootingCommands {
                     Commands.waitSeconds(2.0),
                     Commands.runOnce(
                         () -> {
-                          // System.out.println(
-                          //     "[FixedShot] WARNING: Setup timeout - continuing anyway!");
                           SmartDashboard.putString(
                               "Match/Status/State", "Fixed Launch TIMEOUT - continuing anyway");
                         }))),
@@ -610,7 +606,6 @@ public class ShootingCommands {
               }
               setMode(ShootingMode.COMPETITION);
               SmartDashboard.putString("Match/Status/State", "Fixed Launch Stopped");
-              // System.out.println("[FixedShot] Stopped");
             })
         .withName("FixedShot");
   }
@@ -878,31 +873,7 @@ public class ShootingCommands {
 
                   Logger.recordOutput("SmartLaunch/Phase", "SPIN_UP");
                   SmartDashboard.putString("Match/Status/State", "Smart Launch - Positioning");
-                  // System.out.println("[SmartLaunch] Starting odometry-based launch");
                 }),
-
-            // Phase 1.5: Brief reverse pulse to clear balls from motivator/spindexer
-            // while the launcher is spinning up
-            // Commands.sequence(
-            //     Commands.runOnce(
-            //         () -> {
-            //           if (motivator != null) {
-            //             motivator.setMotivatorVoltage(-1.0);
-            //           }
-            //           if (spindexer != null) {
-            //             spindexer.reverseSpindexer(250.0);
-            //           }
-            //         }),
-            //     Commands.waitSeconds(0.2),
-            //     Commands.runOnce(
-            //         () -> {
-            //           if (motivator != null) {
-            //             motivator.stopMotivator();
-            //           }
-            //           if (spindexer != null) {
-            //             spindexer.stopSpindexer();
-            //           }
-            //         })),
 
             // Phase 2: Wait for all subsystems to reach setpoint (with 2s timeout)
             Commands.race(
@@ -1107,7 +1078,6 @@ public class ShootingCommands {
               setMode(ShootingMode.COMPETITION);
               Logger.recordOutput("SmartLaunch/Phase", "IDLE");
               SmartDashboard.putString("Match/Status/State", "SmartLaunch Stopped");
-              // System.out.println("[SmartLaunch] Stopped");
             })
         .withName("SmartLaunch");
   }
