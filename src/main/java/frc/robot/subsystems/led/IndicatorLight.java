@@ -197,7 +197,14 @@ public class IndicatorLight extends SubsystemBase {
       return;
     }
 
-    // Disabled RSL shows in all modes
+    // Pit mode (Constants or dashboard): blue ombre always, even when disabled
+    if (mode == LightMode.PIT || Constants.currentMode == Constants.Mode.PIT) {
+      LED_State = LED_EFFECTS.BLUEOMBRE;
+      doBlueOmbre();
+      return;
+    }
+
+    // Disabled RSL shows in all other modes
     if (DriverStation.isDisabled()) {
       LED_State = LED_EFFECTS.RSL;
       doRsl();
@@ -207,12 +214,6 @@ public class IndicatorLight extends SubsystemBase {
     if (mode == LightMode.OFF) {
       LED_State = LED_EFFECTS.BLACK;
       setActiveBuffer(wlBlackLEDBuffer);
-      return;
-    }
-
-    if (mode == LightMode.PIT) {
-      LED_State = LED_EFFECTS.BLUEOMBRE;
-      doBlueOmbre();
       return;
     }
 

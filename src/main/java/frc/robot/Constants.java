@@ -7,6 +7,7 @@
 
 package frc.robot;
 
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Preferences;
 import edu.wpi.first.wpilibj.RobotBase;
 
@@ -25,7 +26,8 @@ public final class Constants {
    * and vision data at arbitrary field positions — e.g. see what happens at 7 m from the hub.
    *
    * <p>Enable by setting the "PitMode" preference to true on the roboRIO (via Preferences widget on
-   * the dashboard) and restarting robot code.
+   * the dashboard) and restarting robot code. As a safety measure, pit mode is automatically
+   * disabled when FMS is connected so the robot drives normally if you forget to turn it off.
    */
   public static final boolean pitMode = RobotBase.isReal() && detectPitMode();
 
@@ -94,6 +96,11 @@ public final class Constants {
   private static boolean detectPitMode() {
     try {
       boolean enabled = Preferences.getBoolean("PitMode", false);
+      if (enabled && DriverStation.isFMSAttached()) {
+        System.out.println(
+            "[RobotConfig] PitMode preference is ON but FMS is connected — ignoring pit mode for safety.");
+        return false;
+      }
       if (enabled) {
         System.out.println(
             "[RobotConfig] *** PIT MODE ENABLED *** Drive is simulated, all other subsystems are real.");
