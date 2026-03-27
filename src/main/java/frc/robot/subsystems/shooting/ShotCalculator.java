@@ -854,7 +854,7 @@ public final class ShotCalculator {
 
     // Check RPM limits
     double rpm = calculateRPMForVelocity(exitVelocity, horizontalDist);
-    if (rpm < 1500 || rpm > 4500) {
+    if (rpm < 1500 || rpm > 5100) {
       Logger.recordOutput(
           "SmartLaunch/Pass/TwoPoint/RejectReason",
           String.format("RPM %.0f outside [1500-4500]", rpm));
