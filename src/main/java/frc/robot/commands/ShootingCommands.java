@@ -138,7 +138,10 @@ public class ShootingCommands {
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 300.0);
   // Fixed spindexer RPM used in pass/neutral zones (no distance lerp)
   private static final LoggedTunableNumber spindexerPassRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 375.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 550.0);
+  // Fixed motivator RPM used in pass/neutral zones (bypasses ratio)
+  private static final LoggedTunableNumber motivatorPassRPM =
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorPassRPM", 1800.0);
 
   // ===== LUT Dev Overrides (manual RPM/hood for data collection) =====
   private static final LoggedTunableNumber lutDevOverrideRPM =
@@ -226,6 +229,9 @@ public class ShootingCommands {
   public static double getMotivatorRPM(double launcherRPM, ShootingCoordinator coordinator) {
     if (coordinator.isTrenchModeActive()) {
       return coordinator.getTrenchMotivatorRPM();
+    }
+    if (coordinator.isInPassZone()) {
+      return motivatorPassRPM.get();
     }
     return launcherRPM * motivatorLauncherRatio.get();
   }
