@@ -461,12 +461,12 @@ public class ButtonsAndDashboardBindings {
     // X-stance button (interlink button 13): while held, lock wheels in X pattern.
     // Only activates when robot speed is below 1 m/s to prevent skidding.
     oi.getLockWheels()
-        .and(() -> {
-          ChassisSpeeds speeds = drive.getChassisSpeeds();
-          return Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond) < 1.0;
-        })
-        .whileTrue(
-            Commands.run(() -> drive.stopWithX(), drive).withName("XStance"));
+        .and(
+            () -> {
+              ChassisSpeeds speeds = drive.getChassisSpeeds();
+              return Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond) < 1.0;
+            })
+        .whileTrue(Commands.run(() -> drive.stopWithX(), drive).withName("XStance"));
   }
 
   /****************************** */
