@@ -129,7 +129,7 @@ public class ShootingCommands {
   // Motivator RPM as a ratio of launcher RPM: motivatorRPM = launcherRPM * ratio
   private static final LoggedTunableNumber motivatorLauncherRatio =
       new LoggedTunableNumber(
-          "Shots/SmartLaunch/MotivatorLauncherRatio", 0.2); // consider .68 was .565
+          "Shots/SmartLaunch/MotivatorLauncherRatio", 0.4); // consider .68 was .565
 
   // Spindexer RPM lerped by distance: close = max, far = min
   private static final LoggedTunableNumber spindexerCloseRPM =

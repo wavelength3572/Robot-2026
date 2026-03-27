@@ -33,18 +33,18 @@ public class TrajectoryOptimizer {
   // PRIMARY TUNABLE: Descent angle (angle of line from hub edge to hub center)
   // Tune this to match the hub wall angle visually (60° matches well)
   private static final LoggedTunableNumber descentAngleDeg =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/DescentAngleDeg", 45.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/DescentAngleDeg", 35.0);
 
   // Minimum descent angle for fallback. When the preferred angle requires a hood position
   // below the mechanical limit (too close to hub), the optimizer steps down in 1° increments
   // until it finds an achievable shot or hits this floor.
   private static final LoggedTunableNumber minDescentAngleDeg =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MinDescentAngleDeg", 40.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MinDescentAngleDeg", 30.0);
 
   // Clearance constraints (inches above the lip)
   private static final LoggedTunableNumber minClearanceInches =
       new LoggedTunableNumber(
-          "Shots/SmartLaunch/Trajectory/MinClearanceInches", 2.0); // Safety margin
+          "Shots/SmartLaunch/Trajectory/MinClearanceInches", -4.0); // Safety margin
   private static final LoggedTunableNumber maxClearanceInches =
       new LoggedTunableNumber(
           "Shots/SmartLaunch/Trajectory/MaxClearanceInches", 22.0); // Sanity check

@@ -40,7 +40,7 @@ public final class ShotCalculator {
   private static final LoggedTunableNumber efficiencyClose =
       new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Close", 0.7); // was .774
   private static final LoggedTunableNumber efficiencyMid =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Mid", 0.7); // was .774
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Mid", 0.65); // was .774
   private static final LoggedTunableNumber efficiencyFar =
       new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Far", 0.7); // was .75
   private static final LoggedTunableNumber efficiencyCorner =
