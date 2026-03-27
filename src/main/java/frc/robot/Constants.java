@@ -13,26 +13,12 @@ import edu.wpi.first.wpilibj.RobotBase;
 
 /**
  * This class defines the runtime mode used by AdvantageKit. The mode is always "real" when running
- * on a roboRIO. Change the value of "simMode" to switch between "sim" (physics sim) and "replay"
- * (log replay from a file).
+ * on a roboRIO. Change the value of "simMode" to switch between "sim" (physics sim), "replay" (log
+ * replay from a file), or "pit" (simulated drive with real subsystems for pit testing).
  */
 public final class Constants {
   public static final Mode simMode = Mode.SIM;
-
-  /**
-   * Pit mode: runs on the real roboRIO but uses simulated drive (physics sim) while all other
-   * subsystems (turret, launcher, hood, vision, intake, etc.) use real hardware. This lets the team
-   * "drive around" the field virtually in the pits and observe real targeting, shot calculations,
-   * and vision data at arbitrary field positions — e.g. see what happens at 7 m from the hub.
-   *
-   * <p>Enable by setting the "PitMode" preference to true on the roboRIO (via Preferences widget on
-   * the dashboard) and restarting robot code. As a safety measure, pit mode is automatically
-   * disabled when FMS is connected so the robot drives normally if you forget to turn it off.
-   */
-  public static final boolean pitMode = RobotBase.isReal() && detectPitMode();
-
-  public static final Mode currentMode =
-      pitMode ? Mode.PIT : (RobotBase.isReal() ? Mode.REAL : simMode);
+  public static final Mode currentMode = resolveMode();
 
   /**
    * Robot type for simulation mode. Change this to test different configurations. On real hardware,
@@ -90,25 +76,25 @@ public final class Constants {
   }
 
   /**
-   * Checks if pit mode is enabled via RobotPreferences. Set "PitMode" to true on the dashboard
-   * Preferences widget to enable.
+   * Resolves the runtime mode. On real hardware, normally REAL. When simMode is set to PIT and
+   * deployed to the roboRIO, enables pit mode (simulated drive, real everything else). As a safety
+   * measure, PIT mode falls back to REAL when FMS is connected.
    */
-  private static boolean detectPitMode() {
-    try {
-      boolean enabled = Preferences.getBoolean("PitMode", false);
-      if (enabled && DriverStation.isFMSAttached()) {
-        System.out.println(
-            "[RobotConfig] PitMode preference is ON but FMS is connected — ignoring pit mode for safety.");
-        return false;
-      }
-      if (enabled) {
+  private static Mode resolveMode() {
+    if (RobotBase.isReal()) {
+      if (simMode == Mode.PIT) {
+        if (DriverStation.isFMSAttached()) {
+          System.out.println(
+              "[RobotConfig] simMode is PIT but FMS is connected — falling back to REAL for safety.");
+          return Mode.REAL;
+        }
         System.out.println(
             "[RobotConfig] *** PIT MODE ENABLED *** Drive is simulated, all other subsystems are real.");
+        return Mode.PIT;
       }
-      return enabled;
-    } catch (Exception e) {
-      return false;
+      return Mode.REAL;
     }
+    return simMode;
   }
 
   public static enum Mode {
