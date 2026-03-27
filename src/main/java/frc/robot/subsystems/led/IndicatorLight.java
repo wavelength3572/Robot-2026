@@ -837,7 +837,7 @@ public class IndicatorLight extends SubsystemBase {
     }
 
     // Teleop: green when active, red when inactive, countdown blink before going active
-    HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getShiftedShiftInfo();
+    HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getOfficialShiftInfo();
     if (!shiftInfo.active()
         && shiftInfo.remainingTime() <= HubShiftUtil.preActiveCutoffSeconds.get()) {
       countdownRemainingTime = shiftInfo.remainingTime();
