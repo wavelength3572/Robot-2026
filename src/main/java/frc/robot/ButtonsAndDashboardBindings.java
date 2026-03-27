@@ -3,6 +3,7 @@ package frc.robot;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -458,7 +459,12 @@ public class ButtonsAndDashboardBindings {
                 drive, oi::getTranslateX, oi::getTranslateY, () -> Rotation2d.fromDegrees(90.0)));
 
     // X-stance button (interlink button 13): while held, lock wheels in X pattern.
+    // Only activates when robot speed is below 1 m/s to prevent skidding.
     oi.getLockWheels()
+        .and(() -> {
+          ChassisSpeeds speeds = drive.getChassisSpeeds();
+          return Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond) < 1.0;
+        })
         .whileTrue(
             Commands.run(() -> drive.stopWithX(), drive).withName("XStance"));
   }
