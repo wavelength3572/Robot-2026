@@ -183,7 +183,7 @@ public class MainBotConfig implements RobotConfig {
   // Intake Configuration
   private static final int intakeDeployMotorCanId = 45;
   private static final int intakeRollerMotorCanId = 46;
-  private static final double intakeDeployGearRatio = 20.0;
+  private static final double intakeDeployGearRatio = 25.0;
   private static final double intakeRollerGearRatio = 2.0;
   private static final boolean intakeDeployMotorInverted = false;
   private static final boolean intakeRollerMotorInverted = true;
