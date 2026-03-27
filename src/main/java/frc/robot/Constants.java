@@ -17,7 +17,20 @@ import edu.wpi.first.wpilibj.RobotBase;
  */
 public final class Constants {
   public static final Mode simMode = Mode.SIM;
-  public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
+
+  /**
+   * Pit mode: runs on the real roboRIO but uses simulated drive (physics sim) while all other
+   * subsystems (turret, launcher, hood, vision, intake, etc.) use real hardware. This lets the team
+   * "drive around" the field virtually in the pits and observe real targeting, shot calculations,
+   * and vision data at arbitrary field positions — e.g. see what happens at 7 m from the hub.
+   *
+   * <p>Enable by setting the "PitMode" preference to true on the roboRIO (via Preferences widget on
+   * the dashboard) and restarting robot code.
+   */
+  public static final boolean pitMode = RobotBase.isReal() && detectPitMode();
+
+  public static final Mode currentMode =
+      pitMode ? Mode.PIT : (RobotBase.isReal() ? Mode.REAL : simMode);
 
   /**
    * Robot type for simulation mode. Change this to test different configurations. On real hardware,
@@ -74,12 +87,35 @@ public final class Constants {
     return robotConfig;
   }
 
+  /**
+   * Checks if pit mode is enabled via RobotPreferences. Set "PitMode" to true on the dashboard
+   * Preferences widget to enable.
+   */
+  private static boolean detectPitMode() {
+    try {
+      boolean enabled = Preferences.getBoolean("PitMode", false);
+      if (enabled) {
+        System.out.println(
+            "[RobotConfig] *** PIT MODE ENABLED *** Drive is simulated, all other subsystems are real.");
+      }
+      return enabled;
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
   public static enum Mode {
     /** Running on a real robot. */
     REAL,
 
     /** Running a physics simulator. */
     SIM,
+
+    /**
+     * Pit mode: real robot hardware for all subsystems EXCEPT drive, which uses physics simulation.
+     * Allows virtual field driving in the pits with real targeting and vision.
+     */
+    PIT,
 
     /** Replaying from a log file. */
     REPLAY

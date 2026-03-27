@@ -143,6 +143,42 @@ public class RobotContainer {
                 : null;
         break;
 
+      case PIT:
+        // Pit mode: simulated drive, real everything else.
+        // Lets the team "drive" around the field virtually while observing real
+        // turret, launcher, hood, vision, and shot calculations.
+        turret = config.hasTurret() ? new Turret(new TurretIOSparkMax()) : null;
+        intake = config.hasIntake() ? new Intake(new IntakeIOSparkMax()) : null;
+        launcher = config.hasLauncher() ? new Launcher(new LauncherIOSparkFlex()) : null;
+        hood = config.hasHood() ? new Hood(new HoodIOSparkMax()) : null;
+        motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkFlex()) : null;
+        spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSparkMax()) : null;
+
+        drive =
+            new Drive(
+                new GyroIO() {},
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                turret);
+
+        vision =
+            config.hasVision()
+                ? new Vision(
+                    drive::addVisionMeasurement,
+                    new String[] {"CenterRear", "RightFront", "LeftRear", "RightRear"},
+                    new VisionIOPhotonVision(
+                        VisionConstants.centerRearCam, VisionConstants.mainBotToCenterRearCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.rightFrontCam, VisionConstants.mainBotToRightFrontCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.leftRearCam, VisionConstants.mainBotToLeftRearCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.rightRearCam, VisionConstants.mainBotToRightRearCam))
+                : null;
+        break;
+
       case SIM:
         turret = config.hasTurret() ? new Turret(new TurretIOSim()) : null;
         intake = config.hasIntake() ? new Intake(new IntakeIOSim()) : null;

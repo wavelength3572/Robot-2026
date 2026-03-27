@@ -189,7 +189,8 @@ public class Drive extends SubsystemBase {
         Math.hypot(measuredSpeeds.vxMetersPerSecond, measuredSpeeds.vyMetersPerSecond));
 
     // Update gyro alert
-    gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
+    gyroDisconnectedAlert.set(
+        !gyroInputs.connected && Constants.currentMode != Mode.SIM && Constants.currentMode != Mode.PIT);
   }
 
   /**
