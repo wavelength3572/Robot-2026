@@ -166,7 +166,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber trenchStationarySettleTimeSec =
       new LoggedTunableNumber("Shots/TrenchMode/StationarySettleSec", 0.25);
   private final LoggedTunableNumber trenchIdleLauncherRPM =
-      new LoggedTunableNumber("Shots/TrenchMode/IdleLauncherRPM", 1500.0);
+      new LoggedTunableNumber("Shots/TrenchMode/IdleLauncherRPM", 0.0);
   private boolean trenchHoodSafetyActive = false;
   private boolean movingInTrench =
       false; // true when robot is moving (or settling) in a trench zone
