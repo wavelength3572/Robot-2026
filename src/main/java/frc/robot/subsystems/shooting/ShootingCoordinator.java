@@ -1518,11 +1518,12 @@ public class ShootingCoordinator extends SubsystemBase {
       speedOk = isRobotSlowEnoughForCurrentZone();
       allReady = armed && launcherReady && turretReady && hoodReady && shotAchievable && speedOk;
 
-      // --- Timeout: force FIRING if stuck in SPINNING_UP too long ---
+      // --- Timeout: force FIRING if stuck in SPINNING_UP/TRANSITIONING too long ---
       boolean timeoutForced = false;
       if (readyTimeoutRunning
           && readyTimeoutTimer.hasElapsed(readyTimeoutSec.get())
-          && coordinatorState == CoordinatorState.SPINNING_UP) {
+          && (coordinatorState == CoordinatorState.SPINNING_UP
+              || coordinatorState == CoordinatorState.TRANSITIONING)) {
         coordinatorState = CoordinatorState.FIRING;
         readyTimeoutRunning = false;
         timeoutForced = true;

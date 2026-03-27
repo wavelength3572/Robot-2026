@@ -189,7 +189,7 @@ public class AutoWrapperFactory {
       Spindexer spindexer) {
     return ShootingCommands.smartLaunch2Command(
             launcher, coordinator, motivator, turret, hood, spindexer)
-        .withTimeout(3.0)
+        .withTimeout(2.5)
         .asProxy();
   }
 
