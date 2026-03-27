@@ -44,7 +44,7 @@ public final class ShotCalculator {
   private static final LoggedTunableNumber efficiencyFar =
       new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Far", 0.7); // was .75
   private static final LoggedTunableNumber efficiencyCorner =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Corner", 0.7);
+      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Corner", 0.69);
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
