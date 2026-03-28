@@ -164,7 +164,7 @@ public class ShootingCoordinator extends SubsystemBase {
   // Hood clamp/unclamp thresholds with hysteresis. Clamp is low (fast response when
   // accelerating into trench), unclamp is higher (hood starts rising earlier when decelerating).
   private final LoggedTunableNumber trenchHoodClampSpeedMps =
-      new LoggedTunableNumber("Shots/TrenchMode/HoodClampSpeedMps", 0.1);
+      new LoggedTunableNumber("Shots/TrenchMode/HoodClampSpeedMps", 0.3);
   private final LoggedTunableNumber trenchHoodUnclampSpeedMps =
       new LoggedTunableNumber("Shots/TrenchMode/HoodUnclampSpeedMps", 0.5);
   private boolean trenchHoodSafetyActive = false;
