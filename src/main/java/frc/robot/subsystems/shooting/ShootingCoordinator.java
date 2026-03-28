@@ -166,7 +166,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber trenchStationarySettleTimeSec =
       new LoggedTunableNumber("Shots/TrenchMode/StationarySettleSec", 0.25);
   private final LoggedTunableNumber trenchIdleLauncherRPM =
-      new LoggedTunableNumber("Shots/TrenchMode/IdleLauncherRPM", 0.0);
+      new LoggedTunableNumber("Shots/TrenchMode/IdleLauncherRPM", 2650.0);
   private boolean trenchHoodSafetyActive = false;
   private boolean movingInTrench =
       false; // true when robot is moving (or settling) in a trench zone
@@ -719,10 +719,14 @@ public class ShootingCoordinator extends SubsystemBase {
         lastMovingInTrenchTimestamp = Timer.getFPGATimestamp();
       }
       double timeSinceMoving = Timer.getFPGATimestamp() - lastMovingInTrenchTimestamp;
-      boolean effectivelyMoving = isMoving || timeSinceMoving < trenchStationarySettleTimeSec.get();
-      // Clamp hood to minimum (13°) when moving; keep clamped until settled for the full delay.
-      // Speed limit (managed in updateTrenchHoodSafety) only applies while hood is above 18°.
-      if (effectivelyMoving) {
+      // In auto, skip the settle delay — path following provides precise speed control,
+      // so the robot is truly stopped when speed drops below threshold.
+      double settleTime =
+          DriverStation.isAutonomous() ? 0.0 : trenchStationarySettleTimeSec.get();
+      boolean effectivelyMoving = isMoving || timeSinceMoving < settleTime;
+      // Clamp hood to minimum when moving in teleop; in auto allow hood to start
+      // moving to target angle as soon as the robot is stopped (no settle wait).
+      if (effectivelyMoving && !DriverStation.isAutonomous()) {
         hoodMax = hoodMin;
       }
       movingInTrench = effectivelyMoving;
@@ -1332,7 +1336,9 @@ public class ShootingCoordinator extends SubsystemBase {
         lastMovingInTrenchTimestamp = Timer.getFPGATimestamp();
       }
       double timeSinceMoving = Timer.getFPGATimestamp() - lastMovingInTrenchTimestamp;
-      boolean effectivelyMoving = isMoving || timeSinceMoving < trenchStationarySettleTimeSec.get();
+      double settleTime =
+          DriverStation.isAutonomous() ? 0.0 : trenchStationarySettleTimeSec.get();
+      boolean effectivelyMoving = isMoving || timeSinceMoving < settleTime;
       boolean hoodAboveSafe = hood.getCurrentAngle() > trenchHoodMaxDeg.get();
 
       trenchHoodSafetyActive = effectivelyMoving && hoodAboveSafe;
