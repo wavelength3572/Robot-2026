@@ -391,6 +391,50 @@ public class FieldConstants {
       }
     }
 
+    /**
+     * Check if a point is inside the opponent's trench zones using bump-aligned X bounds (no lead
+     * distance). Used for hood safety in opponent territory without the expanded bounds that would
+     * overlap neutral zone passing lanes near the walls.
+     */
+    public static boolean isInOpponentTrenchZoneTight(
+        double x, double y, DriverStation.Alliance alliance) {
+      // X bounds match bump zones (hub center ± halfDepth, no lead).
+      // Y bounds use physical trench opening width only (no hood lead).
+      if (alliance == DriverStation.Alliance.Blue) {
+        // Opponent is red — use red bump X extents
+        return isInZone(
+                x,
+                y,
+                BumpZones.RED_LEFT_MIN_X,
+                BumpZones.RED_LEFT_MAX_X,
+                fieldWidth - LeftTrench.openingWidth,
+                fieldWidth)
+            || isInZone(
+                x,
+                y,
+                BumpZones.RED_RIGHT_MIN_X,
+                BumpZones.RED_RIGHT_MAX_X,
+                0,
+                RightTrench.openingWidth);
+      } else {
+        // Opponent is blue — use blue bump X extents
+        return isInZone(
+                x,
+                y,
+                BumpZones.BLUE_LEFT_MIN_X,
+                BumpZones.BLUE_LEFT_MAX_X,
+                fieldWidth - LeftTrench.openingWidth,
+                fieldWidth)
+            || isInZone(
+                x,
+                y,
+                BumpZones.BLUE_RIGHT_MIN_X,
+                BumpZones.BLUE_RIGHT_MAX_X,
+                0,
+                RightTrench.openingWidth);
+      }
+    }
+
     /** Get the name of the trench zone the point is in (for logging), or empty string if none. */
     public static String getActiveTrenchZone(double x, double y) {
       if (isInZone(x, y, BLUE_LEFT_MIN_X, BLUE_LEFT_MAX_X, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y))
@@ -511,19 +555,19 @@ public class FieldConstants {
         TrenchZones.BLUE_RIGHT_MIN_Y,
         TrenchZones.BLUE_RIGHT_MAX_Y);
 
-    // OPPONENT_TRENCH — red-side trenches (opponent territory for blue alliance)
+    // OPPONENT_TRENCH — bump-aligned X bounds (no lead), matches actual detection
     logRect(
         "Visualizations/Zones/OpponentTrench_Left",
-        TrenchZones.RED_LEFT_MIN_X,
-        TrenchZones.RED_LEFT_MAX_X,
-        TrenchZones.RED_LEFT_MIN_Y,
-        TrenchZones.RED_LEFT_MAX_Y);
+        BumpZones.RED_LEFT_MIN_X,
+        BumpZones.RED_LEFT_MAX_X,
+        fieldWidth - LeftTrench.openingWidth,
+        fieldWidth);
     logRect(
         "Visualizations/Zones/OpponentTrench_Right",
-        TrenchZones.RED_RIGHT_MIN_X,
-        TrenchZones.RED_RIGHT_MAX_X,
-        TrenchZones.RED_RIGHT_MIN_Y,
-        TrenchZones.RED_RIGHT_MAX_Y);
+        BumpZones.RED_RIGHT_MIN_X,
+        BumpZones.RED_RIGHT_MAX_X,
+        0,
+        RightTrench.openingWidth);
 
     // BUMP — blue-side bump zones (no lead distance — pitch confirms)
     logRect(

@@ -788,7 +788,8 @@ public final class ShotCalculator {
       double effectiveMaxDeg,
       double hoodMinAngleDeg,
       double hoodMaxAngleDeg,
-      double rpmPerDegCompensation) {
+      double rpmPerDegCompensation,
+      double maxRpmCompensation) {
 
     double robotHeadingRad = robotPose.getRotation().getRadians();
     double[] turretFieldPos =
@@ -859,12 +860,11 @@ public final class ShotCalculator {
     }
     double exitVelocity = Math.sqrt(vSquared);
 
-    // Add RPM compensation for clamped hood angle
+    // Add RPM compensation for clamped hood angle, capped to prevent overshooting
     double rpm = calculateRPMForVelocity(exitVelocity, horizontalDist);
-    rpm += Math.abs(hoodDeltaDeg) * rpmPerDegCompensation;
-    Logger.recordOutput(
-        "SmartLaunch/Pass/TwoPoint/RPMCompensation",
-        Math.abs(hoodDeltaDeg) * rpmPerDegCompensation);
+    double rpmComp = Math.min(Math.abs(hoodDeltaDeg) * rpmPerDegCompensation, maxRpmCompensation);
+    rpm += rpmComp;
+    Logger.recordOutput("SmartLaunch/Pass/TwoPoint/RPMCompensation", rpmComp);
 
     // Log RPM but don't reject — clamp to safe range instead
     if (rpm > 4500) {

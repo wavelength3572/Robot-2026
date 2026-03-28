@@ -250,7 +250,9 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber symmetricArcDistMaxM =
       new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcDistMaxM", 12.0);
   private final LoggedTunableNumber passRpmPerDegCompensation =
-      new LoggedTunableNumber("SmartLaunch/Pass/RPMPerDegCompensation", 100.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/RPMPerDegCompensation", 50.0);
+  private final LoggedTunableNumber passMaxRpmCompensation =
+      new LoggedTunableNumber("SmartLaunch/Pass/MaxRPMCompensation", 200.0);
   private final LoggedTunableNumber lobNetClearanceMarginM =
       new LoggedTunableNumber("SmartLaunch/Pass/Lob/NetClearanceMarginM", 0.3);
   private final LoggedTunableNumber lobMaxPeakHeightM =
@@ -446,6 +448,30 @@ public class ShootingCoordinator extends SubsystemBase {
               turretFieldPos[1]);
 
       cachedAimResult = aimResult;
+
+      // Hood trench clamping — runs for ALL aim modes so setClamped(false) is always
+      // called when leaving a trench, regardless of whether we're shooting or passing.
+      boolean inTrenchZone =
+          aimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
+              || aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
+      boolean inNeutralTrench = aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
+      if (inTrenchZone) {
+        double robotSpeed =
+            Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+        double threshold =
+            movingInTrench ? trenchHoodUnclampSpeedMps.get() : trenchHoodClampSpeedMps.get();
+        boolean isMoving = robotSpeed > threshold;
+        boolean hoodClamped = inNeutralTrench;
+        if (hood != null) {
+          hood.setClamped(hoodClamped);
+        }
+        movingInTrench = isMoving;
+      } else {
+        movingInTrench = false;
+        if (hood != null) {
+          hood.setClamped(false);
+        }
+      }
 
       // Update distance to aim target every cycle (for dashboard and shot calculations)
       currentDistanceM =
@@ -681,39 +707,11 @@ public class ShootingCoordinator extends SubsystemBase {
     double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
     double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
 
-    // Safety: clamp hood to trench-safe angle when moving in a trench zone.
-    // Prevents the hood from hitting the trench structure.
-    // When stationary in trench, full hood range is allowed for better shot accuracy.
-    boolean inTrenchZone =
-        cachedAimResult != null
-            && (cachedAimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
-                || cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH);
+    // Narrow hood range for hub shots in neutral trench (setClamped already handled above)
     boolean inNeutralTrench =
         cachedAimResult != null && cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
-    if (inTrenchZone) {
-      double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-      // Hysteresis: clamp hood almost instantly when accelerating (0.3 m/s), but don't
-      // unclamp until well into deceleration (0.5 m/s). Wide band prevents toggling.
-      double threshold =
-          movingInTrench
-              ? trenchHoodUnclampSpeedMps.get() // already moving: drop below 0.5 to unclamp
-              : trenchHoodClampSpeedMps.get(); // stopped: clamp as soon as above 0.3
-      boolean isMoving = robotSpeed > threshold;
-      // Neutral trench: always clamped (just transiting, no shooting).
-      // Alliance trench: unclamp immediately so hood can start raising for the shot.
-      boolean hoodClamped = inNeutralTrench;
-      if (hoodClamped) {
-        hoodMax = hoodMin;
-      }
-      if (hood != null) {
-        hood.setClamped(hoodClamped);
-      }
-      movingInTrench = isMoving;
-    } else {
-      movingInTrench = false;
-      if (hood != null) {
-        hood.setClamped(false);
-      }
+    if (inNeutralTrench) {
+      hoodMax = hoodMin;
     }
 
     double currentTurretAngle = turret.getOutsideCurrentAngle();
@@ -845,7 +843,8 @@ public class ShootingCoordinator extends SubsystemBase {
             turret.getMaxAngle(),
             hoodMin,
             hoodMax,
-            passRpmPerDegCompensation.get());
+            passRpmPerDegCompensation.get(),
+            passMaxRpmCompensation.get());
 
     currentShot = result;
     currentDistanceM = horizontalDist;
@@ -1292,19 +1291,8 @@ public class ShootingCoordinator extends SubsystemBase {
     if (currentZone == ZoneDetector.Zone.NEUTRAL || currentZone == ZoneDetector.Zone.OPPONENT) {
       hasVisitedNeutral = true;
     }
-    // Reset cycle: when we re-enter neutral trench after shooting, we're heading back
-    // out. Disarm and clear hasVisitedNeutral so the outbound trip idles subsystems.
-    if (armed
-        && hasVisitedNeutral
-        && currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH
-        && armTrigger != ArmTrigger.IMMEDIATE) {
-      armed = false;
-      hasVisitedNeutral = false;
-      // Force to UNARMED so feeding stops immediately
-      coordinatorState = CoordinatorState.UNARMED;
-      readyTimeoutTimer.restart();
-      readyTimeoutRunning = true;
-    }
+    // Arm trigger only gates the very first outbound trip. Once armed, stay armed —
+    // zone suppression (NO_FIRE_ZONE) and hood clamping handle safety on subsequent trips.
     // Check arm conditions based on trigger type
     if (!armed) {
       switch (armTrigger) {
