@@ -166,9 +166,7 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
   @Override
   public void setMotivatorVelocity(double wheelVelocityRPM) {
     if (wheelVelocityRPM < 1.0) {
-      motivatorVelocityMode = false;
-      wheelTargetRPM = 0.0;
-      motivator.stopMotor();
+      stopMotivator();
     } else {
       motivatorVelocityMode = true;
       wheelTargetRPM = Math.abs(wheelVelocityRPM);
