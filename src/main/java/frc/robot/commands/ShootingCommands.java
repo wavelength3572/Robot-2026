@@ -725,19 +725,50 @@ public class ShootingCommands {
 
             // Motivator — always pre-spin in teleop (ready for passing or shooting).
             // In auto, idle only while collecting (open neutral/opponent zones).
+            // Reverse pulse runs on first spin-up (not on FIRING entry) to clear any
+            // ball stuck at the motivator/launcher interface during free time.
             motivator != null
                 ? Commands.run(
-                    () -> {
-                      if (coordinator.isAutoCollecting()) {
-                        motivator.stopMotivator();
-                        return;
-                      }
-                      ShotCalculator.ShotResult s = coordinator.getCurrentShot();
-                      if (s != null) {
-                        double launcherRPM = getEffectiveRPM(s);
-                        motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM, coordinator));
-                      } else {
-                        motivator.stopMotivator();
+                    new Runnable() {
+                      private final Timer reversePulseTimer = new Timer();
+                      private boolean reversing = false;
+                      private boolean wasIdle = true;
+                      private static final double REVERSE_PULSE_SEC = 0.2;
+
+                      @Override
+                      public void run() {
+                        boolean shouldIdle = coordinator.isAutoCollecting();
+                        if (shouldIdle) {
+                          motivator.stopMotivator();
+                          wasIdle = true;
+                          reversing = false;
+                          return;
+                        }
+
+                        // Trigger reverse pulse when transitioning from idle to spinning
+                        if (wasIdle) {
+                          wasIdle = false;
+                          reversing = true;
+                          reversePulseTimer.restart();
+                        }
+
+                        if (reversing) {
+                          if (reversePulseTimer.hasElapsed(REVERSE_PULSE_SEC)) {
+                            reversing = false;
+                          } else {
+                            motivator.setMotivatorVoltage(-1.0);
+                            return;
+                          }
+                        }
+
+                        ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                        if (s != null) {
+                          double launcherRPM = getEffectiveRPM(s);
+                          motivator.setMotivatorVelocity(
+                              getMotivatorRPM(launcherRPM, coordinator));
+                        } else {
+                          motivator.stopMotivator();
+                        }
                       }
                     },
                     motivator)
