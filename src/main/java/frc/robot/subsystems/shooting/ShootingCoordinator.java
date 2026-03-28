@@ -1248,16 +1248,23 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Check if shooting subsystems should idle to conserve power. True in auto when in the open
-   * neutral/opponent zones (collecting balls, not shooting). NOT true in trenches — when returning
-   * through neutral trench, launcher/turret/motivator should track so they're ready the instant the
-   * robot crosses into alliance trench. In teleop this always returns false.
+   * Check if shooting subsystems should idle to conserve power. True in auto when:
+   * - In open neutral/opponent zones (collecting balls), OR
+   * - Not yet armed (heading outbound before visiting neutral — no reason to spin up)
+   * NOT true in trenches after armed — when returning through neutral trench,
+   * launcher/turret/motivator should track so they're ready at the alliance trench boundary.
+   * In teleop this always returns false.
    */
   public boolean isAutoCollecting() {
     if (!DriverStation.isAutonomous()) return false;
     if (cachedAimResult == null) return false;
     ZoneDetector.Zone zone = cachedAimResult.zone();
-    return zone == ZoneDetector.Zone.NEUTRAL || zone == ZoneDetector.Zone.OPPONENT;
+    // Open neutral/opponent zones — always idle
+    if (zone == ZoneDetector.Zone.NEUTRAL || zone == ZoneDetector.Zone.OPPONENT) return true;
+    // Only idle on outbound for sprint autos (non-IMMEDIATE arm trigger).
+    // IMMEDIATE = shoot preloads or teleop-style, don't idle.
+    if (armTrigger != ArmTrigger.IMMEDIATE && !hasVisitedNeutral) return true;
+    return false;
   }
 
   /**
@@ -1455,6 +1462,14 @@ public class ShootingCoordinator extends SubsystemBase {
     // Track whether the robot has visited neutral/opponent zone
     if (currentZone == ZoneDetector.Zone.NEUTRAL || currentZone == ZoneDetector.Zone.OPPONENT) {
       hasVisitedNeutral = true;
+    }
+    // Reset cycle: when we re-enter neutral trench after shooting, we're heading back
+    // out. Disarm and clear hasVisitedNeutral so the outbound trip idles subsystems.
+    if (armed && hasVisitedNeutral
+        && currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH
+        && armTrigger != ArmTrigger.IMMEDIATE) {
+      armed = false;
+      hasVisitedNeutral = false;
     }
     // Check arm conditions based on trigger type
     if (!armed) {
