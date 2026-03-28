@@ -115,47 +115,10 @@ public class ShootingCoordinator extends SubsystemBase {
   // Optional feeding suppression check — when true, launchFuel() is a no-op
   private BooleanSupplier feedingSuppressedSupplier = () -> false;
 
-  // Master toggle for trench mode. When false, the normal smartShot strategy runs
-  // even under the trench (hood is not clamped, no empirical RPM lerp).
-  private boolean trenchModeEnabled = false;
-
-  // Trench mode: hood clamped to trenchHoodMaxDeg, RPM from empirical lerp between
-  // two tested distance/RPM endpoints per trench side (Left/Right tunables below).
-  // Completely independent of the global strategy pipeline and launch efficiency.
+  // Trench hood safety: the max hood angle considered safe under the trench structure.
+  // If hood is above this while moving in trench, drive speed is limited until it lowers.
   private final LoggedTunableNumber trenchHoodMaxDeg =
       new LoggedTunableNumber("Shots/TrenchMode/HoodMaxDeg", 18.0);
-  // Trench RPM lerp: empirically tested endpoints per trench side. RPM interpolates
-  // linearly between close and far distances, clamped outside. Hood stays fixed at
-  // trenchHoodMaxDeg. Independent of global launch efficiency — trench tuning won't
-  // affect alliance zone shots. Left = high-Y trench, Right = low-Y trench.
-  private final LoggedTunableNumber trenchLeftCloseDistM =
-      new LoggedTunableNumber("Shots/TrenchMode/Left/CloseDistM", 3.094);
-  private final LoggedTunableNumber trenchLeftCloseRPM =
-      new LoggedTunableNumber("Shots/TrenchMode/Left/CloseRPM", 2650.0);
-  private final LoggedTunableNumber trenchLeftFarDistM =
-      new LoggedTunableNumber("Shots/TrenchMode/Left/FarDistM", 3.732);
-  private final LoggedTunableNumber trenchLeftFarRPM =
-      new LoggedTunableNumber("Shots/TrenchMode/Left/FarRPM", 3151.0);
-  private final LoggedTunableNumber trenchRightCloseDistM =
-      new LoggedTunableNumber("Shots/TrenchMode/Right/CloseDistM", 3.103);
-  private final LoggedTunableNumber trenchRightCloseRPM =
-      new LoggedTunableNumber("Shots/TrenchMode/Right/CloseRPM", 2650.0);
-  private final LoggedTunableNumber trenchRightFarDistM =
-      new LoggedTunableNumber("Shots/TrenchMode/Right/FarDistM", 3.743);
-  private final LoggedTunableNumber trenchRightFarRPM =
-      new LoggedTunableNumber("Shots/TrenchMode/Right/FarRPM", 3156.0);
-  // Trench motivator RPM lerp: same distance endpoints as launcher, independent RPM values.
-  // Both default to 1800 — adjust far value to tune motivator speed at longer trench distances.
-  private final LoggedTunableNumber trenchLeftMotivatorCloseRPM =
-      new LoggedTunableNumber("Shots/TrenchMode/Left/MotivatorCloseRPM", 1800.0);
-  private final LoggedTunableNumber trenchLeftMotivatorFarRPM =
-      new LoggedTunableNumber("Shots/TrenchMode/Left/MotivatorFarRPM", 1800.0);
-  private final LoggedTunableNumber trenchRightMotivatorCloseRPM =
-      new LoggedTunableNumber("Shots/TrenchMode/Right/MotivatorCloseRPM", 1800.0);
-  private final LoggedTunableNumber trenchRightMotivatorFarRPM =
-      new LoggedTunableNumber("Shots/TrenchMode/Right/MotivatorFarRPM", 1800.0);
-  private boolean trenchModeActive = false; // true when robot is in a trench or bump zone
-  private double trenchMotivatorRPM = 1800.0; // lerped motivator RPM for current trench position
 
   // Trench hood safety: limits drive speed when hood is above safe angle while moving in trench.
   // Protects the hood from hitting the trench structure during transit.
@@ -187,7 +150,6 @@ public class ShootingCoordinator extends SubsystemBase {
   // Updated every cycle in updateCoordinatorState() after shot calculation.
   private CoordinatorState coordinatorState = CoordinatorState.INACTIVE;
   private boolean smartLaunchActive = false;
-  private boolean previousTrenchMode = false;
   private TurretAimingHelper.AimMode previousAimMode = null;
   private ArmTrigger armTrigger = ArmTrigger.IMMEDIATE;
   private boolean armed = true; // true = feeding allowed once subsystems ready
@@ -474,14 +436,6 @@ public class ShootingCoordinator extends SubsystemBase {
               aimResult.target().getX() - turretFieldPos[0],
               aimResult.target().getY() - turretFieldPos[1]);
 
-      // Zone is fully determined by position — ZoneDetector computes distance to hub
-      // internally for alliance sub-zone classification (CLOSE/MID/FAR).
-      trenchModeActive =
-          trenchModeEnabled
-              && (aimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
-                  || aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH
-                  || aimResult.zone() == ZoneDetector.Zone.BUMP);
-
       // Log zone and aim mode (throttled to 10Hz)
       if (periodicCounter % 5 == 0) {
         Logger.recordOutput("SmartLaunch/Status/Zone", aimResult.zone().name());
@@ -581,14 +535,6 @@ public class ShootingCoordinator extends SubsystemBase {
         Logger.recordOutput(
             "SmartLaunch/Pass/DriverStation/Station3",
             new Pose3d(cachedLobStation3Target, Rotation3d.kZero));
-      }
-
-      // Reset movingInTrench for non-hub-shot modes. The flag is only updated inside
-      // calculateShotToTarget (called for SHOOT_ON_THE_MOVE/NONE), but PASS/LONG_PASS
-      // call calculatePassToTarget instead, leaving the flag stale from the last trench visit.
-      if (aimResult.mode() == TurretAimingHelper.AimMode.PASS
-          || aimResult.mode() == TurretAimingHelper.AimMode.LONG_PASS) {
-        movingInTrench = false;
       }
 
       switch (aimResult.mode()) {
@@ -715,8 +661,8 @@ public class ShootingCoordinator extends SubsystemBase {
     double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
     double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
 
-    // Safety: always clamp hood to trench-safe angle when moving in a trench zone,
-    // regardless of trenchModeEnabled. Prevents the hood from hitting the trench structure.
+    // Safety: clamp hood to trench-safe angle when moving in a trench zone.
+    // Prevents the hood from hitting the trench structure.
     // When stationary in trench, full hood range is allowed for better shot accuracy.
     boolean inTrenchZone =
         cachedAimResult != null
@@ -743,123 +689,22 @@ public class ShootingCoordinator extends SubsystemBase {
       movingInTrench = false;
     }
 
-    // Trench RPM lerp (only when trenchModeEnabled and moving in trench)
-    boolean useTrenchLerp = false;
-    if (trenchModeActive) {
-      double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-      if (robotSpeed > trenchMovingThresholdMps.get()) {
-        useTrenchLerp = true;
-      }
-    }
-
     double currentTurretAngle = turret.getOutsideCurrentAngle();
     double turretMin = turret.getMinAngle();
     double turretMax = turret.getMaxAngle();
 
-    // In trench mode while moving, use empirical RPM lerp: interpolate between two tested
-    // endpoints (close and far distance) with fixed hood angle. No physics solver — pure
-    // empirical data, independent of the global launch efficiency.
-    // When stationary in trench, the normal strategy runs with full hood range.
-    ShotCalculator.ShotResult activeResult;
-    if (useTrenchLerp) {
-      double robotHeadingRad = robotPose.getRotation().getRadians();
-      double[] turretFieldPos =
-          ShotCalculator.getTurretFieldPosition(
-              robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
-      double distToHub =
-          Math.hypot(target.getX() - turretFieldPos[0], target.getY() - turretFieldPos[1]);
-
-      // Pick left or right trench lerp parameters based on robot Y position
-      boolean isLeftTrench = robotPose.getY() > FieldConstants.fieldWidth / 2.0;
-      double dClose = isLeftTrench ? trenchLeftCloseDistM.get() : trenchRightCloseDistM.get();
-      double dFar = isLeftTrench ? trenchLeftFarDistM.get() : trenchRightFarDistM.get();
-      double rpmClose = isLeftTrench ? trenchLeftCloseRPM.get() : trenchRightCloseRPM.get();
-      double rpmFar = isLeftTrench ? trenchLeftFarRPM.get() : trenchRightFarRPM.get();
-      // Lerp RPM between close and far, clamp outside
-      double t = Math.max(0, Math.min(1, (distToHub - dClose) / (dFar - dClose)));
-      double trenchRPM = rpmClose + t * (rpmFar - rpmClose);
-
-      // Lerp motivator RPM using the same t (same distance endpoints)
-      double motClose =
-          isLeftTrench ? trenchLeftMotivatorCloseRPM.get() : trenchRightMotivatorCloseRPM.get();
-      double motFar =
-          isLeftTrench ? trenchLeftMotivatorFarRPM.get() : trenchRightMotivatorFarRPM.get();
-      trenchMotivatorRPM = motClose + t * (motFar - motClose);
-
-      double turretAngleDeg =
-          ShotCalculator.calculateOutsideTurretAngle(
-              robotPose.getX(),
-              robotPose.getY(),
-              robotPose.getRotation().getDegrees(),
-              target.getX(),
-              target.getY(),
-              currentTurretAngle,
-              turretMin,
-              turretMax,
-              turretConfig);
-
-      double trenchExitVelocity = ShotCalculator.calculateExitVelocityFromRPM(trenchRPM, distToHub);
-      double trenchLaunchAngleRad = Math.toRadians(90.0 - hoodMax);
-
-      // Velocity compensation: shift aim target to counteract robot movement during flight
-      Translation3d aimTarget =
-          new edu.wpi.first.math.geometry.Translation3d(
-              target.getX(), target.getY(), target.getZ());
-      double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-      if (robotSpeed > 0.1 && trenchExitVelocity > 0.1) {
-        double vx = trenchExitVelocity * Math.cos(trenchLaunchAngleRad);
-        double horizontalTof = (vx > 0.1) ? distToHub / vx : 0.0;
-        aimTarget = ShotCalculator.predictTargetPos(aimTarget, fieldSpeeds, horizontalTof);
-
-        // Recalculate turret angle to the velocity-compensated target
-        turretAngleDeg =
-            ShotCalculator.calculateOutsideTurretAngle(
-                robotPose.getX(),
-                robotPose.getY(),
-                robotPose.getRotation().getDegrees(),
-                aimTarget.getX(),
-                aimTarget.getY(),
-                currentTurretAngle,
-                turretMin,
-                turretMax,
-                turretConfig);
-      }
-
-      activeResult =
-          new ShotCalculator.ShotResult(
-              trenchExitVelocity,
-              trenchRPM,
-              trenchLaunchAngleRad,
-              hoodMax, // fixed hood angle
-              turretAngleDeg,
-              aimTarget,
-              true);
-
-      if (periodicCounter % 5 == 0) {
-        Logger.recordOutput("SmartLaunch/TrenchLerp/Side", isLeftTrench ? "LEFT" : "RIGHT");
-        Logger.recordOutput("SmartLaunch/TrenchLerp/DistToHub", distToHub);
-        Logger.recordOutput("SmartLaunch/TrenchLerp/RPM", trenchRPM);
-        Logger.recordOutput("SmartLaunch/TrenchLerp/MotivatorRPM", trenchMotivatorRPM);
-        Logger.recordOutput("SmartLaunch/TrenchLerp/T", t);
-        Logger.recordOutput("SmartLaunch/TrenchLerp/VelocityCompActive", robotSpeed > 0.1);
-      }
-      Logger.recordOutput("SmartLaunch/Status/UsingTrenchParametric", true);
-    } else {
-      // Normal strategy runs in open field
-      activeResult =
-          activeStrategy.calculateShot(
-              robotPose,
-              fieldSpeeds,
-              target,
-              turretConfig,
-              currentTurretAngle,
-              turretMin,
-              turretMax,
-              hoodMin,
-              hoodMax);
-      Logger.recordOutput("SmartLaunch/Status/UsingTrenchParametric", false);
-    }
-    currentShot = activeResult;
+    // Normal strategy always runs — no trench-specific lerp override.
+    currentShot =
+        activeStrategy.calculateShot(
+            robotPose,
+            fieldSpeeds,
+            target,
+            turretConfig,
+            currentTurretAngle,
+            turretMin,
+            turretMax,
+            hoodMin,
+            hoodMax);
 
     // Throttle target/distance logging to ~10Hz (distance itself is updated every
     // cycle in updateShotCalculation for zone refinement)
@@ -982,24 +827,6 @@ public class ShootingCoordinator extends SubsystemBase {
    * auto-track, or none) is active.
    */
   private void logShotState() {
-    // --- Readiness flags (use subsystem state machines, not raw at-setpoint
-    // checks) ---
-    boolean launcherReady = launcher != null && launcher.isReady();
-    boolean motivatorReady =
-        motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
-    boolean turretReady = turret.atTarget();
-    boolean hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
-    boolean achievable = currentShot != null && currentShot.achievable();
-
-    Logger.recordOutput("SmartLaunch/Ready/Launcher", launcherReady);
-    Logger.recordOutput("SmartLaunch/Ready/Motivator", motivatorReady);
-    Logger.recordOutput("SmartLaunch/Ready/Turret", turretReady);
-    Logger.recordOutput("SmartLaunch/Ready/Hood", hoodReady);
-    Logger.recordOutput("SmartLaunch/Ready/Achievable", achievable);
-    Logger.recordOutput(
-        "SmartLaunch/Ready/All",
-        launcherReady && motivatorReady && turretReady && hoodReady && achievable);
-
     // --- Targets (what we're commanding) ---
     boolean overridesActive = SmartDashboard.getBoolean("LUTDev/UseOverrides", false);
     Logger.recordOutput("LUTDev/OverridesActive", overridesActive);
@@ -1221,10 +1048,6 @@ public class ShootingCoordinator extends SubsystemBase {
     boolean slowEnough =
         mode != TurretAimingHelper.AimMode.NONE && !passingBlocked && robotSpeedMps <= thresholdMps;
 
-    Logger.recordOutput("SmartLaunch/SpeedCheck/RobotMps", robotSpeedMps);
-    Logger.recordOutput("SmartLaunch/SpeedCheck/ThresholdMps", thresholdMps);
-    Logger.recordOutput("SmartLaunch/SpeedCheck/SlowEnough", slowEnough);
-
     return slowEnough;
   }
 
@@ -1307,39 +1130,6 @@ public class ShootingCoordinator extends SubsystemBase {
     return cachedAimResult.zone();
   }
 
-  // ========== Trench Avoidance Mode ==========
-
-  /**
-   * Check if trench avoidance is currently active (robot is in a trench zone and trench mode is
-   * enabled). When trench mode is disabled, this always returns false.
-   */
-  public boolean isTrenchModeActive() {
-    return trenchModeActive;
-  }
-
-  /** Toggle trench mode on/off. */
-  public void toggleTrenchMode() {
-    trenchModeEnabled = !trenchModeEnabled;
-  }
-
-  /** Enable or disable trench mode. When disabled, smartShot runs normally under the trench. */
-  public void setTrenchModeEnabled(boolean enabled) {
-    this.trenchModeEnabled = enabled;
-  }
-
-  /** Check whether trench mode is enabled. */
-  public boolean isTrenchModeEnabled() {
-    return trenchModeEnabled;
-  }
-
-  /**
-   * Get the distance-lerped motivator RPM for the current trench position. Only meaningful when
-   * trench mode is active.
-   */
-  public double getTrenchMotivatorRPM() {
-    return trenchMotivatorRPM;
-  }
-
   /**
    * Check if trench hood safety is active (hood above safe angle while moving in trench). When
    * active, drive speed is limited and shooting is suppressed until the hood lowers.
@@ -1414,7 +1204,6 @@ public class ShootingCoordinator extends SubsystemBase {
       readyTimeoutTimer.restart();
       readyTimeoutRunning = true;
       // Initialize previous-state tracking so the first cycle doesn't false-trigger transitions
-      previousTrenchMode = trenchModeActive;
       previousAimMode = cachedAimResult != null ? cachedAimResult.mode() : null;
     }
   }
@@ -1530,7 +1319,6 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // --- UNARMED trumps everything — skip all state logic until armed ---
     if (coordinatorState == CoordinatorState.UNARMED) {
-      previousTrenchMode = trenchModeActive;
       previousAimMode = currentAimMode;
     }
     // --- Zone suppression check ---
@@ -1541,7 +1329,6 @@ public class ShootingCoordinator extends SubsystemBase {
       coordinatorState = CoordinatorState.NO_FIRE_ZONE;
       readyTimeoutRunning = false;
       // Still update previous values so we detect the transition OUT correctly
-      previousTrenchMode = trenchModeActive;
       previousAimMode = currentAimMode;
     } else if (coordinatorState == CoordinatorState.NO_FIRE_ZONE) {
       // --- Leaving zone suppression ---
@@ -1556,7 +1343,6 @@ public class ShootingCoordinator extends SubsystemBase {
       }
       readyTimeoutTimer.restart();
       readyTimeoutRunning = true;
-      previousTrenchMode = trenchModeActive;
       previousAimMode = currentAimMode;
     } else if (feedingSuppressedSupplier.getAsBoolean()) {
       // --- Operator suppression check ---
@@ -1568,20 +1354,17 @@ public class ShootingCoordinator extends SubsystemBase {
         coordinatorState = CoordinatorState.HELD;
       }
       readyTimeoutRunning = false;
-      previousTrenchMode = trenchModeActive;
       previousAimMode = currentAimMode;
     } else {
       // --- Detect transition triggers (only from FIRING state) ---
       if (coordinatorState == CoordinatorState.FIRING) {
-        boolean trenchChanged = (trenchModeActive != previousTrenchMode);
         boolean aimModeChanged = (currentAimMode != previousAimMode);
         boolean turretFlipping = (turret.getState() == Turret.TurretState.FLIPPING);
 
-        if (trenchChanged || aimModeChanged || turretFlipping) {
+        if (aimModeChanged || turretFlipping) {
           coordinatorState = CoordinatorState.SETTLING;
           stateReason =
               "settling:"
-                  + (trenchChanged ? " trench_changed" : "")
                   + (aimModeChanged ? " aim_changed" : "")
                   + (turretFlipping ? " turret_flip" : "");
           readyTimeoutTimer.restart();
@@ -1590,7 +1373,6 @@ public class ShootingCoordinator extends SubsystemBase {
       }
 
       // --- Update previous values for next cycle's change detection ---
-      previousTrenchMode = trenchModeActive;
       previousAimMode = currentAimMode;
 
       // --- Readiness check for state advancement ---

@@ -217,16 +217,12 @@ public class ShootingCommands {
   }
 
   /**
-   * Derive motivator RPM, using the coordinator's distance-lerped trench motivator RPM when in
-   * trench mode instead of the ratio.
+   * Derive motivator RPM from launcher RPM using a fixed ratio.
    *
-   * @param launcherRPM current launcher RPM (used for ratio in non-trench mode)
-   * @param coordinator the shooting coordinator (provides trench state and lerped motivator RPM)
+   * @param launcherRPM current launcher RPM
+   * @param coordinator the shooting coordinator (unused, kept for API compatibility)
    */
   public static double getMotivatorRPM(double launcherRPM, ShootingCoordinator coordinator) {
-    if (coordinator.isTrenchModeActive()) {
-      return coordinator.getTrenchMotivatorRPM();
-    }
     return launcherRPM * motivatorLauncherRatio.get();
   }
 
