@@ -1500,8 +1500,9 @@ public class ShootingCoordinator extends SubsystemBase {
         }
       }
     }
-    // Transition UNARMED → AIMING once armed
-    if (armed && coordinatorState == CoordinatorState.UNARMED) {
+    // Transition UNARMED → AIMING when subsystems start spinning (no longer collecting).
+    // armed is a separate gate that prevents AIMING → FIRING until in the right zone.
+    if (!isAutoCollecting() && coordinatorState == CoordinatorState.UNARMED) {
       coordinatorState = CoordinatorState.AIMING;
       readyTimeoutTimer.restart();
       readyTimeoutRunning = true;
