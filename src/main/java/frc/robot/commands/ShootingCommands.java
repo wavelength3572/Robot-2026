@@ -673,10 +673,11 @@ public class ShootingCommands {
                   if (shot != null) {
                     double rpm = getEffectiveRPM(shot);
                     double hoodDeg = getEffectiveHoodDeg(shot);
-                    launcher.setVelocity(coordinator.getEffectiveLauncherRPM(rpm));
+                    double effectiveRPM = coordinator.getEffectiveLauncherRPM(rpm);
+                    launcher.setVelocity(Math.max(effectiveRPM, 1500));
                     coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
                   } else {
-                    launcher.setVelocity(0);
+                    launcher.setVelocity(1500);
                   }
                 },
                 launcher),
@@ -707,10 +708,18 @@ public class ShootingCommands {
             hood != null
                 ? Commands.run(
                     () -> {
-                      boolean unarmed =
-                          coordinator.getCoordinatorState()
-                              == ShootingCoordinator.CoordinatorState.UNARMED;
-                      if (unarmed) return;
+                      // Always lower hood in no-fire zones or unarmed, even if not
+                      // actively tracking a shot — hood safety trumps state machine.
+                      ShootingCoordinator.CoordinatorState coordState =
+                          coordinator.getCoordinatorState();
+                      boolean forceMin =
+                          coordState == ShootingCoordinator.CoordinatorState.NO_FIRE_ZONE
+                              || coordState == ShootingCoordinator.CoordinatorState.UNARMED;
+                      if (forceMin) {
+                        hood.setActivelyCommanded(true);
+                        hood.setHoodAngle(hood.getMinAngle());
+                        return;
+                      }
                       if (coordinator.isAutoCollecting()) {
                         hood.setActivelyCommanded(true);
                         hood.setHoodAngle(hood.getMinAngle());

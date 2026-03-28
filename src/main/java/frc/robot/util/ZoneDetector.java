@@ -163,10 +163,11 @@ public class ZoneDetector {
         && Math.abs(robotPitchDeg) >= BUMP_PITCH_THRESHOLD_DEG) {
       return Zone.BUMP;
     }
-    // TRENCH: turret in own alliance's trench zone (bounds already include hood lead distance).
-    // Only check own trenches — opponent's trench zones are irrelevant for hood safety and would
-    // falsely suppress passing in the neutral zone near the field walls.
-    if (FieldConstants.TrenchZones.isInAllianceTrenchZone(turretX, turretY, alliance)) {
+    // TRENCH: own alliance trenches use expanded lead-distance bounds (early hood lowering).
+    // Opponent trenches use tight physical bounds only — lead distances would overlap the neutral
+    // zone near the walls and falsely suppress passing.
+    if (FieldConstants.TrenchZones.isInAllianceTrenchZone(turretX, turretY, alliance)
+        || FieldConstants.TrenchZones.isInOpponentTrenchZoneTight(turretX, turretY, alliance)) {
       boolean onAllianceSide = isOnAllianceSideOfTrench(turretX, alliance);
       return onAllianceSide ? Zone.ALLIANCE_TRENCH : Zone.NEUTRAL_TRENCH;
     }
