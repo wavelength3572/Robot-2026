@@ -815,6 +815,15 @@ public final class ShotCalculator {
     Logger.recordOutput("SmartLaunch/Pass/TwoPoint/HorizontalDist", horizontalDist);
 
     // Solve for launch angle: tanTheta = (y1*x2^2 - y2*x1^2) / (x1*x2*(x2 - x1))
+    // Reject when x2 is too close to x1 — the solver becomes near-singular and produces
+    // extreme launch angles. Require at least 30% of horizontal distance as separation.
+    if (Math.abs(x2 - x1) < horizontalDist * 0.3) {
+      Logger.recordOutput(
+          "SmartLaunch/Pass/TwoPoint/RejectReason",
+          String.format("x2-x1 gap %.2fm < 30%% of %.2fm", Math.abs(x2 - x1), horizontalDist));
+      return unachievablePassResult(
+          robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
+    }
     double denominator = x1 * x2 * (x2 - x1);
     if (Math.abs(denominator) < 0.001) {
       return unachievablePassResult(
@@ -824,6 +833,16 @@ public final class ShotCalculator {
     double tanTheta = (y1 * x2 * x2 - y2 * x1 * x1) / denominator;
     double theta = Math.atan(tanTheta);
     double thetaDeg = Math.toDegrees(theta);
+
+    // Hard cap: reject launch angles above 75° to prevent near-vertical shots
+    if (thetaDeg > 75.0) {
+      Logger.recordOutput(
+          "SmartLaunch/Pass/TwoPoint/RejectReason",
+          String.format("Launch angle %.1f° > 75° cap", thetaDeg));
+      return unachievablePassResult(
+          robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
+    }
+
     double hoodAngleDeg = 90.0 - thetaDeg;
 
     // Clamp hood to mechanical limits and compensate RPM — passes always fire
@@ -877,14 +896,16 @@ public final class ShotCalculator {
       rpm = 1500;
     }
 
-    // Check peak height — log but don't reject for passes
+    // Reject if peak height exceeds max — prevents balls going way up in the air
     double sinTheta = Math.sin(theta);
     double vy0 = exitVelocity * sinTheta;
     double peakHeight = config.heightMeters() + (vy0 * vy0) / (2 * GRAVITY);
     if (peakHeight > maxPeakHeightM) {
       Logger.recordOutput(
           "SmartLaunch/Pass/TwoPoint/RejectReason",
-          String.format("Peak %.1fm > max %.1fm (continuing)", peakHeight, maxPeakHeightM));
+          String.format("Peak %.1fm > max %.1fm", peakHeight, maxPeakHeightM));
+      return unachievablePassResult(
+          robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
     }
 
     // Check if ball is still rising at clearance point (peak after x1)
@@ -904,36 +925,13 @@ public final class ShotCalculator {
     Logger.recordOutput("SmartLaunch/Pass/TwoPoint/HoodAngleDeg", hoodAngleDeg);
     Logger.recordOutput("SmartLaunch/Pass/TwoPoint/RPM", rpm);
 
-    // Lateral-only velocity compensation: adjust aim target perpendicular to the shot line.
-    // Range (along-shot) compensation is intentionally disabled for passes because the two-point
-    // solver couples angle to distance — shortening range steepens the arc, and the robot's
-    // forward momentum then overshoots.
+    // Full velocity compensation: shift aim target to account for robot motion during flight.
+    // The arc guards (75° cap, peak height, x2-x1 gap, hood min) prevent bad trajectories.
     Translation3d aimTarget = passTarget;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     if (robotSpeed > 0.1) {
       double tof = calculateTimeOfFlight(exitVelocity, theta, horizontalDist);
-
-      // Shot direction unit vector (turret → target)
-      double dx = passTarget.getX() - turretX;
-      double dy = passTarget.getY() - turretY;
-      double shotLen = Math.sqrt(dx * dx + dy * dy);
-      if (shotLen > 0.01) {
-        double shotDirX = dx / shotLen;
-        double shotDirY = dy / shotLen;
-
-        // Decompose robot velocity into along-shot and cross-shot components
-        double vAlongShot =
-            fieldSpeeds.vxMetersPerSecond * shotDirX + fieldSpeeds.vyMetersPerSecond * shotDirY;
-        double crossVx = fieldSpeeds.vxMetersPerSecond - vAlongShot * shotDirX;
-        double crossVy = fieldSpeeds.vyMetersPerSecond - vAlongShot * shotDirY;
-
-        // Only compensate for cross-shot drift
-        double compensatedX = passTarget.getX() - crossVx * tof;
-        double compensatedY = passTarget.getY() - crossVy * tof;
-        aimTarget =
-            clampAimOffset(
-                new Translation3d(compensatedX, compensatedY, passTarget.getZ()), passTarget);
-      }
+      aimTarget = clampAimOffset(predictTargetPos(passTarget, fieldSpeeds, tof), passTarget);
     }
 
     double turretAngleDeg =

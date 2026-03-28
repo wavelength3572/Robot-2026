@@ -778,9 +778,9 @@ public class ShootingCoordinator extends SubsystemBase {
     double horizontalDist =
         Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
 
-    // Pass real mechanical hood limits — the solver will clamp to these and add RPM
-    // compensation instead of rejecting, so passes always fire.
-    double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
+    // Pass hood limits: use 18° floor to prevent steep launches, mechanical max for ceiling.
+    // The solver clamps to these and adds RPM compensation instead of rejecting.
+    double hoodMin = 18.0;
     double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
 
     double constraintX;
