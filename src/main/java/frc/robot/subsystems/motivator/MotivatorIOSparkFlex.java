@@ -165,13 +165,19 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
 
   @Override
   public void setMotivatorVelocity(double wheelVelocityRPM) {
-    motivatorVelocityMode = true;
-    wheelTargetRPM = Math.abs(wheelVelocityRPM);
-    // ks & kv were calculated in motor RPM thus the conversion in the parameter
-    double arbFFVolts = feedforward.calculate(wheelToMotorRPM(wheelTargetRPM));
-    // PID control is also in motor rotations
-    motivatorController.setSetpoint(
-        wheelToMotorRPM(wheelTargetRPM), ControlType.kVelocity, ClosedLoopSlot.kSlot0, arbFFVolts);
+    if (wheelVelocityRPM < 1.0) {
+      stopMotivator();
+    } else {
+      motivatorVelocityMode = true;
+      wheelTargetRPM = Math.abs(wheelVelocityRPM);
+      // ks & kv were calculated in motor RPM thus the conversion in the parameter
+      double arbFFVolts = feedforward.calculate(wheelToMotorRPM(wheelTargetRPM));
+      // PID control is also in motor rotations
+      motivatorController.setSetpoint(
+          wheelToMotorRPM(wheelTargetRPM), ControlType.kVelocity, ClosedLoopSlot.kSlot0, arbFFVolts);
+
+    }
+    
   }
 
   @Override
