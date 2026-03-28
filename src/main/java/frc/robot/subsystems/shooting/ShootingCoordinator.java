@@ -1224,12 +1224,21 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Get the effective launcher RPM, accounting for trench idle and operator suppression. Returns 0
-   * when shouldIdleLauncher() is true, the trench idle RPM when moving in a trench zone, or the
-   * full shot RPM otherwise.
+   * Check if shooting subsystems should idle to conserve power. True in auto when outside the
+   * alliance zone (neutral zone outbound trip to collect balls). Launcher, motivator, and hood
+   * idle; turret holds position. In teleop this always returns false.
+   */
+  public boolean shouldIdleForTransit() {
+    return DriverStation.isAutonomous() && !isInAllianceZone();
+  }
+
+  /**
+   * Get the effective launcher RPM, accounting for transit idle and operator suppression. Returns 0
+   * when idling, or the full shot RPM otherwise.
    */
   public double getEffectiveLauncherRPM(double shotRPM) {
     if (shouldIdleLauncher()) return 0;
+    if (shouldIdleForTransit()) return 0;
     return shotRPM;
   }
 

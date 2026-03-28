@@ -686,7 +686,7 @@ public class ShootingCommands {
       ShootingCoordinator.ArmTrigger armTrigger) {
 
     return Commands.parallel(
-            // Launcher — always track the current shot RPM
+            // Launcher — track shot RPM (idles to 0 during neutral zone transit)
             Commands.run(
                 () -> {
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
@@ -699,9 +699,10 @@ public class ShootingCommands {
                 },
                 launcher),
 
-            // Turret — always track the current shot angle
+            // Turret — track shot angle, but hold position during neutral zone transit
             Commands.run(
                 () -> {
+                  if (coordinator.shouldIdleForTransit()) return; // hold position
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
                     turret.setOutsideTurretAngle(shot.turretAngleDeg());
@@ -709,10 +710,14 @@ public class ShootingCommands {
                 },
                 turret),
 
-            // Hood — always track the current shot angle (coordinator already clamps in trench)
+            // Hood — track shot angle; idle at min during neutral zone transit
             hood != null
                 ? Commands.run(
                     () -> {
+                      if (coordinator.shouldIdleForTransit()) {
+                        hood.setHoodAngle(hood.getMinAngle());
+                        return;
+                      }
                       ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                       if (shot != null) {
                         hood.setHoodAngle(getEffectiveHoodDeg(shot));
@@ -721,12 +726,14 @@ public class ShootingCommands {
                     hood)
                 : Commands.none(),
 
-            // Motivator — always spin while SmartLaunch2 is active so spin-up overlaps
-            // with launcher AND aiming in parallel.  Spindexer still gates on FIRING +
-            // motivator ready, so no balls feed until everything is lined up.
+            // Motivator — spin to overlap with launcher/aiming, but idle during transit
             motivator != null
                 ? Commands.run(
                     () -> {
+                      if (coordinator.shouldIdleForTransit()) {
+                        motivator.stopMotivator();
+                        return;
+                      }
                       ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                       if (s != null) {
                         double launcherRPM = getEffectiveRPM(s);
