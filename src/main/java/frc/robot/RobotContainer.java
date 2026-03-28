@@ -813,13 +813,13 @@ public class RobotContainer {
               intake));
     }
 
-    // StowHood: drive hood to min angle (used by path event markers)
+    // StowHood: drive hood to min angle, unblocks when ≤18° (safe to enter trench).
+    // Commands min angle but doesn't wait for full arrival — 18° clears the structure.
     if (hood != null) {
       NamedCommands.registerCommand(
           "StowHood",
           Commands.run(() -> hood.setHoodAngle(hood.getMinAngle()), hood)
-              .until(() -> hood.atTarget())
-              .withTimeout(0.75));
+              .until(() -> hood.getCurrentAngle() <= 18.0));
     }
   }
 
