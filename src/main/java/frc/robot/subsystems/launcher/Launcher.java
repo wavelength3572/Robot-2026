@@ -79,6 +79,20 @@ public class Launcher extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs("Launcher", inputs);
 
+    // Compute recovery state before state check so they're evaluated in the same cycle,
+    // avoiding a one-cycle SPINNING_UP glitch before RECOVERING after a shot.
+    if (feedingActive && inputs.targetVelocityRPM > 100.0) {
+      double error = inputs.targetVelocityRPM - inputs.wheelVelocityRPM;
+      double threshold = recoveryBoostThresholdRPM.get();
+      if (!recoveryActive && error > threshold) {
+        recoveryActive = true;
+      } else if (recoveryActive && error < threshold * 0.9) {
+        recoveryActive = false;
+      }
+    } else {
+      recoveryActive = false;
+    }
+
     // Compute and log state
     if (!isConnected()) {
       currentState = LauncherState.DISCONNECTED;
@@ -91,7 +105,10 @@ public class Launcher extends SubsystemBase {
     } else {
       currentState = LauncherState.SPINNING_UP;
     }
+
     Logger.recordOutput("Subsystems/LauncherState", currentState.name());
+    Logger.recordOutput("Subsystems/LauncherFeedingActive", feedingActive);
+    Logger.recordOutput("Subsystems/LauncherRecoveryActive", recoveryActive);
 
     // Update ShotCalculator with current wheel RPM for trajectory calculations
     ShotCalculator.setLauncherRPM(inputs.wheelVelocityRPM);
@@ -109,27 +126,12 @@ public class Launcher extends SubsystemBase {
   }
 
   /**
-   * Set the launcher wheel velocity. Computes recovery boost if feeding is active and RPM has
-   * dipped below threshold.
+   * Set the launcher wheel velocity. Recovery state is computed in periodic() so it aligns with
+   * state logging.
    *
    * @param velocityRPM Target velocity in wheel RPM
    */
   public void setVelocity(double velocityRPM) {
-    // Determine if recovery is active with hysteresis:
-    // - Activate when error exceeds threshold
-    // - Deactivate only when error drops below half the threshold
-    if (feedingActive && velocityRPM > 100.0) {
-      double error = velocityRPM - inputs.wheelVelocityRPM;
-      double threshold = recoveryBoostThresholdRPM.get();
-      if (!recoveryActive && error > threshold) {
-        recoveryActive = true;
-      } else if (recoveryActive && error < threshold * 0.9) {
-        recoveryActive = false;
-      }
-    } else {
-      recoveryActive = false;
-    }
-
     // Compute recovery arbFF voltage proportional to target RPM's steady-state FF.
     // FF voltage ≈ kS + kV * motorRPM. Scale by tunable percentage.
     double gearRatio = Constants.getRobotConfig().getLauncherGearRatio();

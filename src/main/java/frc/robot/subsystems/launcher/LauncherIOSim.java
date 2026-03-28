@@ -49,7 +49,7 @@ public class LauncherIOSim implements LauncherIO {
       new LoggedTunableNumber("Sim/Launcher/SimSpinupTime", 0.75);
 
   private static final LoggedTunableNumber recoveryTimeSeconds =
-      new LoggedTunableNumber("Sim/Launcher/SimRecoveryTime", 0.05);
+      new LoggedTunableNumber("Sim/Launcher/SimRecoveryTime", 0.15);
 
   // Optional variation for more realistic testing (set to 0 to disable)
   private static final LoggedTunableNumber spinupTimeVariation =
