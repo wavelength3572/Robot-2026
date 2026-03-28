@@ -639,10 +639,10 @@ public class ShootingCommands {
   }
 
   /**
-   * Aggressive SmartLaunch variant ("dangerous"). Motivator pre-spins in parallel with launcher
-   * and aiming — no reverse pulse, no waiting for FIRING. Saves ~0.3-0.5s per firing cycle.
-   * Subsystems idle while auto collecting (open neutral/opponent zones). Hood clamps in trench
-   * while moving, pops up below 0.6 m/s in alliance trench only.
+   * Aggressive SmartLaunch variant ("dangerous"). Motivator pre-spins in parallel with launcher and
+   * aiming — no reverse pulse, no waiting for FIRING. Saves ~0.3-0.5s per firing cycle. Subsystems
+   * idle while auto collecting (open neutral/opponent zones). Hood clamps in trench while moving,
+   * pops up below 0.6 m/s in alliance trench only.
    *
    * @param launcher The launcher subsystem
    * @param coordinator The shooting coordinator (owns the state machine)
@@ -764,8 +764,7 @@ public class ShootingCommands {
                         ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                         if (s != null) {
                           double launcherRPM = getEffectiveRPM(s);
-                          motivator.setMotivatorVelocity(
-                              getMotivatorRPM(launcherRPM, coordinator));
+                          motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM, coordinator));
                         } else {
                           motivator.stopMotivator();
                         }

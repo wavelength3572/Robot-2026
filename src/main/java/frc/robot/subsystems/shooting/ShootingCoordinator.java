@@ -721,15 +721,15 @@ public class ShootingCoordinator extends SubsystemBase {
             && (cachedAimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
                 || cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH);
     boolean inNeutralTrench =
-        cachedAimResult != null
-            && cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
+        cachedAimResult != null && cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
     if (inTrenchZone) {
       double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
       // Hysteresis: clamp hood almost instantly when accelerating (0.1 m/s), but don't
       // unclamp until well into deceleration (0.5 m/s). Wide band prevents toggling.
-      double threshold = movingInTrench
-          ? trenchHoodUnclampSpeedMps.get()    // already moving: drop below 0.5 to unclamp
-          : trenchHoodClampSpeedMps.get();     // stopped: clamp as soon as above 0.1
+      double threshold =
+          movingInTrench
+              ? trenchHoodUnclampSpeedMps.get() // already moving: drop below 0.5 to unclamp
+              : trenchHoodClampSpeedMps.get(); // stopped: clamp as soon as above 0.1
       boolean isMoving = robotSpeed > threshold;
       // Hood stays clamped to min while moving in any trench, and always in neutral trench.
       // Only pops up when stationary in the alliance trench.
@@ -1249,9 +1249,9 @@ public class ShootingCoordinator extends SubsystemBase {
 
   /**
    * Check if shooting subsystems should idle to conserve power. True in auto when in the open
-   * neutral/opponent zones (collecting balls, not shooting). NOT true in trenches — when
-   * returning through neutral trench, launcher/turret/motivator should track so they're ready
-   * the instant the robot crosses into alliance trench. In teleop this always returns false.
+   * neutral/opponent zones (collecting balls, not shooting). NOT true in trenches — when returning
+   * through neutral trench, launcher/turret/motivator should track so they're ready the instant the
+   * robot crosses into alliance trench. In teleop this always returns false.
    */
   public boolean isAutoCollecting() {
     if (!DriverStation.isAutonomous()) return false;
@@ -1261,8 +1261,8 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Get the effective launcher RPM, accounting for auto collecting idle and operator suppression. Returns 0
-   * when idling, or the full shot RPM otherwise.
+   * Get the effective launcher RPM, accounting for auto collecting idle and operator suppression.
+   * Returns 0 when idling, or the full shot RPM otherwise.
    */
   public double getEffectiveLauncherRPM(double shotRPM) {
     if (shouldIdleLauncher()) return 0;

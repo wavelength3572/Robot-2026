@@ -7,7 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRightAggressive"
+            "pathName": "TrenchRightAggressiveEndAtStart"
           }
         },
         {
@@ -32,7 +32,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRight2ndCycle"
+            "pathName": "TrenchRight2ndCycleStartFacingHub"
           }
         }
       ]

@@ -336,7 +336,8 @@ public class RobotContainer {
 
     // Initialize FuelSim for simulation mode (after coordinator so intake can be
     // registered)
-    if (Constants.currentMode == Constants.Mode.SIM || Constants.currentMode == Constants.Mode.PIT) {
+    if (Constants.currentMode == Constants.Mode.SIM
+        || Constants.currentMode == Constants.Mode.PIT) {
       initializeFuelSim();
     }
 
@@ -1086,7 +1087,8 @@ public class RobotContainer {
 
   /** Update the fuel simulation. Call this from robotPeriodic(). */
   public void updateFuelSim() {
-    if (Constants.currentMode == Constants.Mode.SIM || Constants.currentMode == Constants.Mode.PIT) {
+    if (Constants.currentMode == Constants.Mode.SIM
+        || Constants.currentMode == Constants.Mode.PIT) {
       FuelSim.getInstance().updateSim();
     }
   }
