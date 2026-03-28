@@ -1463,6 +1463,14 @@ public class ShootingCoordinator extends SubsystemBase {
     if (currentZone == ZoneDetector.Zone.NEUTRAL || currentZone == ZoneDetector.Zone.OPPONENT) {
       hasVisitedNeutral = true;
     }
+    // Reset cycle: when we re-enter neutral trench after shooting, we're heading back
+    // out. Disarm and clear hasVisitedNeutral so the outbound trip idles subsystems.
+    if (armed && hasVisitedNeutral
+        && currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH
+        && armTrigger != ArmTrigger.IMMEDIATE) {
+      armed = false;
+      hasVisitedNeutral = false;
+    }
     // Check arm conditions based on trigger type
     if (!armed) {
       switch (armTrigger) {
