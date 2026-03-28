@@ -55,23 +55,25 @@ public class ShootingCoordinator extends SubsystemBase {
 
   /** State machine for coordinated shooting. Drives feeding decisions in SmartLaunch. */
   public enum CoordinatorState {
-    /** SmartLaunch not active — no shooting. */
-    IDLE,
-    /** Initial spinup — subsystems moving to first targets, not ready to fire. */
-    SPINNING_UP,
+    /** SmartLaunch not active. */
+    INACTIVE,
+    /** Active but not yet armed — outbound in auto, subsystems idle. */
+    UNARMED,
+    /** Armed, subsystems moving to targets, not ready to fire yet. */
+    AIMING,
     /** All subsystems at target — feeding allowed. */
     FIRING,
-    /** Big setpoint change in progress (turret flip, trench transition, aim mode change). */
-    TRANSITIONING,
-    /** Operator hold-fire — subsystems track but feeding suppressed by operator. */
-    OPERATOR_SUPPRESSED,
-    /** In a no-shoot zone (NEUTRAL_TRENCH or BUMP) — cannot fire. */
-    ZONE_SUPPRESSED
+    /** Big setpoint change in progress (turret flip, zone transition) — waiting to settle. */
+    SETTLING,
+    /** Driver holding fire — subsystems track but feeding suppressed. */
+    HELD,
+    /** In a no-fire zone (BUMP) — shooting blocked by position. */
+    NO_FIRE_ZONE
   }
 
   /**
    * Arming trigger for sprint-start autos. Controls when the state machine is allowed to transition
-   * from SPINNING_UP to FIRING. Prevents shooting preloads at the start of sprint autos.
+   * from UNARMED to AIMING. Prevents shooting preloads at the start of sprint autos.
    */
   public enum ArmTrigger {
     /** Teleop / shoot-preloads — armed immediately, no gating. */
@@ -183,7 +185,7 @@ public class ShootingCoordinator extends SubsystemBase {
   // ========== CoordinatorState Machine ==========
   // Centralized state that drives feeding decisions in SmartLaunch commands.
   // Updated every cycle in updateCoordinatorState() after shot calculation.
-  private CoordinatorState coordinatorState = CoordinatorState.IDLE;
+  private CoordinatorState coordinatorState = CoordinatorState.INACTIVE;
   private boolean smartLaunchActive = false;
   private boolean previousTrenchMode = false;
   private TurretAimingHelper.AimMode previousAimMode = null;
@@ -1258,12 +1260,15 @@ public class ShootingCoordinator extends SubsystemBase {
   public boolean isAutoCollecting() {
     if (!DriverStation.isAutonomous()) return false;
     if (cachedAimResult == null) return false;
-    ZoneDetector.Zone zone = cachedAimResult.zone();
-    // Open neutral/opponent zones — always idle
-    if (zone == ZoneDetector.Zone.NEUTRAL || zone == ZoneDetector.Zone.OPPONENT) return true;
-    // Only idle on outbound for sprint autos (non-IMMEDIATE arm trigger).
-    // IMMEDIATE = shoot preloads or teleop-style, don't idle.
-    if (armTrigger != ArmTrigger.IMMEDIATE && !hasVisitedNeutral) return true;
+    if (armTrigger == ArmTrigger.IMMEDIATE) return false;
+    // Outbound (haven't visited neutral yet) — idle everywhere
+    if (!hasVisitedNeutral) return true;
+    // Returning: in neutral/opponent zones, idle only if passing is disabled.
+    // AUTO_SHOOT (passing enabled) should spin up for pass shots in neutral.
+    boolean inNeutralOrOpponent =
+        cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL
+            || cachedAimResult.zone() == ZoneDetector.Zone.OPPONENT;
+    if (inNeutralOrOpponent && !autoPassingEnabled) return true;
     return false;
   }
 
@@ -1384,7 +1389,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
   /**
    * Notify the coordinator that SmartLaunch has started or stopped. Called by the SmartLaunch
-   * command on start/end to drive IDLE transitions. Uses IMMEDIATE arm trigger (teleop default).
+   * command on start/end to drive INACTIVE transitions. Uses IMMEDIATE arm trigger (teleop default).
    */
   public void setSmartLaunchActive(boolean active) {
     setSmartLaunchActive(active, ArmTrigger.IMMEDIATE);
@@ -1397,14 +1402,14 @@ public class ShootingCoordinator extends SubsystemBase {
   public void setSmartLaunchActive(boolean active, ArmTrigger trigger) {
     this.smartLaunchActive = active;
     if (!active) {
-      coordinatorState = CoordinatorState.IDLE;
+      coordinatorState = CoordinatorState.INACTIVE;
       armed = true;
       hasVisitedNeutral = false;
       readyTimeoutRunning = false;
-    } else if (coordinatorState == CoordinatorState.IDLE) {
-      coordinatorState = CoordinatorState.SPINNING_UP;
+    } else if (coordinatorState == CoordinatorState.INACTIVE) {
       armTrigger = trigger;
       armed = (trigger == ArmTrigger.IMMEDIATE);
+      coordinatorState = armed ? CoordinatorState.AIMING : CoordinatorState.UNARMED;
       hasVisitedNeutral = false;
       readyTimeoutTimer.restart();
       readyTimeoutRunning = true;
@@ -1449,7 +1454,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private void updateCoordinatorState() {
     // Not active — stay idle
     if (!smartLaunchActive) {
-      coordinatorState = CoordinatorState.IDLE;
+      coordinatorState = CoordinatorState.INACTIVE;
       return;
     }
 
@@ -1470,6 +1475,10 @@ public class ShootingCoordinator extends SubsystemBase {
         && armTrigger != ArmTrigger.IMMEDIATE) {
       armed = false;
       hasVisitedNeutral = false;
+      // Force to UNARMED so feeding stops immediately
+      coordinatorState = CoordinatorState.UNARMED;
+      readyTimeoutTimer.restart();
+      readyTimeoutRunning = true;
     }
     // Check arm conditions based on trigger type
     if (!armed) {
@@ -1491,6 +1500,12 @@ public class ShootingCoordinator extends SubsystemBase {
         }
       }
     }
+    // Transition UNARMED → AIMING once armed
+    if (armed && coordinatorState == CoordinatorState.UNARMED) {
+      coordinatorState = CoordinatorState.AIMING;
+      readyTimeoutTimer.restart();
+      readyTimeoutRunning = true;
+    }
 
     // --- Zone suppression check (highest priority) ---
     boolean inNoShootZone =
@@ -1507,14 +1522,14 @@ public class ShootingCoordinator extends SubsystemBase {
     CoordinatorState prevState = coordinatorState;
 
     if (inNoShootZone) {
-      coordinatorState = CoordinatorState.ZONE_SUPPRESSED;
+      coordinatorState = CoordinatorState.NO_FIRE_ZONE;
       readyTimeoutRunning = false;
       // Still update previous values so we detect the transition OUT correctly
       previousTrenchMode = trenchModeActive;
       previousAimMode = currentAimMode;
-    } else if (coordinatorState == CoordinatorState.ZONE_SUPPRESSED) {
+    } else if (coordinatorState == CoordinatorState.NO_FIRE_ZONE) {
       // --- Leaving zone suppression → transition (subsystems need to settle) ---
-      coordinatorState = CoordinatorState.TRANSITIONING;
+      coordinatorState = CoordinatorState.SETTLING;
       readyTimeoutTimer.restart();
       readyTimeoutRunning = true;
       previousTrenchMode = trenchModeActive;
@@ -1522,8 +1537,8 @@ public class ShootingCoordinator extends SubsystemBase {
     } else if (feedingSuppressedSupplier.getAsBoolean()) {
       // --- Operator suppression check ---
       if (coordinatorState == CoordinatorState.FIRING
-          || coordinatorState == CoordinatorState.OPERATOR_SUPPRESSED) {
-        coordinatorState = CoordinatorState.OPERATOR_SUPPRESSED;
+          || coordinatorState == CoordinatorState.HELD) {
+        coordinatorState = CoordinatorState.HELD;
       }
       readyTimeoutRunning = false;
       previousTrenchMode = trenchModeActive;
@@ -1536,7 +1551,7 @@ public class ShootingCoordinator extends SubsystemBase {
         boolean turretFlipping = (turret.getState() == Turret.TurretState.FLIPPING);
 
         if (trenchChanged || aimModeChanged || turretFlipping) {
-          coordinatorState = CoordinatorState.TRANSITIONING;
+          coordinatorState = CoordinatorState.SETTLING;
           readyTimeoutTimer.restart();
           readyTimeoutRunning = true;
         }
@@ -1555,11 +1570,11 @@ public class ShootingCoordinator extends SubsystemBase {
       speedOk = isRobotSlowEnoughForCurrentZone();
       allReady = armed && launcherReady && turretReady && hoodReady && shotAchievable && speedOk;
 
-      // --- Timeout: force FIRING if stuck in SPINNING_UP too long ---
+      // --- Timeout: force FIRING if stuck in AIMING too long ---
       boolean timeoutForced = false;
       if (readyTimeoutRunning
           && readyTimeoutTimer.hasElapsed(readyTimeoutSec.get())
-          && coordinatorState == CoordinatorState.SPINNING_UP) {
+          && coordinatorState == CoordinatorState.AIMING) {
         coordinatorState = CoordinatorState.FIRING;
         readyTimeoutRunning = false;
         timeoutForced = true;
@@ -1570,33 +1585,33 @@ public class ShootingCoordinator extends SubsystemBase {
 
       if (!timeoutForced) {
         switch (coordinatorState) {
-          case SPINNING_UP -> {
+          case AIMING -> {
             if (allReady) {
               coordinatorState = CoordinatorState.FIRING;
             }
           }
-          case TRANSITIONING -> {
+          case SETTLING -> {
             if (allReady && turretNotFlipping) {
               coordinatorState = CoordinatorState.FIRING;
             }
           }
-          case OPERATOR_SUPPRESSED -> {
+          case HELD -> {
             // feedingSuppressed was already checked above and returned false to reach here
             if (allReady) {
               coordinatorState = CoordinatorState.FIRING;
             }
           }
           case FIRING -> {
-            // Drop back to SPINNING_UP if robot exceeds zone speed threshold
+            // Drop back to AIMING if robot exceeds zone speed threshold
             if (!speedOk) {
-              coordinatorState = CoordinatorState.SPINNING_UP;
+              coordinatorState = CoordinatorState.AIMING;
               readyTimeoutTimer.restart();
               readyTimeoutRunning = true;
             }
             // Other transitions out (trench, turret flip, etc.) handled by trigger checks above
           }
           default -> {
-            // IDLE handled at top
+            // INACTIVE/UNARMED handled at top
           }
         }
       }
