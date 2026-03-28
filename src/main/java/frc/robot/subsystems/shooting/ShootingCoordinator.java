@@ -160,7 +160,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber trenchSafetySpeedLimitMps =
       new LoggedTunableNumber("Shots/TrenchMode/SafetySpeedLimitMps", 2.0);
   private final LoggedTunableNumber trenchMovingThresholdMps =
-      new LoggedTunableNumber("Shots/TrenchMode/MovingThresholdMps", 0.1);
+      new LoggedTunableNumber("Shots/TrenchMode/MovingThresholdMps", 0.6);
   private boolean trenchHoodSafetyActive = false;
   private boolean movingInTrench = false; // true when robot is moving in a trench zone
 
