@@ -1225,11 +1225,11 @@ public class ShootingCoordinator extends SubsystemBase {
 
   /**
    * Check if shooting subsystems should idle to conserve power. True in auto when in the open
-   * neutral/opponent zones (outbound trip to collect balls). NOT true in trenches — when
+   * neutral/opponent zones (collecting balls, not shooting). NOT true in trenches — when
    * returning through neutral trench, launcher/turret/motivator should track so they're ready
    * the instant the robot crosses into alliance trench. In teleop this always returns false.
    */
-  public boolean shouldIdleForTransit() {
+  public boolean isAutoCollecting() {
     if (!DriverStation.isAutonomous()) return false;
     if (cachedAimResult == null) return false;
     ZoneDetector.Zone zone = cachedAimResult.zone();
@@ -1237,12 +1237,12 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Get the effective launcher RPM, accounting for transit idle and operator suppression. Returns 0
+   * Get the effective launcher RPM, accounting for auto collecting idle and operator suppression. Returns 0
    * when idling, or the full shot RPM otherwise.
    */
   public double getEffectiveLauncherRPM(double shotRPM) {
     if (shouldIdleLauncher()) return 0;
-    if (shouldIdleForTransit()) return 0;
+    if (isAutoCollecting()) return 0;
     return shotRPM;
   }
 

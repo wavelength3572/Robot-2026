@@ -686,7 +686,7 @@ public class ShootingCommands {
       ShootingCoordinator.ArmTrigger armTrigger) {
 
     return Commands.parallel(
-            // Launcher — track shot RPM (idles to 0 during neutral zone transit)
+            // Launcher — track shot RPM (idles to 0 while auto collecting)
             Commands.run(
                 () -> {
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
@@ -699,10 +699,10 @@ public class ShootingCommands {
                 },
                 launcher),
 
-            // Turret — track shot angle, but hold position during neutral zone transit
+            // Turret — track shot angle, but hold position while auto collecting
             Commands.run(
                 () -> {
-                  if (coordinator.shouldIdleForTransit()) return; // hold position
+                  if (coordinator.isAutoCollecting()) return; // hold position
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
                     turret.setOutsideTurretAngle(shot.turretAngleDeg());
@@ -710,11 +710,11 @@ public class ShootingCommands {
                 },
                 turret),
 
-            // Hood — track shot angle; idle at min during neutral zone transit
+            // Hood — track shot angle; idle at min while auto collecting
             hood != null
                 ? Commands.run(
                     () -> {
-                      if (coordinator.shouldIdleForTransit()) {
+                      if (coordinator.isAutoCollecting()) {
                         hood.setHoodAngle(hood.getMinAngle());
                         return;
                       }
@@ -727,11 +727,11 @@ public class ShootingCommands {
                 : Commands.none(),
 
             // Motivator — always pre-spin in teleop (ready for passing or shooting).
-            // In auto, idle only in open neutral/opponent zones (outbound collection).
+            // In auto, idle only while collecting (open neutral/opponent zones).
             motivator != null
                 ? Commands.run(
                     () -> {
-                      if (coordinator.shouldIdleForTransit()) {
+                      if (coordinator.isAutoCollecting()) {
                         motivator.stopMotivator();
                         return;
                       }
