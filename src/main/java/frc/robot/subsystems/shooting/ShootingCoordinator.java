@@ -1433,6 +1433,7 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   private boolean firingEntryPending = false;
+  private boolean wasFiringBeforeZoneSuppression = false;
 
   /**
    * Returns true exactly once each time the coordinator enters FIRING state. Used by
@@ -1488,24 +1489,31 @@ public class ShootingCoordinator extends SubsystemBase {
           // Arm when entering pass zone (neutral/opponent)
           if (hasVisitedNeutral) {
             armed = true;
-            Logger.recordOutput("SmartLaunch/Armed", true);
           }
         }
         case ON_TRENCH_RETURN -> {
           // Arm when entering alliance trench after having visited neutral
           if (hasVisitedNeutral && currentZone == ZoneDetector.Zone.ALLIANCE_TRENCH) {
             armed = true;
-            Logger.recordOutput("SmartLaunch/Armed", true);
           }
         }
       }
     }
-    // Transition UNARMED → AIMING when subsystems start spinning (no longer collecting).
-    // armed is a separate gate that prevents AIMING → FIRING until in the right zone.
+    // Transition UNARMED → AIMING when subsystems start spinning (no longer collecting),
+    // BUT only if we're not in a no-fire zone — otherwise go straight to NO_FIRE_ZONE
+    // to avoid a single-cycle AIMING blip that's invisible in logs.
+    boolean inNoFireZone =
+        currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH
+            || currentZone == ZoneDetector.Zone.BUMP;
     if (!isAutoCollecting() && coordinatorState == CoordinatorState.UNARMED) {
-      coordinatorState = CoordinatorState.AIMING;
-      readyTimeoutTimer.restart();
-      readyTimeoutRunning = true;
+      if (inNoFireZone) {
+        coordinatorState = CoordinatorState.NO_FIRE_ZONE;
+        readyTimeoutRunning = false;
+      } else {
+        coordinatorState = CoordinatorState.AIMING;
+        readyTimeoutTimer.restart();
+        readyTimeoutRunning = true;
+      }
     }
 
     // Readiness variables — declared here so they're available for logging in all paths
@@ -1517,6 +1525,7 @@ public class ShootingCoordinator extends SubsystemBase {
     boolean allReady = false;
 
     CoordinatorState prevState = coordinatorState;
+    String stateReason = "";
 
     // --- UNARMED trumps everything — skip all state logic until armed ---
     if (coordinatorState == CoordinatorState.UNARMED) {
@@ -1524,16 +1533,26 @@ public class ShootingCoordinator extends SubsystemBase {
       previousAimMode = currentAimMode;
     }
     // --- Zone suppression check ---
-    else if (currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH
-        || currentZone == ZoneDetector.Zone.BUMP) {
+    else if (inNoFireZone) {
+      if (coordinatorState != CoordinatorState.NO_FIRE_ZONE) {
+        stateReason = "entered " + currentZone.name();
+      }
       coordinatorState = CoordinatorState.NO_FIRE_ZONE;
       readyTimeoutRunning = false;
       // Still update previous values so we detect the transition OUT correctly
       previousTrenchMode = trenchModeActive;
       previousAimMode = currentAimMode;
     } else if (coordinatorState == CoordinatorState.NO_FIRE_ZONE) {
-      // --- Leaving zone suppression → transition (subsystems need to settle) ---
-      coordinatorState = CoordinatorState.SETTLING;
+      // --- Leaving zone suppression ---
+      // If we were FIRING before entering the zone, settle. Otherwise go straight to AIMING
+      // since there's nothing to settle — subsystems were never locked on.
+      if (prevState == CoordinatorState.NO_FIRE_ZONE && wasFiringBeforeZoneSuppression) {
+        coordinatorState = CoordinatorState.SETTLING;
+        stateReason = "left no-fire zone (was firing)";
+      } else {
+        coordinatorState = CoordinatorState.AIMING;
+        stateReason = "left no-fire zone";
+      }
       readyTimeoutTimer.restart();
       readyTimeoutRunning = true;
       previousTrenchMode = trenchModeActive;
@@ -1542,6 +1561,9 @@ public class ShootingCoordinator extends SubsystemBase {
       // --- Operator suppression check ---
       if (coordinatorState == CoordinatorState.FIRING
           || coordinatorState == CoordinatorState.HELD) {
+        if (coordinatorState != CoordinatorState.HELD) {
+          stateReason = "operator suppressed";
+        }
         coordinatorState = CoordinatorState.HELD;
       }
       readyTimeoutRunning = false;
@@ -1556,6 +1578,11 @@ public class ShootingCoordinator extends SubsystemBase {
 
         if (trenchChanged || aimModeChanged || turretFlipping) {
           coordinatorState = CoordinatorState.SETTLING;
+          stateReason =
+              "settling:"
+                  + (trenchChanged ? " trench_changed" : "")
+                  + (aimModeChanged ? " aim_changed" : "")
+                  + (turretFlipping ? " turret_flip" : "");
           readyTimeoutTimer.restart();
           readyTimeoutRunning = true;
         }
@@ -1582,9 +1609,7 @@ public class ShootingCoordinator extends SubsystemBase {
         coordinatorState = CoordinatorState.FIRING;
         readyTimeoutRunning = false;
         timeoutForced = true;
-        Logger.recordOutput("SmartLaunch/TimeoutForced", true);
-      } else {
-        Logger.recordOutput("SmartLaunch/TimeoutForced", false);
+        stateReason = "timeout forced";
       }
 
       if (!timeoutForced) {
@@ -1592,23 +1617,27 @@ public class ShootingCoordinator extends SubsystemBase {
           case AIMING -> {
             if (allReady) {
               coordinatorState = CoordinatorState.FIRING;
+              stateReason = "all ready";
             }
           }
           case SETTLING -> {
             if (allReady && turretNotFlipping) {
               coordinatorState = CoordinatorState.FIRING;
+              stateReason = "settled, all ready";
             }
           }
           case HELD -> {
             // feedingSuppressed was already checked above and returned false to reach here
             if (allReady) {
               coordinatorState = CoordinatorState.FIRING;
+              stateReason = "released, all ready";
             }
           }
           case FIRING -> {
             // Drop back to AIMING if robot exceeds zone speed threshold
             if (!speedOk) {
               coordinatorState = CoordinatorState.AIMING;
+              stateReason = "too fast";
               readyTimeoutTimer.restart();
               readyTimeoutRunning = true;
             }
@@ -1626,26 +1655,45 @@ public class ShootingCoordinator extends SubsystemBase {
       }
     }
 
+    // Track whether we were firing before entering a no-fire zone, so we know
+    // whether to SETTLE or go straight to AIMING when leaving.
+    if (coordinatorState == CoordinatorState.NO_FIRE_ZONE && prevState != CoordinatorState.NO_FIRE_ZONE) {
+      wasFiringBeforeZoneSuppression = (prevState == CoordinatorState.FIRING);
+    }
+
     // Flag every entry into FIRING so consumeFiringEntry() can trigger a reverse pulse.
     if (coordinatorState == CoordinatorState.FIRING && prevState != CoordinatorState.FIRING) {
       firingEntryPending = true;
-      Logger.recordOutput("SmartLaunch/ReversePulse/FiringEntrySet", true);
-    } else {
-      Logger.recordOutput("SmartLaunch/ReversePulse/FiringEntrySet", false);
     }
 
-    // Log state every cycle (50Hz) — always reached regardless of which branch executed
+    // --- Logging ---
     Logger.recordOutput("SmartLaunch/CoordinatorState", coordinatorState.name());
-    // Readiness details throttled to 10Hz (less critical)
-    if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("SmartLaunch/Armed", armed);
-      Logger.recordOutput("SmartLaunch/HasVisitedNeutral", hasVisitedNeutral);
-      Logger.recordOutput("SmartLaunch/SM/LauncherReady", launcherReady);
-      Logger.recordOutput("SmartLaunch/SM/TurretReady", turretReady);
-      Logger.recordOutput("SmartLaunch/SM/HoodReady", hoodReady);
-      Logger.recordOutput("SmartLaunch/SM/ShotAchievable", shotAchievable);
-      Logger.recordOutput("SmartLaunch/SM/SpeedOk", speedOk);
-      Logger.recordOutput("SmartLaunch/SM/AllReady", allReady);
+    Logger.recordOutput("SmartLaunch/Armed", armed);
+    Logger.recordOutput("SmartLaunch/HasVisitedNeutral", hasVisitedNeutral);
+
+    // State transition trace — only logged when state changes.
+    // Single string tells you what happened and why, no digging through booleans.
+    if (coordinatorState != prevState) {
+      Logger.recordOutput(
+          "SmartLaunch/StateTransition",
+          prevState.name() + " -> " + coordinatorState.name() + " (" + stateReason + ")");
+    }
+
+    // When not firing, show what's blocking in one string — e.g. "launcher hood"
+    if (coordinatorState == CoordinatorState.AIMING
+        || coordinatorState == CoordinatorState.SETTLING) {
+      StringBuilder blocking = new StringBuilder();
+      if (!armed) blocking.append("armed ");
+      if (!launcherReady) blocking.append("launcher ");
+      if (!turretReady) blocking.append("turret ");
+      if (!hoodReady) blocking.append("hood ");
+      if (!shotAchievable) blocking.append("shot ");
+      if (!speedOk) blocking.append("speed ");
+      Logger.recordOutput(
+          "SmartLaunch/Blocking",
+          blocking.length() > 0 ? blocking.toString().trim() : "none");
+    } else {
+      Logger.recordOutput("SmartLaunch/Blocking", "");
     }
   }
 
