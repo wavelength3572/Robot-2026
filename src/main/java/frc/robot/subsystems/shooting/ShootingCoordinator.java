@@ -940,7 +940,9 @@ public class ShootingCoordinator extends SubsystemBase {
       constraintX = horizontalDist / 2.0;
       constraintH = symmetricArcPeakHeightIn.get() * 0.0254;
       maxPeakHeight =
-          symmetricArcPeakHeightIn.get() * 0.0254 + 1.0; // allow small margin above desired peak
+          isLongPass
+              ? longLobMaxPeakHeightM.get()
+              : symmetricArcPeakHeightIn.get() * 0.0254 + 1.0;
     }
 
     ShotCalculator.ShotResult result =
