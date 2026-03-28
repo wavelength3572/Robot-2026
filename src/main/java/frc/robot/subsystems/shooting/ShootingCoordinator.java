@@ -616,13 +616,12 @@ public class ShootingCoordinator extends SubsystemBase {
           }
         }
         case LONG_PASS -> {
-          Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass LongLob");
+          Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass LongSymmetric");
           boolean isLeftTrench = selectIsLeftTrench(robotPose);
-          Translation3d activeTarget =
-              isLeftTrench ? cachedLobStation1Target : cachedLobStation3Target;
-          Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LOB_LEFT" : "LOB_RIGHT");
+          Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
+          Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
           calculatePassToTarget(
-              robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION, true);
+              robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC, true);
         }
         case NONE -> {
           Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub " + activeStrategy.getName());
