@@ -53,6 +53,11 @@ public class ZoneDetector {
   // and ALLIANCE_FAR. They are the single source of truth — ShotCalculator's efficiency
   // interpolation also uses these boundaries so zone edges and efficiency breakpoints always agree.
   // Tunable via NetworkTables under Shots/Zones/.
+  // How far into alliance trench (meters) the neutral trench boundary is shifted toward
+  // the alliance side. Gives the hood time to lower before reaching the physical barrier.
+  private static final LoggedTunableNumber trenchAllianceBufferM =
+      new LoggedTunableNumber("Shots/Zones/TrenchAllianceBufferM", 0.3);
+
   private static final LoggedTunableNumber zoneBoundaryClose =
       new LoggedTunableNumber("Shots/Zones/CloseDist", 2.0);
   private static final LoggedTunableNumber zoneBoundaryMid =
@@ -206,20 +211,21 @@ public class ZoneDetector {
   private static boolean isOnAllianceSideOfTrench(double robotX, Alliance alliance) {
     double blueHubCenter = FieldConstants.LinesVertical.hubCenter;
     double redHubCenter = FieldConstants.LinesVertical.oppHubCenter;
+    double buffer = trenchAllianceBufferM.get();
 
     if (alliance == Alliance.Blue) {
       // If we're in the red-side trench, that's always FAR (opponent territory)
       double distToBlue = Math.abs(robotX - blueHubCenter);
       double distToRed = Math.abs(robotX - redHubCenter);
       if (distToRed < distToBlue) return false;
-      // NEAR if robot is on the alliance side of the hub center (physical barrier)
-      return robotX <= blueHubCenter;
+      // NEAR if robot is on the alliance side, with buffer shifted toward alliance
+      return robotX <= blueHubCenter - buffer;
     } else {
       double distToBlue = Math.abs(robotX - blueHubCenter);
       double distToRed = Math.abs(robotX - redHubCenter);
       if (distToBlue < distToRed) return false;
-      // NEAR if robot is on the alliance side of the hub center (physical barrier)
-      return robotX >= redHubCenter;
+      // NEAR if robot is on the alliance side, with buffer shifted toward alliance
+      return robotX >= redHubCenter + buffer;
     }
   }
 
