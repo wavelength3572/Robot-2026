@@ -672,12 +672,12 @@ public class ShootingCoordinator extends SubsystemBase {
         cachedAimResult != null && cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
     if (inTrenchZone) {
       double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-      // Hysteresis: clamp hood almost instantly when accelerating (0.1 m/s), but don't
+      // Hysteresis: clamp hood almost instantly when accelerating (0.3 m/s), but don't
       // unclamp until well into deceleration (0.5 m/s). Wide band prevents toggling.
       double threshold =
           movingInTrench
               ? trenchHoodUnclampSpeedMps.get() // already moving: drop below 0.5 to unclamp
-              : trenchHoodClampSpeedMps.get(); // stopped: clamp as soon as above 0.1
+              : trenchHoodClampSpeedMps.get(); // stopped: clamp as soon as above 0.3
       boolean isMoving = robotSpeed > threshold;
       // Hood stays clamped to min while moving in any trench, and always in neutral trench.
       // Only pops up when stationary in the alliance trench.
@@ -1192,6 +1192,8 @@ public class ShootingCoordinator extends SubsystemBase {
       armed = true;
       hasVisitedNeutral = false;
       readyTimeoutRunning = false;
+      wasFiringBeforeZoneSuppression = false;
+      firingEntryPending = false;
     } else if (coordinatorState == CoordinatorState.INACTIVE) {
       armTrigger = trigger;
       armed = (trigger == ArmTrigger.IMMEDIATE);

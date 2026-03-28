@@ -502,7 +502,7 @@ public class ShootingCommands {
                           if (motivator != null
                               && launcher.isReady()
                               && turret.atTarget()
-                              && hood.atTarget()) {
+                              && (hood == null || hood.atTarget())) {
                             motivator.setMotivatorVelocity(
                                 getMotivatorRPM(motivatorRPMSupplier.getAsDouble()));
                           }
@@ -676,6 +676,8 @@ public class ShootingCommands {
                     double hoodDeg = getEffectiveHoodDeg(shot);
                     launcher.setVelocity(coordinator.getEffectiveLauncherRPM(rpm));
                     coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
+                  } else {
+                    launcher.setVelocity(0);
                   }
                 },
                 launcher),
