@@ -721,56 +721,28 @@ public class ShootingCommands {
                     hood)
                 : Commands.none(),
 
-            // Motivator — spin when coordinator says FIRING (launcher/turret/hood at target).
-            // Motivator must be at speed before spindexer feeds, but must NOT spin before
-            // aiming is correct — errant balls fly off if motivator pushes balls into a
-            // launcher that isn't aimed. Sequence: aim → FIRING → reverse pulse → motivator →
-            // spindexer.
-            // Brief reverse pulse on FIRING entry clears balls from the motivator/launcher
-            // interface so the first shot isn't clipped by a partially engaged ball.
+            // Motivator — pre-spin as soon as the launcher is at speed so the motivator
+            // is already at target RPM the instant FIRING triggers.  Spindexer still gates
+            // on FIRING + motivator ready, so no errant shots.  No reverse pulse — saves
+            // ~0.2 s per firing cycle.
             motivator != null
                 ? Commands.run(
-                    new Runnable() {
-                      private final Timer reversePulseTimer = new Timer();
-                      private boolean reversing = false;
-                      private static final double REVERSE_PULSE_SEC = 0.2;
-
-                      @Override
-                      public void run() {
-                        if (coordinator.consumeFiringEntry()) {
-                          reversing = true;
-                          reversePulseTimer.restart();
-                        }
-                        // Cancel reverse pulse if we leave FIRING (e.g. speed exceeded)
-                        if (reversing && !coordinator.isFeedingAllowed()) {
-                          reversing = false;
-                          Logger.recordOutput("SmartLaunch/ReversePulse/State", "CANCELLED");
-                        }
-                        if (reversing) {
-                          if (reversePulseTimer.hasElapsed(REVERSE_PULSE_SEC)) {
-                            reversing = false;
-                            Logger.recordOutput("SmartLaunch/ReversePulse/State", "DONE");
-                          } else {
-                            motivator.setMotivatorVoltage(-1.0);
-                            Logger.recordOutput("SmartLaunch/ReversePulse/State", "REVERSING");
-                            return;
-                          }
-                        }
-                        if (coordinator.isFeedingAllowed()) {
-                          ShotCalculator.ShotResult s = coordinator.getCurrentShot();
-                          double launcherRPM = getEffectiveRPM(s);
-                          motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM, coordinator));
-                        } else {
-                          motivator.stopMotivator();
-                        }
+                    () -> {
+                      // Pre-spin: start motivator once launcher is at speed, even before
+                      // full FIRING (turret/hood may still be settling).  This lets the
+                      // motivator spin-up overlap with aiming instead of stacking after it.
+                      if (coordinator.isFeedingAllowed() || launcher.isReady()) {
+                        ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                        double launcherRPM = getEffectiveRPM(s);
+                        motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM, coordinator));
+                      } else {
+                        motivator.stopMotivator();
                       }
                     },
                     motivator)
                 : Commands.none(),
 
             // Spindexer — feed only when coordinator allows AND motivator is at speed.
-            // During the motivator's reverse pulse, motivatorReady will be false so the
-            // spindexer naturally holds off until the pulse completes.
             spindexer != null
                 ? Commands.run(
                     () -> {
