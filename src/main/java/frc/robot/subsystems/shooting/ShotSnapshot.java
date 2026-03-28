@@ -2,6 +2,7 @@ package frc.robot.subsystems.shooting;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.util.ZoneDetector;
 
 /**
  * Read-only snapshot of shooting state passed from ShootingCoordinator (control) to ShotVisualizer
@@ -21,7 +22,8 @@ public record ShotSnapshot(
     double turretHeightMeters,
     double turretXOffset,
     double turretYOffset,
-    TrajectoryReadiness trajectoryReadiness) {
+    TrajectoryReadiness trajectoryReadiness,
+    ZoneDetector.Zone currentZone) {
 
   /** Trajectory color based on actual shot readiness gating. */
   public enum TrajectoryReadiness {

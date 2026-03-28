@@ -73,8 +73,6 @@ public class Hood extends SubsystemBase {
     } else if (inputs.atTarget) {
       if (clamped) {
         currentState = HoodState.CLAMPED;
-      } else if (currentState == HoodState.CLAMPED) {
-        // Just unclamped but still at old clamped target — hold CLAMPED until new target propagates
       } else {
         currentState = activelyCommanded ? HoodState.READY : HoodState.STOWED;
       }

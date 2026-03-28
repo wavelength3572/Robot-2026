@@ -241,8 +241,16 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Two-point trajectory tunables for pass shots (dashboard value in inches,
   // converted to meters)
-  private final LoggedTunableNumber symmetricArcPeakHeightIn =
-      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightIn", 62.0);
+  private final LoggedTunableNumber symmetricArcPeakHeightMinIn =
+      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightMinIn", 50.0);
+  private final LoggedTunableNumber symmetricArcPeakHeightMaxIn =
+      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightMaxIn", 58.0);
+  private final LoggedTunableNumber symmetricArcDistMinM =
+      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcDistMinM", 4.0);
+  private final LoggedTunableNumber symmetricArcDistMaxM =
+      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcDistMaxM", 12.0);
+  private final LoggedTunableNumber passRpmPerDegCompensation =
+      new LoggedTunableNumber("SmartLaunch/Pass/RPMPerDegCompensation", 100.0);
   private final LoggedTunableNumber lobNetClearanceMarginM =
       new LoggedTunableNumber("SmartLaunch/Pass/Lob/NetClearanceMarginM", 0.3);
   private final LoggedTunableNumber lobMaxPeakHeightM =
@@ -743,6 +751,18 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Hub net top height in meters (120.36 inches — top of the net, not the lip). */
   private static final double HUB_NET_HEIGHT = 3.057;
 
+  /** Interpolate symmetric arc peak height (inches) based on horizontal distance (meters). */
+  private double interpolatePeakHeight(double horizontalDistM) {
+    double distMin = symmetricArcDistMinM.get();
+    double distMax = symmetricArcDistMaxM.get();
+    double peakMin = symmetricArcPeakHeightMinIn.get();
+    double peakMax = symmetricArcPeakHeightMaxIn.get();
+    double t = Math.max(0.0, Math.min(1.0, (horizontalDistM - distMin) / (distMax - distMin)));
+    double peakIn = peakMin + t * (peakMax - peakMin);
+    Logger.recordOutput("SmartLaunch/Pass/Symmetric/InterpolatedPeakIn", peakIn);
+    return peakIn;
+  }
+
   /** Calculate and apply pass shot using two-point trajectory solver. */
   private void calculatePassToTarget(
       Pose2d robotPose, ChassisSpeeds fieldSpeeds, Translation3d target, PassingStrategy strategy) {
@@ -760,14 +780,10 @@ public class ShootingCoordinator extends SubsystemBase {
     double horizontalDist =
         Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
 
-    // For passes, allow the full theoretical hood range — the solver will compute
-    // the
-    // ideal angle and the result gets clamped to mechanical limits at command time.
-    // Hub shots enforce strict hood limits, but passes need steep angles (50-60°)
-    // that
-    // would be rejected by the normal [13-46] range.
-    double hoodMin = 0.0;
-    double hoodMax = 90.0;
+    // Pass real mechanical hood limits — the solver will clamp to these and add RPM
+    // compensation instead of rejecting, so passes always fire.
+    double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
+    double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
 
     double constraintX;
     double constraintH;
@@ -797,8 +813,9 @@ public class ShootingCoordinator extends SubsystemBase {
       if (hubDistAlongShot <= 0.5 || hubDistAlongShot >= horizontalDist - 0.5) {
         // Shot doesn't cross the hub — use low arc
         constraintX = horizontalDist / 2.0;
-        constraintH = symmetricArcPeakHeightIn.get() * 0.0254;
-        maxPeakHeight = symmetricArcPeakHeightIn.get() * 0.0254 + 1.0;
+        double peakIn = interpolatePeakHeight(horizontalDist);
+        constraintH = peakIn * 0.0254;
+        maxPeakHeight = peakIn * 0.0254 + 1.0;
         Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", true);
       } else {
         constraintX = hubDistAlongShot;
@@ -807,11 +824,11 @@ public class ShootingCoordinator extends SubsystemBase {
         Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", false);
       }
     } else {
-      // SYMMETRIC: clearance point is the midpoint, height is the desired arc peak
+      // SYMMETRIC: clearance point is the midpoint, height scales with distance
       constraintX = horizontalDist / 2.0;
-      constraintH = symmetricArcPeakHeightIn.get() * 0.0254;
-      maxPeakHeight =
-          symmetricArcPeakHeightIn.get() * 0.0254 + 1.0; // allow small margin above desired peak
+      double peakIn = interpolatePeakHeight(horizontalDist);
+      constraintH = peakIn * 0.0254;
+      maxPeakHeight = peakIn * 0.0254 + 1.0; // allow small margin above desired peak
     }
 
     ShotCalculator.ShotResult result =
@@ -827,7 +844,8 @@ public class ShootingCoordinator extends SubsystemBase {
             turret.getMinAngle(),
             turret.getMaxAngle(),
             hoodMin,
-            hoodMax);
+            hoodMax,
+            passRpmPerDegCompensation.get());
 
     currentShot = result;
     currentDistanceM = horizontalDist;
@@ -1687,6 +1705,7 @@ public class ShootingCoordinator extends SubsystemBase {
         turretConfig.heightMeters(),
         turretConfig.xOffset(),
         turretConfig.yOffset(),
-        readiness);
+        readiness,
+        cachedAimResult != null ? cachedAimResult.zone() : null);
   }
 }

@@ -787,7 +787,8 @@ public final class ShotCalculator {
       double effectiveMinDeg,
       double effectiveMaxDeg,
       double hoodMinAngleDeg,
-      double hoodMaxAngleDeg) {
+      double hoodMaxAngleDeg,
+      double rpmPerDegCompensation) {
 
     double robotHeadingRad = robotPose.getRotation().getRadians();
     double[] turretFieldPos =
@@ -824,14 +825,20 @@ public final class ShotCalculator {
     double thetaDeg = Math.toDegrees(theta);
     double hoodAngleDeg = 90.0 - thetaDeg;
 
-    // Check hood limits
-    if (hoodAngleDeg < hoodMinAngleDeg || hoodAngleDeg > hoodMaxAngleDeg) {
+    // Clamp hood to mechanical limits and compensate RPM — passes always fire
+    double rawHoodAngleDeg = hoodAngleDeg;
+    hoodAngleDeg = Math.max(hoodMinAngleDeg, Math.min(hoodMaxAngleDeg, hoodAngleDeg));
+    double hoodDeltaDeg = rawHoodAngleDeg - hoodAngleDeg;
+    if (Math.abs(hoodDeltaDeg) > 0.01) {
       Logger.recordOutput(
-          "SmartLaunch/Pass/TwoPoint/RejectReason",
-          String.format(
-              "Hood %.1f outside [%.0f-%.0f]", hoodAngleDeg, hoodMinAngleDeg, hoodMaxAngleDeg));
-      return unachievablePassResult(
-          robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
+          "SmartLaunch/Pass/TwoPoint/HoodClamped",
+          String.format("%.1f -> %.1f (delta %.1f)", rawHoodAngleDeg, hoodAngleDeg, hoodDeltaDeg));
+      // Recalculate launch angle and tan from clamped hood
+      thetaDeg = 90.0 - hoodAngleDeg;
+      theta = Math.toRadians(thetaDeg);
+      tanTheta = Math.tan(theta);
+    } else {
+      Logger.recordOutput("SmartLaunch/Pass/TwoPoint/HoodClamped", "none");
     }
 
     // Solve for K
@@ -852,26 +859,32 @@ public final class ShotCalculator {
     }
     double exitVelocity = Math.sqrt(vSquared);
 
-    // Check RPM limits
+    // Add RPM compensation for clamped hood angle
     double rpm = calculateRPMForVelocity(exitVelocity, horizontalDist);
-    if (rpm < 1500 || rpm > 4500) {
+    rpm += Math.abs(hoodDeltaDeg) * rpmPerDegCompensation;
+    Logger.recordOutput(
+        "SmartLaunch/Pass/TwoPoint/RPMCompensation",
+        Math.abs(hoodDeltaDeg) * rpmPerDegCompensation);
+
+    // Log RPM but don't reject — clamp to safe range instead
+    if (rpm > 4500) {
       Logger.recordOutput(
-          "SmartLaunch/Pass/TwoPoint/RejectReason",
-          String.format("RPM %.0f outside [1500-4500]", rpm));
-      return unachievablePassResult(
-          robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
+          "SmartLaunch/Pass/TwoPoint/RejectReason", String.format("RPM %.0f clamped to 4500", rpm));
+      rpm = 4500;
+    } else if (rpm < 1500) {
+      Logger.recordOutput(
+          "SmartLaunch/Pass/TwoPoint/RejectReason", String.format("RPM %.0f clamped to 1500", rpm));
+      rpm = 1500;
     }
 
-    // Check peak height
+    // Check peak height — log but don't reject for passes
     double sinTheta = Math.sin(theta);
     double vy0 = exitVelocity * sinTheta;
     double peakHeight = config.heightMeters() + (vy0 * vy0) / (2 * GRAVITY);
     if (peakHeight > maxPeakHeightM) {
       Logger.recordOutput(
           "SmartLaunch/Pass/TwoPoint/RejectReason",
-          String.format("Peak %.1fm > max %.1fm", peakHeight, maxPeakHeightM));
-      return unachievablePassResult(
-          robotPose, passTarget, config, currentTurretAngleDeg, effectiveMinDeg, effectiveMaxDeg);
+          String.format("Peak %.1fm > max %.1fm (continuing)", peakHeight, maxPeakHeightM));
     }
 
     // Check if ball is still rising at clearance point (peak after x1)
@@ -891,44 +904,35 @@ public final class ShotCalculator {
     Logger.recordOutput("SmartLaunch/Pass/TwoPoint/HoodAngleDeg", hoodAngleDeg);
     Logger.recordOutput("SmartLaunch/Pass/TwoPoint/RPM", rpm);
 
-    // Velocity compensation: re-solve with adjusted aim target, keeping clearance point fixed
+    // Lateral-only velocity compensation: adjust aim target perpendicular to the shot line.
+    // Range (along-shot) compensation is intentionally disabled for passes because the two-point
+    // solver couples angle to distance — shortening range steepens the arc, and the robot's
+    // forward momentum then overshoots.
     Translation3d aimTarget = passTarget;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     if (robotSpeed > 0.1) {
       double tof = calculateTimeOfFlight(exitVelocity, theta, horizontalDist);
-      for (int i = 0; i < 3; i++) {
-        Translation3d candidate =
-            clampAimOffset(predictTargetPos(passTarget, fieldSpeeds, tof), passTarget);
-        double aimDist =
-            Math.sqrt(
-                Math.pow(candidate.getX() - turretX, 2) + Math.pow(candidate.getY() - turretY, 2));
 
-        // Re-solve two-point with updated x2
-        double newX2 = aimDist;
-        double newY2 = candidate.getZ() - config.heightMeters();
-        double newDenom = x1 * newX2 * (newX2 - x1);
-        if (Math.abs(newDenom) < 0.001) break;
+      // Shot direction unit vector (turret → target)
+      double dx = passTarget.getX() - turretX;
+      double dy = passTarget.getY() - turretY;
+      double shotLen = Math.sqrt(dx * dx + dy * dy);
+      if (shotLen > 0.01) {
+        double shotDirX = dx / shotLen;
+        double shotDirY = dy / shotLen;
 
-        double newTanTheta = (y1 * newX2 * newX2 - newY2 * x1 * x1) / newDenom;
-        double newTheta = Math.atan(newTanTheta);
-        double newCosTheta = Math.cos(newTheta);
-        double newK = (x1 * newTanTheta - y1) / (x1 * x1);
-        if (newK <= 0) break;
+        // Decompose robot velocity into along-shot and cross-shot components
+        double vAlongShot =
+            fieldSpeeds.vxMetersPerSecond * shotDirX + fieldSpeeds.vyMetersPerSecond * shotDirY;
+        double crossVx = fieldSpeeds.vxMetersPerSecond - vAlongShot * shotDirX;
+        double crossVy = fieldSpeeds.vyMetersPerSecond - vAlongShot * shotDirY;
 
-        double newVSquared = GRAVITY / (2 * newK * newCosTheta * newCosTheta);
-        if (newVSquared <= 0) break;
-
-        double newExitVelocity = Math.sqrt(newVSquared);
-        double newRPM = calculateRPMForVelocity(newExitVelocity, aimDist);
-        if (newRPM < 1500 || newRPM > 4500) break; // compensation pushed RPM out of bounds
-
-        exitVelocity = newExitVelocity;
-        theta = newTheta;
-        thetaDeg = Math.toDegrees(theta);
-        hoodAngleDeg = 90.0 - thetaDeg;
-        rpm = newRPM;
-        aimTarget = candidate;
-        tof = calculateTimeOfFlight(exitVelocity, theta, aimDist);
+        // Only compensate for cross-shot drift
+        double compensatedX = passTarget.getX() - crossVx * tof;
+        double compensatedY = passTarget.getY() - crossVy * tof;
+        aimTarget =
+            clampAimOffset(
+                new Translation3d(compensatedX, compensatedY, passTarget.getZ()), passTarget);
       }
     }
 

@@ -14,6 +14,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.DriverStation;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -372,6 +373,22 @@ public class FieldConstants {
           || isInZone(x, y, BLUE_RIGHT_MIN_X, BLUE_RIGHT_MAX_X, BLUE_RIGHT_MIN_Y, BLUE_RIGHT_MAX_Y)
           || isInZone(x, y, RED_LEFT_MIN_X, RED_LEFT_MAX_X, RED_LEFT_MIN_Y, RED_LEFT_MAX_Y)
           || isInZone(x, y, RED_RIGHT_MIN_X, RED_RIGHT_MAX_X, RED_RIGHT_MIN_Y, RED_RIGHT_MAX_Y);
+    }
+
+    /**
+     * Check if a point is inside only the alliance's own trench zones. The opponent's trench is
+     * irrelevant for hood safety when the robot is in neutral/opponent territory.
+     */
+    public static boolean isInAllianceTrenchZone(
+        double x, double y, DriverStation.Alliance alliance) {
+      if (alliance == DriverStation.Alliance.Blue) {
+        return isInZone(x, y, BLUE_LEFT_MIN_X, BLUE_LEFT_MAX_X, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y)
+            || isInZone(
+                x, y, BLUE_RIGHT_MIN_X, BLUE_RIGHT_MAX_X, BLUE_RIGHT_MIN_Y, BLUE_RIGHT_MAX_Y);
+      } else {
+        return isInZone(x, y, RED_LEFT_MIN_X, RED_LEFT_MAX_X, RED_LEFT_MIN_Y, RED_LEFT_MAX_Y)
+            || isInZone(x, y, RED_RIGHT_MIN_X, RED_RIGHT_MAX_X, RED_RIGHT_MIN_Y, RED_RIGHT_MAX_Y);
+      }
     }
 
     /** Get the name of the trench zone the point is in (for logging), or empty string if none. */

@@ -368,7 +368,14 @@ public class ShotVisualizer {
    */
   public void update(ShotSnapshot snapshot) {
     logFuelStatus();
-    if (snapshot.currentShot() != null) {
+    // Suppress trajectory in trench/bump zones — hood is clamped to min angle and the
+    // resulting near-vertical arc is misleading since the robot won't actually fire.
+    boolean suppressZone =
+        snapshot.currentZone() != null
+            && (snapshot.currentZone() == frc.robot.util.ZoneDetector.Zone.NEUTRAL_TRENCH
+                || snapshot.currentZone() == frc.robot.util.ZoneDetector.Zone.ALLIANCE_TRENCH
+                || snapshot.currentZone() == frc.robot.util.ZoneDetector.Zone.BUMP);
+    if (snapshot.currentShot() != null && !suppressZone) {
       double currentTurretAngleRad = Math.toRadians(snapshot.currentAngleDeg());
       double robotHeadingRad = snapshot.robotPose().getRotation().getRadians();
       visualizeShot(
