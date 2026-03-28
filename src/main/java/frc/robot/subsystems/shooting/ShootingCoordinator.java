@@ -1258,12 +1258,15 @@ public class ShootingCoordinator extends SubsystemBase {
   public boolean isAutoCollecting() {
     if (!DriverStation.isAutonomous()) return false;
     if (cachedAimResult == null) return false;
-    ZoneDetector.Zone zone = cachedAimResult.zone();
-    // Open neutral/opponent zones — always idle
-    if (zone == ZoneDetector.Zone.NEUTRAL || zone == ZoneDetector.Zone.OPPONENT) return true;
-    // Only idle on outbound for sprint autos (non-IMMEDIATE arm trigger).
-    // IMMEDIATE = shoot preloads or teleop-style, don't idle.
-    if (armTrigger != ArmTrigger.IMMEDIATE && !hasVisitedNeutral) return true;
+    if (armTrigger == ArmTrigger.IMMEDIATE) return false;
+    // Outbound (haven't visited neutral yet) — idle everywhere
+    if (!hasVisitedNeutral) return true;
+    // Returning: in neutral/opponent zones, idle only if passing is disabled.
+    // AUTO_SHOOT (passing enabled) should spin up for pass shots in neutral.
+    boolean inNeutralOrOpponent =
+        cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL
+            || cachedAimResult.zone() == ZoneDetector.Zone.OPPONENT;
+    if (inNeutralOrOpponent && !autoPassingEnabled) return true;
     return false;
   }
 
