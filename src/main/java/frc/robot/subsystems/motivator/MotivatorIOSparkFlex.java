@@ -174,10 +174,11 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
       double arbFFVolts = feedforward.calculate(wheelToMotorRPM(wheelTargetRPM));
       // PID control is also in motor rotations
       motivatorController.setSetpoint(
-          wheelToMotorRPM(wheelTargetRPM), ControlType.kVelocity, ClosedLoopSlot.kSlot0, arbFFVolts);
-
+          wheelToMotorRPM(wheelTargetRPM),
+          ControlType.kVelocity,
+          ClosedLoopSlot.kSlot0,
+          arbFFVolts);
     }
-    
   }
 
   @Override
