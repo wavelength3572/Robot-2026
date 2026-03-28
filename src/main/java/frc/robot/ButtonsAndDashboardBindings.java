@@ -220,7 +220,7 @@ public class ButtonsAndDashboardBindings {
             Commands.defer(
                 () -> {
                   if (SmartDashboard.getBoolean("Shots/SmartLaunch/UseStateMachine", true)) {
-                    return ShootingCommands.smartLaunch2Command(
+                    return ShootingCommands.smartLaunchDangerousCommand(
                         launcher, shootingCoordinator, motivator, turret, hood, spindexer);
                   } else {
                     return ShootingCommands.smartLaunchCommand(
@@ -521,7 +521,7 @@ public class ButtonsAndDashboardBindings {
           Commands.defer(
               () -> {
                 if (SmartDashboard.getBoolean("Shots/SmartLaunch/UseStateMachine", true)) {
-                  return ShootingCommands.smartLaunch2Command(
+                  return ShootingCommands.smartLaunchDangerousCommand(
                       launcher, shootingCoordinator, motivator, turret, hood, spindexer);
                 } else {
                   return ShootingCommands.smartLaunchCommand(

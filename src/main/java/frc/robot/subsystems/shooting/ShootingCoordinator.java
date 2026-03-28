@@ -160,17 +160,25 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber trenchSafetySpeedLimitMps =
       new LoggedTunableNumber("Shots/TrenchMode/SafetySpeedLimitMps", 2.0);
   private final LoggedTunableNumber trenchMovingThresholdMps =
-      new LoggedTunableNumber("Shots/TrenchMode/MovingThresholdMps", 0.1);
-  // Settle time: robot must be stationary for this long before hood is allowed back up.
-  // Prevents oscillation from speed noise around the moving threshold.
-  private final LoggedTunableNumber trenchStationarySettleTimeSec =
-      new LoggedTunableNumber("Shots/TrenchMode/StationarySettleSec", 0.25);
-  private final LoggedTunableNumber trenchIdleLauncherRPM =
-      new LoggedTunableNumber("Shots/TrenchMode/IdleLauncherRPM", 0.0);
+      new LoggedTunableNumber("Shots/TrenchMode/MovingThresholdMps", 0.6);
+  // Hood clamp/unclamp thresholds with hysteresis. Clamp is low (fast response when
+  // accelerating into trench), unclamp is higher (hood starts rising earlier when decelerating).
+  private final LoggedTunableNumber trenchHoodClampSpeedMps =
+      new LoggedTunableNumber("Shots/TrenchMode/HoodClampSpeedMps", 0.3);
+  private final LoggedTunableNumber trenchHoodUnclampSpeedMps =
+      new LoggedTunableNumber("Shots/TrenchMode/HoodUnclampSpeedMps", 0.5);
   private boolean trenchHoodSafetyActive = false;
-  private boolean movingInTrench =
-      false; // true when robot is moving (or settling) in a trench zone
-  private double lastMovingInTrenchTimestamp = 0.0;
+  private boolean movingInTrench = false; // true when robot is moving in a trench zone
+
+  // Auto passing: when false, PASS/LONG_PASS zones are treated as no-fire zones in auto.
+  // Set by AutoWrapperFactory based on path strategy (AUTO_SHOOT enables, others disable).
+  // Teleop always allows passing regardless of this flag.
+  private boolean autoPassingEnabled = false;
+
+  /** Enable or disable passing during auto. Called by AutoWrapperFactory. */
+  public void setAutoPassingEnabled(boolean enabled) {
+    this.autoPassingEnabled = enabled;
+  }
 
   // ========== CoordinatorState Machine ==========
   // Centralized state that drives feeding decisions in SmartLaunch commands.
@@ -712,20 +720,23 @@ public class ShootingCoordinator extends SubsystemBase {
         cachedAimResult != null
             && (cachedAimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
                 || cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH);
+    boolean inNeutralTrench =
+        cachedAimResult != null
+            && cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
     if (inTrenchZone) {
       double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-      boolean isMoving = robotSpeed > trenchMovingThresholdMps.get();
-      if (isMoving) {
-        lastMovingInTrenchTimestamp = Timer.getFPGATimestamp();
-      }
-      double timeSinceMoving = Timer.getFPGATimestamp() - lastMovingInTrenchTimestamp;
-      boolean effectivelyMoving = isMoving || timeSinceMoving < trenchStationarySettleTimeSec.get();
-      // Clamp hood to minimum (13°) when moving; keep clamped until settled for the full delay.
-      // Speed limit (managed in updateTrenchHoodSafety) only applies while hood is above 18°.
-      if (effectivelyMoving) {
+      // Hysteresis: clamp hood almost instantly when accelerating (0.1 m/s), but don't
+      // unclamp until well into deceleration (0.5 m/s). Wide band prevents toggling.
+      double threshold = movingInTrench
+          ? trenchHoodUnclampSpeedMps.get()    // already moving: drop below 0.5 to unclamp
+          : trenchHoodClampSpeedMps.get();     // stopped: clamp as soon as above 0.1
+      boolean isMoving = robotSpeed > threshold;
+      // Hood stays clamped to min while moving in any trench, and always in neutral trench.
+      // Only pops up when stationary in the alliance trench.
+      if (isMoving || inNeutralTrench) {
         hoodMax = hoodMin;
       }
-      movingInTrench = effectivelyMoving;
+      movingInTrench = isMoving;
     } else {
       movingInTrench = false;
     }
@@ -1187,13 +1198,16 @@ public class ShootingCoordinator extends SubsystemBase {
   public boolean isRobotSlowEnoughForCurrentZone() {
     if (fieldSpeedsSupplier == null || cachedAimResult == null) return true;
 
-    // Never fire while moving in a trench zone — must be stationary (and settled)
-    if (movingInTrench) return false;
-
     ChassisSpeeds speeds = fieldSpeedsSupplier.get();
     double robotSpeedMps = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
 
     TurretAimingHelper.AimMode mode = cachedAimResult.mode();
+    // In auto, if passing is disabled, treat PASS/LONG_PASS as no-fire zones.
+    boolean passingBlocked =
+        (mode == TurretAimingHelper.AimMode.PASS || mode == TurretAimingHelper.AimMode.LONG_PASS)
+            && DriverStation.isAutonomous()
+            && !autoPassingEnabled;
+
     double thresholdMps =
         switch (mode) {
           case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get();
@@ -1202,7 +1216,8 @@ public class ShootingCoordinator extends SubsystemBase {
               : passSpeedMps.get();
           case NONE -> 0.0;
         };
-    boolean slowEnough = mode != TurretAimingHelper.AimMode.NONE && robotSpeedMps <= thresholdMps;
+    boolean slowEnough =
+        mode != TurretAimingHelper.AimMode.NONE && !passingBlocked && robotSpeedMps <= thresholdMps;
 
     Logger.recordOutput("SmartLaunch/SpeedCheck/RobotMps", robotSpeedMps);
     Logger.recordOutput("SmartLaunch/SpeedCheck/ThresholdMps", thresholdMps);
@@ -1233,13 +1248,25 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Get the effective launcher RPM, accounting for trench idle and operator suppression. Returns 0
-   * when shouldIdleLauncher() is true, the trench idle RPM when moving in a trench zone, or the
-   * full shot RPM otherwise.
+   * Check if shooting subsystems should idle to conserve power. True in auto when in the open
+   * neutral/opponent zones (collecting balls, not shooting). NOT true in trenches — when
+   * returning through neutral trench, launcher/turret/motivator should track so they're ready
+   * the instant the robot crosses into alliance trench. In teleop this always returns false.
+   */
+  public boolean isAutoCollecting() {
+    if (!DriverStation.isAutonomous()) return false;
+    if (cachedAimResult == null) return false;
+    ZoneDetector.Zone zone = cachedAimResult.zone();
+    return zone == ZoneDetector.Zone.NEUTRAL || zone == ZoneDetector.Zone.OPPONENT;
+  }
+
+  /**
+   * Get the effective launcher RPM, accounting for auto collecting idle and operator suppression. Returns 0
+   * when idling, or the full shot RPM otherwise.
    */
   public double getEffectiveLauncherRPM(double shotRPM) {
     if (shouldIdleLauncher()) return 0;
-    if (movingInTrench) return trenchIdleLauncherRPM.get();
+    if (isAutoCollecting()) return 0;
     return shotRPM;
   }
 
@@ -1327,14 +1354,9 @@ public class ShootingCoordinator extends SubsystemBase {
       ChassisSpeeds speeds = fieldSpeedsSupplier.get();
       double robotSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
       boolean isMoving = robotSpeed > trenchMovingThresholdMps.get();
-      if (isMoving) {
-        lastMovingInTrenchTimestamp = Timer.getFPGATimestamp();
-      }
-      double timeSinceMoving = Timer.getFPGATimestamp() - lastMovingInTrenchTimestamp;
-      boolean effectivelyMoving = isMoving || timeSinceMoving < trenchStationarySettleTimeSec.get();
       boolean hoodAboveSafe = hood.getCurrentAngle() > trenchHoodMaxDeg.get();
 
-      trenchHoodSafetyActive = effectivelyMoving && hoodAboveSafe;
+      trenchHoodSafetyActive = isMoving && hoodAboveSafe;
     } else {
       trenchHoodSafetyActive = false;
     }

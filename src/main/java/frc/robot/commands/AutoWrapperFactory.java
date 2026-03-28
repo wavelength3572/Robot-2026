@@ -92,6 +92,9 @@ public class AutoWrapperFactory {
               : ShootingCoordinator.ArmTrigger.ON_TRENCH_RETURN;
     }
 
+    // AUTO_SHOOT fires in pass zones; other strategies only fire in alliance zones.
+    coordinator.setAutoPassingEnabled(pathStrategy == PathShootingStrategy.AUTO_SHOOT);
+
     // Build the path + intake deploy to run together
     List<Command> pathParallel = new ArrayList<>();
     pathParallel.add(runPath(selectedAuto));
@@ -127,7 +130,7 @@ public class AutoWrapperFactory {
       steps.add(
           Commands.parallel(
               pathThenWait,
-              ShootingCommands.smartLaunch2Command(
+              ShootingCommands.smartLaunchDangerousCommand(
                       launcher, coordinator, motivator, turret, hood, spindexer, trigger)
                   .asProxy()));
     } else {
@@ -187,7 +190,7 @@ public class AutoWrapperFactory {
       Turret turret,
       Hood hood,
       Spindexer spindexer) {
-    return ShootingCommands.smartLaunch2Command(
+    return ShootingCommands.smartLaunchDangerousCommand(
             launcher, coordinator, motivator, turret, hood, spindexer)
         .withTimeout(2.5)
         .asProxy();
@@ -216,7 +219,7 @@ public class AutoWrapperFactory {
       Spindexer spindexer,
       Intake intake) {
     Command smartLaunch =
-        ShootingCommands.smartLaunch2Command(
+        ShootingCommands.smartLaunchDangerousCommand(
                 launcher, coordinator, motivator, turret, hood, spindexer)
             .withTimeout(10.0)
             .asProxy();

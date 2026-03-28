@@ -133,12 +133,12 @@ public class ShootingCommands {
 
   // Spindexer RPM lerped by distance: close = max, far = min
   private static final LoggedTunableNumber spindexerCloseRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 550.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 300.0);
   private static final LoggedTunableNumber spindexerFarRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 400.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 300.0);
   // Fixed spindexer RPM used in pass/neutral zones (no distance lerp)
   private static final LoggedTunableNumber spindexerPassRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 550.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 375.0);
 
   // ===== LUT Dev Overrides (manual RPM/hood for data collection) =====
   private static final LoggedTunableNumber lutDevOverrideRPM =
@@ -475,26 +475,26 @@ public class ShootingCommands {
 
             // Phase 1.5: Brief reverse pulse to clear balls from motivator/spindexer
             // while the launcher is spinning up
-            Commands.sequence(
-                Commands.runOnce(
-                    () -> {
-                      if (motivator != null) {
-                        motivator.setMotivatorVoltage(-1.0);
-                      }
-                      if (spindexer != null) {
-                        spindexer.reverseSpindexer(250.0);
-                      }
-                    }),
-                Commands.waitSeconds(0.2),
-                Commands.runOnce(
-                    () -> {
-                      if (motivator != null) {
-                        motivator.stopMotivator();
-                      }
-                      if (spindexer != null) {
-                        spindexer.stopSpindexer();
-                      }
-                    })),
+            // Commands.sequence(
+            //     Commands.runOnce(
+            //         () -> {
+            //           if (motivator != null) {
+            //             motivator.setMotivatorVoltage(-1.0);
+            //           }
+            //           if (spindexer != null) {
+            //             spindexer.reverseSpindexer(250.0);
+            //           }
+            //         }),
+            //     Commands.waitSeconds(0.2),
+            //     Commands.runOnce(
+            //         () -> {
+            //           if (motivator != null) {
+            //             motivator.stopMotivator();
+            //           }
+            //           if (spindexer != null) {
+            //             spindexer.stopSpindexer();
+            //           }
+            //         })),
 
             // Phase 2: Wait for everything to reach setpoint (with 2s timeout)
             Commands.race(
@@ -639,13 +639,10 @@ public class ShootingCommands {
   }
 
   /**
-   * State-machine-driven SmartLaunch command. Uses CoordinatorState to gate feeding instead of
-   * implementing its own multi-phase sequence. The coordinator state machine handles zone
-   * suppression, operator hold-fire, turret flips, and trench transitions — the command just reads
-   * the state and drives subsystems accordingly.
-   *
-   * <p>Subsystem sequencing: hood/launcher/turret always track targets. Motivator starts when
-   * coordinator says FIRING. Spindexer feeds only when motivator is at speed.
+   * Aggressive SmartLaunch variant ("dangerous"). Motivator pre-spins in parallel with launcher
+   * and aiming — no reverse pulse, no waiting for FIRING. Saves ~0.3-0.5s per firing cycle.
+   * Subsystems idle while auto collecting (open neutral/opponent zones). Hood clamps in trench
+   * while moving, pops up below 0.6 m/s in alliance trench only.
    *
    * @param launcher The launcher subsystem
    * @param coordinator The shooting coordinator (owns the state machine)
@@ -655,14 +652,14 @@ public class ShootingCommands {
    * @param spindexer The spindexer subsystem (can be null)
    * @return Command that tracks and fires based on coordinator state while held
    */
-  public static Command smartLaunch2Command(
+  public static Command smartLaunchDangerousCommand(
       Launcher launcher,
       ShootingCoordinator coordinator,
       Motivator motivator,
       Turret turret,
       Hood hood,
       Spindexer spindexer) {
-    return smartLaunch2Command(
+    return smartLaunchDangerousCommand(
         launcher,
         coordinator,
         motivator,
@@ -676,7 +673,7 @@ public class ShootingCommands {
    * State-machine-driven SmartLaunch with configurable arm trigger. For sprint autos, use
    * ON_PASS_ZONE or ON_TRENCH_RETURN to prevent shooting preloads at the start.
    */
-  public static Command smartLaunch2Command(
+  public static Command smartLaunchDangerousCommand(
       Launcher launcher,
       ShootingCoordinator coordinator,
       Motivator motivator,
@@ -686,7 +683,7 @@ public class ShootingCommands {
       ShootingCoordinator.ArmTrigger armTrigger) {
 
     return Commands.parallel(
-            // Launcher — always track the current shot RPM
+            // Launcher — track shot RPM (idles to 0 while auto collecting)
             Commands.run(
                 () -> {
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
@@ -699,9 +696,10 @@ public class ShootingCommands {
                 },
                 launcher),
 
-            // Turret — always track the current shot angle
+            // Turret — track shot angle, but hold position while auto collecting
             Commands.run(
                 () -> {
+                  if (coordinator.isAutoCollecting()) return; // hold position
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
                     turret.setOutsideTurretAngle(shot.turretAngleDeg());
@@ -709,10 +707,14 @@ public class ShootingCommands {
                 },
                 turret),
 
-            // Hood — always track the current shot angle (coordinator already clamps in trench)
+            // Hood — track shot angle; idle at min while auto collecting
             hood != null
                 ? Commands.run(
                     () -> {
+                      if (coordinator.isAutoCollecting()) {
+                        hood.setHoodAngle(hood.getMinAngle());
+                        return;
+                      }
                       ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                       if (shot != null) {
                         hood.setHoodAngle(getEffectiveHoodDeg(shot));
@@ -721,45 +723,49 @@ public class ShootingCommands {
                     hood)
                 : Commands.none(),
 
-            // Motivator — spin when coordinator says FIRING (launcher/turret/hood at target).
-            // Motivator must be at speed before spindexer feeds, but must NOT spin before
-            // aiming is correct — errant balls fly off if motivator pushes balls into a
-            // launcher that isn't aimed. Sequence: aim → FIRING → reverse pulse → motivator →
-            // spindexer.
-            // Brief reverse pulse on FIRING entry clears balls from the motivator/launcher
-            // interface so the first shot isn't clipped by a partially engaged ball.
+            // Motivator — always pre-spin in teleop (ready for passing or shooting).
+            // In auto, idle only while collecting (open neutral/opponent zones).
+            // Reverse pulse runs on first spin-up (not on FIRING entry) to clear any
+            // ball stuck at the motivator/launcher interface during free time.
             motivator != null
                 ? Commands.run(
                     new Runnable() {
                       private final Timer reversePulseTimer = new Timer();
                       private boolean reversing = false;
+                      private boolean wasIdle = true;
                       private static final double REVERSE_PULSE_SEC = 0.2;
 
                       @Override
                       public void run() {
-                        if (coordinator.consumeFiringEntry()) {
+                        boolean shouldIdle = coordinator.isAutoCollecting();
+                        if (shouldIdle) {
+                          motivator.stopMotivator();
+                          wasIdle = true;
+                          reversing = false;
+                          return;
+                        }
+
+                        // Trigger reverse pulse when transitioning from idle to spinning
+                        if (wasIdle) {
+                          wasIdle = false;
                           reversing = true;
                           reversePulseTimer.restart();
                         }
-                        // Cancel reverse pulse if we leave FIRING (e.g. speed exceeded)
-                        if (reversing && !coordinator.isFeedingAllowed()) {
-                          reversing = false;
-                          Logger.recordOutput("SmartLaunch/ReversePulse/State", "CANCELLED");
-                        }
+
                         if (reversing) {
                           if (reversePulseTimer.hasElapsed(REVERSE_PULSE_SEC)) {
                             reversing = false;
-                            Logger.recordOutput("SmartLaunch/ReversePulse/State", "DONE");
                           } else {
                             motivator.setMotivatorVoltage(-1.0);
-                            Logger.recordOutput("SmartLaunch/ReversePulse/State", "REVERSING");
                             return;
                           }
                         }
-                        if (coordinator.isFeedingAllowed()) {
-                          ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+
+                        ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                        if (s != null) {
                           double launcherRPM = getEffectiveRPM(s);
-                          motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM, coordinator));
+                          motivator.setMotivatorVelocity(
+                              getMotivatorRPM(launcherRPM, coordinator));
                         } else {
                           motivator.stopMotivator();
                         }
@@ -769,8 +775,6 @@ public class ShootingCommands {
                 : Commands.none(),
 
             // Spindexer — feed only when coordinator allows AND motivator is at speed.
-            // During the motivator's reverse pulse, motivatorReady will be false so the
-            // spindexer naturally holds off until the pulse completes.
             spindexer != null
                 ? Commands.run(
                     () -> {
@@ -837,7 +841,7 @@ public class ShootingCommands {
               Logger.recordOutput("SmartLaunch/Phase", "IDLE");
               SmartDashboard.putString("Match/Status/State", "[SmartLaunch 2.0] Stopped");
             })
-        .withName("SmartLaunch2");
+        .withName("SmartLaunchDangerous");
   }
 
   /**
@@ -883,26 +887,26 @@ public class ShootingCommands {
 
             // Phase 1.5: Brief reverse pulse to clear balls from motivator/spindexer
             // while the launcher is spinning up
-            Commands.sequence(
-                Commands.runOnce(
-                    () -> {
-                      if (motivator != null) {
-                        motivator.setMotivatorVoltage(-1.0);
-                      }
-                      if (spindexer != null) {
-                        spindexer.reverseSpindexer(250.0);
-                      }
-                    }),
-                Commands.waitSeconds(0.2),
-                Commands.runOnce(
-                    () -> {
-                      if (motivator != null) {
-                        motivator.stopMotivator();
-                      }
-                      if (spindexer != null) {
-                        spindexer.stopSpindexer();
-                      }
-                    })),
+            // Commands.sequence(
+            //     Commands.runOnce(
+            //         () -> {
+            //           if (motivator != null) {
+            //             motivator.setMotivatorVoltage(-1.0);
+            //           }
+            //           if (spindexer != null) {
+            //             spindexer.reverseSpindexer(250.0);
+            //           }
+            //         }),
+            //     Commands.waitSeconds(0.2),
+            //     Commands.runOnce(
+            //         () -> {
+            //           if (motivator != null) {
+            //             motivator.stopMotivator();
+            //           }
+            //           if (spindexer != null) {
+            //             spindexer.stopSpindexer();
+            //           }
+            //         })),
 
             // Phase 2: Wait for all subsystems to reach setpoint (with 2s timeout)
             Commands.race(

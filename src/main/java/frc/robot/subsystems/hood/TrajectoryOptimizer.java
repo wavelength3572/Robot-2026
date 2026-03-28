@@ -44,7 +44,7 @@ public class TrajectoryOptimizer {
   // Clearance constraints (inches above the lip)
   private static final LoggedTunableNumber minClearanceInches =
       new LoggedTunableNumber(
-          "Shots/SmartLaunch/Trajectory/MinClearanceInches", 2.0); // Safety margin
+          "Shots/SmartLaunch/Trajectory/MinClearanceInches", 2); // Safety margin
   private static final LoggedTunableNumber maxClearanceInches =
       new LoggedTunableNumber(
           "Shots/SmartLaunch/Trajectory/MaxClearanceInches", 22.0); // Sanity check

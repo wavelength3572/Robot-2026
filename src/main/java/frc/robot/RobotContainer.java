@@ -785,7 +785,7 @@ public class RobotContainer {
     // SmartLaunch: state-machine-driven version (zone-aware, transition-safe)
     NamedCommands.registerCommand(
         "SmartLaunch",
-        ShootingCommands.smartLaunch2Command(
+        ShootingCommands.smartLaunchDangerousCommand(
             launcher, shootingCoordinator, motivator, turret, hood, spindexer));
 
     // holdFire / releaseFire: suppress/allow feeding during auto paths.

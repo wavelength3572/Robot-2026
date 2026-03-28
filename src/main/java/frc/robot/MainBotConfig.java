@@ -183,8 +183,8 @@ public class MainBotConfig implements RobotConfig {
   // Intake Configuration
   private static final int intakeDeployMotorCanId = 45;
   private static final int intakeRollerMotorCanId = 46;
-  private static final double intakeDeployGearRatio = 20.0;
-  private static final double intakeRollerGearRatio = 2.0;
+  private static final double intakeDeployGearRatio = 25.0;
+  private static final double intakeRollerGearRatio = 2.625;
   private static final boolean intakeDeployMotorInverted = false;
   private static final boolean intakeRollerMotorInverted = true;
   // 100A is safe for short bursts (agitation UP phase is capped at 0.4s by timeout).
