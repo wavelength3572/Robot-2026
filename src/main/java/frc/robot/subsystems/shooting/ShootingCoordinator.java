@@ -1224,12 +1224,16 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Check if shooting subsystems should idle to conserve power. True in auto when outside the
-   * alliance zone (neutral zone outbound trip to collect balls). Launcher, motivator, and hood
-   * idle; turret holds position. In teleop this always returns false.
+   * Check if shooting subsystems should idle to conserve power. True in auto when in the open
+   * neutral/opponent zones (outbound trip to collect balls). NOT true in trenches — when
+   * returning through neutral trench, launcher/turret/motivator should track so they're ready
+   * the instant the robot crosses into alliance trench. In teleop this always returns false.
    */
   public boolean shouldIdleForTransit() {
-    return DriverStation.isAutonomous() && !isInAllianceZone();
+    if (!DriverStation.isAutonomous()) return false;
+    if (cachedAimResult == null) return false;
+    ZoneDetector.Zone zone = cachedAimResult.zone();
+    return zone == ZoneDetector.Zone.NEUTRAL || zone == ZoneDetector.Zone.OPPONENT;
   }
 
   /**
@@ -1254,6 +1258,17 @@ public class ShootingCoordinator extends SubsystemBase {
         || zone == ZoneDetector.Zone.ALLIANCE_MID
         || zone == ZoneDetector.Zone.ALLIANCE_FAR
         || zone == ZoneDetector.Zone.ALLIANCE_TRENCH;
+  }
+
+  /**
+   * Check if the robot is in any alliance zone or either trench. Used to gate motivator pre-spin
+   * — spin up in zones where we shoot or are about to shoot.
+   */
+  public boolean isInAllianceZoneOrTrench() {
+    if (cachedAimResult == null) return true;
+    ZoneDetector.Zone zone = cachedAimResult.zone();
+    return isInAllianceZone()
+        || zone == ZoneDetector.Zone.NEUTRAL_TRENCH;
   }
 
   /**

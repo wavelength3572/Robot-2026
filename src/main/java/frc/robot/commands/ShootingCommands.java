@@ -726,11 +726,13 @@ public class ShootingCommands {
                     hood)
                 : Commands.none(),
 
-            // Motivator — spin to overlap with launcher/aiming, but idle during transit
+            // Motivator — pre-spin in alliance zones and trenches (where we shoot or are
+            // about to shoot). Idle in open neutral/opponent zones to conserve power.
             motivator != null
                 ? Commands.run(
                     () -> {
-                      if (coordinator.shouldIdleForTransit()) {
+                      if (coordinator.shouldIdleForTransit()
+                          || !coordinator.isInAllianceZoneOrTrench()) {
                         motivator.stopMotivator();
                         return;
                       }
