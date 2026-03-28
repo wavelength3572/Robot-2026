@@ -704,11 +704,15 @@ public class ShootingCoordinator extends SubsystemBase {
         cachedAimResult != null
             && (cachedAimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
                 || cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH);
+    boolean inNeutralTrench =
+        cachedAimResult != null
+            && cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
     if (inTrenchZone) {
       double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
       boolean isMoving = robotSpeed > trenchMovingThresholdMps.get();
-      // Clamp hood to minimum when moving to protect from trench structure.
-      if (isMoving) {
+      // Hood stays clamped to min while moving in any trench, and always in neutral trench.
+      // Only pops up when stationary in the alliance trench.
+      if (isMoving || inNeutralTrench) {
         hoodMax = hoodMin;
       }
       movingInTrench = isMoving;
