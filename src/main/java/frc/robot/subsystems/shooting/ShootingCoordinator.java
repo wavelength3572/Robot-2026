@@ -1507,10 +1507,6 @@ public class ShootingCoordinator extends SubsystemBase {
       readyTimeoutRunning = true;
     }
 
-    // --- Zone suppression check (highest priority) ---
-    boolean inNoShootZone =
-        currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH || currentZone == ZoneDetector.Zone.BUMP;
-
     // Readiness variables — declared here so they're available for logging in all paths
     boolean launcherReady = false;
     boolean turretReady = false;
@@ -1521,7 +1517,14 @@ public class ShootingCoordinator extends SubsystemBase {
 
     CoordinatorState prevState = coordinatorState;
 
-    if (inNoShootZone) {
+    // --- UNARMED trumps everything — skip all state logic until armed ---
+    if (coordinatorState == CoordinatorState.UNARMED) {
+      previousTrenchMode = trenchModeActive;
+      previousAimMode = currentAimMode;
+    }
+    // --- Zone suppression check ---
+    else if (currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH
+        || currentZone == ZoneDetector.Zone.BUMP) {
       coordinatorState = CoordinatorState.NO_FIRE_ZONE;
       readyTimeoutRunning = false;
       // Still update previous values so we detect the transition OUT correctly
