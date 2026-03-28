@@ -813,10 +813,6 @@ public class ShootingCoordinator extends SubsystemBase {
     currentShot = result;
     currentDistanceM = horizontalDist;
 
-    // Pass shot distance logged at 10Hz (RPM/hood already covered by Shots/Status/)
-    if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("SmartLaunch/Status/DistanceMCPT", horizontalDist);
-    }
   }
 
   // ========== Shot State Logging ==========
@@ -886,7 +882,7 @@ public class ShootingCoordinator extends SubsystemBase {
       double distance =
           Math.sqrt(
               Math.pow(aim.getX() - turretPos[0], 2) + Math.pow(aim.getY() - turretPos[1], 2));
-      Logger.recordOutput("SmartLaunch/Status/DistanceMLSS", distance);
+      Logger.recordOutput("SmartLaunch/Status/DistanceToAimPoint", distance);
 
       // Parametric TOF from physics (exit velocity + launch angle)
       double parametricTOF =
