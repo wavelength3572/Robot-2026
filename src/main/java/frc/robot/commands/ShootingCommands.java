@@ -816,6 +816,188 @@ public class ShootingCommands {
         .withName("SmartLaunch2");
   }
 
+  // ---- SmartLaunchSafe: conservative variant with reverse pulse and FIRING-gated motivator ----
+
+  /**
+   * Safe SmartLaunch variant. Same zone-aware behavior (auto collecting idle, trench tracking) but
+   * motivator only starts after FIRING triggers and includes a reverse pulse to clear stuck balls.
+   * Drop-in replacement for smartLaunch2Command if the aggressive pre-spin causes issues.
+   */
+  public static Command smartLaunchSafeCommand(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer) {
+    return smartLaunchSafeCommand(
+        launcher,
+        coordinator,
+        motivator,
+        turret,
+        hood,
+        spindexer,
+        ShootingCoordinator.ArmTrigger.IMMEDIATE);
+  }
+
+  /** Safe SmartLaunch with configurable arm trigger. */
+  public static Command smartLaunchSafeCommand(
+      Launcher launcher,
+      ShootingCoordinator coordinator,
+      Motivator motivator,
+      Turret turret,
+      Hood hood,
+      Spindexer spindexer,
+      ShootingCoordinator.ArmTrigger armTrigger) {
+
+    return Commands.parallel(
+            // Launcher — track shot RPM (idles to 0 while auto collecting)
+            Commands.run(
+                () -> {
+                  ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                  if (shot != null) {
+                    double rpm = getEffectiveRPM(shot);
+                    double hoodDeg = getEffectiveHoodDeg(shot);
+                    launcher.setVelocity(coordinator.getEffectiveLauncherRPM(rpm));
+                    coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
+                  }
+                },
+                launcher),
+
+            // Turret — track shot angle, but hold position while auto collecting
+            Commands.run(
+                () -> {
+                  if (coordinator.isAutoCollecting()) return;
+                  ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                  if (shot != null) {
+                    turret.setOutsideTurretAngle(shot.turretAngleDeg());
+                  }
+                },
+                turret),
+
+            // Hood — track shot angle; idle at min while auto collecting
+            hood != null
+                ? Commands.run(
+                    () -> {
+                      if (coordinator.isAutoCollecting()) {
+                        hood.setHoodAngle(hood.getMinAngle());
+                        return;
+                      }
+                      ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+                      if (shot != null) {
+                        hood.setHoodAngle(getEffectiveHoodDeg(shot));
+                      }
+                    },
+                    hood)
+                : Commands.none(),
+
+            // Motivator — waits for FIRING, reverse pulse on entry, then spins forward.
+            // Safer than pre-spin: no balls move until aiming is confirmed.
+            motivator != null
+                ? Commands.run(
+                    new Runnable() {
+                      private final Timer reversePulseTimer = new Timer();
+                      private boolean reversing = false;
+                      private static final double REVERSE_PULSE_SEC = 0.2;
+
+                      @Override
+                      public void run() {
+                        if (coordinator.isAutoCollecting()) {
+                          motivator.stopMotivator();
+                          return;
+                        }
+                        if (coordinator.consumeFiringEntry()) {
+                          reversing = true;
+                          reversePulseTimer.restart();
+                        }
+                        if (reversing && !coordinator.isFeedingAllowed()) {
+                          reversing = false;
+                        }
+                        if (reversing) {
+                          if (reversePulseTimer.hasElapsed(REVERSE_PULSE_SEC)) {
+                            reversing = false;
+                          } else {
+                            motivator.setMotivatorVoltage(-1.0);
+                            return;
+                          }
+                        }
+                        if (coordinator.isFeedingAllowed()) {
+                          ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                          double launcherRPM = getEffectiveRPM(s);
+                          motivator.setMotivatorVelocity(
+                              getMotivatorRPM(launcherRPM, coordinator));
+                        } else {
+                          motivator.stopMotivator();
+                        }
+                      }
+                    },
+                    motivator)
+                : Commands.none(),
+
+            // Spindexer — feed only when coordinator allows AND motivator is at speed.
+            spindexer != null
+                ? Commands.run(
+                    () -> {
+                      boolean feedingAllowed = coordinator.isFeedingAllowed();
+                      boolean motivatorReady =
+                          motivator == null
+                              || motivator.getState() == Motivator.MotivatorState.READY;
+                      if (feedingAllowed && motivatorReady) {
+                        launcher.setFeedingActive(true);
+                        double dist = coordinator.getDistanceToTarget();
+                        double spnRPM =
+                            coordinator.isInPassZone()
+                                ? getSpindexerPassRPM()
+                                : getSpindexerRPM(dist > 0 ? dist : 1.16);
+                        if (turret.getState() == Turret.TurretState.FLIPPING) {
+                          spindexer.stopSpindexer();
+                        } else {
+                          spindexer.setSpindexerVelocity(spnRPM);
+                          fireSimBallIfReady(coordinator, launcher);
+                        }
+                      } else if (feedingAllowed) {
+                        launcher.setFeedingActive(false);
+                        spindexer.stopSpindexer();
+                      } else {
+                        launcher.setFeedingActive(false);
+                        spindexer.reciprocate();
+                      }
+                    },
+                    spindexer)
+                : Commands.none())
+        .beforeStarting(
+            () -> {
+              setMode(ShootingMode.COMPETITION);
+              coordinator.setSmartLaunchActive(true, armTrigger);
+              ShotVisualizer vis = coordinator.getVisualizer();
+              if (vis != null) {
+                coordinator.getBatchRecorder().startBatch(vis.getFuelCount());
+              }
+              Logger.recordOutput("SmartLaunch/Phase", "SM_SAFE_ACTIVE");
+              SmartDashboard.putString("Match/Status/State", "SmartLaunch Safe - Active");
+            })
+        .finallyDo(
+            () -> {
+              coordinator.setSmartLaunchActive(false);
+              launcher.setFeedingActive(false);
+              launcher.stop();
+              if (motivator != null) {
+                motivator.stopMotivator();
+              }
+              if (spindexer != null) {
+                spindexer.stopSpindexer();
+              }
+              if (hood != null) {
+                hood.setHoodAngle(hood.getMinAngle());
+              }
+              coordinator.clearManualShotParameters();
+              setMode(ShootingMode.COMPETITION);
+              Logger.recordOutput("SmartLaunch/Phase", "IDLE");
+              SmartDashboard.putString("Match/Status/State", "[SmartLaunch Safe] Stopped");
+            })
+        .withName("SmartLaunchSafe");
+  }
+
   /**
    * Core smart launch Sequenced. Uses zone-aware speed gating for both readiness checks and
    * spindexer feeding.
