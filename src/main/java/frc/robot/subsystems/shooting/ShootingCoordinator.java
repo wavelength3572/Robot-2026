@@ -161,6 +161,12 @@ public class ShootingCoordinator extends SubsystemBase {
       new LoggedTunableNumber("Shots/TrenchMode/SafetySpeedLimitMps", 2.0);
   private final LoggedTunableNumber trenchMovingThresholdMps =
       new LoggedTunableNumber("Shots/TrenchMode/MovingThresholdMps", 0.6);
+  // Hood clamp/unclamp thresholds with hysteresis. Clamp is low (fast response when
+  // accelerating into trench), unclamp is higher (hood starts rising earlier when decelerating).
+  private final LoggedTunableNumber trenchHoodClampSpeedMps =
+      new LoggedTunableNumber("Shots/TrenchMode/HoodClampSpeedMps", 0.1);
+  private final LoggedTunableNumber trenchHoodUnclampSpeedMps =
+      new LoggedTunableNumber("Shots/TrenchMode/HoodUnclampSpeedMps", 0.5);
   private boolean trenchHoodSafetyActive = false;
   private boolean movingInTrench = false; // true when robot is moving in a trench zone
 
@@ -719,12 +725,11 @@ public class ShootingCoordinator extends SubsystemBase {
             && cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
     if (inTrenchZone) {
       double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-      // Hysteresis: clamp hood quickly when accelerating (low threshold), but require
-      // higher speed to unclamp when decelerating. Prevents toggling while decelerating
-      // and ensures hood clamps down promptly when leaving a stop.
+      // Hysteresis: clamp hood almost instantly when accelerating (0.1 m/s), but don't
+      // unclamp until well into deceleration (0.5 m/s). Wide band prevents toggling.
       double threshold = movingInTrench
-          ? trenchMovingThresholdMps.get() + 0.2    // already moving: must drop below 0.8 to unclamp
-          : trenchMovingThresholdMps.get();          // stopped: clamp as soon as above 0.6
+          ? trenchHoodUnclampSpeedMps.get()    // already moving: drop below 0.5 to unclamp
+          : trenchHoodClampSpeedMps.get();     // stopped: clamp as soon as above 0.1
       boolean isMoving = robotSpeed > threshold;
       // Hood stays clamped to min while moving in any trench, and always in neutral trench.
       // Only pops up when stationary in the alliance trench.
