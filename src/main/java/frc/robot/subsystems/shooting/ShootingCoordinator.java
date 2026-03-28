@@ -1518,6 +1518,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Readiness variables — declared here so they're available for logging in all paths
     boolean launcherReady = false;
+    boolean motivatorReady = false;
     boolean turretReady = false;
     boolean hoodReady = false;
     boolean shotAchievable = false;
@@ -1594,12 +1595,21 @@ public class ShootingCoordinator extends SubsystemBase {
 
       // --- Readiness check for state advancement ---
       launcherReady = launcher != null && launcher.isReady();
+      motivatorReady =
+          motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
       turretReady = turret.getState() == Turret.TurretState.READY;
       hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
       shotAchievable = currentShot != null && currentShot.achievable();
       boolean turretNotFlipping = turret.getState() != Turret.TurretState.FLIPPING;
       speedOk = isRobotSlowEnoughForCurrentZone();
-      allReady = armed && launcherReady && turretReady && hoodReady && shotAchievable && speedOk;
+      allReady =
+          armed
+              && launcherReady
+              && motivatorReady
+              && turretReady
+              && hoodReady
+              && shotAchievable
+              && speedOk;
 
       // --- Timeout: force FIRING if stuck in AIMING too long ---
       boolean timeoutForced = false;
@@ -1685,6 +1695,7 @@ public class ShootingCoordinator extends SubsystemBase {
       StringBuilder blocking = new StringBuilder();
       if (!armed) blocking.append("armed ");
       if (!launcherReady) blocking.append("launcher ");
+      if (!motivatorReady) blocking.append("motivator ");
       if (!turretReady) blocking.append("turret ");
       if (!hoodReady) blocking.append("hood ");
       if (!shotAchievable) blocking.append("shot ");
