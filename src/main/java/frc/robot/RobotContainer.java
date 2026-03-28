@@ -815,11 +815,18 @@ public class RobotContainer {
 
     // StowHood: drive hood to min angle, unblocks when ≤18° (safe to enter trench).
     // Commands min angle but doesn't wait for full arrival — 18° clears the structure.
+    // Registered as .asProxy() so the hood subsystem requirement doesn't bubble up to
+    // PathPlannerAuto — otherwise the auto conflicts with SmartLaunch for hood ownership
+    // and the entire auto gets cancelled before the first path even runs.
     if (hood != null) {
       NamedCommands.registerCommand(
           "StowHood",
           Commands.run(() -> hood.setHoodAngle(hood.getMinAngle()), hood)
-              .until(() -> hood.getCurrentAngle() <= 18.0));
+              .until(() -> hood.getCurrentAngle() <= 18.0)
+              .withTimeout(1.5)
+              .asProxy());
+    } else {
+      NamedCommands.registerCommand("StowHood", Commands.none());
     }
   }
 
