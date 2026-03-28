@@ -164,6 +164,16 @@ public class ShootingCoordinator extends SubsystemBase {
   private boolean trenchHoodSafetyActive = false;
   private boolean movingInTrench = false; // true when robot is moving in a trench zone
 
+  // Auto passing: when false, PASS/LONG_PASS zones are treated as no-fire zones in auto.
+  // Set by AutoWrapperFactory based on path strategy (AUTO_SHOOT enables, others disable).
+  // Teleop always allows passing regardless of this flag.
+  private boolean autoPassingEnabled = false;
+
+  /** Enable or disable passing during auto. Called by AutoWrapperFactory. */
+  public void setAutoPassingEnabled(boolean enabled) {
+    this.autoPassingEnabled = enabled;
+  }
+
   // ========== CoordinatorState Machine ==========
   // Centralized state that drives feeding decisions in SmartLaunch commands.
   // Updated every cycle in updateCoordinatorState() after shot calculation.
@@ -1181,6 +1191,12 @@ public class ShootingCoordinator extends SubsystemBase {
     double robotSpeedMps = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
 
     TurretAimingHelper.AimMode mode = cachedAimResult.mode();
+    // In auto, if passing is disabled, treat PASS/LONG_PASS as no-fire zones.
+    boolean passingBlocked =
+        (mode == TurretAimingHelper.AimMode.PASS || mode == TurretAimingHelper.AimMode.LONG_PASS)
+            && DriverStation.isAutonomous()
+            && !autoPassingEnabled;
+
     double thresholdMps =
         switch (mode) {
           case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get();
@@ -1189,15 +1205,12 @@ public class ShootingCoordinator extends SubsystemBase {
               : passSpeedMps.get();
           case NONE -> 0.0;
         };
-    boolean slowEnough = mode != TurretAimingHelper.AimMode.NONE && robotSpeedMps <= thresholdMps;
+    boolean slowEnough =
+        mode != TurretAimingHelper.AimMode.NONE && !passingBlocked && robotSpeedMps <= thresholdMps;
 
     Logger.recordOutput("SmartLaunch/SpeedCheck/RobotMps", robotSpeedMps);
     Logger.recordOutput("SmartLaunch/SpeedCheck/ThresholdMps", thresholdMps);
     Logger.recordOutput("SmartLaunch/SpeedCheck/SlowEnough", slowEnough);
-    Logger.recordOutput("SmartLaunch/SpeedCheck/movingInTrench", movingInTrench);
-
-    // Never fire while moving in a trench zone — must be stationary (and settled)
-    if (movingInTrench) return false;
 
     return slowEnough;
   }

@@ -92,6 +92,9 @@ public class AutoWrapperFactory {
               : ShootingCoordinator.ArmTrigger.ON_TRENCH_RETURN;
     }
 
+    // AUTO_SHOOT fires in pass zones; other strategies only fire in alliance zones.
+    coordinator.setAutoPassingEnabled(pathStrategy == PathShootingStrategy.AUTO_SHOOT);
+
     // Build the path + intake deploy to run together
     List<Command> pathParallel = new ArrayList<>();
     pathParallel.add(runPath(selectedAuto));
