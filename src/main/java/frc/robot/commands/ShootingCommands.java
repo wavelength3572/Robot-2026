@@ -452,7 +452,9 @@ public class ShootingCommands {
                   double launcherRPM = trimmedLauncherRPM.getAsDouble();
 
                   launcher.setVelocity(launcherRPM);
+                  turret.setActivelyCommanded(true);
                   if (hood != null) {
+                    hood.setActivelyCommanded(true);
                     hood.setHoodAngle(hoodAngle);
                   }
                   turret.setOutsideTurretAngle(turretAngle);
@@ -551,13 +553,20 @@ public class ShootingCommands {
 
                 // Keep turret positioned (reads tunable each cycle)
                 Commands.run(
-                    () -> turret.setOutsideTurretAngle(turretAngleDegSupplier.getAsDouble()),
+                    () -> {
+                      turret.setActivelyCommanded(true);
+                      turret.setOutsideTurretAngle(turretAngleDegSupplier.getAsDouble());
+                    },
                     turret),
 
                 // Keep hood positioned (reads tunable each cycle)
                 hood != null
                     ? Commands.run(
-                        () -> hood.setHoodAngle(hoodAngleDegSupplier.getAsDouble()), hood)
+                        () -> {
+                          hood.setActivelyCommanded(true);
+                          hood.setHoodAngle(hoodAngleDegSupplier.getAsDouble());
+                        },
+                        hood)
                     : Commands.none(),
 
                 // Keep motivator running
@@ -587,6 +596,7 @@ public class ShootingCommands {
                     : Commands.none()))
         .finallyDo(
             () -> {
+              turret.setActivelyCommanded(false);
               if (turret.getState() == TurretState.STALLED) {
                 turret.forceTurretOutOfStallState();
               }
@@ -602,6 +612,7 @@ public class ShootingCommands {
                 coordinator.clearManualShotParameters();
               }
               if (hood != null) {
+                hood.setActivelyCommanded(false);
                 hood.setHoodAngle(hood.getMinAngle());
               }
               setMode(ShootingMode.COMPETITION);
@@ -672,6 +683,7 @@ public class ShootingCommands {
             // Turret — track shot angle, but hold position while auto collecting
             Commands.run(
                 () -> {
+                  turret.setActivelyCommanded(true);
                   if (coordinator.isAutoCollecting()) return; // hold position
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
@@ -684,6 +696,7 @@ public class ShootingCommands {
             hood != null
                 ? Commands.run(
                     () -> {
+                      hood.setActivelyCommanded(true);
                       if (coordinator.isAutoCollecting()) {
                         hood.setHoodAngle(hood.getMinAngle());
                         return;
@@ -797,6 +810,7 @@ public class ShootingCommands {
         .finallyDo(
             () -> {
               coordinator.setSmartLaunchActive(false);
+              turret.setActivelyCommanded(false);
               launcher.setFeedingActive(false);
               launcher.stop();
               if (motivator != null) {
@@ -806,6 +820,7 @@ public class ShootingCommands {
                 spindexer.stopSpindexer();
               }
               if (hood != null) {
+                hood.setActivelyCommanded(false);
                 hood.setHoodAngle(hood.getMinAngle());
               }
               coordinator.clearManualShotParameters();

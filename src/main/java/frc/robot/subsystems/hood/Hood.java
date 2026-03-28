@@ -15,9 +15,12 @@ public class Hood extends SubsystemBase {
 
   /** Hood operating state. */
   public enum HoodState {
+    /** At target angle, actively commanded by a shooting command. */
+    READY,
+    /** At default (stow) position — no shooting command is driving the hood. */
+    STOWED,
     RAISING,
     LOWERING,
-    READY,
     DISCONNECTED
   }
 
@@ -40,7 +43,11 @@ public class Hood extends SubsystemBase {
       new LoggedTunableNumber("Tuning/Hood/ReadyToleranceAngleDeg", 1.0);
 
   // Current state — promoted from periodic() local for external readiness checks
-  private HoodState currentState = HoodState.READY;
+  private HoodState currentState = HoodState.STOWED;
+
+  // When true, the hood is being driven by a shooting command (not the default stow).
+  // Set via setActivelyCommanded() — shooting commands set true, default command sets false.
+  private boolean activelyCommanded = false;
 
   public Hood(HoodIO io) {
     this.io = io;
@@ -58,7 +65,7 @@ public class Hood extends SubsystemBase {
     if (!inputs.connected) {
       currentState = HoodState.DISCONNECTED;
     } else if (inputs.atTarget) {
-      currentState = HoodState.READY;
+      currentState = activelyCommanded ? HoodState.READY : HoodState.STOWED;
     } else if (inputs.targetAngleDeg > inputs.currentAngleDeg) {
       currentState = HoodState.RAISING;
     } else {
@@ -110,6 +117,15 @@ public class Hood extends SubsystemBase {
    */
   public HoodState getState() {
     return currentState;
+  }
+
+  /**
+   * Mark whether the hood is being actively commanded by a shooting command. When false (default
+   * command running), at-target reports STOWED instead of READY. Shooting commands should call
+   * setActivelyCommanded(true); the default stow command should call setActivelyCommanded(false).
+   */
+  public void setActivelyCommanded(boolean commanded) {
+    this.activelyCommanded = commanded;
   }
 
   /**

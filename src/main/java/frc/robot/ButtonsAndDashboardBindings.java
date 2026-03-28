@@ -238,11 +238,12 @@ public class ButtonsAndDashboardBindings {
               .ignoringDisable(true)
               .withName("Toggle AutoTrack"));
 
-      // Turret default command: auto-track when flag is enabled, otherwise do nothing
+      // Turret default command: auto-track when flag is enabled, otherwise idle
       turret.setDefaultCommand(
           Commands.run(
                   () -> {
                     if (SmartDashboard.getBoolean("Shots/AutoTrack/Enabled", false)) {
+                      turret.setActivelyCommanded(true);
                       ShotCalculator.ShotResult shot = shootingCoordinator.getCurrentShot();
                       if (shot != null) {
                         turret.setOutsideTurretAngle(shot.turretAngleDeg());
@@ -259,6 +260,7 @@ public class ButtonsAndDashboardBindings {
                       Logger.recordOutput("SmartLaunch/AutoTrack/Active", true);
                       SmartDashboard.putBoolean("Match/Status/AutoTracking", true);
                     } else {
+                      turret.setActivelyCommanded(false);
                       Logger.recordOutput("SmartLaunch/AutoTrack/Active", false);
                       Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", false);
                       SmartDashboard.putBoolean("Match/Status/AutoTracking", false);

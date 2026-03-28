@@ -26,7 +26,10 @@ public class Turret extends SubsystemBase {
     LOCKED,
     ROTATING_CW,
     ROTATING_CCW,
+    /** At target angle, actively commanded by a shooting or tracking command. */
     READY,
+    /** At target angle, but no command is actively driving the turret. */
+    IDLE,
     FLIPPING,
     STALLED,
     DISCONNECTED
@@ -67,6 +70,10 @@ public class Turret extends SubsystemBase {
 
   // Current state — promoted from periodic() local for external readiness checks
   private TurretState currentState = TurretState.LOCKED;
+
+  // When true, the turret is being actively commanded (shooting command or auto-track).
+  // Set via setActivelyCommanded(). Affects state: at-target reports IDLE instead of READY.
+  private boolean activelyCommanded = false;
 
   // Turret lock — when true, all movement commands are blocked and motor is in brake hold
   private boolean locked = false;
@@ -143,7 +150,7 @@ public class Turret extends SubsystemBase {
     } else if (locked) {
       currentState = TurretState.LOCKED;
     } else if (atTarget()) {
-      currentState = TurretState.READY;
+      currentState = activelyCommanded ? TurretState.READY : TurretState.IDLE;
     } else if (Math.abs(getOutsideTargetAngle() - getOutsideCurrentAngle()) > 100) {
       currentState = TurretState.FLIPPING;
     } else if (getOutsideTargetAngle() > getOutsideCurrentAngle()) {
@@ -157,6 +164,7 @@ public class Turret extends SubsystemBase {
     // Until the code that does the stall procedure
     // releases the STALLED state
     if (currentState == TurretState.READY
+        || currentState == TurretState.IDLE
         || currentState == TurretState.FLIPPING
         || currentState == TurretState.ROTATING_CW
         || currentState == TurretState.ROTATING_CCW) {
@@ -481,6 +489,15 @@ public class Turret extends SubsystemBase {
    */
   public TurretState getState() {
     return currentState;
+  }
+
+  /**
+   * Mark whether the turret is being actively commanded by a shooting or tracking command. When
+   * false, at-target reports IDLE instead of READY. Shooting commands and auto-track should call
+   * setActivelyCommanded(true); the default idle command should call setActivelyCommanded(false).
+   */
+  public void setActivelyCommanded(boolean commanded) {
+    this.activelyCommanded = commanded;
   }
 
   /**

@@ -256,7 +256,13 @@ public class RobotContainer {
     // requirements; when they end, hood automatically returns to min angle.
     if (hood != null) {
       hood.setDefaultCommand(
-          Commands.run(() -> hood.setHoodAngle(hood.getMinAngle()), hood).withName("HoodStow"));
+          Commands.run(
+                  () -> {
+                    hood.setActivelyCommanded(false);
+                    hood.setHoodAngle(hood.getMinAngle());
+                  },
+                  hood)
+              .withName("HoodStow"));
     }
 
     // Initialize RobotStatus with subsystem references (vision may be null for
