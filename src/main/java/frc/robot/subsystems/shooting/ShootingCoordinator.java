@@ -262,6 +262,8 @@ public class ShootingCoordinator extends SubsystemBase {
   // converted to meters)
   private final LoggedTunableNumber symmetricArcPeakHeightIn =
       new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightIn", 62.0);
+  private final LoggedTunableNumber longPassArcPeakHeightIn =
+      new LoggedTunableNumber("SmartLaunch/Pass/LongPass/ArcPeakHeightIn", 120.0);
   private final LoggedTunableNumber lobNetClearanceMarginM =
       new LoggedTunableNumber("SmartLaunch/Pass/Lob/NetClearanceMarginM", 0.3);
   private final LoggedTunableNumber lobMaxPeakHeightM =
@@ -937,12 +939,14 @@ public class ShootingCoordinator extends SubsystemBase {
       }
     } else {
       // SYMMETRIC: clearance point is the midpoint, height is the desired arc peak
+      double arcHeightIn =
+          isLongPass ? longPassArcPeakHeightIn.get() : symmetricArcPeakHeightIn.get();
       constraintX = horizontalDist / 2.0;
-      constraintH = symmetricArcPeakHeightIn.get() * 0.0254;
+      constraintH = arcHeightIn * 0.0254;
       maxPeakHeight =
           isLongPass
               ? longLobMaxPeakHeightM.get()
-              : symmetricArcPeakHeightIn.get() * 0.0254 + 1.0;
+              : arcHeightIn * 0.0254 + 1.0;
     }
 
     ShotCalculator.ShotResult result =
