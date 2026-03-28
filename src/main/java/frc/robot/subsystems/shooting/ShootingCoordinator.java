@@ -266,6 +266,8 @@ public class ShootingCoordinator extends SubsystemBase {
       new LoggedTunableNumber("SmartLaunch/Pass/Lob/NetClearanceMarginM", 0.3);
   private final LoggedTunableNumber lobMaxPeakHeightM =
       new LoggedTunableNumber("SmartLaunch/Pass/Lob/MaxPeakHeightM", 5.0);
+  private final LoggedTunableNumber longLobMaxPeakHeightM =
+      new LoggedTunableNumber("SmartLaunch/Pass/LongLob/MaxPeakHeightM", 7.0);
   private final LoggedTunableNumber lobMinHubDistM =
       new LoggedTunableNumber("SmartLaunch/Pass/Lob/MinHubDistM", 4.0);
   private final LoggedTunableNumber lobStation1AdjustY =
@@ -598,7 +600,7 @@ public class ShootingCoordinator extends SubsystemBase {
             Logger.recordOutput(
                 "SmartLaunch/Pass/Target", (station <= 2) ? "STATION_1" : "STATION_3");
             calculatePassToTarget(
-                robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
+                robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION, false);
           } else {
             // Symmetric low pass (also used as fallback when too close to hub for lob)
             if (strategy == PassingStrategy.DRIVER_STATION) {
@@ -609,7 +611,8 @@ public class ShootingCoordinator extends SubsystemBase {
             boolean isLeftTrench = selectIsLeftTrench(robotPose);
             Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
             Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
-            calculatePassToTarget(robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
+            calculatePassToTarget(
+                robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC, false);
           }
         }
         case LONG_PASS -> {
@@ -619,7 +622,7 @@ public class ShootingCoordinator extends SubsystemBase {
               isLeftTrench ? cachedLobStation1Target : cachedLobStation3Target;
           Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LOB_LEFT" : "LOB_RIGHT");
           calculatePassToTarget(
-              robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
+              robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION, true);
         }
         case NONE -> {
           Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub " + activeStrategy.getName());
@@ -868,7 +871,11 @@ public class ShootingCoordinator extends SubsystemBase {
 
   /** Calculate and apply pass shot using two-point trajectory solver. */
   private void calculatePassToTarget(
-      Pose2d robotPose, ChassisSpeeds fieldSpeeds, Translation3d target, PassingStrategy strategy) {
+      Pose2d robotPose,
+      ChassisSpeeds fieldSpeeds,
+      Translation3d target,
+      PassingStrategy strategy,
+      boolean isLongPass) {
 
     double robotHeadingRad = robotPose.getRotation().getRadians();
     double[] turretFieldPos =
@@ -926,7 +933,7 @@ public class ShootingCoordinator extends SubsystemBase {
       } else {
         constraintX = hubDistAlongShot;
         constraintH = HUB_NET_HEIGHT + lobNetClearanceMarginM.get();
-        maxPeakHeight = lobMaxPeakHeightM.get();
+        maxPeakHeight = isLongPass ? longLobMaxPeakHeightM.get() : lobMaxPeakHeightM.get();
         Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", false);
       }
     } else {
