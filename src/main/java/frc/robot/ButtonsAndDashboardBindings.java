@@ -218,15 +218,9 @@ public class ButtonsAndDashboardBindings {
         SmartDashboard.putData(
             "Shots/SmartLaunch/Fire",
             Commands.defer(
-                () -> {
-                  if (SmartDashboard.getBoolean("Shots/SmartLaunch/UseStateMachine", true)) {
-                    return ShootingCommands.smartLaunchDangerousCommand(
-                        launcher, shootingCoordinator, motivator, turret, hood, spindexer);
-                  } else {
-                    return ShootingCommands.smartLaunchCommand(
-                        launcher, shootingCoordinator, motivator, turret, hood, spindexer);
-                  }
-                },
+                () ->
+                    ShootingCommands.smartLaunchDangerousCommand(
+                        launcher, shootingCoordinator, motivator, turret, hood, spindexer),
                 dashSmartLaunchReqs));
       }
       // Auto-track: toggle works while disabled; turret default command checks the flag
@@ -516,18 +510,11 @@ public class ButtonsAndDashboardBindings {
       if (hood != null) smartLaunchReqs.add(hood);
       if (motivator != null) smartLaunchReqs.add(motivator);
       if (spindexer != null) smartLaunchReqs.add(spindexer);
-      SmartDashboard.putBoolean("Shots/SmartLaunch/UseStateMachine", true);
       Command smartLaunchCmd =
           Commands.defer(
-              () -> {
-                if (SmartDashboard.getBoolean("Shots/SmartLaunch/UseStateMachine", true)) {
-                  return ShootingCommands.smartLaunchDangerousCommand(
-                      launcher, shootingCoordinator, motivator, turret, hood, spindexer);
-                } else {
-                  return ShootingCommands.smartLaunchCommand(
-                      launcher, shootingCoordinator, motivator, turret, hood, spindexer);
-                }
-              },
+              () ->
+                  ShootingCommands.smartLaunchDangerousCommand(
+                      launcher, shootingCoordinator, motivator, turret, hood, spindexer),
               smartLaunchReqs);
       if (intake != null) {
         // Rollers spin in all zones when intake is deployed (safety interlock handles retracted
