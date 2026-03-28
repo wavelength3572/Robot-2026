@@ -726,13 +726,12 @@ public class ShootingCommands {
                     hood)
                 : Commands.none(),
 
-            // Motivator — pre-spin in alliance zones and trenches (where we shoot or are
-            // about to shoot). Idle in open neutral/opponent zones to conserve power.
+            // Motivator — always pre-spin in teleop (ready for passing or shooting).
+            // In auto, idle only in open neutral/opponent zones (outbound collection).
             motivator != null
                 ? Commands.run(
                     () -> {
-                      if (coordinator.shouldIdleForTransit()
-                          || !coordinator.isInAllianceZoneOrTrench()) {
+                      if (coordinator.shouldIdleForTransit()) {
                         motivator.stopMotivator();
                         return;
                       }

@@ -1261,17 +1261,6 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Check if the robot is in any alliance zone or either trench. Used to gate motivator pre-spin
-   * — spin up in zones where we shoot or are about to shoot.
-   */
-  public boolean isInAllianceZoneOrTrench() {
-    if (cachedAimResult == null) return true;
-    ZoneDetector.Zone zone = cachedAimResult.zone();
-    return isInAllianceZone()
-        || zone == ZoneDetector.Zone.NEUTRAL_TRENCH;
-  }
-
-  /**
    * Get the current zone the robot is in, refined to ALLIANCE_CLOSE/MID/FAR when distance is
    * available.
    *
