@@ -1473,6 +1473,10 @@ public class ShootingCoordinator extends SubsystemBase {
         && armTrigger != ArmTrigger.IMMEDIATE) {
       armed = false;
       hasVisitedNeutral = false;
+      // Force back to SPINNING_UP so feeding stops immediately
+      coordinatorState = CoordinatorState.SPINNING_UP;
+      readyTimeoutTimer.restart();
+      readyTimeoutRunning = true;
     }
     // Check arm conditions based on trigger type
     if (!armed) {
