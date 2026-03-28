@@ -159,9 +159,18 @@ public class ShootingCoordinator extends SubsystemBase {
   private static final LoggedTunableNumber readyTimeoutSec =
       new LoggedTunableNumber("Shots/SmartLaunch/ReadyTimeoutSec", 3.0);
 
+  // Delayed-log state — snapshotted each cycle, logged next cycle to align with subsystem logs
+  private CoordinatorState loggedCoordinatorState = CoordinatorState.INACTIVE;
+  private CoordinatorState loggedPrevState = CoordinatorState.INACTIVE;
+  private boolean loggedArmed = true;
+  private boolean loggedHasVisitedNeutral = false;
+  private String loggedStateReason = "";
+  private String loggedBlocking = "none";
+
   // Cached aim result — computed once per cycle in updateShotCalculation(), used by all zone
   // queries (isRobotSlowEnoughForCurrentZone, isInPassZone, getCurrentZone, getZoneSpeedLimitMps)
   private TurretAimingHelper.AimResult cachedAimResult = null;
+  private TurretAimingHelper.AimResult previousAimResult = null;
 
   // Visualizer throttle — run at 10Hz instead of 50Hz (pure display, not control)
   private int visualizerCounter = 0;
@@ -436,11 +445,14 @@ public class ShootingCoordinator extends SubsystemBase {
               aimResult.target().getX() - turretFieldPos[0],
               aimResult.target().getY() - turretFieldPos[1]);
 
-      // Log zone and aim mode (throttled to 10Hz)
-      if (periodicCounter % 5 == 0) {
-        Logger.recordOutput("SmartLaunch/Status/Zone", aimResult.zone().name());
-        Logger.recordOutput("SmartLaunch/Status/AllowedAction", aimResult.mode().name());
+      // Log zone and aim mode delayed by one cycle so transitions line up with subsystem
+      // state logs. Subsystems react to the zone in command execute() but don't log their
+      // new state until next cycle's periodic(), so logging the previous zone here aligns them.
+      if (previousAimResult != null) {
+        Logger.recordOutput("SmartLaunch/Status/Zone", previousAimResult.zone().name());
+        Logger.recordOutput("SmartLaunch/Status/AllowedAction", previousAimResult.mode().name());
       }
+      previousAimResult = aimResult;
 
       // Shared alliance-zone X bounds (used by both strategies)
       double allianceZoneX = FieldConstants.LinesVertical.allianceZone;
@@ -679,14 +691,21 @@ public class ShootingCoordinator extends SubsystemBase {
               ? trenchHoodUnclampSpeedMps.get() // already moving: drop below 0.5 to unclamp
               : trenchHoodClampSpeedMps.get(); // stopped: clamp as soon as above 0.3
       boolean isMoving = robotSpeed > threshold;
-      // Hood stays clamped to min while moving in any trench, and always in neutral trench.
-      // Only pops up when stationary in the alliance trench.
-      if (isMoving || inNeutralTrench) {
+      // Neutral trench: always clamped (just transiting, no shooting).
+      // Alliance trench: unclamp immediately so hood can start raising for the shot.
+      boolean hoodClamped = inNeutralTrench;
+      if (hoodClamped) {
         hoodMax = hoodMin;
+      }
+      if (hood != null) {
+        hood.setClamped(hoodClamped);
       }
       movingInTrench = isMoving;
     } else {
       movingInTrench = false;
+      if (hood != null) {
+        hood.setClamped(false);
+      }
     }
 
     double currentTurretAngle = turret.getOutsideCurrentAngle();
@@ -812,7 +831,6 @@ public class ShootingCoordinator extends SubsystemBase {
 
     currentShot = result;
     currentDistanceM = horizontalDist;
-
   }
 
   // ========== Shot State Logging ==========
@@ -1069,12 +1087,11 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Check if shooting subsystems should idle to conserve power. True in auto when:
-   * - In open neutral/opponent zones (collecting balls), OR
-   * - Not yet armed (heading outbound before visiting neutral — no reason to spin up)
-   * NOT true in trenches after armed — when returning through neutral trench,
-   * launcher/turret/motivator should track so they're ready at the alliance trench boundary.
-   * In teleop this always returns false.
+   * Check if shooting subsystems should idle to conserve power. True in auto when: - In open
+   * neutral/opponent zones (collecting balls), OR - Not yet armed (heading outbound before visiting
+   * neutral — no reason to spin up) NOT true in trenches after armed — when returning through
+   * neutral trench, launcher/turret/motivator should track so they're ready at the alliance trench
+   * boundary. In teleop this always returns false.
    */
   public boolean isAutoCollecting() {
     if (!DriverStation.isAutonomous()) return false;
@@ -1175,7 +1192,8 @@ public class ShootingCoordinator extends SubsystemBase {
 
   /**
    * Notify the coordinator that SmartLaunch has started or stopped. Called by the SmartLaunch
-   * command on start/end to drive INACTIVE transitions. Uses IMMEDIATE arm trigger (teleop default).
+   * command on start/end to drive INACTIVE transitions. Uses IMMEDIATE arm trigger (teleop
+   * default).
    */
   public void setSmartLaunchActive(boolean active) {
     setSmartLaunchActive(active, ArmTrigger.IMMEDIATE);
@@ -1258,7 +1276,8 @@ public class ShootingCoordinator extends SubsystemBase {
     }
     // Reset cycle: when we re-enter neutral trench after shooting, we're heading back
     // out. Disarm and clear hasVisitedNeutral so the outbound trip idles subsystems.
-    if (armed && hasVisitedNeutral
+    if (armed
+        && hasVisitedNeutral
         && currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH
         && armTrigger != ArmTrigger.IMMEDIATE) {
       armed = false;
@@ -1290,8 +1309,7 @@ public class ShootingCoordinator extends SubsystemBase {
     // BUT only if we're not in a no-fire zone — otherwise go straight to NO_FIRE_ZONE
     // to avoid a single-cycle AIMING blip that's invisible in logs.
     boolean inNoFireZone =
-        currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH
-            || currentZone == ZoneDetector.Zone.BUMP;
+        currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH || currentZone == ZoneDetector.Zone.BUMP;
     if (!isAutoCollecting() && coordinatorState == CoordinatorState.UNARMED) {
       if (inNoFireZone) {
         coordinatorState = CoordinatorState.NO_FIRE_ZONE;
@@ -1375,8 +1393,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
       // --- Readiness check for state advancement ---
       launcherReady = launcher != null && launcher.isReady();
-      motivatorReady =
-          motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
+      motivatorReady = motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
       turretReady = turret.getState() == Turret.TurretState.READY;
       hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
       shotAchievable = currentShot != null && currentShot.achievable();
@@ -1447,7 +1464,8 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Track whether we were firing before entering a no-fire zone, so we know
     // whether to SETTLE or go straight to AIMING when leaving.
-    if (coordinatorState == CoordinatorState.NO_FIRE_ZONE && prevState != CoordinatorState.NO_FIRE_ZONE) {
+    if (coordinatorState == CoordinatorState.NO_FIRE_ZONE
+        && prevState != CoordinatorState.NO_FIRE_ZONE) {
       wasFiringBeforeZoneSuppression = (prevState == CoordinatorState.FIRING);
     }
 
@@ -1456,22 +1474,38 @@ public class ShootingCoordinator extends SubsystemBase {
       firingEntryPending = true;
     }
 
-    // --- Logging ---
-    Logger.recordOutput("SmartLaunch/CoordinatorState", coordinatorState.name());
-    Logger.recordOutput("SmartLaunch/Armed", armed);
-    Logger.recordOutput("SmartLaunch/HasVisitedNeutral", hasVisitedNeutral);
+    // --- Logging (delayed one cycle to align with subsystem state logs) ---
+    // Subsystems react to coordinator decisions in command execute() but log their new
+    // state in next cycle's periodic(). Delaying these logs keeps everything in sync.
+    Logger.recordOutput("SmartLaunch/CoordinatorState", loggedCoordinatorState.name());
+    Logger.recordOutput("SmartLaunch/Armed", loggedArmed);
+    Logger.recordOutput("SmartLaunch/HasVisitedNeutral", loggedHasVisitedNeutral);
 
-    // State transition trace — only logged when state changes.
-    // Single string tells you what happened and why, no digging through booleans.
-    if (coordinatorState != prevState) {
+    if (loggedCoordinatorState != loggedPrevState) {
       Logger.recordOutput(
           "SmartLaunch/StateTransition",
-          prevState.name() + " -> " + coordinatorState.name() + " (" + stateReason + ")");
+          loggedPrevState.name()
+              + " -> "
+              + loggedCoordinatorState.name()
+              + " ("
+              + loggedStateReason
+              + ")");
     }
 
-    // When not firing, show what's blocking in one string — e.g. "launcher hood"
-    if (coordinatorState == CoordinatorState.AIMING
-        || coordinatorState == CoordinatorState.SETTLING) {
+    if (loggedCoordinatorState == CoordinatorState.AIMING
+        || loggedCoordinatorState == CoordinatorState.SETTLING) {
+      Logger.recordOutput("SmartLaunch/Blocking", loggedBlocking);
+    } else {
+      Logger.recordOutput("SmartLaunch/Blocking", "");
+    }
+
+    // Snapshot current values for next cycle's delayed log
+    loggedPrevState = loggedCoordinatorState;
+    loggedCoordinatorState = coordinatorState;
+    loggedArmed = armed;
+    loggedHasVisitedNeutral = hasVisitedNeutral;
+    loggedStateReason = stateReason;
+    {
       StringBuilder blocking = new StringBuilder();
       if (!armed) blocking.append("armed ");
       if (!launcherReady) blocking.append("launcher ");
@@ -1480,11 +1514,7 @@ public class ShootingCoordinator extends SubsystemBase {
       if (!hoodReady) blocking.append("hood ");
       if (!shotAchievable) blocking.append("shot ");
       if (!speedOk) blocking.append("speed ");
-      Logger.recordOutput(
-          "SmartLaunch/Blocking",
-          blocking.length() > 0 ? blocking.toString().trim() : "none");
-    } else {
-      Logger.recordOutput("SmartLaunch/Blocking", "");
+      loggedBlocking = blocking.length() > 0 ? blocking.toString().trim() : "none";
     }
   }
 

@@ -1,7 +1,6 @@
 package frc.robot.commands;
 
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -682,29 +681,44 @@ public class ShootingCommands {
                 },
                 launcher),
 
-            // Turret — track shot angle, but hold position while auto collecting
+            // Turret — track shot angle, but hold position while auto collecting.
+            // Don't mark actively commanded while UNARMED so turret stays IDLE in logs
+            // until the coordinator is actually driving it.
             Commands.run(
                 () -> {
-                  turret.setActivelyCommanded(true);
-                  if (coordinator.isAutoCollecting()) return; // hold position
+                  boolean unarmed =
+                      coordinator.getCoordinatorState()
+                          == ShootingCoordinator.CoordinatorState.UNARMED;
+                  if (unarmed) return;
+                  if (coordinator.isAutoCollecting()) {
+                    turret.setActivelyCommanded(true);
+                    return; // hold position
+                  }
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
+                    turret.setActivelyCommanded(true);
                     turret.setOutsideTurretAngle(shot.turretAngleDeg());
                   }
                 },
                 turret),
 
-            // Hood — track shot angle; idle at min while auto collecting
+            // Hood — track shot angle; idle at min while auto collecting.
+            // Same UNARMED gate as turret.
             hood != null
                 ? Commands.run(
                     () -> {
-                      hood.setActivelyCommanded(true);
+                      boolean unarmed =
+                          coordinator.getCoordinatorState()
+                              == ShootingCoordinator.CoordinatorState.UNARMED;
+                      if (unarmed) return;
                       if (coordinator.isAutoCollecting()) {
+                        hood.setActivelyCommanded(true);
                         hood.setHoodAngle(hood.getMinAngle());
                         return;
                       }
                       ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                       if (shot != null) {
+                        hood.setActivelyCommanded(true);
                         hood.setHoodAngle(getEffectiveHoodDeg(shot));
                       }
                     },

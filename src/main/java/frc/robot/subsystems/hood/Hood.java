@@ -19,6 +19,8 @@ public class Hood extends SubsystemBase {
     READY,
     /** At default (stow) position — no shooting command is driving the hood. */
     STOWED,
+    /** At target, but angle is safety-clamped (e.g. trench) — not ready to fire. */
+    CLAMPED,
     RAISING,
     LOWERING,
     DISCONNECTED
@@ -49,6 +51,10 @@ public class Hood extends SubsystemBase {
   // Set via setActivelyCommanded() — shooting commands set true, default command sets false.
   private boolean activelyCommanded = false;
 
+  // When true, the hood angle is being safety-clamped (e.g. trench mode).
+  // Set by ShootingCoordinator. Prevents READY state so firing is blocked until unclamped.
+  private boolean clamped = false;
+
   public Hood(HoodIO io) {
     this.io = io;
 
@@ -65,13 +71,20 @@ public class Hood extends SubsystemBase {
     if (!inputs.connected) {
       currentState = HoodState.DISCONNECTED;
     } else if (inputs.atTarget) {
-      currentState = activelyCommanded ? HoodState.READY : HoodState.STOWED;
+      if (clamped) {
+        currentState = HoodState.CLAMPED;
+      } else if (currentState == HoodState.CLAMPED) {
+        // Just unclamped but still at old clamped target — hold CLAMPED until new target propagates
+      } else {
+        currentState = activelyCommanded ? HoodState.READY : HoodState.STOWED;
+      }
     } else if (inputs.targetAngleDeg > inputs.currentAngleDeg) {
       currentState = HoodState.RAISING;
     } else {
       currentState = HoodState.LOWERING;
     }
     Logger.recordOutput("Subsystems/HoodState", currentState.name());
+    Logger.recordOutput("Subsystems/HoodTrenchClamped", clamped);
 
     // Push tunable PID changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kD)) {
@@ -126,6 +139,14 @@ public class Hood extends SubsystemBase {
    */
   public void setActivelyCommanded(boolean commanded) {
     this.activelyCommanded = commanded;
+  }
+
+  /**
+   * Mark whether the hood angle is being safety-clamped. When clamped, at-target reports CLAMPED
+   * instead of READY so the coordinator won't gate firing on a clamped angle.
+   */
+  public void setClamped(boolean clamped) {
+    this.clamped = clamped;
   }
 
   /**
