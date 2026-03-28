@@ -161,16 +161,8 @@ public class ShootingCoordinator extends SubsystemBase {
       new LoggedTunableNumber("Shots/TrenchMode/SafetySpeedLimitMps", 2.0);
   private final LoggedTunableNumber trenchMovingThresholdMps =
       new LoggedTunableNumber("Shots/TrenchMode/MovingThresholdMps", 0.1);
-  // Settle time: robot must be stationary for this long before hood is allowed back up.
-  // Prevents oscillation from speed noise around the moving threshold.
-  private final LoggedTunableNumber trenchStationarySettleTimeSec =
-      new LoggedTunableNumber("Shots/TrenchMode/StationarySettleSec", 0.25);
-  private final LoggedTunableNumber trenchIdleLauncherRPM =
-      new LoggedTunableNumber("Shots/TrenchMode/IdleLauncherRPM", 2650.0);
   private boolean trenchHoodSafetyActive = false;
-  private boolean movingInTrench =
-      false; // true when robot is moving (or settling) in a trench zone
-  private double lastMovingInTrenchTimestamp = 0.0;
+  private boolean movingInTrench = false; // true when robot is moving in a trench zone
 
   // ========== CoordinatorState Machine ==========
   // Centralized state that drives feeding decisions in SmartLaunch commands.
@@ -715,21 +707,11 @@ public class ShootingCoordinator extends SubsystemBase {
     if (inTrenchZone) {
       double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
       boolean isMoving = robotSpeed > trenchMovingThresholdMps.get();
+      // Clamp hood to minimum when moving to protect from trench structure.
       if (isMoving) {
-        lastMovingInTrenchTimestamp = Timer.getFPGATimestamp();
-      }
-      double timeSinceMoving = Timer.getFPGATimestamp() - lastMovingInTrenchTimestamp;
-      // In auto, skip the settle delay — path following provides precise speed control,
-      // so the robot is truly stopped when speed drops below threshold.
-      double settleTime =
-          DriverStation.isAutonomous() ? 0.0 : trenchStationarySettleTimeSec.get();
-      boolean effectivelyMoving = isMoving || timeSinceMoving < settleTime;
-      // Clamp hood to minimum when moving in teleop; in auto allow hood to start
-      // moving to target angle as soon as the robot is stopped (no settle wait).
-      if (effectivelyMoving && !DriverStation.isAutonomous()) {
         hoodMax = hoodMin;
       }
-      movingInTrench = effectivelyMoving;
+      movingInTrench = isMoving;
     } else {
       movingInTrench = false;
     }
@@ -1244,7 +1226,6 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   public double getEffectiveLauncherRPM(double shotRPM) {
     if (shouldIdleLauncher()) return 0;
-    if (movingInTrench) return trenchIdleLauncherRPM.get();
     return shotRPM;
   }
 
@@ -1332,16 +1313,9 @@ public class ShootingCoordinator extends SubsystemBase {
       ChassisSpeeds speeds = fieldSpeedsSupplier.get();
       double robotSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
       boolean isMoving = robotSpeed > trenchMovingThresholdMps.get();
-      if (isMoving) {
-        lastMovingInTrenchTimestamp = Timer.getFPGATimestamp();
-      }
-      double timeSinceMoving = Timer.getFPGATimestamp() - lastMovingInTrenchTimestamp;
-      double settleTime =
-          DriverStation.isAutonomous() ? 0.0 : trenchStationarySettleTimeSec.get();
-      boolean effectivelyMoving = isMoving || timeSinceMoving < settleTime;
       boolean hoodAboveSafe = hood.getCurrentAngle() > trenchHoodMaxDeg.get();
 
-      trenchHoodSafetyActive = effectivelyMoving && hoodAboveSafe;
+      trenchHoodSafetyActive = isMoving && hoodAboveSafe;
     } else {
       trenchHoodSafetyActive = false;
     }
