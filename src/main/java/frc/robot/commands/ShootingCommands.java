@@ -721,18 +721,14 @@ public class ShootingCommands {
                     hood)
                 : Commands.none(),
 
-            // Motivator — pre-spin as soon as the launcher is at speed so the motivator
-            // is already at target RPM the instant FIRING triggers.  Spindexer still gates
-            // on FIRING + motivator ready, so no errant shots.  No reverse pulse — saves
-            // ~0.2 s per firing cycle.
+            // Motivator — always spin while SmartLaunch2 is active so spin-up overlaps
+            // with launcher AND aiming in parallel.  Spindexer still gates on FIRING +
+            // motivator ready, so no balls feed until everything is lined up.
             motivator != null
                 ? Commands.run(
                     () -> {
-                      // Pre-spin: start motivator once launcher is at speed, even before
-                      // full FIRING (turret/hood may still be settling).  This lets the
-                      // motivator spin-up overlap with aiming instead of stacking after it.
-                      if (coordinator.isFeedingAllowed() || launcher.isReady()) {
-                        ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                      ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                      if (s != null) {
                         double launcherRPM = getEffectiveRPM(s);
                         motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM, coordinator));
                       } else {
