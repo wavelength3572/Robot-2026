@@ -7,7 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRightSafe"
+            "pathName": "TrenchRightBulldogOne"
           }
         },
         {
@@ -32,7 +32,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRight2ndCycle"
+            "pathName": "TrenchRightBulldogTwo"
           }
         }
       ]
