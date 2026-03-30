@@ -14,7 +14,7 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 
 /**
- * Configuration for MainBot2026 - 31" wide x 23.5" deep chassis with NEO Vortex drive motors.
+ * Configuration for MainBot2026 - 31" wide x 23.5" deep chassis with NEO drive motors.
  * Intake is on the 31" (wide) front edge. Based on MainBot-2025 configuration from
  * wavelength3572/MainBot-2025
  */
@@ -58,11 +58,11 @@ public class MainBotConfig implements RobotConfig {
   private static final int backRightCanCoderId = 43;
 
   // Drive motor configuration
-  private static final int driveMotorCurrentLimit = 60;
+  private static final int driveMotorCurrentLimit = 45;
   private static final double wheelRadiusMeters = Units.inchesToMeters(1.983);
   private static final double driveMotorReduction =
       (50.0 / 14.0) * (17.0 / 27.0) * (45.0 / 15.0); // SDS MK4i L2
-  private static final DCMotor driveGearbox = DCMotor.getNeoVortex(1);
+  private static final DCMotor driveGearbox = DCMotor.getNeo(1);
 
   // Drive encoder configuration
   private static final double driveEncoderPositionFactor = 2 * Math.PI / driveMotorReduction;
@@ -99,7 +99,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double turnPIDMaxInput = 2 * Math.PI;
 
   // PathPlanner configuration
-  private static final double robotMassKg = 74.088;
+  private static final double robotMassKg = 60.3;
   private static final double robotMOI = 6.883;
   private static final double wheelCOF = 1.2;
 
