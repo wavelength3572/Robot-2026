@@ -101,6 +101,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LUTShotStrategy alternateLutStrategy;
   private final ParametricWithLUTFallbackStrategy parametricWithLutFallback;
   private final ParametricWithProceduralFallbackStrategy parametricWithProceduralFallback;
+  private final FixedHeightShotStrategy fixedHeightStrategy = new FixedHeightShotStrategy();
   private ShotStrategy activeStrategy;
 
   // Visualizer (created during initialize)
@@ -319,15 +320,15 @@ public class ShootingCoordinator extends SubsystemBase {
         new ParametricWithLUTFallbackStrategy(parametricStrategy, lutStrategy);
     this.parametricWithProceduralFallback =
         new ParametricWithProceduralFallbackStrategy(lutStrategy);
-    this.activeStrategy = parametricWithProceduralFallback;
+    this.activeStrategy = fixedHeightStrategy;
 
     // Strategy dropdown on dashboard — four options
     strategyChooser.addOption("Parametric", "Parametric");
     strategyChooser.addOption("LUT (Lookup Table)", "LUT");
     strategyChooser.addOption("LUT Alternate", "LUT_ALTERNATE");
     strategyChooser.addOption("Parametric + LUT Fallback", "PARAMETRIC_LUT_FALLBACK");
-    strategyChooser.setDefaultOption(
-        "Parametric + Procedural Fallback", "PARAMETRIC_PROCEDURAL_FALLBACK");
+    strategyChooser.addOption("Parametric + Procedural Fallback", "PARAMETRIC_PROCEDURAL_FALLBACK");
+    strategyChooser.setDefaultOption("Fixed Height", "FIXED_HEIGHT");
     SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
 
     // Passing strategy chooser — how to pick left vs right pass target
@@ -1552,7 +1553,7 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Update the active strategy based on the dashboard dropdown. */
   private void updateActiveStrategy() {
     String selected = strategyChooser.getSelected();
-    if (selected == null) selected = "PARAMETRIC_PROCEDURAL_FALLBACK";
+    if (selected == null) selected = "FIXED_HEIGHT";
 
     ShotStrategy newStrategy;
     switch (selected) {
@@ -1561,7 +1562,8 @@ public class ShootingCoordinator extends SubsystemBase {
       case "LUT_ALTERNATE" -> newStrategy = alternateLutStrategy;
       case "PARAMETRIC_LUT_FALLBACK" -> newStrategy = parametricWithLutFallback;
       case "PARAMETRIC_PROCEDURAL_FALLBACK" -> newStrategy = parametricWithProceduralFallback;
-      default -> newStrategy = parametricWithProceduralFallback;
+      case "FIXED_HEIGHT" -> newStrategy = fixedHeightStrategy;
+      default -> newStrategy = fixedHeightStrategy;
     }
 
     if (newStrategy != activeStrategy) {
