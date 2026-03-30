@@ -7,7 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRightAggressive"
+            "pathName": "TrenchRightBulldogOne"
           }
         },
         {
@@ -30,15 +30,9 @@
           }
         },
         {
-          "type": "named",
-          "data": {
-            "name": "StowHood"
-          }
-        },
-        {
           "type": "path",
           "data": {
-            "pathName": "TrenchRight2ndCycle"
+            "pathName": "TrenchRightBulldogTwo"
           }
         }
       ]
