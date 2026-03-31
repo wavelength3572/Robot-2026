@@ -102,6 +102,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final ParametricWithLUTFallbackStrategy parametricWithLutFallback;
   private final ParametricWithProceduralFallbackStrategy parametricWithProceduralFallback;
   private final FixedHeightShotStrategy fixedHeightStrategy = new FixedHeightShotStrategy();
+  private final FixedHeightPassStrategy fixedHeightPassStrategy = new FixedHeightPassStrategy();
   private ShotStrategy activeStrategy;
 
   // Visualizer (created during initialize)
@@ -762,7 +763,7 @@ public class ShootingCoordinator extends SubsystemBase {
     return peakIn;
   }
 
-  /** Calculate and apply pass shot using two-point trajectory solver. */
+  /** Calculate and apply pass shot using fixed-height parabola strategy. */
   private void calculatePassToTarget(
       Pose2d robotPose, ChassisSpeeds fieldSpeeds, Translation3d target, PassingStrategy strategy) {
 
@@ -779,73 +780,24 @@ public class ShootingCoordinator extends SubsystemBase {
     double horizontalDist =
         Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
 
-    // Pass hood limits: use 18° floor to prevent steep launches, mechanical max for ceiling.
-    // The solver clamps to these and adds RPM compensation instead of rejecting.
-    double hoodMin = 18.0;
+    // Pass the landing target directly to the strategy. The solver treats it as the
+    // pass-through point at ground level — peak height is the only arc control,
+    // same concept as the hub strategy's fixed peak.
+    Logger.recordOutput("SmartLaunch/Pass/TargetDistM", horizontalDist);
+
     double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
 
-    double constraintX;
-    double constraintH;
-    double maxPeakHeight;
-
-    if (strategy == PassingStrategy.DRIVER_STATION) {
-      // LOB: clearance point is at the hub net (proximity check already done at
-      // dispatch)
-      boolean isBlue = RobotStatus.isBlueAlliance();
-      double hubCenterX =
-          isBlue
-              ? FieldConstants.LinesVertical.hubCenter
-              : FieldConstants.LinesVertical.oppHubCenter;
-      double hubCenterY = FieldConstants.fieldWidth / 2.0;
-
-      // Project hub center onto the shot line to get distance along shot direction
-      double dx = target.getX() - turretX;
-      double dy = target.getY() - turretY;
-      double shotLen = Math.sqrt(dx * dx + dy * dy);
-      if (shotLen < 0.01) shotLen = 0.01;
-      double shotDirX = dx / shotLen;
-      double shotDirY = dy / shotLen;
-
-      double hubDistAlongShot =
-          (hubCenterX - turretX) * shotDirX + (hubCenterY - turretY) * shotDirY;
-
-      if (hubDistAlongShot <= 0.5 || hubDistAlongShot >= horizontalDist - 0.5) {
-        // Shot doesn't cross the hub — use low arc
-        constraintX = horizontalDist / 2.0;
-        double peakIn = interpolatePeakHeight(horizontalDist);
-        constraintH = peakIn * 0.0254;
-        maxPeakHeight = peakIn * 0.0254 + 1.0;
-        Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", true);
-      } else {
-        constraintX = hubDistAlongShot;
-        constraintH = HUB_NET_HEIGHT + lobNetClearanceMarginM.get();
-        maxPeakHeight = lobMaxPeakHeightM.get();
-        Logger.recordOutput("SmartLaunch/Pass/TwoPoint/LobFallback", false);
-      }
-    } else {
-      // SYMMETRIC: clearance point is the midpoint, height scales with distance
-      constraintX = horizontalDist / 2.0;
-      double peakIn = interpolatePeakHeight(horizontalDist);
-      constraintH = peakIn * 0.0254;
-      maxPeakHeight = peakIn * 0.0254 + 1.0; // allow small margin above desired peak
-    }
-
     ShotCalculator.ShotResult result =
-        ShotCalculator.calculatePassShotTwoPoint(
+        fixedHeightPassStrategy.calculateShot(
             robotPose,
             fieldSpeeds,
             target,
             turretConfig,
-            constraintX,
-            constraintH,
-            maxPeakHeight,
             turret.getOutsideCurrentAngle(),
             turret.getMinAngle(),
             turret.getMaxAngle(),
-            hoodMin,
-            hoodMax,
-            passRpmPerDegCompensation.get(),
-            passMaxRpmCompensation.get());
+            18.0, // hood min floor handled inside strategy, but pass as baseline
+            hoodMax);
 
     currentShot = result;
     currentDistanceM = horizontalDist;

@@ -56,8 +56,8 @@ public final class ShotCalculator {
   private static final LoggedTunableNumber velocityCompY =
       new LoggedTunableNumber("Shots/VelocityComp/Y", 1.0);
 
-  // When true, use single-pass horizontal TOF for velocity compensation (stable, physically
-  // correct). When false, use the old 3-iteration total TOF refinement loop.
+  // When true, use single-pass horizontal TOF for velocity compensation (stable, no iteration).
+  // When false, use the legacy 3-iteration total TOF refinement loop (kept for comparison/testing).
   private static final boolean USE_HORIZONTAL_TOF_DEFAULT = true;
 
   static {
@@ -391,6 +391,140 @@ public final class ShotCalculator {
     return bestOutsideAngle;
   }
 
+  // ========== Fixed-Height Parabola Solver ==========
+
+  /**
+   * Result from the fixed-height parabola solver. Contains the raw physics output (launch angle,
+   * exit velocity) and whether the hood was clamped to a mechanical limit.
+   */
+  public record FixedHeightResult(
+      double launchAngleDeg,
+      double exitVelocityMps,
+      boolean clamped,
+      boolean clampedLow, // true = clamped to hood min (too close), false = hood max (too far)
+      double actualPeakHeightM, // actual peak (differs from tuned when clamped)
+      double vertexXM, // vertex x-position for diagnostics
+      boolean achievable,
+      String failureReason) {
+
+    static FixedHeightResult failure(String reason) {
+      return new FixedHeightResult(0, 0, false, false, 0, 0, false, reason);
+    }
+  }
+
+  /**
+   * Solve a fixed-height parabola trajectory. Given a launch height, fixed peak height, and a
+   * pass-through point (horizontal distance + height), computes the unique launch angle and exit
+   * velocity. If the required hood angle exceeds mechanical limits, clamps the hood and re-solves
+   * for velocity to still hit the pass-through point.
+   *
+   * <p>Uses vertex form: y = a(x - h)² + k, where (h, k) is the peak.
+   *
+   * @param h0 Launch height (turret height) in meters
+   * @param k Peak height in meters (must be > h0 and > y_p)
+   * @param y_p Pass-through point height in meters
+   * @param x_p Pass-through point horizontal distance from turret in meters
+   * @param hoodMinAngleDeg Mechanical hood minimum angle
+   * @param hoodMaxAngleDeg Mechanical hood maximum angle
+   * @return Solver result with launch angle, velocity, and clamping info
+   */
+  public static FixedHeightResult solveFixedHeightParabola(
+      double h0, double k, double y_p, double x_p, double hoodMinAngleDeg, double hoodMaxAngleDeg) {
+
+    // Height validations
+    if (k <= h0) {
+      return FixedHeightResult.failure(
+          String.format("peak %.1fin <= turret height %.1fin", k / 0.0254, h0 / 0.0254));
+    }
+    if (k <= y_p) {
+      return FixedHeightResult.failure(
+          String.format("peak %.1fin <= pass-through height %.1fin", k / 0.0254, y_p / 0.0254));
+    }
+    if (x_p <= 0) {
+      return FixedHeightResult.failure(String.format("pass-through dist %.2fm <= 0", x_p));
+    }
+
+    // r = ratio that locates the vertex between launch and pass-through
+    double r = Math.sqrt((y_p - k) / (h0 - k));
+
+    // Vertex x-position
+    double h = x_p / (1.0 + r);
+
+    // Parabola coefficient
+    double a = (h0 - k) / (h * h);
+
+    // Launch angle from slope at x=0: tan(theta) = -2ah
+    double tanTheta = -2.0 * a * h;
+    double theta = Math.atan(tanTheta);
+    double thetaDeg = Math.toDegrees(theta);
+
+    // Hood angle (mechanical) = 90 - launch angle
+    double hoodAngleDeg = 90.0 - thetaDeg;
+    boolean clamped = false;
+    boolean clampedLow = false;
+    double velocity;
+    double cosTheta;
+    double actualPeakM = k; // default to tuned peak
+
+    if (hoodAngleDeg < hoodMinAngleDeg) {
+      // Too close — fixed peak height requires steeper angle than hood allows.
+      // Clamp hood to min, re-solve velocity to still hit pass-through point.
+      // Peak will be higher than tuned, but the shot still works.
+      clamped = true;
+      clampedLow = true;
+      hoodAngleDeg = hoodMinAngleDeg;
+      thetaDeg = 90.0 - hoodAngleDeg;
+      theta = Math.toRadians(thetaDeg);
+      cosTheta = Math.cos(theta);
+      double sinTheta = Math.sin(theta);
+      double tanTh = Math.tan(theta);
+
+      // Projectile: y_p = h0 + x_p*tan(θ) - g*x_p²/(2*v²*cos²θ)
+      double denom = 2.0 * cosTheta * cosTheta * (h0 + x_p * tanTh - y_p);
+      if (denom <= 0) {
+        return FixedHeightResult.failure(
+            String.format("clamped hood %.0f°: unreachable (denom=%.3f)", hoodAngleDeg, denom));
+      }
+      velocity = Math.sqrt(GRAVITY * x_p * x_p / denom);
+      double vy0 = velocity * sinTheta;
+      actualPeakM = h0 + (vy0 * vy0) / (2.0 * GRAVITY);
+
+    } else if (hoodAngleDeg > hoodMaxAngleDeg) {
+      // Too far — fixed peak height requires flatter angle than hood allows.
+      // Clamp hood to max, re-solve velocity. Peak will be lower than tuned.
+      clamped = true;
+      clampedLow = false;
+      hoodAngleDeg = hoodMaxAngleDeg;
+      thetaDeg = 90.0 - hoodAngleDeg;
+      theta = Math.toRadians(thetaDeg);
+      cosTheta = Math.cos(theta);
+      double sinTheta = Math.sin(theta);
+      double tanTh = Math.tan(theta);
+
+      double denom = 2.0 * cosTheta * cosTheta * (h0 + x_p * tanTh - y_p);
+      if (denom <= 0) {
+        return FixedHeightResult.failure(
+            String.format("clamped hood %.0f°: unreachable (denom=%.3f)", hoodAngleDeg, denom));
+      }
+      velocity = Math.sqrt(GRAVITY * x_p * x_p / denom);
+      double vy0 = velocity * sinTheta;
+      actualPeakM = h0 + (vy0 * vy0) / (2.0 * GRAVITY);
+
+    } else {
+      // Normal case — hood angle is achievable, use vertex-form solution
+      cosTheta = Math.cos(theta);
+      double vSquared = -GRAVITY / (2.0 * a * cosTheta * cosTheta);
+      if (vSquared <= 0) {
+        return FixedHeightResult.failure(
+            String.format("invalid velocity (v^2=%.3f) at angle=%.1f°", vSquared, thetaDeg));
+      }
+      velocity = Math.sqrt(vSquared);
+    }
+
+    return new FixedHeightResult(
+        thetaDeg, velocity, clamped, clampedLow, actualPeakM, h, true, null);
+  }
+
   // ========== Shot Calculations ==========
 
   /**
@@ -415,10 +549,9 @@ public final class ShotCalculator {
     double turretY = turretFieldPos[1];
     Translation3d turretPos = new Translation3d(turretX, turretY, config.heightMeters());
 
-    // Velocity compensation: adjust aim point to counteract robot movement during flight.
-    // Only apply when the initial shot is achievable — if the optimizer fails (returns
-    // exitVelocityMps=0), the ToF calculation produces Double.MAX_VALUE and predictTargetPos
-    // generates infinity coordinates, causing the turret to snap to a garbage angle.
+    // Velocity compensation: single-pass horizontal TOF to shift the aim point and counteract
+    // robot movement during flight. Only apply when the initial shot is achievable — if the
+    // optimizer fails (exitVelocityMps=0), the TOF calculation produces infinity coordinates.
     Translation3d aimTarget = hubTarget;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     if (robotSpeed > 0.1) {
@@ -433,14 +566,16 @@ public final class ShotCalculator {
 
         if (SmartDashboard.getBoolean(
             "Shots/VelocityComp/UseHorizontalTOF", USE_HORIZONTAL_TOF_DEFAULT)) {
-          // Single-pass horizontal TOF: stable, no iteration.
-          // Lateral drift depends on horizontal flight time, not total arc time.
+          // Single-pass horizontal TOF: lateral drift depends on horizontal flight time,
+          // not total arc time. Stable and physically correct.
           double vx =
               initialShot.exitVelocityMps * Math.cos(Math.toRadians(initialShot.launchAngleDeg));
           double horizontalTof = (vx > 0.1) ? distanceToTarget / vx : 0.0;
           aimTarget = predictTargetPos(hubTarget, fieldSpeeds, horizontalTof);
         } else {
-          // Old 3-iteration refinement loop using total TOF.
+          // Legacy 3-iteration refinement loop using total TOF. Kept for comparison/testing
+          // via the Shots/VelocityComp/UseHorizontalTOF dashboard toggle. Can diverge at
+          // steep launch angles where total TOF is much longer than horizontal flight time.
           double tof =
               calculateTimeOfFlight(
                   initialShot.exitVelocityMps,
@@ -523,7 +658,7 @@ public final class ShotCalculator {
     double turretY = turretFieldPos[1];
     Translation3d turretPos = new Translation3d(turretX, turretY, config.heightMeters());
 
-    // Velocity compensation (same logic as calculateHubShot, using fallback solver)
+    // Velocity compensation: single-pass horizontal TOF (same logic as calculateHubShot)
     Translation3d aimTarget = hubTarget;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     if (robotSpeed > 0.1) {
@@ -623,13 +758,10 @@ public final class ShotCalculator {
     double turretY = turretFieldPos[1];
     Translation3d turretPos = new Translation3d(turretX, turretY, config.heightMeters());
 
-    // Simplified velocity compensation for trench shots. The fixed 18° hood creates a
-    // steep trajectory with long total TOF that destabilizes the 3-iteration refinement
-    // loop — each iteration shifts the aim point, recalculates TOF, and shifts again,
-    // causing the loop to diverge rather than converge. This is especially bad during
-    // PathPlanner speed constraint transitions where fieldSpeeds change abruptly.
-    // Single-pass compensation using horizontal flight time (distance / horizontal velocity)
-    // is stable and physically more correct — lateral drift depends on horizontal flight
+    // Single-pass velocity compensation using horizontal TOF (distance / horizontal velocity).
+    // The fixed 18° hood creates a steep trajectory where total TOF is much longer than
+    // horizontal flight time, making total-TOF-based compensation overshoot.
+    // Horizontal TOF is stable and physically more correct — lateral drift depends on horizontal
     // time, not the total time the ball spends going up and coming down.
     Translation3d aimTarget = hubTarget;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
@@ -712,7 +844,8 @@ public final class ShotCalculator {
       exitVelocity = 10.0; // fallback
     }
 
-    // Velocity compensation for robot movement
+    // Velocity compensation for robot movement (3-iteration refinement using total TOF).
+    // Pass shots recalculate exit velocity at each shifted distance, so iteration is needed.
     Translation3d aimTarget = passTarget;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     if (robotSpeed > 0.1) {
@@ -925,7 +1058,7 @@ public final class ShotCalculator {
     Logger.recordOutput("SmartLaunch/Pass/TwoPoint/HoodAngleDeg", hoodAngleDeg);
     Logger.recordOutput("SmartLaunch/Pass/TwoPoint/RPM", rpm);
 
-    // Full velocity compensation: shift aim target to account for robot motion during flight.
+    // Single-pass velocity compensation: shift aim target using total TOF.
     // The arc guards (75° cap, peak height, x2-x1 gap, hood min) prevent bad trajectories.
     Translation3d aimTarget = passTarget;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);

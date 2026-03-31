@@ -7,40 +7,36 @@ import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
 /**
- * Fixed-height parabola shot strategy for hub shots. Defines a unique trajectory using three
- * constraints:
+ * Fixed-height parabola strategy for passes. Same vertex-form math as {@link
+ * FixedHeightShotStrategy} but tuned for passing: the ball arcs to a fixed peak height and passes
+ * through a target point (e.g. above the bump) at a specified height, then continues on the
+ * parabola to land beyond it.
  *
- * <ol>
- *   <li>Launch point (turret position)
- *   <li>Fixed peak height (same for every shot regardless of distance)
- *   <li>Pass-through point on the descent, at a fixed height and horizontal offset from hub center
- * </ol>
+ * <p>The {@code target} parameter is the pass-through point — its Z coordinate is the clearance
+ * height, and its X/Y define where the ball must fly through. The ball lands past this point.
  *
- * <p>Delegates core parabola math to {@link ShotCalculator#solveFixedHeightParabola}. When the hood
- * must be clamped to mechanical limits, the solver re-derives velocity so the shot still hits the
- * pass-through point — peak height shifts but the ball still lands.
+ * <p>Graceful degradation matches the hub strategy: when the hood must clamp to mechanical limits,
+ * velocity is re-derived to still hit the pass-through point. Peak height shifts but the pass still
+ * clears the obstacle.
  */
-public class FixedHeightShotStrategy implements ShotStrategy {
+public class FixedHeightPassStrategy implements ShotStrategy {
 
   private static final double INCHES_TO_METERS = 0.0254;
-  private static final double GRAVITY = 9.81;
 
-  // All spatial tunables in inches
+  // Peak height for passes — lower than hub shots since we're clearing an obstacle, not scoring
   private static final LoggedTunableNumber peakHeightIn =
-      new LoggedTunableNumber("Shots/FixedHeight/PeakHeightIn", 110.0);
+      new LoggedTunableNumber("Shots/FixedHeightPass/PeakHeightIn", 65.0);
 
-  private static final LoggedTunableNumber passThroughHeightIn =
-      new LoggedTunableNumber("Shots/FixedHeight/PassThroughHeightIn", 72.0); // 6 feet
-
-  private static final LoggedTunableNumber horizontalOffsetIn =
-      new LoggedTunableNumber("Shots/FixedHeight/HorizontalOffsetIn", 10.0);
-
-  // RPM limits
+  // RPM limits for passes
   private static final LoggedTunableNumber minRPM =
-      new LoggedTunableNumber("Shots/FixedHeight/MinRPM", 1500.0);
+      new LoggedTunableNumber("Shots/FixedHeightPass/MinRPM", 1000.0);
 
   private static final LoggedTunableNumber maxRPM =
-      new LoggedTunableNumber("Shots/FixedHeight/MaxRPM", 4000.0);
+      new LoggedTunableNumber("Shots/FixedHeightPass/MaxRPM", 4500.0);
+
+  // Hood floor for passes — prevents near-vertical launches
+  private static final LoggedTunableNumber hoodMinFloor =
+      new LoggedTunableNumber("Shots/FixedHeightPass/HoodMinDeg", 18.0);
 
   @Override
   public ShotCalculator.ShotResult calculateShot(
@@ -62,11 +58,13 @@ public class FixedHeightShotStrategy implements ShotStrategy {
     double turretX = turretFieldPos[0];
     double turretY = turretFieldPos[1];
 
-    // Convert tunable inches to meters
     double peakHeightM = peakHeightIn.get() * INCHES_TO_METERS;
-    double passThroughHeightM = passThroughHeightIn.get() * INCHES_TO_METERS;
-    double horizontalOffsetM = horizontalOffsetIn.get() * INCHES_TO_METERS;
     double h0 = config.heightMeters();
+    // Pass-through height comes from the target's Z coordinate (set by the coordinator)
+    double passThroughHeightM = target.getZ();
+
+    // Apply pass-specific hood floor
+    double effectiveHoodMin = Math.max(hoodMinAngleDeg, hoodMinFloor.get());
 
     // Velocity compensation: single-pass solve static → get TOF → shift target → final solve.
     Translation3d compensatedTarget = target;
@@ -74,16 +72,15 @@ public class FixedHeightShotStrategy implements ShotStrategy {
 
     if (robotSpeed > 0.1) {
       double staticD = Math.hypot(target.getX() - turretX, target.getY() - turretY);
-      double staticXp = staticD - horizontalOffsetM;
-      if (staticXp > 0) {
+      if (staticD > 0) {
         ShotCalculator.FixedHeightResult staticResult =
             ShotCalculator.solveFixedHeightParabola(
-                h0, peakHeightM, passThroughHeightM, staticXp, hoodMinAngleDeg, hoodMaxAngleDeg);
+                h0, peakHeightM, passThroughHeightM, staticD, effectiveHoodMin, hoodMaxAngleDeg);
         if (staticResult.achievable()) {
           double staticTheta = Math.toRadians(staticResult.launchAngleDeg());
           double tof =
               ShotCalculator.calculateTimeOfFlight(
-                  staticResult.exitVelocityMps(), staticTheta, staticXp);
+                  staticResult.exitVelocityMps(), staticTheta, staticD);
           if (tof > 0 && tof < Double.MAX_VALUE) {
             compensatedTarget =
                 ShotCalculator.clampAimOffset(
@@ -93,22 +90,21 @@ public class FixedHeightShotStrategy implements ShotStrategy {
       }
     }
 
-    // Compute pass-through distance for the (possibly shifted) target
+    // Distance to the (possibly shifted) pass-through point — no offset, target IS the
+    // pass-through
     double D = Math.hypot(compensatedTarget.getX() - turretX, compensatedTarget.getY() - turretY);
-    double x_p = D - horizontalOffsetM;
 
     // Log inputs
-    Logger.recordOutput("Shots/FixedHeight/DistanceM", D);
-    Logger.recordOutput("Shots/FixedHeight/DistanceIn", D / INCHES_TO_METERS);
-    Logger.recordOutput("Shots/FixedHeight/TurretHeightIn", h0 / INCHES_TO_METERS);
-    Logger.recordOutput("Shots/FixedHeight/PeakHeightIn", peakHeightIn.get());
-    Logger.recordOutput("Shots/FixedHeight/PassThroughHeightIn", passThroughHeightIn.get());
-    Logger.recordOutput("Shots/FixedHeight/PassThroughDistM", x_p);
+    Logger.recordOutput("Shots/FixedHeightPass/DistanceM", D);
+    Logger.recordOutput("Shots/FixedHeightPass/DistanceIn", D / INCHES_TO_METERS);
+    Logger.recordOutput("Shots/FixedHeightPass/PeakHeightIn", peakHeightIn.get());
+    Logger.recordOutput(
+        "Shots/FixedHeightPass/PassThroughHeightIn", passThroughHeightM / INCHES_TO_METERS);
 
     // Solve the parabola
     ShotCalculator.FixedHeightResult result =
         ShotCalculator.solveFixedHeightParabola(
-            h0, peakHeightM, passThroughHeightM, x_p, hoodMinAngleDeg, hoodMaxAngleDeg);
+            h0, peakHeightM, passThroughHeightM, D, effectiveHoodMin, hoodMaxAngleDeg);
 
     if (!result.achievable()) {
       logFailure("%s at D=%.2fm", result.failureReason(), D);
@@ -121,20 +117,21 @@ public class FixedHeightShotStrategy implements ShotStrategy {
     double velocity = result.exitVelocityMps();
 
     // Log trajectory values
-    Logger.recordOutput("Shots/FixedHeight/VertexXM", result.vertexXM());
-    Logger.recordOutput("Shots/FixedHeight/LaunchAngleDeg", thetaDeg);
-    Logger.recordOutput("Shots/FixedHeight/HoodAngleDeg", hoodAngleDeg);
-    Logger.recordOutput("Shots/FixedHeight/Clamped", result.clamped());
+    Logger.recordOutput("Shots/FixedHeightPass/VertexXM", result.vertexXM());
+    Logger.recordOutput("Shots/FixedHeightPass/LaunchAngleDeg", thetaDeg);
+    Logger.recordOutput("Shots/FixedHeightPass/HoodAngleDeg", hoodAngleDeg);
+    Logger.recordOutput("Shots/FixedHeightPass/Clamped", result.clamped());
     if (result.clamped()) {
       Logger.recordOutput(
-          "Shots/FixedHeight/ActualPeakHeightIn", result.actualPeakHeightM() / INCHES_TO_METERS);
+          "Shots/FixedHeightPass/ActualPeakHeightIn",
+          result.actualPeakHeightM() / INCHES_TO_METERS);
     }
 
     // Convert to RPM
     double rpm = ShotCalculator.calculateRPMForVelocity(velocity, D);
 
-    Logger.recordOutput("Shots/FixedHeight/ExitVelocityMps", velocity);
-    Logger.recordOutput("Shots/FixedHeight/RPM", rpm);
+    Logger.recordOutput("Shots/FixedHeightPass/ExitVelocityMps", velocity);
+    Logger.recordOutput("Shots/FixedHeightPass/RPM", rpm);
 
     // Check RPM limits
     if (rpm < minRPM.get() || rpm > maxRPM.get()) {
@@ -142,13 +139,7 @@ public class FixedHeightShotStrategy implements ShotStrategy {
       return new ShotCalculator.ShotResult(0, 0, 0, hoodAngleDeg, 0, target, false);
     }
 
-    // Build the pass-through point in field coordinates for the visualizer
-    double dirX = (compensatedTarget.getX() - turretX) / D;
-    double dirY = (compensatedTarget.getY() - turretY) / D;
-    Translation3d aimTarget =
-        new Translation3d(turretX + dirX * x_p, turretY + dirY * x_p, passThroughHeightM);
-
-    // Calculate turret angle to the velocity-compensated hub center
+    // Turret aims at the pass-through point direction
     double turretAngleDeg =
         ShotCalculator.calculateOutsideTurretAngle(
             robotPose.getX(),
@@ -164,7 +155,7 @@ public class FixedHeightShotStrategy implements ShotStrategy {
     // Status logging
     if (result.clamped()) {
       Logger.recordOutput(
-          "Shots/FixedHeight/Status",
+          "Shots/FixedHeightPass/Status",
           String.format(
               "CLAMPED: hood at %s %.0f°, peak %s to %.0fin (tuned %.0fin) at D=%.2fm",
               result.clampedLow() ? "min" : "max",
@@ -174,22 +165,22 @@ public class FixedHeightShotStrategy implements ShotStrategy {
               peakHeightIn.get(),
               D));
     } else {
-      Logger.recordOutput("Shots/FixedHeight/Status", "OK");
+      Logger.recordOutput("Shots/FixedHeightPass/Status", "OK");
     }
-    Logger.recordOutput("Shots/FixedHeight/Achievable", true);
+    Logger.recordOutput("Shots/FixedHeightPass/Achievable", true);
 
     return new ShotCalculator.ShotResult(
-        velocity, rpm, theta, hoodAngleDeg, turretAngleDeg, aimTarget, true);
+        velocity, rpm, theta, hoodAngleDeg, turretAngleDeg, compensatedTarget, true);
   }
 
   private static void logFailure(String format, Object... args) {
     String msg = "FAIL: " + String.format(format, args);
-    Logger.recordOutput("Shots/FixedHeight/Status", msg);
-    Logger.recordOutput("Shots/FixedHeight/Achievable", false);
+    Logger.recordOutput("Shots/FixedHeightPass/Status", msg);
+    Logger.recordOutput("Shots/FixedHeightPass/Achievable", false);
   }
 
   @Override
   public String getName() {
-    return "FixedHeight";
+    return "FixedHeightPass";
   }
 }
