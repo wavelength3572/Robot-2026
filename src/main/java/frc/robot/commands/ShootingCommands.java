@@ -12,7 +12,6 @@ import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.shooting.ShotCalculator;
 import frc.robot.subsystems.shooting.ShotVisualizer;
-import frc.robot.subsystems.shooting.StationaryShotBatchRecorder;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.turret.Turret.TurretState;
@@ -276,9 +275,6 @@ public class ShootingCommands {
     SmartDashboard.putBoolean("Match/Status/ReadyTurret", false);
     SmartDashboard.putString("Match/Status/State", "Idle");
 
-    // Measured TOF input — students fill this in from slow-mo camera analysis
-    // (seconds)
-    SmartDashboard.putNumber("LUTDev/MeasuredTOF_s", 0.0);
   }
 
   /**
@@ -675,7 +671,7 @@ public class ShootingCommands {
                     double hoodDeg = getEffectiveHoodDeg(shot);
                     double effectiveRPM = coordinator.getEffectiveLauncherRPM(rpm);
                     launcher.setVelocity(Math.max(effectiveRPM, 1500));
-                    coordinator.getBatchRecorder().cacheParams(rpm, hoodDeg);
+                    // Shot params logged via AdvantageKit
                   } else {
                     launcher.setVelocity(1500);
                   }
@@ -823,12 +819,6 @@ public class ShootingCommands {
               setMode(ShootingMode.COMPETITION);
               coordinator.setSmartLaunchActive(true, armTrigger);
 
-              // Start a LUT batch
-              ShotVisualizer vis = coordinator.getVisualizer();
-              if (vis != null) {
-                coordinator.getBatchRecorder().startBatch(vis.getFuelCount());
-              }
-
               Logger.recordOutput("SmartLaunch/Phase", "SM_ACTIVE");
               SmartDashboard.putString("Match/Status/State", "SmartLaunch 2.0 - Active");
             })
@@ -920,249 +910,5 @@ public class ShootingCommands {
         });
   }
 
-  // ===== LUT Dev Mode Commands =====
 
-  /**
-   * Calculate horizontal distance from turret to hub center.
-   *
-   * @param robotPose Current robot pose
-   * @param config Turret geometry config
-   * @return Distance in meters
-   */
-  private static double calculateDistanceToHub(
-      Pose2d robotPose, ShotCalculator.TurretConfig config) {
-    double robotHeadingRad = robotPose.getRotation().getRadians();
-    double[] turretFieldPos =
-        ShotCalculator.getTurretFieldPosition(
-            robotPose.getX(), robotPose.getY(), robotHeadingRad, config);
-    double hubX = frc.robot.FieldConstants.Hub.innerCenterPoint.getX();
-    double hubY = frc.robot.FieldConstants.Hub.innerCenterPoint.getY();
-    return Math.sqrt(Math.pow(hubX - turretFieldPos[0], 2) + Math.pow(hubY - turretFieldPos[1], 2));
-  }
-
-  /**
-   * End a batch and record LUT data. Call after firing a hopper of fuel from a stationary position.
-   * Press success if the shots scored, miss if they didn't. Writes clean LUT data (success only)
-   * and full batch log (all attempts).
-   *
-   * @param coordinator Provides pose, current shot, and batch recorder
-   * @param launcher For target RPM
-   * @param turret For turret angle
-   * @param hood For hood angle (can be null)
-   * @param successful Whether the batch scored
-   * @return Command that ends the batch and records data
-   */
-  public static Command recordBatchCommand(
-      ShootingCoordinator coordinator,
-      Launcher launcher,
-      Turret turret,
-      Hood hood,
-      boolean successful) {
-    return Commands.runOnce(
-            () -> {
-              if (coordinator.getRobotPoseSupplier() == null) {
-                System.out.println("[LUTDev] Cannot record — no pose supplier");
-                return;
-              }
-
-              StationaryShotBatchRecorder recorder = coordinator.getBatchRecorder();
-
-              Pose2d robotPose = coordinator.getRobotPoseSupplier().get();
-              ShotCalculator.TurretConfig config = coordinator.getTurretConfig();
-              double distance = calculateDistanceToHub(robotPose, config);
-
-              // Use cached params from SmartLaunch (survive after command ends)
-              double rpm = recorder.getCachedRPM();
-              double hoodAngle = recorder.getCachedHoodAngleDeg();
-              double turretAngle = turret.getOutsideCurrentAngle();
-              ShotCalculator.ShotResult currentShot = coordinator.getCurrentShot();
-
-              // Calculate theoretical TOF
-              double exitVelocity = ShotCalculator.calculateExitVelocityFromRPM(rpm);
-              double theoreticalTOF = 0.0;
-              if (currentShot != null && currentShot.exitVelocityMps() > 0) {
-                theoreticalTOF =
-                    ShotCalculator.calculateTimeOfFlight(
-                        currentShot.exitVelocityMps(), currentShot.launchAngleRad(), distance);
-              } else {
-                theoreticalTOF = distance / Math.max(exitVelocity * 0.8, 1.0);
-              }
-
-              // Read measured TOF from dashboard (students input from slow-mo camera)
-              double measuredTOF = SmartDashboard.getNumber("LUTDev/MeasuredTOF_s", 0.0);
-
-              // Get current fuel count for batch calculation
-              ShotVisualizer visualizer = coordinator.getVisualizer();
-              int currentFuel = visualizer != null ? visualizer.getFuelCount() : 0;
-
-              int fuelFired =
-                  recorder.endBatch(
-                      Timer.getFPGATimestamp(),
-                      robotPose.getX(),
-                      robotPose.getY(),
-                      distance,
-                      rpm,
-                      hoodAngle,
-                      turretAngle,
-                      theoreticalTOF,
-                      measuredTOF,
-                      currentFuel,
-                      successful);
-
-              // Reset measured TOF input after recording
-              SmartDashboard.putNumber("LUTDev/MeasuredTOF_s", 0.0);
-
-              // Auto-reload LUT after recording a success
-              if (successful) {
-                coordinator.reloadLUTData();
-              }
-
-              // Log to AdvantageKit
-              Logger.recordOutput("LUTDev/LastDistance", distance);
-              Logger.recordOutput("LUTDev/LastRPM", rpm);
-              Logger.recordOutput("LUTDev/LastHoodDeg", hoodAngle);
-              Logger.recordOutput("LUTDev/LastTheoreticalTOF", theoreticalTOF);
-              Logger.recordOutput("LUTDev/LastMeasuredTOF", measuredTOF);
-              Logger.recordOutput("LUTDev/LastFuelFired", fuelFired);
-              Logger.recordOutput("LUTDev/LastSuccessful", successful);
-              Logger.recordOutput("LUTDev/LUTEntries", recorder.getLUTEntryCount());
-              Logger.recordOutput("LUTDev/BatchCount", recorder.getBatchCount());
-              Logger.recordOutput("LUTDev/SuccessCount", recorder.getSuccessCount());
-              Logger.recordOutput("LUTDev/MissCount", recorder.getMissCount());
-              Logger.recordOutput("LUTDev/BatchLog", recorder.getBatchSummaries());
-
-              // Summary string for quick dashboard verification
-              String summary =
-                  (successful ? "HIT" : "MISS")
-                      + " | "
-                      + String.format("%.2fm", distance)
-                      + " | RPM="
-                      + String.format("%.0f", rpm)
-                      + " | Hood="
-                      + String.format("%.1f°", hoodAngle)
-                      + " | TOF="
-                      + String.format("%.3fs", measuredTOF > 0 ? measuredTOF : theoreticalTOF);
-              SmartDashboard.putString("LUTDev/LastEntry", summary);
-
-              // Console output
-              System.out.println("[LUTDev] Batch " + summary + " | " + fuelFired + " fuel fired");
-            })
-        .ignoringDisable(true)
-        .withName("Record Batch " + (successful ? "Success" : "Miss"));
-  }
-
-  /**
-   * Command to reload LUT data from disk into the active lookup table.
-   *
-   * @param coordinator The shooting coordinator
-   * @return Command that reloads LUT data
-   */
-  public static Command reloadLUTCommand(ShootingCoordinator coordinator) {
-    return Commands.runOnce(coordinator::reloadLUTData)
-        .ignoringDisable(true)
-        .withName("Reload LUT Data");
-  }
-
-  /**
-   * Command to clear all recorded LUT and batch log data.
-   *
-   * @param coordinator The shooting coordinator
-   * @return Command that clears all data
-   */
-  public static Command clearLUTDataCommand(ShootingCoordinator coordinator) {
-    return Commands.runOnce(
-            () -> {
-              coordinator.getBatchRecorder().clearAll();
-              coordinator.reloadLUTData();
-              System.out.println("[LUTDev] All data cleared (LUT + batch log)");
-            })
-        .ignoringDisable(true)
-        .withName("Clear LUT Data");
-  }
-
-  /**
-   * Command to remove the last LUT entry (undo a bad recording).
-   *
-   * @param coordinator The shooting coordinator
-   * @return Command that removes the last entry
-   */
-  public static Command undoLastLUTEntryCommand(ShootingCoordinator coordinator) {
-    return Commands.runOnce(
-            () -> {
-              String removed = coordinator.getBatchRecorder().removeLastLUTEntry();
-              if (removed != null) {
-                coordinator.reloadLUTData();
-                SmartDashboard.putString("LUTDev/LastEntry", "UNDONE: " + removed);
-                System.out.println("[LUTDev] Removed last entry: " + removed);
-              } else {
-                SmartDashboard.putString("LUTDev/LastEntry", "Nothing to undo");
-                System.out.println("[LUTDev] No entries to remove");
-              }
-            })
-        .ignoringDisable(true)
-        .withName("Undo Last LUT Entry");
-  }
-
-  /**
-   * Command to remove a specific LUT entry by index (shown in LUTDev/LUTData).
-   *
-   * @param coordinator The shooting coordinator
-   * @return Command that removes the entry at the index in LUTDev/RemoveIndex
-   */
-  public static Command removeLUTEntryCommand(ShootingCoordinator coordinator) {
-    return Commands.runOnce(
-            () -> {
-              int index = (int) SmartDashboard.getNumber("LUTDev/RemoveIndex", -1);
-              if (index < 0) {
-                SmartDashboard.putString("LUTDev/LastEntry", "Set RemoveIndex first");
-                return;
-              }
-              String removed = coordinator.getBatchRecorder().removeLUTEntry(index);
-              if (removed != null) {
-                coordinator.reloadLUTData();
-                SmartDashboard.putString("LUTDev/LastEntry", "REMOVED: " + removed);
-                System.out.println("[LUTDev] Removed entry: " + removed);
-              } else {
-                SmartDashboard.putString("LUTDev/LastEntry", "Invalid index: " + index);
-                System.out.println("[LUTDev] Invalid index: " + index);
-              }
-            })
-        .ignoringDisable(true)
-        .withName("Remove LUT Entry");
-  }
-
-  /**
-   * LUT dev mode logging command. Runs continuously to output useful info to the dashboard while
-   * collecting LUT data.
-   *
-   * @param coordinator The shooting coordinator
-   * @param turret For current distance calculation
-   * @return Command that logs LUT dev info each cycle
-   */
-  public static Command lutDevModeCommand(ShootingCoordinator coordinator, Turret turret) {
-    return Commands.run(
-            () -> {
-              if (coordinator.getRobotPoseSupplier() == null) return;
-
-              Pose2d robotPose = coordinator.getRobotPoseSupplier().get();
-              double distance = calculateDistanceToHub(robotPose, coordinator.getTurretConfig());
-
-              ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
-              StationaryShotBatchRecorder recorder = coordinator.getBatchRecorder();
-
-              Logger.recordOutput("LUTDev/CurrentDistance", distance);
-              Logger.recordOutput("LUTDev/SuggestedRPM", shot != null ? shot.launcherRPM() : 0.0);
-              Logger.recordOutput(
-                  "LUTDev/SuggestedHoodDeg", shot != null ? shot.hoodAngleDeg() : 0.0);
-              Logger.recordOutput("LUTDev/BatchActive", recorder.isBatchActive());
-              Logger.recordOutput("LUTDev/LUTEntries", coordinator.getLookupTable().size());
-              Logger.recordOutput("LUTDev/BatchCount", recorder.getBatchCount());
-              Logger.recordOutput("LUTDev/SuccessCount", recorder.getSuccessCount());
-              Logger.recordOutput("LUTDev/MissCount", recorder.getMissCount());
-              Logger.recordOutput("LUTDev/OverridesActive", isLutDevOverrideActive());
-              Logger.recordOutput("LUTDev/LUTData", recorder.getLUTSummaries());
-            })
-        .ignoringDisable(true)
-        .withName("LUT Dev Mode");
-  }
 }
