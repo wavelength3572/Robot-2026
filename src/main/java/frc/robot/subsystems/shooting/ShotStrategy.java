@@ -5,9 +5,8 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 
 /**
- * Strategy interface for computing hub shot parameters. Implementations provide different ways to
- * determine RPM, hood angle, and turret angle — from physics equations (Parametric), empirical
- * lookup tables (LUT), or a blend of both (Hybrid).
+ * Strategy interface for computing shot parameters. Implementations provide different ways to
+ * determine RPM, hood angle, and turret angle for a given target.
  *
  * <p>All strategies receive the same inputs and produce a {@link ShotCalculator.ShotResult}.
  */

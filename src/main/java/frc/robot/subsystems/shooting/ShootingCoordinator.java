@@ -855,7 +855,7 @@ public class ShootingCoordinator extends SubsystemBase {
       // the
       // motivator's contribution to ball speed. Solving for the velocity that hits
       // the target
-      // at the given launch angle matches real-world LUT shot behavior.
+      // at the given launch angle matches real-world shot behavior.
       double distanceToTarget =
           Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
       double heightDelta = target.getZ() - turretConfig.heightMeters();

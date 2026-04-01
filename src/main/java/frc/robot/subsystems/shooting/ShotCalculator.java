@@ -25,8 +25,8 @@ public final class ShotCalculator {
   private static final double HOOD_SURFACE_SPEED_RATIO = 1.0 / 1.41; // hood rolls slower
 
   // Mechanical roller-to-ball transfer efficiency, interpolated by distance.
-  // Derived from LUT calibration data by back-calculating the exit velocity each LUT entry's
-  // own arc (hood angle) requires to hit the hub, then dividing by the average surface velocity
+  // Derived from calibration data by back-calculating the exit velocity each entry's
+  // arc (hood angle) requires to hit the hub, then dividing by the average surface velocity
   // at that RPM. Efficiency varies with distance/RPM — higher RPM (longer range) tends to have
   // more ball compression and slip, reducing effective efficiency.
   //
