@@ -56,16 +56,16 @@ public class ZoneDetector {
   // How far into alliance trench (meters) the neutral trench boundary is shifted toward
   // the alliance side. Gives the hood time to lower before reaching the physical barrier.
   private static final LoggedTunableNumber trenchAllianceBufferM =
-      new LoggedTunableNumber("Shots/Zones/TrenchAllianceBufferM", 0.3);
+      new LoggedTunableNumber("Shots/Zones/TrenchAllianceBufferM", Constants.getRobotConfig().getZoneTrenchAllianceBufferM());
 
   private static final LoggedTunableNumber zoneBoundaryClose =
-      new LoggedTunableNumber("Shots/Zones/CloseDist", 2.0);
+      new LoggedTunableNumber("Shots/Zones/CloseDist", Constants.getRobotConfig().getZoneCloseDist());
   private static final LoggedTunableNumber zoneBoundaryMid =
-      new LoggedTunableNumber("Shots/Zones/MidDist", 3.5);
+      new LoggedTunableNumber("Shots/Zones/MidDist", Constants.getRobotConfig().getZoneMidDist());
   private static final LoggedTunableNumber zoneBoundaryFar =
-      new LoggedTunableNumber("Shots/Zones/FarDist", 4.1);
+      new LoggedTunableNumber("Shots/Zones/FarDist", Constants.getRobotConfig().getZoneFarDist());
   private static final LoggedTunableNumber zoneBoundaryCorner =
-      new LoggedTunableNumber("Shots/Zones/CornerDist", 5.1);
+      new LoggedTunableNumber("Shots/Zones/CornerDist", Constants.getRobotConfig().getZoneCornerDist());
 
   /** Get the close zone boundary distance (meters). */
   public static double getZoneBoundaryClose() {

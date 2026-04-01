@@ -87,68 +87,68 @@ public class ShootingCommands {
 
   // Hub shot — close-range shot into the hub
   private static final LoggedTunableNumber hubShotLauncherRPM =
-      new LoggedTunableNumber("Shots/HubShot/LauncherRPM", 2450.0);
+      new LoggedTunableNumber("Shots/HubShot/LauncherRPM", Constants.getRobotConfig().getHubShotLauncherRPM());
   private static final LoggedTunableNumber hubShotHoodAngleDeg =
-      new LoggedTunableNumber("Shots/HubShot/HoodAngleDeg", 15.0);
+      new LoggedTunableNumber("Shots/HubShot/HoodAngleDeg", Constants.getRobotConfig().getHubShotHoodAngleDeg());
   private static final LoggedTunableNumber hubShotTurretAngleDeg =
-      new LoggedTunableNumber("Shots/HubShot/TurretAngleDeg", -90);
+      new LoggedTunableNumber("Shots/HubShot/TurretAngleDeg", Constants.getRobotConfig().getHubShotTurretAngleDeg());
   private static final LoggedTunableNumber hubShotMotivatorRPM =
-      new LoggedTunableNumber("Shots/HubShot/MotivatorRPM", 1300.0);
+      new LoggedTunableNumber("Shots/HubShot/MotivatorRPM", Constants.getRobotConfig().getHubShotMotivatorRPM());
   private static final LoggedTunableNumber hubShotSpindexerRPM =
-      new LoggedTunableNumber("Shots/HubShot/SpindexerRPM", 325.0);
+      new LoggedTunableNumber("Shots/HubShot/SpindexerRPM", Constants.getRobotConfig().getHubShotSpindexerRPM());
 
   // Left trench shot
   private static final LoggedTunableNumber leftTrenchLauncherRPM =
-      new LoggedTunableNumber("Shots/LeftTrench/LauncherRPM", 2650.0);
+      new LoggedTunableNumber("Shots/LeftTrench/LauncherRPM", Constants.getRobotConfig().getLeftTrenchLauncherRPM());
   private static final LoggedTunableNumber leftTrenchHoodAngleDeg =
-      new LoggedTunableNumber("Shots/LeftTrench/HoodAngleDeg", 18.0);
+      new LoggedTunableNumber("Shots/LeftTrench/HoodAngleDeg", Constants.getRobotConfig().getLeftTrenchHoodAngleDeg());
   private static final LoggedTunableNumber leftTrenchTurretAngleDeg =
-      new LoggedTunableNumber("Shots/LeftTrench/TurretAngleDeg", 186.5);
+      new LoggedTunableNumber("Shots/LeftTrench/TurretAngleDeg", Constants.getRobotConfig().getLeftTrenchTurretAngleDeg());
   private static final LoggedTunableNumber leftTrenchMotivatorRPM =
-      new LoggedTunableNumber("Shots/LeftTrench/MotivatorRPM", 1800.0);
+      new LoggedTunableNumber("Shots/LeftTrench/MotivatorRPM", Constants.getRobotConfig().getLeftTrenchMotivatorRPM());
   private static final LoggedTunableNumber leftTrenchSpindexerRPM =
-      new LoggedTunableNumber("Shots/LeftTrench/SpindexerRPM", 325.0);
+      new LoggedTunableNumber("Shots/LeftTrench/SpindexerRPM", Constants.getRobotConfig().getLeftTrenchSpindexerRPM());
 
   // Right trench shot
   private static final LoggedTunableNumber rightTrenchLauncherRPM =
-      new LoggedTunableNumber("Shots/RightTrench/LauncherRPM", 3169.0);
+      new LoggedTunableNumber("Shots/RightTrench/LauncherRPM", Constants.getRobotConfig().getRightTrenchLauncherRPM());
   private static final LoggedTunableNumber rightTrenchHoodAngleDeg =
-      new LoggedTunableNumber("Shots/RightTrench/HoodAngleDeg", 18.0);
+      new LoggedTunableNumber("Shots/RightTrench/HoodAngleDeg", Constants.getRobotConfig().getRightTrenchHoodAngleDeg());
   private static final LoggedTunableNumber rightTrenchTurretAngleDeg =
-      new LoggedTunableNumber("Shots/RightTrench/TurretAngleDeg", -4.84);
+      new LoggedTunableNumber("Shots/RightTrench/TurretAngleDeg", Constants.getRobotConfig().getRightTrenchTurretAngleDeg());
   private static final LoggedTunableNumber rightTrenchMotivatorRPM =
-      new LoggedTunableNumber("Shots/RightTrench/MotivatorRPM", 1800.0);
+      new LoggedTunableNumber("Shots/RightTrench/MotivatorRPM", Constants.getRobotConfig().getRightTrenchMotivatorRPM());
   private static final LoggedTunableNumber rightTrenchSpindexerRPM =
-      new LoggedTunableNumber("Shots/RightTrench/SpindexerRPM", 325.0);
+      new LoggedTunableNumber("Shots/RightTrench/SpindexerRPM", Constants.getRobotConfig().getRightTrenchSpindexerRPM());
 
   // ===== Robot Tuning (affects real robot behavior) =====
 
   // Motivator RPM as a ratio of launcher RPM: motivatorRPM = launcherRPM * ratio
   private static final LoggedTunableNumber motivatorLauncherRatio =
       new LoggedTunableNumber(
-          "Shots/SmartLaunch/MotivatorLauncherRatio", 0.2); // consider .68 was .565
+          "Shots/SmartLaunch/MotivatorLauncherRatio", Constants.getRobotConfig().getMotivatorLauncherRatio()); // consider .68 was .565
 
   // Spindexer RPM lerped by distance: close = max, far = min
   private static final LoggedTunableNumber spindexerCloseRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 300.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", Constants.getRobotConfig().getSpindexerCloseRPM());
   private static final LoggedTunableNumber spindexerFarRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 300.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", Constants.getRobotConfig().getSpindexerFarRPM());
   // Fixed spindexer RPM used in pass/neutral zones (no distance lerp)
   private static final LoggedTunableNumber spindexerPassRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 375.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", Constants.getRobotConfig().getSpindexerPassRPM());
 
   // ===== Per-Actuator Overrides =====
   // Each actuator can be individually overridden via a dashboard toggle + tunable value.
   // When an override is off, the calculated value is used. When on, the tunable is used.
   // Any combination of 0-4 overrides can be active at once.
   private static final LoggedTunableNumber overrideLauncherRPM =
-      new LoggedTunableNumber("Overrides/LauncherRPM", 2500.0);
+      new LoggedTunableNumber("Overrides/LauncherRPM", Constants.getRobotConfig().getOverrideLauncherRPM());
   private static final LoggedTunableNumber overrideHoodDeg =
-      new LoggedTunableNumber("Overrides/HoodDeg", 25.0);
+      new LoggedTunableNumber("Overrides/HoodDeg", Constants.getRobotConfig().getOverrideHoodDeg());
   private static final LoggedTunableNumber overrideMotivatorRPM =
-      new LoggedTunableNumber("Overrides/MotivatorRPM", 500.0);
+      new LoggedTunableNumber("Overrides/MotivatorRPM", Constants.getRobotConfig().getOverrideMotivatorRPM());
   private static final LoggedTunableNumber overrideSpindexerRPM =
-      new LoggedTunableNumber("Overrides/SpindexerRPM", 300.0);
+      new LoggedTunableNumber("Overrides/SpindexerRPM", Constants.getRobotConfig().getOverrideSpindexerRPM());
 
   // ===== Launcher RPM Trim =====
 

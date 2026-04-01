@@ -577,4 +577,486 @@ public interface RobotConfig {
   default int getClimberCanId() {
     return 0;
   }
+
+  // ========== Turret Tuning ==========
+
+  default double getTurretWarningZoneDeg() {
+    return 20.0;
+  }
+
+  default double getTurretEncoderWarningThresholdDeg() {
+    return 5.0;
+  }
+
+  default double getTurretEncoderErrorThresholdDeg() {
+    return 15.0;
+  }
+
+  // ========== Launcher Tuning ==========
+
+  default double getLauncherRecoveryArbFFPct() {
+    return 0.0;
+  }
+
+  default double getLauncherReadyToleranceRPM() {
+    return 100.0;
+  }
+
+  default double getLauncherRecoveryBoostThresholdRPM() {
+    return 40.0;
+  }
+
+  // ========== Hood Tuning ==========
+
+  default double getHoodReadyToleranceAngleDeg() {
+    return 1.0;
+  }
+
+  // ========== Motivator Tuning ==========
+
+  default double getMotivatorReadyToleranceRPM() {
+    return 100.0;
+  }
+
+  // ========== Spindexer Tuning ==========
+
+  default double getSpindexerUnclogRPM() {
+    return 650.0;
+  }
+
+  default double getSpindexerAutoUnclogStallCurrentAmps() {
+    return 10.0;
+  }
+
+  default double getSpindexerAutoUnclogStallRPMError() {
+    return 20.0;
+  }
+
+  default double getSpindexerAutoUnclogStallDurationSec() {
+    return 0.2;
+  }
+
+  default double getSpindexerAutoUnclogReverseDurationSec() {
+    return 0.50;
+  }
+
+  default double getSpindexerAutoUnclogMaxAttempts() {
+    return 30;
+  }
+
+  default double getSpindexerReciprocateRPM() {
+    return 50.0;
+  }
+
+  default double getSpindexerReciprocateIntervalSec() {
+    return 1.0;
+  }
+
+  default double getSpindexerReadyToleranceRPM() {
+    return 100.0;
+  }
+
+  // ========== Intake Tuning ==========
+
+  default double getIntakeDeployTolerance() {
+    return 0.02;
+  }
+
+  default double getIntakeDeployHoldTolerance() {
+    return 0.0005;
+  }
+
+  default double getIntakeDeployOutputLimit() {
+    return 0.75;
+  }
+
+  default double getIntakeDeployBrakeTimeSec() {
+    return 0.5;
+  }
+
+  default double getIntakeRetractMaxVelocity() {
+    return 30.0;
+  }
+
+  default double getIntakeRetractMaxAcceleration() {
+    return 50.0;
+  }
+
+  default double getIntakeRetractOutputLimit() {
+    return 0.5;
+  }
+
+  default double getIntakeAgitationMaxVelocity() {
+    return 25.0;
+  }
+
+  default double getIntakeAgitationMaxAcceleration() {
+    return 40.0;
+  }
+
+  default double getIntakeAgitationRetractOutputLimit() {
+    return 1.0;
+  }
+
+  default double getIntakeAgitationRetractTarget() {
+    return 0.035;
+  }
+
+  default double getIntakeAgitationTimeoutSec() {
+    return 0.6;
+  }
+
+  default double getIntakeAgitationCoastTimeSec() {
+    return 0.1;
+  }
+
+  default double getIntakeAgitationFallTimeSec() {
+    return 0.2;
+  }
+
+  default double getIntakeAgitationSpeedThresholdMps() {
+    return 0.05;
+  }
+
+  default double getIntakeAgitationStationaryDwellSec() {
+    return 2.0;
+  }
+
+  default double getIntakeRollerMinDeployPosition() {
+    return 0.05;
+  }
+
+  // ========== Shot Calculation ==========
+
+  default double getShotEfficiencyClose() {
+    return 0.7;
+  }
+
+  default double getShotEfficiencyMid() {
+    return 0.7;
+  }
+
+  default double getShotEfficiencyFar() {
+    return 0.7;
+  }
+
+  default double getShotEfficiencyCorner() {
+    return 0.69;
+  }
+
+  default double getShotVelocityCompX() {
+    return 1.0;
+  }
+
+  default double getShotVelocityCompY() {
+    return 1.0;
+  }
+
+  // ========== Zone Boundaries ==========
+
+  default double getZoneTrenchAllianceBufferM() {
+    return 0.3;
+  }
+
+  default double getZoneCloseDist() {
+    return 2.0;
+  }
+
+  default double getZoneMidDist() {
+    return 3.5;
+  }
+
+  default double getZoneFarDist() {
+    return 4.1;
+  }
+
+  default double getZoneCornerDist() {
+    return 5.1;
+  }
+
+  // ========== Fixed Height Shot Strategy ==========
+
+  default double getFixedHeightPeakHeightIn() {
+    return 110.0;
+  }
+
+  default double getFixedHeightPassThroughHeightIn() {
+    return 72.0;
+  }
+
+  default double getFixedHeightHorizontalOffsetIn() {
+    return 10.0;
+  }
+
+  default double getFixedHeightMinRPM() {
+    return 1500.0;
+  }
+
+  default double getFixedHeightMaxRPM() {
+    return 4000.0;
+  }
+
+  // ========== Fixed Height Pass Strategy ==========
+
+  default double getFixedHeightPassPeakHeightIn() {
+    return 65.0;
+  }
+
+  default double getFixedHeightPassMinRPM() {
+    return 1000.0;
+  }
+
+  default double getFixedHeightPassMaxRPM() {
+    return 4500.0;
+  }
+
+  default double getFixedHeightPassHoodMinDeg() {
+    return 18.0;
+  }
+
+  // ========== Shooting Coordinator — Trench Safety ==========
+
+  default double getTrenchHoodMaxDeg() {
+    return 18.0;
+  }
+
+  default double getTrenchSafetySpeedLimitMps() {
+    return 2.0;
+  }
+
+  default double getTrenchMovingThresholdMps() {
+    return 0.6;
+  }
+
+  default double getTrenchHoodClampSpeedMps() {
+    return 0.3;
+  }
+
+  default double getTrenchHoodUnclampSpeedMps() {
+    return 0.5;
+  }
+
+  // ========== Shooting Coordinator — Smart Launch ==========
+
+  default double getSmartLaunchReadyTimeoutSec() {
+    return 3.0;
+  }
+
+  default double getShootOnTheMoveSpeedMps() {
+    return 1.25;
+  }
+
+  default double getPassSpeedMps() {
+    return 3.0;
+  }
+
+  default double getAutoPassSpeedMps() {
+    return 1.1;
+  }
+
+  default double getPassMaxRPM() {
+    return 4000.0;
+  }
+
+  // ========== Shooting Coordinator — Pass Adjustments ==========
+
+  default double getPassLeftAdjustX() {
+    return 0.0;
+  }
+
+  default double getPassLeftAdjustY() {
+    return 0.0;
+  }
+
+  default double getPassRightAdjustX() {
+    return 0.0;
+  }
+
+  default double getPassRightAdjustY() {
+    return 0.0;
+  }
+
+  default double getSymmetricArcPeakHeightMinIn() {
+    return 50.0;
+  }
+
+  default double getSymmetricArcPeakHeightMaxIn() {
+    return 58.0;
+  }
+
+  default double getSymmetricArcDistMinM() {
+    return 4.0;
+  }
+
+  default double getSymmetricArcDistMaxM() {
+    return 12.0;
+  }
+
+  default double getPassRpmPerDegCompensation() {
+    return 50.0;
+  }
+
+  default double getPassMaxRpmCompensation() {
+    return 200.0;
+  }
+
+  default double getLobNetClearanceMarginM() {
+    return 0.3;
+  }
+
+  default double getLobMaxPeakHeightM() {
+    return 5.0;
+  }
+
+  default double getLobMinHubDistM() {
+    return 4.0;
+  }
+
+  default double getLobStation1AdjustY() {
+    return 0.0;
+  }
+
+  default double getLobStation3AdjustY() {
+    return 0.0;
+  }
+
+  // ========== Shooting Commands — Preset Shots ==========
+
+  default double getHubShotLauncherRPM() {
+    return 2450.0;
+  }
+
+  default double getHubShotHoodAngleDeg() {
+    return 15.0;
+  }
+
+  default double getHubShotTurretAngleDeg() {
+    return -90.0;
+  }
+
+  default double getHubShotMotivatorRPM() {
+    return 1300.0;
+  }
+
+  default double getHubShotSpindexerRPM() {
+    return 325.0;
+  }
+
+  default double getLeftTrenchLauncherRPM() {
+    return 2650.0;
+  }
+
+  default double getLeftTrenchHoodAngleDeg() {
+    return 18.0;
+  }
+
+  default double getLeftTrenchTurretAngleDeg() {
+    return 186.5;
+  }
+
+  default double getLeftTrenchMotivatorRPM() {
+    return 1800.0;
+  }
+
+  default double getLeftTrenchSpindexerRPM() {
+    return 325.0;
+  }
+
+  default double getRightTrenchLauncherRPM() {
+    return 3169.0;
+  }
+
+  default double getRightTrenchHoodAngleDeg() {
+    return 18.0;
+  }
+
+  default double getRightTrenchTurretAngleDeg() {
+    return -4.84;
+  }
+
+  default double getRightTrenchMotivatorRPM() {
+    return 1800.0;
+  }
+
+  default double getRightTrenchSpindexerRPM() {
+    return 325.0;
+  }
+
+  // ========== Shooting Commands — Feed Ratios ==========
+
+  default double getMotivatorLauncherRatio() {
+    return 0.2;
+  }
+
+  default double getSpindexerCloseRPM() {
+    return 300.0;
+  }
+
+  default double getSpindexerFarRPM() {
+    return 300.0;
+  }
+
+  default double getSpindexerPassRPM() {
+    return 375.0;
+  }
+
+  // ========== Shooting Commands — Override Defaults ==========
+
+  default double getOverrideLauncherRPM() {
+    return 2500.0;
+  }
+
+  default double getOverrideHoodDeg() {
+    return 25.0;
+  }
+
+  default double getOverrideMotivatorRPM() {
+    return 500.0;
+  }
+
+  default double getOverrideSpindexerRPM() {
+    return 300.0;
+  }
+
+  // ========== Dashboard Tuning Defaults ==========
+
+  default double getTuningLauncherVelocity() {
+    return 1700.0;
+  }
+
+  default double getTuningMotivatorVelocity() {
+    return 1000.0;
+  }
+
+  default double getTuningSpindexerVelocity() {
+    return 1000.0;
+  }
+
+  default double getTuningHoodAngle() {
+    return 15.0;
+  }
+
+  default double getTuningTurretOutsideAngle() {
+    return 0.0;
+  }
+
+  default double getTuningIntakeDeployedVelocity() {
+    return 2000.0;
+  }
+
+  default double getTuningIntakeRetractRollerVelocity() {
+    return 1000.0;
+  }
+
+  // ========== Drive Tuning ==========
+
+  default double getDriveSpeedLimitRampRateMps2() {
+    return 4.0;
+  }
+
+  // ========== Hub Shift ==========
+
+  default double getHubShiftPreActiveCutoffSec() {
+    return 10.0;
+  }
 }

@@ -3,6 +3,7 @@ package frc.robot.subsystems.shooting;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.Constants;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
@@ -25,18 +26,18 @@ public class FixedHeightPassStrategy implements ShotStrategy {
 
   // Peak height for passes — lower than hub shots since we're clearing an obstacle, not scoring
   private static final LoggedTunableNumber peakHeightIn =
-      new LoggedTunableNumber("Shots/FixedHeightPass/PeakHeightIn", 65.0);
+      new LoggedTunableNumber("Shots/FixedHeightPass/PeakHeightIn", Constants.getRobotConfig().getFixedHeightPassPeakHeightIn());
 
   // RPM limits for passes
   private static final LoggedTunableNumber minRPM =
-      new LoggedTunableNumber("Shots/FixedHeightPass/MinRPM", 1000.0);
+      new LoggedTunableNumber("Shots/FixedHeightPass/MinRPM", Constants.getRobotConfig().getFixedHeightPassMinRPM());
 
   private static final LoggedTunableNumber maxRPM =
-      new LoggedTunableNumber("Shots/FixedHeightPass/MaxRPM", 4500.0);
+      new LoggedTunableNumber("Shots/FixedHeightPass/MaxRPM", Constants.getRobotConfig().getFixedHeightPassMaxRPM());
 
   // Hood floor for passes — prevents near-vertical launches
   private static final LoggedTunableNumber hoodMinFloor =
-      new LoggedTunableNumber("Shots/FixedHeightPass/HoodMinDeg", 18.0);
+      new LoggedTunableNumber("Shots/FixedHeightPass/HoodMinDeg", Constants.getRobotConfig().getFixedHeightPassHoodMinDeg());
 
   @Override
   public ShotCalculator.ShotResult calculateShot(

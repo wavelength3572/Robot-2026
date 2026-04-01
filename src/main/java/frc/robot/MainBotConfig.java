@@ -213,6 +213,155 @@ public class MainBotConfig implements RobotConfig {
   // Climb Configuration:
   private static final int climberMotorCanId = 30;
 
+  // ========== Turret Tuning ==========
+  private static final double turretWarningZoneDeg = 20.0;
+  private static final double turretEncoderWarningThresholdDeg = 5.0;
+  private static final double turretEncoderErrorThresholdDeg = 15.0;
+
+  // ========== Launcher Tuning ==========
+  private static final double launcherRecoveryArbFFPct = 0.0;
+  private static final double launcherReadyToleranceRPM = 100.0;
+  private static final double launcherRecoveryBoostThresholdRPM = 40.0;
+
+  // ========== Hood Tuning ==========
+  private static final double hoodReadyToleranceAngleDeg = 1.0;
+
+  // ========== Motivator Tuning ==========
+  private static final double motivatorReadyToleranceRPM = 100.0;
+
+  // ========== Spindexer Tuning ==========
+  private static final double spindexerUnclogRPM = 650.0;
+  private static final double spindexerAutoUnclogStallCurrentAmps = 10.0;
+  private static final double spindexerAutoUnclogStallRPMError = 20.0;
+  private static final double spindexerAutoUnclogStallDurationSec = 0.2;
+  private static final double spindexerAutoUnclogReverseDurationSec = 0.50;
+  private static final double spindexerAutoUnclogMaxAttempts = 30;
+  private static final double spindexerReciprocateRPM = 50.0;
+  private static final double spindexerReciprocateIntervalSec = 1.0;
+  private static final double spindexerReadyToleranceRPM = 100.0;
+
+  // ========== Intake Tuning ==========
+  private static final double intakeDeployTolerance = 0.02;
+  private static final double intakeDeployHoldTolerance = 0.0005;
+  private static final double intakeDeployOutputLimit = 0.75;
+  private static final double intakeDeployBrakeTimeSec = 0.5;
+  private static final double intakeRetractMaxVelocity = 30.0;
+  private static final double intakeRetractMaxAcceleration = 50.0;
+  private static final double intakeRetractOutputLimit = 0.5;
+  private static final double intakeAgitationMaxVelocity = 25.0;
+  private static final double intakeAgitationMaxAcceleration = 40.0;
+  private static final double intakeAgitationRetractOutputLimit = 1.0;
+  private static final double intakeAgitationRetractTarget = 0.035;
+  private static final double intakeAgitationTimeoutSec = 0.6;
+  private static final double intakeAgitationCoastTimeSec = 0.1;
+  private static final double intakeAgitationFallTimeSec = 0.2;
+  private static final double intakeAgitationSpeedThresholdMps = 0.05;
+  private static final double intakeAgitationStationaryDwellSec = 2.0;
+  private static final double intakeRollerMinDeployPosition = 0.05;
+
+  // ========== Shot Calculation ==========
+  private static final double shotEfficiencyClose = 0.7;
+  private static final double shotEfficiencyMid = 0.7;
+  private static final double shotEfficiencyFar = 0.7;
+  private static final double shotEfficiencyCorner = 0.69;
+  private static final double shotVelocityCompX = 1.0;
+  private static final double shotVelocityCompY = 1.0;
+
+  // ========== Zone Boundaries ==========
+  private static final double zoneTrenchAllianceBufferM = 0.3;
+  private static final double zoneCloseDist = 2.0;
+  private static final double zoneMidDist = 3.5;
+  private static final double zoneFarDist = 4.1;
+  private static final double zoneCornerDist = 5.1;
+
+  // ========== Fixed Height Shot Strategy ==========
+  private static final double fixedHeightPeakHeightIn = 110.0;
+  private static final double fixedHeightPassThroughHeightIn = 72.0;
+  private static final double fixedHeightHorizontalOffsetIn = 10.0;
+  private static final double fixedHeightMinRPM = 1500.0;
+  private static final double fixedHeightMaxRPM = 4000.0;
+
+  // ========== Fixed Height Pass Strategy ==========
+  private static final double fixedHeightPassPeakHeightIn = 65.0;
+  private static final double fixedHeightPassMinRPM = 1000.0;
+  private static final double fixedHeightPassMaxRPM = 4500.0;
+  private static final double fixedHeightPassHoodMinDeg = 18.0;
+
+  // ========== Shooting Coordinator — Trench Safety ==========
+  private static final double trenchHoodMaxDeg = 18.0;
+  private static final double trenchSafetySpeedLimitMps = 2.0;
+  private static final double trenchMovingThresholdMps = 0.6;
+  private static final double trenchHoodClampSpeedMps = 0.3;
+  private static final double trenchHoodUnclampSpeedMps = 0.5;
+
+  // ========== Shooting Coordinator — Smart Launch ==========
+  private static final double smartLaunchReadyTimeoutSec = 3.0;
+  private static final double shootOnTheMoveSpeedMps = 1.25;
+  private static final double passSpeedMps = 3.0;
+  private static final double autoPassSpeedMps = 1.1;
+  private static final double passMaxRPM = 4000.0;
+
+  // ========== Shooting Coordinator — Pass Adjustments ==========
+  private static final double passLeftAdjustX = 0.0;
+  private static final double passLeftAdjustY = 0.0;
+  private static final double passRightAdjustX = 0.0;
+  private static final double passRightAdjustY = 0.0;
+  private static final double symmetricArcPeakHeightMinIn = 50.0;
+  private static final double symmetricArcPeakHeightMaxIn = 58.0;
+  private static final double symmetricArcDistMinM = 4.0;
+  private static final double symmetricArcDistMaxM = 12.0;
+  private static final double passRpmPerDegCompensation = 50.0;
+  private static final double passMaxRpmCompensation = 200.0;
+  private static final double lobNetClearanceMarginM = 0.3;
+  private static final double lobMaxPeakHeightM = 5.0;
+  private static final double lobMinHubDistM = 4.0;
+  private static final double lobStation1AdjustY = 0.0;
+  private static final double lobStation3AdjustY = 0.0;
+
+  // ========== Shooting Commands — Preset Shots ==========
+  private static final double hubShotLauncherRPM = 2450.0;
+  private static final double hubShotHoodAngleDeg = 15.0;
+  private static final double hubShotTurretAngleDeg = -90.0;
+  private static final double hubShotMotivatorRPM = 1300.0;
+  private static final double hubShotSpindexerRPM = 325.0;
+  private static final double leftTrenchLauncherRPM = 2650.0;
+  private static final double leftTrenchHoodAngleDeg = 18.0;
+  private static final double leftTrenchTurretAngleDeg = 186.5;
+  private static final double leftTrenchMotivatorRPM = 1800.0;
+  private static final double leftTrenchSpindexerRPM = 325.0;
+  private static final double rightTrenchLauncherRPM = 3169.0;
+  private static final double rightTrenchHoodAngleDeg = 18.0;
+  private static final double rightTrenchTurretAngleDeg = -4.84;
+  private static final double rightTrenchMotivatorRPM = 1800.0;
+  private static final double rightTrenchSpindexerRPM = 325.0;
+
+  // ========== Shooting Commands — Feed Ratios ==========
+  private static final double motivatorLauncherRatio = 0.2;
+  private static final double spindexerCloseRPM = 300.0;
+  private static final double spindexerFarRPM = 300.0;
+  private static final double spindexerPassRPM = 375.0;
+
+  // ========== Shooting Commands — Override Defaults ==========
+  private static final double overrideLauncherRPM = 2500.0;
+  private static final double overrideHoodDeg = 25.0;
+  private static final double overrideMotivatorRPM = 500.0;
+  private static final double overrideSpindexerRPM = 300.0;
+
+  // ========== Dashboard Tuning Defaults ==========
+  private static final double tuningLauncherVelocity = 1700.0;
+  private static final double tuningMotivatorVelocity = 1000.0;
+  private static final double tuningSpindexerVelocity = 1000.0;
+  private static final double tuningHoodAngle = 15.0;
+  private static final double tuningTurretOutsideAngle = 0.0;
+  private static final double tuningIntakeDeployedVelocity = 2000.0;
+  private static final double tuningIntakeRetractRollerVelocity = 1000.0;
+
+  // ========== Drive Tuning ==========
+  private static final double driveSpeedLimitRampRateMps2 = 4.0;
+
+  // ========== Hub Shift ==========
+  private static final double hubShiftPreActiveCutoffSec = 10.0;
+
   // Performance
   private static final double maxSpeedMetersPerSec =
       5676.0 / 60.0 / driveMotorReduction * 2.0 * Math.PI * wheelRadiusMeters * 0.95;
@@ -939,5 +1088,598 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public int getClimberCanId() {
     return climberMotorCanId;
+  }
+
+  // ========== Turret Tuning ==========
+
+  @Override
+  public double getTurretWarningZoneDeg() {
+    return turretWarningZoneDeg;
+  }
+
+  @Override
+  public double getTurretEncoderWarningThresholdDeg() {
+    return turretEncoderWarningThresholdDeg;
+  }
+
+  @Override
+  public double getTurretEncoderErrorThresholdDeg() {
+    return turretEncoderErrorThresholdDeg;
+  }
+
+  // ========== Launcher Tuning ==========
+
+  @Override
+  public double getLauncherRecoveryArbFFPct() {
+    return launcherRecoveryArbFFPct;
+  }
+
+  @Override
+  public double getLauncherReadyToleranceRPM() {
+    return launcherReadyToleranceRPM;
+  }
+
+  @Override
+  public double getLauncherRecoveryBoostThresholdRPM() {
+    return launcherRecoveryBoostThresholdRPM;
+  }
+
+  // ========== Hood Tuning ==========
+
+  @Override
+  public double getHoodReadyToleranceAngleDeg() {
+    return hoodReadyToleranceAngleDeg;
+  }
+
+  // ========== Motivator Tuning ==========
+
+  @Override
+  public double getMotivatorReadyToleranceRPM() {
+    return motivatorReadyToleranceRPM;
+  }
+
+  // ========== Spindexer Tuning ==========
+
+  @Override
+  public double getSpindexerUnclogRPM() {
+    return spindexerUnclogRPM;
+  }
+
+  @Override
+  public double getSpindexerAutoUnclogStallCurrentAmps() {
+    return spindexerAutoUnclogStallCurrentAmps;
+  }
+
+  @Override
+  public double getSpindexerAutoUnclogStallRPMError() {
+    return spindexerAutoUnclogStallRPMError;
+  }
+
+  @Override
+  public double getSpindexerAutoUnclogStallDurationSec() {
+    return spindexerAutoUnclogStallDurationSec;
+  }
+
+  @Override
+  public double getSpindexerAutoUnclogReverseDurationSec() {
+    return spindexerAutoUnclogReverseDurationSec;
+  }
+
+  @Override
+  public double getSpindexerAutoUnclogMaxAttempts() {
+    return spindexerAutoUnclogMaxAttempts;
+  }
+
+  @Override
+  public double getSpindexerReciprocateRPM() {
+    return spindexerReciprocateRPM;
+  }
+
+  @Override
+  public double getSpindexerReciprocateIntervalSec() {
+    return spindexerReciprocateIntervalSec;
+  }
+
+  @Override
+  public double getSpindexerReadyToleranceRPM() {
+    return spindexerReadyToleranceRPM;
+  }
+
+  // ========== Intake Tuning ==========
+
+  @Override
+  public double getIntakeDeployTolerance() {
+    return intakeDeployTolerance;
+  }
+
+  @Override
+  public double getIntakeDeployHoldTolerance() {
+    return intakeDeployHoldTolerance;
+  }
+
+  @Override
+  public double getIntakeDeployOutputLimit() {
+    return intakeDeployOutputLimit;
+  }
+
+  @Override
+  public double getIntakeDeployBrakeTimeSec() {
+    return intakeDeployBrakeTimeSec;
+  }
+
+  @Override
+  public double getIntakeRetractMaxVelocity() {
+    return intakeRetractMaxVelocity;
+  }
+
+  @Override
+  public double getIntakeRetractMaxAcceleration() {
+    return intakeRetractMaxAcceleration;
+  }
+
+  @Override
+  public double getIntakeRetractOutputLimit() {
+    return intakeRetractOutputLimit;
+  }
+
+  @Override
+  public double getIntakeAgitationMaxVelocity() {
+    return intakeAgitationMaxVelocity;
+  }
+
+  @Override
+  public double getIntakeAgitationMaxAcceleration() {
+    return intakeAgitationMaxAcceleration;
+  }
+
+  @Override
+  public double getIntakeAgitationRetractOutputLimit() {
+    return intakeAgitationRetractOutputLimit;
+  }
+
+  @Override
+  public double getIntakeAgitationRetractTarget() {
+    return intakeAgitationRetractTarget;
+  }
+
+  @Override
+  public double getIntakeAgitationTimeoutSec() {
+    return intakeAgitationTimeoutSec;
+  }
+
+  @Override
+  public double getIntakeAgitationCoastTimeSec() {
+    return intakeAgitationCoastTimeSec;
+  }
+
+  @Override
+  public double getIntakeAgitationFallTimeSec() {
+    return intakeAgitationFallTimeSec;
+  }
+
+  @Override
+  public double getIntakeAgitationSpeedThresholdMps() {
+    return intakeAgitationSpeedThresholdMps;
+  }
+
+  @Override
+  public double getIntakeAgitationStationaryDwellSec() {
+    return intakeAgitationStationaryDwellSec;
+  }
+
+  @Override
+  public double getIntakeRollerMinDeployPosition() {
+    return intakeRollerMinDeployPosition;
+  }
+
+  // ========== Shot Calculation ==========
+
+  @Override
+  public double getShotEfficiencyClose() {
+    return shotEfficiencyClose;
+  }
+
+  @Override
+  public double getShotEfficiencyMid() {
+    return shotEfficiencyMid;
+  }
+
+  @Override
+  public double getShotEfficiencyFar() {
+    return shotEfficiencyFar;
+  }
+
+  @Override
+  public double getShotEfficiencyCorner() {
+    return shotEfficiencyCorner;
+  }
+
+  @Override
+  public double getShotVelocityCompX() {
+    return shotVelocityCompX;
+  }
+
+  @Override
+  public double getShotVelocityCompY() {
+    return shotVelocityCompY;
+  }
+
+  // ========== Zone Boundaries ==========
+
+  @Override
+  public double getZoneTrenchAllianceBufferM() {
+    return zoneTrenchAllianceBufferM;
+  }
+
+  @Override
+  public double getZoneCloseDist() {
+    return zoneCloseDist;
+  }
+
+  @Override
+  public double getZoneMidDist() {
+    return zoneMidDist;
+  }
+
+  @Override
+  public double getZoneFarDist() {
+    return zoneFarDist;
+  }
+
+  @Override
+  public double getZoneCornerDist() {
+    return zoneCornerDist;
+  }
+
+  // ========== Fixed Height Shot Strategy ==========
+
+  @Override
+  public double getFixedHeightPeakHeightIn() {
+    return fixedHeightPeakHeightIn;
+  }
+
+  @Override
+  public double getFixedHeightPassThroughHeightIn() {
+    return fixedHeightPassThroughHeightIn;
+  }
+
+  @Override
+  public double getFixedHeightHorizontalOffsetIn() {
+    return fixedHeightHorizontalOffsetIn;
+  }
+
+  @Override
+  public double getFixedHeightMinRPM() {
+    return fixedHeightMinRPM;
+  }
+
+  @Override
+  public double getFixedHeightMaxRPM() {
+    return fixedHeightMaxRPM;
+  }
+
+  // ========== Fixed Height Pass Strategy ==========
+
+  @Override
+  public double getFixedHeightPassPeakHeightIn() {
+    return fixedHeightPassPeakHeightIn;
+  }
+
+  @Override
+  public double getFixedHeightPassMinRPM() {
+    return fixedHeightPassMinRPM;
+  }
+
+  @Override
+  public double getFixedHeightPassMaxRPM() {
+    return fixedHeightPassMaxRPM;
+  }
+
+  @Override
+  public double getFixedHeightPassHoodMinDeg() {
+    return fixedHeightPassHoodMinDeg;
+  }
+
+  // ========== Shooting Coordinator — Trench Safety ==========
+
+  @Override
+  public double getTrenchHoodMaxDeg() {
+    return trenchHoodMaxDeg;
+  }
+
+  @Override
+  public double getTrenchSafetySpeedLimitMps() {
+    return trenchSafetySpeedLimitMps;
+  }
+
+  @Override
+  public double getTrenchMovingThresholdMps() {
+    return trenchMovingThresholdMps;
+  }
+
+  @Override
+  public double getTrenchHoodClampSpeedMps() {
+    return trenchHoodClampSpeedMps;
+  }
+
+  @Override
+  public double getTrenchHoodUnclampSpeedMps() {
+    return trenchHoodUnclampSpeedMps;
+  }
+
+  // ========== Shooting Coordinator — Smart Launch ==========
+
+  @Override
+  public double getSmartLaunchReadyTimeoutSec() {
+    return smartLaunchReadyTimeoutSec;
+  }
+
+  @Override
+  public double getShootOnTheMoveSpeedMps() {
+    return shootOnTheMoveSpeedMps;
+  }
+
+  @Override
+  public double getPassSpeedMps() {
+    return passSpeedMps;
+  }
+
+  @Override
+  public double getAutoPassSpeedMps() {
+    return autoPassSpeedMps;
+  }
+
+  @Override
+  public double getPassMaxRPM() {
+    return passMaxRPM;
+  }
+
+  // ========== Shooting Coordinator — Pass Adjustments ==========
+
+  @Override
+  public double getPassLeftAdjustX() {
+    return passLeftAdjustX;
+  }
+
+  @Override
+  public double getPassLeftAdjustY() {
+    return passLeftAdjustY;
+  }
+
+  @Override
+  public double getPassRightAdjustX() {
+    return passRightAdjustX;
+  }
+
+  @Override
+  public double getPassRightAdjustY() {
+    return passRightAdjustY;
+  }
+
+  @Override
+  public double getSymmetricArcPeakHeightMinIn() {
+    return symmetricArcPeakHeightMinIn;
+  }
+
+  @Override
+  public double getSymmetricArcPeakHeightMaxIn() {
+    return symmetricArcPeakHeightMaxIn;
+  }
+
+  @Override
+  public double getSymmetricArcDistMinM() {
+    return symmetricArcDistMinM;
+  }
+
+  @Override
+  public double getSymmetricArcDistMaxM() {
+    return symmetricArcDistMaxM;
+  }
+
+  @Override
+  public double getPassRpmPerDegCompensation() {
+    return passRpmPerDegCompensation;
+  }
+
+  @Override
+  public double getPassMaxRpmCompensation() {
+    return passMaxRpmCompensation;
+  }
+
+  @Override
+  public double getLobNetClearanceMarginM() {
+    return lobNetClearanceMarginM;
+  }
+
+  @Override
+  public double getLobMaxPeakHeightM() {
+    return lobMaxPeakHeightM;
+  }
+
+  @Override
+  public double getLobMinHubDistM() {
+    return lobMinHubDistM;
+  }
+
+  @Override
+  public double getLobStation1AdjustY() {
+    return lobStation1AdjustY;
+  }
+
+  @Override
+  public double getLobStation3AdjustY() {
+    return lobStation3AdjustY;
+  }
+
+  // ========== Shooting Commands — Preset Shots ==========
+
+  @Override
+  public double getHubShotLauncherRPM() {
+    return hubShotLauncherRPM;
+  }
+
+  @Override
+  public double getHubShotHoodAngleDeg() {
+    return hubShotHoodAngleDeg;
+  }
+
+  @Override
+  public double getHubShotTurretAngleDeg() {
+    return hubShotTurretAngleDeg;
+  }
+
+  @Override
+  public double getHubShotMotivatorRPM() {
+    return hubShotMotivatorRPM;
+  }
+
+  @Override
+  public double getHubShotSpindexerRPM() {
+    return hubShotSpindexerRPM;
+  }
+
+  @Override
+  public double getLeftTrenchLauncherRPM() {
+    return leftTrenchLauncherRPM;
+  }
+
+  @Override
+  public double getLeftTrenchHoodAngleDeg() {
+    return leftTrenchHoodAngleDeg;
+  }
+
+  @Override
+  public double getLeftTrenchTurretAngleDeg() {
+    return leftTrenchTurretAngleDeg;
+  }
+
+  @Override
+  public double getLeftTrenchMotivatorRPM() {
+    return leftTrenchMotivatorRPM;
+  }
+
+  @Override
+  public double getLeftTrenchSpindexerRPM() {
+    return leftTrenchSpindexerRPM;
+  }
+
+  @Override
+  public double getRightTrenchLauncherRPM() {
+    return rightTrenchLauncherRPM;
+  }
+
+  @Override
+  public double getRightTrenchHoodAngleDeg() {
+    return rightTrenchHoodAngleDeg;
+  }
+
+  @Override
+  public double getRightTrenchTurretAngleDeg() {
+    return rightTrenchTurretAngleDeg;
+  }
+
+  @Override
+  public double getRightTrenchMotivatorRPM() {
+    return rightTrenchMotivatorRPM;
+  }
+
+  @Override
+  public double getRightTrenchSpindexerRPM() {
+    return rightTrenchSpindexerRPM;
+  }
+
+  // ========== Shooting Commands — Feed Ratios ==========
+
+  @Override
+  public double getMotivatorLauncherRatio() {
+    return motivatorLauncherRatio;
+  }
+
+  @Override
+  public double getSpindexerCloseRPM() {
+    return spindexerCloseRPM;
+  }
+
+  @Override
+  public double getSpindexerFarRPM() {
+    return spindexerFarRPM;
+  }
+
+  @Override
+  public double getSpindexerPassRPM() {
+    return spindexerPassRPM;
+  }
+
+  // ========== Shooting Commands — Override Defaults ==========
+
+  @Override
+  public double getOverrideLauncherRPM() {
+    return overrideLauncherRPM;
+  }
+
+  @Override
+  public double getOverrideHoodDeg() {
+    return overrideHoodDeg;
+  }
+
+  @Override
+  public double getOverrideMotivatorRPM() {
+    return overrideMotivatorRPM;
+  }
+
+  @Override
+  public double getOverrideSpindexerRPM() {
+    return overrideSpindexerRPM;
+  }
+
+  // ========== Dashboard Tuning Defaults ==========
+
+  @Override
+  public double getTuningLauncherVelocity() {
+    return tuningLauncherVelocity;
+  }
+
+  @Override
+  public double getTuningMotivatorVelocity() {
+    return tuningMotivatorVelocity;
+  }
+
+  @Override
+  public double getTuningSpindexerVelocity() {
+    return tuningSpindexerVelocity;
+  }
+
+  @Override
+  public double getTuningHoodAngle() {
+    return tuningHoodAngle;
+  }
+
+  @Override
+  public double getTuningTurretOutsideAngle() {
+    return tuningTurretOutsideAngle;
+  }
+
+  @Override
+  public double getTuningIntakeDeployedVelocity() {
+    return tuningIntakeDeployedVelocity;
+  }
+
+  @Override
+  public double getTuningIntakeRetractRollerVelocity() {
+    return tuningIntakeRetractRollerVelocity;
+  }
+
+  // ========== Drive Tuning ==========
+
+  @Override
+  public double getDriveSpeedLimitRampRateMps2() {
+    return driveSpeedLimitRampRateMps2;
+  }
+
+  // ========== Hub Shift ==========
+
+  @Override
+  public double getHubShiftPreActiveCutoffSec() {
+    return hubShiftPreActiveCutoffSec;
   }
 }

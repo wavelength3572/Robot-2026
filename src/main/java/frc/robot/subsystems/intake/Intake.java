@@ -88,8 +88,8 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/RetractedPosition",
             config.getIntakeDeployRetractedPosition());
-    deployTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/Tolerance", 0.02);
-    holdTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/HoldTolerance", 0.0005);
+    deployTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/Tolerance", config.getIntakeDeployTolerance());
+    holdTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/HoldTolerance", config.getIntakeDeployHoldTolerance());
     rollerKP =
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kP", config.getIntakeRollerKp());
     rollerKI =
@@ -107,30 +107,30 @@ public class Intake extends SubsystemBase {
     deployMaxAcceleration =
         new LoggedTunableNumber(
             "Tuning/Intake/Deploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
-    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/Deploy/OutputLimit", 0.75);
-    deployBrakeTime = new LoggedTunableNumber("Tuning/Intake/Deploy/BrakeTimeSec", 0.5);
+    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/Deploy/OutputLimit", config.getIntakeDeployOutputLimit());
+    deployBrakeTime = new LoggedTunableNumber("Tuning/Intake/Deploy/BrakeTimeSec", config.getIntakeDeployBrakeTimeSec());
     // Retract motion profile
-    retractMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Retract/MaxVelocity", 30);
-    retractMaxAcceleration = new LoggedTunableNumber("Tuning/Intake/Retract/MaxAcceleration", 50);
-    retractOutputLimit = new LoggedTunableNumber("Tuning/Intake/Retract/OutputLimit", .5);
+    retractMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Retract/MaxVelocity", config.getIntakeRetractMaxVelocity());
+    retractMaxAcceleration = new LoggedTunableNumber("Tuning/Intake/Retract/MaxAcceleration", config.getIntakeRetractMaxAcceleration());
+    retractOutputLimit = new LoggedTunableNumber("Tuning/Intake/Retract/OutputLimit", config.getIntakeRetractOutputLimit());
     // Agitation motion profile
-    agitationMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Agitation/MaxVelocity", 25);
+    agitationMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Agitation/MaxVelocity", config.getIntakeAgitationMaxVelocity());
     agitationMaxAcceleration =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/MaxAcceleration", 40);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/MaxAcceleration", config.getIntakeAgitationMaxAcceleration());
     agitationRetractOutputLimit =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractOutputLimit", 1.0);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractOutputLimit", config.getIntakeAgitationRetractOutputLimit());
     agitationRetractTarget =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractTarget", 0.035);
-    agitationTimeoutSec = new LoggedTunableNumber("Tuning/Intake/Agitation/TimeoutSec", 0.6);
-    agitationCoastTimeSec = new LoggedTunableNumber("Tuning/Intake/Agitation/CoastTimeSec", 0.1);
-    agitationFallTime = new LoggedTunableNumber("Tuning/Intake/Agitation/FallTimeSec", 0.2);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractTarget", config.getIntakeAgitationRetractTarget());
+    agitationTimeoutSec = new LoggedTunableNumber("Tuning/Intake/Agitation/TimeoutSec", config.getIntakeAgitationTimeoutSec());
+    agitationCoastTimeSec = new LoggedTunableNumber("Tuning/Intake/Agitation/CoastTimeSec", config.getIntakeAgitationCoastTimeSec());
+    agitationFallTime = new LoggedTunableNumber("Tuning/Intake/Agitation/FallTimeSec", config.getIntakeAgitationFallTimeSec());
     agitationSpeedThreshold =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/SpeedThresholdMps", 0.05);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/SpeedThresholdMps", config.getIntakeAgitationSpeedThresholdMps());
     agitationStationaryDwellSec =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/StationaryDwellSec", 2.0);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/StationaryDwellSec", config.getIntakeAgitationStationaryDwellSec());
     // Shared
     rollerMinDeployPosition =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", 0.05);
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", config.getIntakeRollerMinDeployPosition());
   }
 
   // Deploy positions (from config, used for soft limit init)

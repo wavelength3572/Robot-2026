@@ -49,7 +49,7 @@ public class DriveCommands {
   // Speed limit ramp-back system: prevents sudden acceleration when a speed-limiting
   // command (e.g. smart launch) ends while the driver is pushing the stick forward.
   private static final LoggedTunableNumber speedLimitRampRateMps2 =
-      new LoggedTunableNumber("Drive/SpeedLimit/RampRateMps2", 4.0);
+      new LoggedTunableNumber("Drive/SpeedLimit/RampRateMps2", Constants.getRobotConfig().getDriveSpeedLimitRampRateMps2());
 
   private static final double NO_SPEED_LIMIT = Constants.getRobotConfig().getMaxSpeedMetersPerSec();
 

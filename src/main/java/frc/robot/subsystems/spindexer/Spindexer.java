@@ -44,8 +44,7 @@ public class Spindexer extends SubsystemBase {
   private boolean unclogActive = false;
   private boolean wasUnclogActive = false;
 
-  private static final LoggedTunableNumber unclogRPM =
-      new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", 650.0);
+  private static final LoggedTunableNumber unclogRPM;
 
   // Auto-unclog — detects stall during FEEDING and briefly reverses to clear the jam.
   // Enabled by default; can be toggled from dashboard if needed.
@@ -55,16 +54,11 @@ public class Spindexer extends SubsystemBase {
   private final Timer autoUnclogTimer = new Timer(); // How long the reverse burst has been running
   private int autoUnclogAttempts = 0; // Attempts this feeding session
 
-  private static final LoggedTunableNumber autoUnclogStallCurrentThreshold =
-      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallCurrentAmps", 10.0);
-  private static final LoggedTunableNumber autoUnclogStallVelocityThreshold =
-      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallRPMError", 20.0);
-  private static final LoggedTunableNumber autoUnclogStallDurationSec =
-      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallDurationSec", 0.2);
-  private static final LoggedTunableNumber autoUnclogReverseDurationSec =
-      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/ReverseDurationSec", 0.50);
-  private static final LoggedTunableNumber autoUnclogMaxAttempts =
-      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/MaxAttempts", 30);
+  private static final LoggedTunableNumber autoUnclogStallCurrentThreshold;
+  private static final LoggedTunableNumber autoUnclogStallVelocityThreshold;
+  private static final LoggedTunableNumber autoUnclogStallDurationSec;
+  private static final LoggedTunableNumber autoUnclogReverseDurationSec;
+  private static final LoggedTunableNumber autoUnclogMaxAttempts;
 
   // Reciprocation — gentle back-and-forth jostle to keep fuel loose when not actively feeding.
   // Call reciprocate() each cycle to jostle; it alternates direction on a timer.
@@ -76,10 +70,8 @@ public class Spindexer extends SubsystemBase {
   private boolean reverseKickActive = false;
   private final Timer reverseKickTimer = new Timer();
 
-  private static final LoggedTunableNumber reciprocateRPM =
-      new LoggedTunableNumber("Tuning/Spindexer/Reciprocate/RPM", 50.0);
-  private static final LoggedTunableNumber reciprocateIntervalSec =
-      new LoggedTunableNumber("Tuning/Spindexer/Reciprocate/IntervalSec", 1.0);
+  private static final LoggedTunableNumber reciprocateRPM;
+  private static final LoggedTunableNumber reciprocateIntervalSec;
 
   // Tunable PID gains
   private static final LoggedTunableNumber kP;
@@ -95,11 +87,39 @@ public class Spindexer extends SubsystemBase {
     kD = new LoggedTunableNumber("Tuning/Spindexer/kD", config.getSpindexerKd());
     kS = new LoggedTunableNumber("Tuning/Spindexer/kS", config.getSpindexerKs());
     kV = new LoggedTunableNumber("Tuning/Spindexer/kV", config.getSpindexerKv());
+    unclogRPM = new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", config.getSpindexerUnclogRPM());
+    autoUnclogStallCurrentThreshold =
+        new LoggedTunableNumber(
+            "Tuning/Spindexer/AutoUnclog/StallCurrentAmps",
+            config.getSpindexerAutoUnclogStallCurrentAmps());
+    autoUnclogStallVelocityThreshold =
+        new LoggedTunableNumber(
+            "Tuning/Spindexer/AutoUnclog/StallRPMError",
+            config.getSpindexerAutoUnclogStallRPMError());
+    autoUnclogStallDurationSec =
+        new LoggedTunableNumber(
+            "Tuning/Spindexer/AutoUnclog/StallDurationSec",
+            config.getSpindexerAutoUnclogStallDurationSec());
+    autoUnclogReverseDurationSec =
+        new LoggedTunableNumber(
+            "Tuning/Spindexer/AutoUnclog/ReverseDurationSec",
+            config.getSpindexerAutoUnclogReverseDurationSec());
+    autoUnclogMaxAttempts =
+        new LoggedTunableNumber(
+            "Tuning/Spindexer/AutoUnclog/MaxAttempts", config.getSpindexerAutoUnclogMaxAttempts());
+    reciprocateRPM =
+        new LoggedTunableNumber(
+            "Tuning/Spindexer/Reciprocate/RPM", config.getSpindexerReciprocateRPM());
+    reciprocateIntervalSec =
+        new LoggedTunableNumber(
+            "Tuning/Spindexer/Reciprocate/IntervalSec", config.getSpindexerReciprocateIntervalSec());
+    spindexerToleranceRPM =
+        new LoggedTunableNumber(
+            "Tuning/Spindexer/ReadyToleranceRPM", config.getSpindexerReadyToleranceRPM());
   }
 
   // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control
-  private static final LoggedTunableNumber spindexerToleranceRPM =
-      new LoggedTunableNumber("Tuning/Spindexer/ReadyToleranceRPM", 100.0);
+  private static final LoggedTunableNumber spindexerToleranceRPM;
 
   public Spindexer(SpindexerIO io) {
     this.io = io;

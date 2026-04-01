@@ -62,11 +62,11 @@ public class Turret extends SubsystemBase {
   private double stallTargetAngle = -1000;
 
   // How close to a limit (degrees) before safety indicators fire
-  private static final double WARNING_ZONE_DEG = 20.0;
+  private final double warningZoneDeg;
 
   // Startup encoder validation thresholds (degrees from expected zero position)
-  private static final double ENCODER_WARNING_THRESHOLD_DEG = 5.0;
-  private static final double ENCODER_ERROR_THRESHOLD_DEG = 15.0;
+  private final double encoderWarningThresholdDeg;
+  private final double encoderErrorThresholdDeg;
 
   // Current state — promoted from periodic() local for external readiness checks
   private TurretState currentState = TurretState.LOCKED;
@@ -109,6 +109,10 @@ public class Turret extends SubsystemBase {
     outsideCenterDeg = (outsideAngleMax + outsideAngleMin) / 2.0;
 
     readyToleranceAngleDeg = config.getTurretToleranceAngleDeg();
+
+    warningZoneDeg = config.getTurretWarningZoneDeg();
+    encoderWarningThresholdDeg = config.getTurretEncoderWarningThresholdDeg();
+    encoderErrorThresholdDeg = config.getTurretEncoderErrorThresholdDeg();
   }
 
   @Override
@@ -124,7 +128,7 @@ public class Turret extends SubsystemBase {
       double startupAngleError = Math.abs(turretInputs.currentInsideAngleDeg);
       Logger.recordOutput("Turret/StartupAngleError", startupAngleError);
 
-      if (startupAngleError >= ENCODER_ERROR_THRESHOLD_DEG) {
+      if (startupAngleError >= encoderErrorThresholdDeg) {
         encoderValidationStatus = TurretEncoderStatus.ERROR;
         encoderErrorAlert.set(true);
         lock();
@@ -132,7 +136,7 @@ public class Turret extends SubsystemBase {
             "[Turret] CRITICAL: Startup angle is "
                 + String.format("%.1f", startupAngleError)
                 + " deg from expected. Encoder offset may have shifted! Turret LOCKED.");
-      } else if (startupAngleError >= ENCODER_WARNING_THRESHOLD_DEG) {
+      } else if (startupAngleError >= encoderWarningThresholdDeg) {
         encoderValidationStatus = TurretEncoderStatus.WARNING;
         encoderWarningAlert.set(true);
         System.err.println(
@@ -545,7 +549,7 @@ public class Turret extends SubsystemBase {
    * @return Warning zone in degrees
    */
   public double getWarningZoneDeg() {
-    return WARNING_ZONE_DEG;
+    return warningZoneDeg;
   }
 
   /**
@@ -572,7 +576,7 @@ public class Turret extends SubsystemBase {
    * @return True if within warning zone of either limit
    */
   public boolean isNearLimit() {
-    return getRoomCW() <= WARNING_ZONE_DEG || getRoomCCW() <= WARNING_ZONE_DEG;
+    return getRoomCW() <= warningZoneDeg || getRoomCCW() <= warningZoneDeg;
   }
 
   // ========== 3D Pose & Config ==========

@@ -43,19 +43,19 @@ public class ButtonsAndDashboardBindings {
 
   // Per-subsystem tuning setpoints
   private static final LoggedTunableNumber tuningLauncherVelocity =
-      new LoggedTunableNumber("Tuning/Launcher/TuningVelocity", 1700.0);
+      new LoggedTunableNumber("Tuning/Launcher/TuningVelocity", Constants.getRobotConfig().getTuningLauncherVelocity());
   private static final LoggedTunableNumber tuningMotivatorVelocity =
-      new LoggedTunableNumber("Tuning/Motivator/TuningVelocity", 1000.0);
+      new LoggedTunableNumber("Tuning/Motivator/TuningVelocity", Constants.getRobotConfig().getTuningMotivatorVelocity());
   private static final LoggedTunableNumber tuningSpindexerVelocity =
-      new LoggedTunableNumber("Tuning/Spindexer/TuningVelocity", 1000.0);
+      new LoggedTunableNumber("Tuning/Spindexer/TuningVelocity", Constants.getRobotConfig().getTuningSpindexerVelocity());
   private static final LoggedTunableNumber tuningHoodAngle =
-      new LoggedTunableNumber("Tuning/Hood/TuningAngle", 15.0);
+      new LoggedTunableNumber("Tuning/Hood/TuningAngle", Constants.getRobotConfig().getTuningHoodAngle());
   private static final LoggedTunableNumber outsideTuningAngle =
-      new LoggedTunableNumber("Tuning/Turret/OutsideTuningAngle", 0.0);
+      new LoggedTunableNumber("Tuning/Turret/OutsideTuningAngle", Constants.getRobotConfig().getTuningTurretOutsideAngle());
   private static final LoggedTunableNumber tuningIntakeDeployedVelocity =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/DeployedVelocity", 2000.0);
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/DeployedVelocity", Constants.getRobotConfig().getTuningIntakeDeployedVelocity());
   private static final LoggedTunableNumber tuningIntakeRetractRollerVelocity =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/RetractRollerVelocity", 1000.0);
+      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/RetractRollerVelocity", Constants.getRobotConfig().getTuningIntakeRetractRollerVelocity());
 
   // Preset field positions for simulation (label, x_meters, y_meters, rotation_degrees)
   private static final String[][] PRESET_POSITIONS = {

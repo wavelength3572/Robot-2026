@@ -34,20 +34,17 @@ public class Launcher extends SubsystemBase {
   private static final LoggedTunableNumber kS;
   private static final LoggedTunableNumber kV;
 
-  private static final LoggedTunableNumber recoveryArbFFPct =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryArbFFPct", 0.0);
+  private static final LoggedTunableNumber recoveryArbFFPct;
 
   // IZone: integral only accumulates when error is below this threshold (motor RPM).
   // Prevents windup during spin-up while allowing kI to eliminate steady-state error.
   private static final LoggedTunableNumber iZone;
 
   // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control
-  private static final LoggedTunableNumber velocityToleranceRPM =
-      new LoggedTunableNumber("Tuning/Launcher/ReadyToleranceRPM", 100);
+  private static final LoggedTunableNumber velocityToleranceRPM;
 
   // Recovery: threshold error (wheel RPM) to activate Slot 1
-  private static final LoggedTunableNumber recoveryBoostThresholdRPM =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryBoostThresholdRPM", 40.0);
+  private static final LoggedTunableNumber recoveryBoostThresholdRPM;
 
   static {
     RobotConfig config = Constants.getRobotConfig();
@@ -57,6 +54,16 @@ public class Launcher extends SubsystemBase {
     kS = new LoggedTunableNumber("Tuning/Launcher/kS", config.getLauncherKs());
     kV = new LoggedTunableNumber("Tuning/Launcher/kV", config.getLauncherKv());
     iZone = new LoggedTunableNumber("Tuning/Launcher/IZone", config.getLauncherIZone());
+    recoveryArbFFPct =
+        new LoggedTunableNumber(
+            "Tuning/Launcher/RecoveryArbFFPct", config.getLauncherRecoveryArbFFPct());
+    velocityToleranceRPM =
+        new LoggedTunableNumber(
+            "Tuning/Launcher/ReadyToleranceRPM", config.getLauncherReadyToleranceRPM());
+    recoveryBoostThresholdRPM =
+        new LoggedTunableNumber(
+            "Tuning/Launcher/RecoveryBoostThresholdRPM",
+            config.getLauncherRecoveryBoostThresholdRPM());
   }
 
   // Current state — promoted from periodic() local for external readiness checks

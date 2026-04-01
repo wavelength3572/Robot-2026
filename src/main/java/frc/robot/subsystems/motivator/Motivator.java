@@ -41,11 +41,12 @@ public class Motivator extends SubsystemBase {
     kD = new LoggedTunableNumber("Tuning/Motivator/kD", config.getMotivatorKd());
     kS = new LoggedTunableNumber("Tuning/Motivator/kS", config.getMotivatorKs());
     kV = new LoggedTunableNumber("Tuning/Motivator/kV", config.getMotivatorKv());
+    motivatorToleranceRPM =
+        new LoggedTunableNumber("Tuning/Motivator/ReadyToleranceRPM", config.getMotivatorReadyToleranceRPM());
   }
 
   // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control
-  private static final LoggedTunableNumber motivatorToleranceRPM =
-      new LoggedTunableNumber("Tuning/Motivator/ReadyToleranceRPM", 100.0);
+  private static final LoggedTunableNumber motivatorToleranceRPM;
 
   // Current state — promoted from periodic() local for external readiness checks
   private MotivatorState currentState = MotivatorState.IDLE;

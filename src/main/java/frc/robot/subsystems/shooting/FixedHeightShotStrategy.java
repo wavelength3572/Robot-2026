@@ -3,6 +3,7 @@ package frc.robot.subsystems.shooting;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.Constants;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
@@ -27,20 +28,20 @@ public class FixedHeightShotStrategy implements ShotStrategy {
 
   // All spatial tunables in inches
   private static final LoggedTunableNumber peakHeightIn =
-      new LoggedTunableNumber("Shots/FixedHeight/PeakHeightIn", 110.0);
+      new LoggedTunableNumber("Shots/FixedHeight/PeakHeightIn", Constants.getRobotConfig().getFixedHeightPeakHeightIn());
 
   private static final LoggedTunableNumber passThroughHeightIn =
-      new LoggedTunableNumber("Shots/FixedHeight/PassThroughHeightIn", 72.0); // 6 feet
+      new LoggedTunableNumber("Shots/FixedHeight/PassThroughHeightIn", Constants.getRobotConfig().getFixedHeightPassThroughHeightIn());
 
   private static final LoggedTunableNumber horizontalOffsetIn =
-      new LoggedTunableNumber("Shots/FixedHeight/HorizontalOffsetIn", 10.0);
+      new LoggedTunableNumber("Shots/FixedHeight/HorizontalOffsetIn", Constants.getRobotConfig().getFixedHeightHorizontalOffsetIn());
 
   // RPM limits
   private static final LoggedTunableNumber minRPM =
-      new LoggedTunableNumber("Shots/FixedHeight/MinRPM", 1500.0);
+      new LoggedTunableNumber("Shots/FixedHeight/MinRPM", Constants.getRobotConfig().getFixedHeightMinRPM());
 
   private static final LoggedTunableNumber maxRPM =
-      new LoggedTunableNumber("Shots/FixedHeight/MaxRPM", 4000.0);
+      new LoggedTunableNumber("Shots/FixedHeight/MaxRPM", Constants.getRobotConfig().getFixedHeightMaxRPM());
 
   @Override
   public ShotCalculator.ShotResult calculateShot(

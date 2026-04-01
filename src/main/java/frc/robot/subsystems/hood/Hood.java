@@ -42,7 +42,9 @@ public class Hood extends SubsystemBase {
 
   // Tunable ready-gate tolerance for atTarget() — does NOT affect motor control
   private static final LoggedTunableNumber readyToleranceAngleDeg =
-      new LoggedTunableNumber("Tuning/Hood/ReadyToleranceAngleDeg", 1.0);
+      new LoggedTunableNumber(
+          "Tuning/Hood/ReadyToleranceAngleDeg",
+          Constants.getRobotConfig().getHoodReadyToleranceAngleDeg());
 
   // Current state — promoted from periodic() local for external readiness checks
   private HoodState currentState = HoodState.STOWED;

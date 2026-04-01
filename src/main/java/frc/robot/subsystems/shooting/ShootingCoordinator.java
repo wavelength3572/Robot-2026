@@ -108,20 +108,20 @@ public class ShootingCoordinator extends SubsystemBase {
   // Trench hood safety: the max hood angle considered safe under the trench structure.
   // If hood is above this while moving in trench, drive speed is limited until it lowers.
   private final LoggedTunableNumber trenchHoodMaxDeg =
-      new LoggedTunableNumber("Shots/TrenchMode/HoodMaxDeg", 18.0);
+      new LoggedTunableNumber("Shots/TrenchMode/HoodMaxDeg", Constants.getRobotConfig().getTrenchHoodMaxDeg());
 
   // Trench hood safety: limits drive speed when hood is above safe angle while moving in trench.
   // Protects the hood from hitting the trench structure during transit.
   private final LoggedTunableNumber trenchSafetySpeedLimitMps =
-      new LoggedTunableNumber("Shots/TrenchMode/SafetySpeedLimitMps", 2.0);
+      new LoggedTunableNumber("Shots/TrenchMode/SafetySpeedLimitMps", Constants.getRobotConfig().getTrenchSafetySpeedLimitMps());
   private final LoggedTunableNumber trenchMovingThresholdMps =
-      new LoggedTunableNumber("Shots/TrenchMode/MovingThresholdMps", 0.6);
+      new LoggedTunableNumber("Shots/TrenchMode/MovingThresholdMps", Constants.getRobotConfig().getTrenchMovingThresholdMps());
   // Hood clamp/unclamp thresholds with hysteresis. Clamp is low (fast response when
   // accelerating into trench), unclamp is higher (hood starts rising earlier when decelerating).
   private final LoggedTunableNumber trenchHoodClampSpeedMps =
-      new LoggedTunableNumber("Shots/TrenchMode/HoodClampSpeedMps", 0.3);
+      new LoggedTunableNumber("Shots/TrenchMode/HoodClampSpeedMps", Constants.getRobotConfig().getTrenchHoodClampSpeedMps());
   private final LoggedTunableNumber trenchHoodUnclampSpeedMps =
-      new LoggedTunableNumber("Shots/TrenchMode/HoodUnclampSpeedMps", 0.5);
+      new LoggedTunableNumber("Shots/TrenchMode/HoodUnclampSpeedMps", Constants.getRobotConfig().getTrenchHoodUnclampSpeedMps());
   private boolean trenchHoodSafetyActive = false;
   private boolean movingInTrench = false; // true when robot is moving in a trench zone
 
@@ -147,7 +147,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private final Timer readyTimeoutTimer = new Timer();
   private boolean readyTimeoutRunning = false;
   private static final LoggedTunableNumber readyTimeoutSec =
-      new LoggedTunableNumber("Shots/SmartLaunch/ReadyTimeoutSec", 3.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/ReadyTimeoutSec", Constants.getRobotConfig().getSmartLaunchReadyTimeoutSec());
 
   // Delayed-log state — snapshotted each cycle, logged next cycle to align with subsystem logs
   private CoordinatorState loggedCoordinatorState = CoordinatorState.INACTIVE;
@@ -221,38 +221,38 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Pass target offset tunables — separate for left and right trench
   private final LoggedTunableNumber passLeftAdjustX =
-      new LoggedTunableNumber("SmartLaunch/Pass/Left/AdjustX", 0.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Left/AdjustX", Constants.getRobotConfig().getPassLeftAdjustX());
   private final LoggedTunableNumber passLeftAdjustY =
-      new LoggedTunableNumber("SmartLaunch/Pass/Left/AdjustY", 0.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Left/AdjustY", Constants.getRobotConfig().getPassLeftAdjustY());
   private final LoggedTunableNumber passRightAdjustX =
-      new LoggedTunableNumber("SmartLaunch/Pass/Right/AdjustX", 0.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Right/AdjustX", Constants.getRobotConfig().getPassRightAdjustX());
   private final LoggedTunableNumber passRightAdjustY =
-      new LoggedTunableNumber("SmartLaunch/Pass/Right/AdjustY", 0.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Right/AdjustY", Constants.getRobotConfig().getPassRightAdjustY());
 
   // Two-point trajectory tunables for pass shots (dashboard value in inches,
   // converted to meters)
   private final LoggedTunableNumber symmetricArcPeakHeightMinIn =
-      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightMinIn", 50.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightMinIn", Constants.getRobotConfig().getSymmetricArcPeakHeightMinIn());
   private final LoggedTunableNumber symmetricArcPeakHeightMaxIn =
-      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightMaxIn", 58.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcPeakHeightMaxIn", Constants.getRobotConfig().getSymmetricArcPeakHeightMaxIn());
   private final LoggedTunableNumber symmetricArcDistMinM =
-      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcDistMinM", 4.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcDistMinM", Constants.getRobotConfig().getSymmetricArcDistMinM());
   private final LoggedTunableNumber symmetricArcDistMaxM =
-      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcDistMaxM", 12.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Symmetric/ArcDistMaxM", Constants.getRobotConfig().getSymmetricArcDistMaxM());
   private final LoggedTunableNumber passRpmPerDegCompensation =
-      new LoggedTunableNumber("SmartLaunch/Pass/RPMPerDegCompensation", 50.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/RPMPerDegCompensation", Constants.getRobotConfig().getPassRpmPerDegCompensation());
   private final LoggedTunableNumber passMaxRpmCompensation =
-      new LoggedTunableNumber("SmartLaunch/Pass/MaxRPMCompensation", 200.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/MaxRPMCompensation", Constants.getRobotConfig().getPassMaxRpmCompensation());
   private final LoggedTunableNumber lobNetClearanceMarginM =
-      new LoggedTunableNumber("SmartLaunch/Pass/Lob/NetClearanceMarginM", 0.3);
+      new LoggedTunableNumber("SmartLaunch/Pass/Lob/NetClearanceMarginM", Constants.getRobotConfig().getLobNetClearanceMarginM());
   private final LoggedTunableNumber lobMaxPeakHeightM =
-      new LoggedTunableNumber("SmartLaunch/Pass/Lob/MaxPeakHeightM", 5.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Lob/MaxPeakHeightM", Constants.getRobotConfig().getLobMaxPeakHeightM());
   private final LoggedTunableNumber lobMinHubDistM =
-      new LoggedTunableNumber("SmartLaunch/Pass/Lob/MinHubDistM", 4.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/Lob/MinHubDistM", Constants.getRobotConfig().getLobMinHubDistM());
   private final LoggedTunableNumber lobStation1AdjustY =
-      new LoggedTunableNumber("SmartLaunch/Pass/DriverStation/Station1/AdjustY", 0.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/DriverStation/Station1/AdjustY", Constants.getRobotConfig().getLobStation1AdjustY());
   private final LoggedTunableNumber lobStation3AdjustY =
-      new LoggedTunableNumber("SmartLaunch/Pass/DriverStation/Station3/AdjustY", 0.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/DriverStation/Station3/AdjustY", Constants.getRobotConfig().getLobStation3AdjustY());
 
   // Cached pass targets — recomputed when tunables or alliance change
   private Translation3d cachedLeftTarget = null;
@@ -269,15 +269,15 @@ public class ShootingCoordinator extends SubsystemBase {
   // SHOOT_ON_THE_MOVE: max speed for hub shots in open alliance zone.
   // Used for both spindexer gating and active drive speed limiting.
   private final LoggedTunableNumber shootOnTheMoveSpeedMps =
-      new LoggedTunableNumber("Shots/SpeedLimits/ShootOnTheMoveSpeedMps", 1.25);
+      new LoggedTunableNumber("Shots/SpeedLimits/ShootOnTheMoveSpeedMps", Constants.getRobotConfig().getShootOnTheMoveSpeedMps());
   // PASS / LONG_PASS: max speed for pass shots in neutral/opponent zones.
   private final LoggedTunableNumber passSpeedMps =
-      new LoggedTunableNumber("Shots/SpeedLimits/PassSpeedMps", 3.0);
+      new LoggedTunableNumber("Shots/SpeedLimits/PassSpeedMps", Constants.getRobotConfig().getPassSpeedMps());
   // Auto-specific pass speed — lower than teleop to work with PathPlanner speed zones.
   // Set a PathPlanner velocity constraint (e.g. 1.0 m/s) in the pass zone, and this
   // threshold just above it (1.1 m/s) so passing only happens during the slow segment.
   private final LoggedTunableNumber autoPassSpeedMps =
-      new LoggedTunableNumber("Shots/SpeedLimits/AutoPassSpeedMps", 1.1);
+      new LoggedTunableNumber("Shots/SpeedLimits/AutoPassSpeedMps", Constants.getRobotConfig().getAutoPassSpeedMps());
 
   /**
    * Creates a new ShootingCoordinator.
@@ -642,7 +642,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Tunable pass shot parameters
   private final LoggedTunableNumber passMaxRPM =
-      new LoggedTunableNumber("SmartLaunch/Pass/MaxRPM", 4000.0);
+      new LoggedTunableNumber("SmartLaunch/Pass/MaxRPM", Constants.getRobotConfig().getPassMaxRPM());
 
   /** Calculate and apply hub shot. */
   private void calculateShotToHub(
