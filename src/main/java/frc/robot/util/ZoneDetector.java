@@ -8,17 +8,21 @@ import frc.robot.FieldConstants;
  * Detects which field zone the robot is in for auto-shoot purposes. Zone is purely a function of
  * robot/turret position — single source of truth.
  *
- * <p>Seven zones, checked in priority order:
+ * <p>Nine zones, checked in priority order:
  *
  * <ol>
  *   <li><b>BUMP</b> — over the bump ramps flanking the hub. No shooting allowed.
- *   <li><b>ALLIANCE_TRENCH</b> — under trench in alliance zone. Hood clamped, can shoot hub.
- *   <li><b>NEUTRAL_TRENCH</b> — under trench in neutral zone. Hood clamped, no shooting.
+ *   <li><b>DANGER_TRENCH</b> — 0.6m band at the alliance/neutral trench boundary. Hood
+ *       force-lowered, robot near-stopped when hood is above safe angle. No shooting.
+ *   <li><b>ALLIANCE_TRENCH</b> — under trench in alliance zone. Can shoot hub normally.
+ *   <li><b>NEUTRAL_TRENCH</b> — under trench in neutral zone or opponent trench. Hood clamped
+ *       to min, no shooting.
  *   <li><b>ALLIANCE_CLOSE</b> — alliance zone, within close-distance boundary of hub
  *   <li><b>ALLIANCE_MID</b> — alliance zone, between close and far distance boundaries
  *   <li><b>ALLIANCE_FAR</b> — alliance zone, beyond far-distance boundary
  *   <li><b>NEUTRAL</b> — mid-field. Pass shots allowed (speed-gated by tunable).
- *   <li><b>OPPONENT</b> — their side. Long pass back to alliance zone.
+ *   <li><b>OPPONENT</b> — their side. Pass back to alliance zone (same target as NEUTRAL,
+ *       just longer distance).
  * </ol>
  *
  * <p>BUMP zones use the physical bump geometry and require gyro pitch confirmation. TRENCH zone
@@ -32,9 +36,14 @@ public class ZoneDetector {
   public enum Zone {
     /** Over a bump — suppress all shooting. */
     BUMP,
-    /** Under trench in alliance zone — hood clamped, can shoot hub (low angle). */
+    /** Under trench in alliance zone — can shoot hub normally (speed-limited if hood is up). */
     ALLIANCE_TRENCH,
-    /** Under trench in neutral zone — hood clamped, suppress shooting (just transiting). */
+    /**
+     * Danger band straddling the alliance/neutral trench boundary. Hood is force-lowered and robot
+     * is near-stopped (0.3 m/s) when hood is above safe angle. Blocks all shooting.
+     */
+    DANGER_TRENCH,
+    /** Under trench in neutral zone or opponent trench — hood clamped to min, no shooting. */
     NEUTRAL_TRENCH,
     /** Alliance zone, close to hub (within close-distance boundary). */
     ALLIANCE_CLOSE,
@@ -44,7 +53,7 @@ public class ZoneDetector {
     ALLIANCE_FAR,
     /** Neutral zone — pass shots, speed-gated. */
     NEUTRAL,
-    /** Opponent side — long pass back to alliance zone. */
+    /** Opponent side — pass back to alliance zone (same target as NEUTRAL, longer distance). */
     OPPONENT
   }
 
@@ -53,11 +62,6 @@ public class ZoneDetector {
   // and ALLIANCE_FAR. They are the single source of truth — ShotCalculator's efficiency
   // interpolation also uses these boundaries so zone edges and efficiency breakpoints always agree.
   // Tunable via NetworkTables under Shots/Zones/.
-  // How far into alliance trench (meters) the neutral trench boundary is shifted toward
-  // the alliance side. Gives the hood time to lower before reaching the physical barrier.
-  private static final LoggedTunableNumber trenchAllianceBufferM =
-      new LoggedTunableNumber("Shots/Zones/TrenchAllianceBufferM", Constants.getRobotConfig().getZoneTrenchAllianceBufferM());
-
   private static final LoggedTunableNumber zoneBoundaryClose =
       new LoggedTunableNumber("Shots/Zones/CloseDist", Constants.getRobotConfig().getZoneCloseDist());
   private static final LoggedTunableNumber zoneBoundaryMid =
@@ -168,6 +172,10 @@ public class ZoneDetector {
     // zone near the walls and falsely suppress passing.
     if (FieldConstants.TrenchZones.isInAllianceTrenchZone(turretX, turretY, alliance)
         || FieldConstants.TrenchZones.isInOpponentTrenchZoneTight(turretX, turretY, alliance)) {
+      // Danger zone has highest priority — straddles the alliance/neutral boundary
+      if (FieldConstants.TrenchZones.isInDangerTrenchZone(turretX, turretY, alliance)) {
+        return Zone.DANGER_TRENCH;
+      }
       boolean onAllianceSide = isOnAllianceSideOfTrench(turretX, alliance);
       return onAllianceSide ? Zone.ALLIANCE_TRENCH : Zone.NEUTRAL_TRENCH;
     }
@@ -209,26 +217,22 @@ public class ZoneDetector {
    *
    * <p>The barrier sits at the hub center line. ALLIANCE_TRENCH means the robot is between the
    * alliance wall and the barrier; NEUTRAL_TRENCH means the robot is past the barrier toward
-   * territory. The opponent's trench is always FAR.
+   * neutral territory. The opponent's trench always returns false (classified as NEUTRAL_TRENCH).
    */
   private static boolean isOnAllianceSideOfTrench(double robotX, Alliance alliance) {
     double blueHubCenter = FieldConstants.LinesVertical.hubCenter;
     double redHubCenter = FieldConstants.LinesVertical.oppHubCenter;
-    double buffer = trenchAllianceBufferM.get();
 
     if (alliance == Alliance.Blue) {
-      // If we're in the red-side trench, that's always FAR (opponent territory)
       double distToBlue = Math.abs(robotX - blueHubCenter);
       double distToRed = Math.abs(robotX - redHubCenter);
       if (distToRed < distToBlue) return false;
-      // NEAR if robot is on the alliance side, with buffer shifted toward alliance
-      return robotX <= blueHubCenter - buffer;
+      return robotX <= blueHubCenter;
     } else {
       double distToBlue = Math.abs(robotX - blueHubCenter);
       double distToRed = Math.abs(robotX - redHubCenter);
       if (distToBlue < distToRed) return false;
-      // NEAR if robot is on the alliance side, with buffer shifted toward alliance
-      return robotX >= redHubCenter + buffer;
+      return robotX >= redHubCenter;
     }
   }
 

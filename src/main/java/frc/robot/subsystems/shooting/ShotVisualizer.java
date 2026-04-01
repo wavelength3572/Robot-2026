@@ -373,6 +373,7 @@ public class ShotVisualizer {
     boolean suppressZone =
         snapshot.currentZone() != null
             && (snapshot.currentZone() == frc.robot.util.ZoneDetector.Zone.NEUTRAL_TRENCH
+                || snapshot.currentZone() == frc.robot.util.ZoneDetector.Zone.DANGER_TRENCH
                 || snapshot.currentZone() == frc.robot.util.ZoneDetector.Zone.BUMP);
     if (snapshot.currentShot() != null && !suppressZone) {
       double currentTurretAngleRad = Math.toRadians(snapshot.currentAngleDeg());
