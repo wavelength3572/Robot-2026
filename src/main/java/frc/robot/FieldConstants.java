@@ -392,6 +392,48 @@ public class FieldConstants {
     }
 
     /**
+     * Check if a point is inside the alliance's own trench zones using asymmetric X lead distances.
+     * The alliance-facing edge uses {@code allianceSideXLead} instead of {@code X_EXTRA_LEAD_METERS},
+     * giving less lead on the side where the robot approaches from alliance zone (to avoid
+     * triggering hood safety while shooting near the trench). The neutral-facing edge keeps full
+     * lead for maximum protection when transiting from neutral.
+     *
+     * @param allianceSideXLead Extra X lead on the alliance-facing edge (beyond HOOD_LEAD_METERS)
+     */
+    public static boolean isInAllianceTrenchZoneAsymmetric(
+        double x, double y, DriverStation.Alliance alliance, double allianceSideXLead) {
+      if (alliance == DriverStation.Alliance.Blue) {
+        // Blue: MIN_X is alliance-facing (toward X=0), MAX_X is neutral-facing
+        double leftMinX = LinesVertical.hubCenter - halfDepth - HOOD_LEAD_METERS - allianceSideXLead;
+        double rightMinX = leftMinX;
+        return isInZone(x, y, leftMinX, BLUE_LEFT_MAX_X, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y)
+            || isInZone(x, y, rightMinX, BLUE_RIGHT_MAX_X, BLUE_RIGHT_MIN_Y, BLUE_RIGHT_MAX_Y);
+      } else {
+        // Red: MAX_X is alliance-facing (toward fieldLength), MIN_X is neutral-facing
+        double leftMaxX =
+            LinesVertical.oppHubCenter + halfDepth + HOOD_LEAD_METERS + allianceSideXLead;
+        double rightMaxX = leftMaxX;
+        return isInZone(x, y, RED_LEFT_MIN_X, leftMaxX, RED_LEFT_MIN_Y, RED_LEFT_MAX_Y)
+            || isInZone(x, y, RED_RIGHT_MIN_X, rightMaxX, RED_RIGHT_MIN_Y, RED_RIGHT_MAX_Y);
+      }
+    }
+
+    /**
+     * Get the alliance-side X bound for trench zone visualization. Returns the MIN_X for blue
+     * (alliance is toward X=0) or MAX_X for red (alliance is toward fieldLength).
+     *
+     * @param allianceSideXLead Extra X lead on the alliance-facing edge (beyond HOOD_LEAD_METERS)
+     */
+    public static double getAllianceSideXBound(
+        DriverStation.Alliance alliance, double allianceSideXLead) {
+      if (alliance == DriverStation.Alliance.Blue) {
+        return LinesVertical.hubCenter - halfDepth - HOOD_LEAD_METERS - allianceSideXLead;
+      } else {
+        return LinesVertical.oppHubCenter + halfDepth + HOOD_LEAD_METERS + allianceSideXLead;
+      }
+    }
+
+    /**
      * Check if a point is inside the opponent's trench zones using bump-aligned X bounds (no lead
      * distance). Used for hood safety in opponent territory without the expanded bounds that would
      * overlap neutral zone passing lanes near the walls.
@@ -527,16 +569,20 @@ public class FieldConstants {
     logRect("Visualizations/Zones/Opponent", neutralEndX, fieldLength, 0, fieldWidth);
 
     // ALLIANCE_TRENCH — alliance-side half of each blue trench (X <= hubCenter)
-    // Bounds already include hood lead distance
+    // Uses asymmetric alliance-side lead from ZoneDetector tunable
+    double allianceLeadX =
+        TrenchZones.getAllianceSideXBound(
+            edu.wpi.first.wpilibj.DriverStation.Alliance.Blue,
+            frc.robot.util.ZoneDetector.getTrenchAllianceSideXLead());
     logRect(
         "Visualizations/Zones/AllianceTrench_Left",
-        TrenchZones.BLUE_LEFT_MIN_X,
+        allianceLeadX,
         hub,
         TrenchZones.BLUE_LEFT_MIN_Y,
         TrenchZones.BLUE_LEFT_MAX_Y);
     logRect(
         "Visualizations/Zones/AllianceTrench_Right",
-        TrenchZones.BLUE_RIGHT_MIN_X,
+        allianceLeadX,
         hub,
         TrenchZones.BLUE_RIGHT_MIN_Y,
         TrenchZones.BLUE_RIGHT_MAX_Y);

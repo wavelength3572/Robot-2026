@@ -58,6 +58,15 @@ public class ZoneDetector {
   private static final LoggedTunableNumber trenchAllianceBufferM =
       new LoggedTunableNumber("Shots/Zones/TrenchAllianceBufferM", 0.3);
 
+  // Alliance-side X lead for trench zone detection. Controls how far the trench zone
+  // extends into alliance territory beyond HOOD_LEAD_METERS. Default 0.0 means only the
+  // base 0.5m hood lead applies on the alliance side. The neutral-facing edge always uses
+  // the full lead (HOOD_LEAD + X_EXTRA_LEAD = 1.0m). Tunable so you can dial it in at
+  // the field — increase if the hood doesn't have time to lower, decrease if it's
+  // triggering safety too early when shooting near the trench.
+  private static final LoggedTunableNumber trenchAllianceSideXLeadM =
+      new LoggedTunableNumber("Shots/Zones/TrenchAllianceSideXLeadM", 0.0);
+
   private static final LoggedTunableNumber zoneBoundaryClose =
       new LoggedTunableNumber("Shots/Zones/CloseDist", 2.0);
   private static final LoggedTunableNumber zoneBoundaryMid =
@@ -85,6 +94,11 @@ public class ZoneDetector {
   /** Get the corner zone boundary distance (meters). */
   public static double getZoneBoundaryCorner() {
     return zoneBoundaryCorner.get();
+  }
+
+  /** Get the current alliance-side X lead for trench zones (meters beyond HOOD_LEAD). */
+  public static double getTrenchAllianceSideXLead() {
+    return trenchAllianceSideXLeadM.get();
   }
 
   /** Small hysteresis buffer for X-based zone transitions (ALLIANCE↔NEUTRAL). */
@@ -163,10 +177,13 @@ public class ZoneDetector {
         && Math.abs(robotPitchDeg) >= BUMP_PITCH_THRESHOLD_DEG) {
       return Zone.BUMP;
     }
-    // TRENCH: own alliance trenches use expanded lead-distance bounds (early hood lowering).
+    // TRENCH: own alliance trenches use asymmetric lead — reduced lead on alliance-facing edge
+    // (tunable, default 0m extra beyond base 0.5m) so shooting near the trench isn't disrupted,
+    // full lead on neutral-facing edge for maximum protection when transiting from neutral.
     // Opponent trenches use tight physical bounds only — lead distances would overlap the neutral
     // zone near the walls and falsely suppress passing.
-    if (FieldConstants.TrenchZones.isInAllianceTrenchZone(turretX, turretY, alliance)
+    if (FieldConstants.TrenchZones.isInAllianceTrenchZoneAsymmetric(
+            turretX, turretY, alliance, trenchAllianceSideXLeadM.get())
         || FieldConstants.TrenchZones.isInOpponentTrenchZoneTight(turretX, turretY, alliance)) {
       boolean onAllianceSide = isOnAllianceSideOfTrench(turretX, alliance);
       return onAllianceSide ? Zone.ALLIANCE_TRENCH : Zone.NEUTRAL_TRENCH;

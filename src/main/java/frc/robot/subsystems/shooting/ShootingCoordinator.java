@@ -116,14 +116,7 @@ public class ShootingCoordinator extends SubsystemBase {
       new LoggedTunableNumber("Shots/TrenchMode/SafetySpeedLimitMps", 2.0);
   private final LoggedTunableNumber trenchMovingThresholdMps =
       new LoggedTunableNumber("Shots/TrenchMode/MovingThresholdMps", 0.6);
-  // Hood clamp/unclamp thresholds with hysteresis. Clamp is low (fast response when
-  // accelerating into trench), unclamp is higher (hood starts rising earlier when decelerating).
-  private final LoggedTunableNumber trenchHoodClampSpeedMps =
-      new LoggedTunableNumber("Shots/TrenchMode/HoodClampSpeedMps", 0.3);
-  private final LoggedTunableNumber trenchHoodUnclampSpeedMps =
-      new LoggedTunableNumber("Shots/TrenchMode/HoodUnclampSpeedMps", 0.5);
   private boolean trenchHoodSafetyActive = false;
-  private boolean movingInTrench = false; // true when robot is moving in a trench zone
 
   // Auto passing: when false, PASS/LONG_PASS zones are treated as no-fire zones in auto.
   // Set by AutoWrapperFactory based on path strategy (AUTO_SHOOT enables, others disable).
@@ -417,26 +410,12 @@ public class ShootingCoordinator extends SubsystemBase {
 
       // Hood trench clamping — runs for ALL aim modes so setClamped(false) is always
       // called when leaving a trench, regardless of whether we're shooting or passing.
-      boolean inTrenchZone =
-          aimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
-              || aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
+      // Only clamp in neutral trench (no shooting there); alliance trench stays unclamped
+      // so hub shots can fire. Hood safety speed limiting (updateTrenchHoodSafety) handles
+      // the case where the hood is physically too high while transiting.
       boolean inNeutralTrench = aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
-      if (inTrenchZone) {
-        double robotSpeed =
-            Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-        double threshold =
-            movingInTrench ? trenchHoodUnclampSpeedMps.get() : trenchHoodClampSpeedMps.get();
-        boolean isMoving = robotSpeed > threshold;
-        boolean hoodClamped = inNeutralTrench;
-        if (hood != null) {
-          hood.setClamped(hoodClamped);
-        }
-        movingInTrench = isMoving;
-      } else {
-        movingInTrench = false;
-        if (hood != null) {
-          hood.setClamped(false);
-        }
+      if (hood != null) {
+        hood.setClamped(inNeutralTrench);
       }
 
       // Update distance to aim target every cycle (for dashboard and shot calculations)
@@ -1055,14 +1034,6 @@ public class ShootingCoordinator extends SubsystemBase {
   public ZoneDetector.Zone getCurrentZone() {
     if (cachedAimResult == null) return ZoneDetector.Zone.ALLIANCE_MID;
     return cachedAimResult.zone();
-  }
-
-  /**
-   * Check if trench hood safety is active (hood above safe angle while moving in trench). When
-   * active, drive speed is limited and shooting is suppressed until the hood lowers.
-   */
-  public boolean isTrenchHoodSafetyActive() {
-    return trenchHoodSafetyActive;
   }
 
   /**
