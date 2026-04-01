@@ -99,16 +99,19 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
     // PID + feedforward all run onboard the SparkFlex at 1kHz — no CAN latency.
     // kS/kV applied automatically in kVelocity mode (per REV 2026 API).
-    // Slot 0: Normal PID gains
-    // Slot 1: Recovery PID gains (higher kP for faster recovery during shooting)
+    // Slot 0: Normal PID gains (gentle, for steady-state holding)
+    // Slot 1: Recovery PID gains (aggressive kP + kD for fast recovery after ball impacts)
     double initKp = config.getLauncherKp();
     double initKi = config.getLauncherKi();
     double initKd = config.getLauncherKd();
+    // Recovery slot: 8x kP for aggressive correction, add kD for damping
+    double recoveryKp = initKp * 8.0;
+    double recoveryKd = 0.0004;
     leaderConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot0)
-        .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot1)
+        .pid(recoveryKp, initKi, recoveryKd, ClosedLoopSlot.kSlot1)
         .iZone(config.getLauncherIZone());
     leaderConfig
         .closedLoop
@@ -116,11 +119,13 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .sv(config.getLauncherKs(), config.getLauncherKv(), ClosedLoopSlot.kSlot0)
         .sv(config.getLauncherKs(), config.getLauncherKv(), ClosedLoopSlot.kSlot1);
 
-    // Signal update rates
+    // Signal update rates — 10ms velocity for tighter onboard PID recovery.
+    // The 1kHz PID interpolates between updates, so faster velocity data
+    // means the controller reacts to ball impacts within ~5ms instead of ~10ms.
     leaderConfig
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
-        .primaryEncoderVelocityPeriodMs(20)
+        .primaryEncoderVelocityPeriodMs(10)
         .appliedOutputPeriodMs(5)
         .busVoltagePeriodMs(5)
         .outputCurrentPeriodMs(5);
@@ -300,11 +305,12 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
   @Override
   public void configurePID(double kP, double kI, double kD, double iZone) {
+    // Recovery slot gets 8x kP + derivative damping for fast flywheel recovery
     var pidConfig = new SparkFlexConfig();
     pidConfig
         .closedLoop
         .pid(kP, kI, kD, ClosedLoopSlot.kSlot0)
-        .pid(kP, kI, kD, ClosedLoopSlot.kSlot1)
+        .pid(kP * 8.0, kI, 0.0004, ClosedLoopSlot.kSlot1)
         .iZone(iZone);
     leaderMotor.configure(
         pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);

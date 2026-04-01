@@ -95,9 +95,9 @@ public class ShootingCommands {
   private static final LoggedTunableNumber hubShotTurretAngleDeg =
       new LoggedTunableNumber("Shots/HubShot/TurretAngleDeg", -90);
   private static final LoggedTunableNumber hubShotMotivatorRPM =
-      new LoggedTunableNumber("Shots/HubShot/MotivatorRPM", 1300.0);
+      new LoggedTunableNumber("Shots/HubShot/MotivatorRPM", 1350.0);
   private static final LoggedTunableNumber hubShotSpindexerRPM =
-      new LoggedTunableNumber("Shots/HubShot/SpindexerRPM", 325.0);
+      new LoggedTunableNumber("Shots/HubShot/SpindexerRPM", 500.0);
 
   // Left trench shot
   private static final LoggedTunableNumber leftTrenchLauncherRPM =
@@ -126,18 +126,21 @@ public class ShootingCommands {
   // ===== Robot Tuning (affects real robot behavior) =====
 
   // Motivator RPM as a ratio of launcher RPM: motivatorRPM = launcherRPM * ratio
+  // 0.55 delivers balls firmly into the flywheel for consistent contact & faster throughput.
+  // Previous 0.2 was too gentle — balls rolled in slowly, causing inconsistent dip profiles.
   private static final LoggedTunableNumber motivatorLauncherRatio =
       new LoggedTunableNumber(
-          "Shots/SmartLaunch/MotivatorLauncherRatio", 0.2); // consider .68 was .565
+          "Shots/SmartLaunch/MotivatorLauncherRatio", 0.55); // was 0.2, consider .68
 
   // Spindexer RPM lerped by distance: close = max, far = min
+  // Increased from 300 to 500 to sustain 15+ balls/sec feed rate.
   private static final LoggedTunableNumber spindexerCloseRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 300.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerCloseRPM", 500.0);
   private static final LoggedTunableNumber spindexerFarRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 300.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerFarRPM", 500.0);
   // Fixed spindexer RPM used in pass/neutral zones (no distance lerp)
   private static final LoggedTunableNumber spindexerPassRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 375.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 550.0);
 
   // ===== LUT Dev Overrides (manual RPM/hood for data collection) =====
   private static final LoggedTunableNumber lutDevOverrideRPM =
