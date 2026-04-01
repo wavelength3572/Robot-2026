@@ -116,11 +116,12 @@ public class LauncherIOSparkFlex implements LauncherIO {
         .sv(config.getLauncherKs(), config.getLauncherKv(), ClosedLoopSlot.kSlot0)
         .sv(config.getLauncherKs(), config.getLauncherKv(), ClosedLoopSlot.kSlot1);
 
-    // Signal update rates
+    // Signal update rates — 10ms velocity for fresher onboard PID data and
+    // better resolution on ball impact telemetry (Launcher/BallImpact/*).
     leaderConfig
         .signals
         .primaryEncoderVelocityAlwaysOn(true)
-        .primaryEncoderVelocityPeriodMs(20)
+        .primaryEncoderVelocityPeriodMs(10)
         .appliedOutputPeriodMs(5)
         .busVoltagePeriodMs(5)
         .outputCurrentPeriodMs(5);
