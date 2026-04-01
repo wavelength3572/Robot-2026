@@ -789,11 +789,21 @@ public class RobotContainer {
               intake));
     }
 
-    // SmartLaunch: state-machine-driven version (zone-aware, transition-safe)
-    NamedCommands.registerCommand(
-        "SmartLaunch",
-        ShootingCommands.smartLaunchDangerousCommand(
-            launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+    // SmartLaunch: state-machine-driven version (zone-aware, transition-safe).
+    // Automatically stows hood when shooting ends so autos don't need a manual StowHood step.
+    {
+      Command smartLaunch =
+          ShootingCommands.smartLaunchDangerousCommand(
+              launcher, shootingCoordinator, motivator, turret, hood, spindexer);
+      if (hood != null) {
+        Command autoStowHood =
+            Commands.run(() -> hood.setHoodAngle(hood.getMinAngle()), hood)
+                .until(() -> hood.getCurrentAngle() <= 18.0)
+                .withTimeout(1.5);
+        smartLaunch = smartLaunch.andThen(autoStowHood);
+      }
+      NamedCommands.registerCommand("SmartLaunch", smartLaunch);
+    }
 
     // holdFire / releaseFire: suppress/allow feeding during auto paths.
     // Useful for accumulating balls before dumping at hub.

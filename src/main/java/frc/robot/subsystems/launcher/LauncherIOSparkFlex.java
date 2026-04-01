@@ -262,8 +262,7 @@ public class LauncherIOSparkFlex implements LauncherIO {
   @Override
   public void setVelocity(double velocityRPM, boolean recoveryActive, double recoveryArbFF) {
     if (velocityRPM < 1.0) {
-      currentTargetWheelRPM = 0.0;
-      leaderMotor.stopMotor();
+      stop();
     }
     // Clamp to max velocity (wheel RPM)
     currentTargetWheelRPM = Math.min(Math.abs(velocityRPM), MAX_VELOCITY_RPM);
