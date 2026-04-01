@@ -125,6 +125,17 @@ public class ShootingCoordinator extends SubsystemBase {
   private boolean trenchHoodSafetyActive = false;
   private boolean movingInTrench = false; // true when robot is moving in a trench zone
 
+  // Danger trench safety: near-stops the robot when hood is above safe angle in the danger zone
+  // at the alliance/neutral trench boundary. Timeout relaxes limit for broken-hood escape.
+  private final LoggedTunableNumber dangerTrenchSpeedLimitMps =
+      new LoggedTunableNumber("Shots/TrenchMode/DangerSpeedLimitMps", 0.3);
+  private final LoggedTunableNumber dangerTrenchTimeoutSec =
+      new LoggedTunableNumber("Shots/TrenchMode/DangerTimeoutSec", 2.0);
+  private final LoggedTunableNumber dangerTrenchFallbackSpeedMps =
+      new LoggedTunableNumber("Shots/TrenchMode/DangerFallbackSpeedMps", 2.0);
+  private boolean dangerTrenchActive = false;
+  private double dangerTrenchEntryTimestamp = 0.0;
+
   // Auto passing: when false, PASS/LONG_PASS zones are treated as no-fire zones in auto.
   // Set by AutoWrapperFactory based on path strategy (AUTO_SHOOT enables, others disable).
   // Teleop always allows passing regardless of this flag.
@@ -363,6 +374,7 @@ public class ShootingCoordinator extends SubsystemBase {
     updateShotCalculation(alliance, isBlueAlliance);
     updateCoordinatorState();
     updateTrenchHoodSafety();
+    updateDangerTrenchSafety();
     if (periodicCounter % 5 == 0) {
       logShotState();
     }
@@ -419,15 +431,18 @@ public class ShootingCoordinator extends SubsystemBase {
       // called when leaving a trench, regardless of whether we're shooting or passing.
       boolean inTrenchZone =
           aimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
-              || aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
+              || aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH
+              || aimResult.zone() == ZoneDetector.Zone.DANGER_TRENCH;
       boolean inNeutralTrench = aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
+      boolean inDangerTrench = aimResult.zone() == ZoneDetector.Zone.DANGER_TRENCH;
       if (inTrenchZone) {
         double robotSpeed =
             Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
         double threshold =
             movingInTrench ? trenchHoodUnclampSpeedMps.get() : trenchHoodClampSpeedMps.get();
         boolean isMoving = robotSpeed > threshold;
-        boolean hoodClamped = inNeutralTrench;
+        // Neutral and danger zones always clamp; alliance trench does not clamp
+        boolean hoodClamped = inNeutralTrench || inDangerTrench;
         if (hood != null) {
           hood.setClamped(hoodClamped);
         }
@@ -670,10 +685,12 @@ public class ShootingCoordinator extends SubsystemBase {
     double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
     double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
 
-    // Narrow hood range for hub shots in neutral trench (setClamped already handled above)
+    // Force hood to minimum in neutral trench and danger zone (setClamped already handled above)
     boolean inNeutralTrench =
         cachedAimResult != null && cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
-    if (inNeutralTrench) {
+    boolean inDangerTrench =
+        cachedAimResult != null && cachedAimResult.zone() == ZoneDetector.Zone.DANGER_TRENCH;
+    if (inNeutralTrench || inDangerTrench) {
       hoodMax = hoodMin;
     }
 
@@ -1077,7 +1094,8 @@ public class ShootingCoordinator extends SubsystemBase {
     boolean inTrenchZone =
         cachedAimResult != null
             && (cachedAimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
-                || cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH);
+                || cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH
+                || cachedAimResult.zone() == ZoneDetector.Zone.DANGER_TRENCH);
 
     if (inTrenchZone && hood != null && fieldSpeedsSupplier != null) {
       ChassisSpeeds speeds = fieldSpeedsSupplier.get();
@@ -1090,15 +1108,67 @@ public class ShootingCoordinator extends SubsystemBase {
       trenchHoodSafetyActive = false;
     }
 
-    // Apply or release drive speed limit on state transitions
-    if (trenchHoodSafetyActive) {
+    // Apply or release drive speed limit on state transitions.
+    // Defer to danger trench safety when it's active — it uses a more aggressive limit.
+    if (trenchHoodSafetyActive && !dangerTrenchActive) {
       DriveCommands.setSpeedLimit(trenchSafetySpeedLimitMps.get());
-    } else if (wasActive) {
+    } else if (wasActive && !dangerTrenchActive) {
       DriveCommands.clearSpeedLimit();
     }
 
     if (periodicCounter % 5 == 0) {
       Logger.recordOutput("SmartLaunch/TrenchHoodSafety/Active", trenchHoodSafetyActive);
+    }
+  }
+
+  /**
+   * Update danger trench safety state. When in the DANGER_TRENCH zone with the hood physically
+   * above the safe angle, near-stops the robot (0.3 m/s) and forces the hood to lower. After a
+   * tunable timeout (default 2s), relaxes to a fallback speed so the driver can escape if the hood
+   * is broken/jammed. Once the hood reaches the safe angle, the limit is cleared immediately.
+   *
+   * <p>Speed limiting uses DriveCommands (teleop joystick only). In auto, path speeds should be
+   * designed to stay within safe limits in trench zones. The hood clamping and force-to-min angle
+   * work in both teleop and auto regardless.
+   */
+  private void updateDangerTrenchSafety() {
+    boolean wasActive = dangerTrenchActive;
+
+    boolean inDangerZone =
+        cachedAimResult != null && cachedAimResult.zone() == ZoneDetector.Zone.DANGER_TRENCH;
+
+    if (inDangerZone && hood != null) {
+      boolean hoodAboveSafe = hood.getCurrentAngle() > trenchHoodMaxDeg.get();
+
+      if (hoodAboveSafe) {
+        if (!wasActive) {
+          // Just entered danger zone with hood up — record entry time for timeout
+          dangerTrenchEntryTimestamp = Timer.getFPGATimestamp();
+        }
+        dangerTrenchActive = true;
+
+        // After timeout, relax to fallback speed so driver can escape a broken hood
+        double elapsed = Timer.getFPGATimestamp() - dangerTrenchEntryTimestamp;
+        if (elapsed > dangerTrenchTimeoutSec.get()) {
+          DriveCommands.setSpeedLimit(dangerTrenchFallbackSpeedMps.get());
+        } else {
+          DriveCommands.setSpeedLimit(dangerTrenchSpeedLimitMps.get());
+        }
+      } else {
+        // Hood is at or below safe angle — allow passage
+        dangerTrenchActive = false;
+      }
+    } else {
+      dangerTrenchActive = false;
+    }
+
+    // Clear drive speed limit when danger trench safety deactivates
+    if (wasActive && !dangerTrenchActive) {
+      DriveCommands.clearSpeedLimit();
+    }
+
+    if (periodicCounter % 5 == 0) {
+      Logger.recordOutput("SmartLaunch/DangerTrenchSafety/Active", dangerTrenchActive);
     }
   }
 
@@ -1212,7 +1282,9 @@ public class ShootingCoordinator extends SubsystemBase {
     // BUT only if we're not in a no-fire zone — otherwise go straight to NO_FIRE_ZONE
     // to avoid a single-cycle AIMING blip that's invisible in logs.
     boolean inNoFireZone =
-        currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH || currentZone == ZoneDetector.Zone.BUMP;
+        currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH
+            || currentZone == ZoneDetector.Zone.DANGER_TRENCH
+            || currentZone == ZoneDetector.Zone.BUMP;
     if (!isAutoCollecting() && coordinatorState == CoordinatorState.UNARMED) {
       if (inNoFireZone) {
         coordinatorState = CoordinatorState.NO_FIRE_ZONE;

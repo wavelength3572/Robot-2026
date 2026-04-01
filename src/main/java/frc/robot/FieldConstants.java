@@ -448,6 +448,44 @@ public class FieldConstants {
       return "";
     }
 
+    /**
+     * Half-width of the DANGER_TRENCH zone (meters). The zone extends this far on each side of the
+     * alliance/neutral trench boundary (hubCenter for blue, oppHubCenter for red). Total width is
+     * 2x this value (~24 inches).
+     */
+    public static final double DANGER_ZONE_HALF_WIDTH_METERS = 0.3;
+
+    /**
+     * Check if a point is inside the danger zone at the alliance/neutral trench boundary. Only
+     * checks the robot's own alliance trenches (not opponent). The danger zone uses alliance trench
+     * Y-bounds (robot must be laterally under the trench) and a narrow X-band centered on the hub
+     * center line.
+     */
+    public static boolean isInDangerTrenchZone(
+        double x, double y, DriverStation.Alliance alliance) {
+      double dangerHalf = DANGER_ZONE_HALF_WIDTH_METERS;
+      if (alliance == DriverStation.Alliance.Blue) {
+        double centerX = LinesVertical.hubCenter;
+        // Check both blue trenches (left and right) with danger X bounds
+        return isInZone(
+                x, y, centerX - dangerHalf, centerX + dangerHalf, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y)
+            || isInZone(
+                x,
+                y,
+                centerX - dangerHalf,
+                centerX + dangerHalf,
+                BLUE_RIGHT_MIN_Y,
+                BLUE_RIGHT_MAX_Y);
+      } else {
+        double centerX = LinesVertical.oppHubCenter;
+        // Check both red trenches (left and right) with danger X bounds
+        return isInZone(
+                x, y, centerX - dangerHalf, centerX + dangerHalf, RED_LEFT_MIN_Y, RED_LEFT_MAX_Y)
+            || isInZone(
+                x, y, centerX - dangerHalf, centerX + dangerHalf, RED_RIGHT_MIN_Y, RED_RIGHT_MAX_Y);
+      }
+    }
+
     /** Check if point is inside a rectangle, clamped to field walls. */
     static boolean isInZone(
         double x, double y, double minX, double maxX, double minY, double maxY) {
@@ -538,6 +576,21 @@ public class FieldConstants {
         "Visualizations/Zones/AllianceTrench_Right",
         TrenchZones.BLUE_RIGHT_MIN_X,
         hub,
+        TrenchZones.BLUE_RIGHT_MIN_Y,
+        TrenchZones.BLUE_RIGHT_MAX_Y);
+
+    // DANGER_TRENCH — narrow band straddling hubCenter in each blue trench
+    double dangerHalf = TrenchZones.DANGER_ZONE_HALF_WIDTH_METERS;
+    logRect(
+        "Visualizations/Zones/DangerTrench_Left",
+        hub - dangerHalf,
+        hub + dangerHalf,
+        TrenchZones.BLUE_LEFT_MIN_Y,
+        TrenchZones.BLUE_LEFT_MAX_Y);
+    logRect(
+        "Visualizations/Zones/DangerTrench_Right",
+        hub - dangerHalf,
+        hub + dangerHalf,
         TrenchZones.BLUE_RIGHT_MIN_Y,
         TrenchZones.BLUE_RIGHT_MAX_Y);
 

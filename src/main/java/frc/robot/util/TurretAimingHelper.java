@@ -21,8 +21,8 @@ import frc.robot.FieldConstants;
  *   <li>ALLIANCE → SHOOT_ON_THE_MOVE (aim at hub, fire while driving)
  *   <li>ALLIANCE_TRENCH → SHOOT_ON_THE_MOVE (aim at hub, fire while driving)
  *   <li>NEUTRAL → PASS (aim at pass target)
- *   <li>OPPONENT → LONG_PASS (aggressive pass back to alliance zone)
- *   <li>NEUTRAL_TRENCH / BUMP → NONE (suppress shooting, keep last aim target)
+ *   <li>OPPONENT → LONG_PASS (pass back to alliance zone, same target, longer distance)
+ *   <li>NEUTRAL_TRENCH / DANGER_TRENCH / BUMP → NONE (suppress shooting, keep last aim target)
  * </ul>
  */
 public class TurretAimingHelper {
@@ -33,7 +33,7 @@ public class TurretAimingHelper {
     SHOOT_ON_THE_MOVE,
     /** Aim at pass target and fire (neutral zone). */
     PASS,
-    /** Aggressive pass from opponent zone — longer distance, steeper trajectory. */
+    /** Pass from opponent zone — same target as PASS but longer distance. */
     LONG_PASS,
     /** Suppress shooting — over bump or transiting through far trench. */
     NONE
@@ -120,7 +120,7 @@ public class TurretAimingHelper {
             yield new AimResult(new Translation2d(targetX, targetY), AimMode.PASS, zone);
           }
           case OPPONENT -> {
-            // Long pass — same target area but will use more aggressive shot parameters
+            // Long pass — same target area, just further away
             double targetX =
                 (alliance == Alliance.Blue)
                     ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
@@ -128,7 +128,7 @@ public class TurretAimingHelper {
             double targetY = ZoneDetector.getPassTargetY(robotY);
             yield new AimResult(new Translation2d(targetX, targetY), AimMode.LONG_PASS, zone);
           }
-          case NEUTRAL_TRENCH, BUMP -> {
+          case NEUTRAL_TRENCH, DANGER_TRENCH, BUMP -> {
             // Keep last aim target for smooth turret motion, but suppress firing
             if (lastResult != null) {
               yield new AimResult(lastResult.target(), AimMode.NONE, zone);
