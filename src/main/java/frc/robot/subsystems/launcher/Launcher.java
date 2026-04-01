@@ -1,5 +1,6 @@
 package frc.robot.subsystems.launcher;
 
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
@@ -67,6 +68,19 @@ public class Launcher extends SubsystemBase {
   // Tracks whether recovery mode is currently active (for hysteresis)
   private boolean recoveryActive = false;
 
+  // ========== Ball Impact Telemetry ==========
+  // Detects individual ball impacts by tracking velocity dips during feeding.
+  // Logs per-ball: dip magnitude, recovery time, time since last ball, pre-impact RPM.
+  // View in AdvantageScope under "Launcher/BallImpact/*" to diagnose feed consistency.
+  private static final double IMPACT_DIP_THRESHOLD_RPM = 15.0; // minimum dip to count as a ball
+  private boolean inDip = false; // currently in a velocity dip
+  private double dipStartRPM = 0.0; // RPM when dip started
+  private double dipMinRPM = 0.0; // lowest RPM seen during this dip
+  private double dipStartTime = 0.0; // timestamp when dip started
+  private double lastImpactTime = 0.0; // timestamp of last detected impact
+  private int impactCount = 0; // total impacts this feeding session
+  private double totalDipMagnitude = 0.0; // sum of all dip magnitudes for averaging
+
   public Launcher(LauncherIO io) {
     this.io = io;
 
@@ -109,6 +123,62 @@ public class Launcher extends SubsystemBase {
     Logger.recordOutput("Subsystems/LauncherState", currentState.name());
     Logger.recordOutput("Subsystems/LauncherFeedingActive", feedingActive);
     Logger.recordOutput("Subsystems/LauncherRecoveryActive", recoveryActive);
+
+    // ========== Ball Impact Detection ==========
+    // Tracks each velocity dip during feeding to diagnose ball delivery consistency.
+    // A "dip" starts when RPM drops > threshold below target, ends when RPM recovers
+    // back above (target - threshold). Each dip = one ball impact.
+    if (feedingActive && inputs.targetVelocityRPM > 100.0) {
+      double error = inputs.targetVelocityRPM - inputs.wheelVelocityRPM;
+      double now = Timer.getFPGATimestamp();
+
+      if (!inDip && error > IMPACT_DIP_THRESHOLD_RPM) {
+        // Entering a new dip — ball just hit the flywheel
+        inDip = true;
+        dipStartRPM = inputs.wheelVelocityRPM + error; // approximate pre-impact RPM
+        dipMinRPM = inputs.wheelVelocityRPM;
+        dipStartTime = now;
+      } else if (inDip) {
+        // Track the deepest point of the dip
+        if (inputs.wheelVelocityRPM < dipMinRPM) {
+          dipMinRPM = inputs.wheelVelocityRPM;
+        }
+
+        // Dip ended — RPM recovered back above threshold
+        if (error < IMPACT_DIP_THRESHOLD_RPM) {
+          inDip = false;
+          impactCount++;
+          double dipMagnitude = dipStartRPM - dipMinRPM;
+          double recoveryTimeMs = (now - dipStartTime) * 1000.0;
+          double timeSinceLastMs =
+              lastImpactTime > 0 ? (dipStartTime - lastImpactTime) * 1000.0 : 0.0;
+          lastImpactTime = dipStartTime;
+          totalDipMagnitude += dipMagnitude;
+
+          // Per-ball impact log — view in AdvantageScope
+          Logger.recordOutput("Launcher/BallImpact/Count", impactCount);
+          Logger.recordOutput("Launcher/BallImpact/DipRPM", dipMagnitude);
+          Logger.recordOutput("Launcher/BallImpact/MinRPM", dipMinRPM);
+          Logger.recordOutput("Launcher/BallImpact/RecoveryMs", recoveryTimeMs);
+          Logger.recordOutput("Launcher/BallImpact/TimeSinceLastMs", timeSinceLastMs);
+          Logger.recordOutput("Launcher/BallImpact/AvgDipRPM", totalDipMagnitude / impactCount);
+          Logger.recordOutput(
+              "Launcher/BallImpact/EffectiveBPS",
+              timeSinceLastMs > 0 ? 1000.0 / timeSinceLastMs : 0.0);
+        }
+      }
+    } else if (inDip || impactCount > 0) {
+      // Feeding stopped — reset impact tracking
+      if (impactCount > 0) {
+        Logger.recordOutput("Launcher/BallImpact/SessionTotal", impactCount);
+        Logger.recordOutput("Launcher/BallImpact/SessionAvgDipRPM",
+            impactCount > 0 ? totalDipMagnitude / impactCount : 0.0);
+      }
+      inDip = false;
+      impactCount = 0;
+      totalDipMagnitude = 0.0;
+      lastImpactTime = 0.0;
+    }
 
     // Update ShotCalculator with current wheel RPM for trajectory calculations
     ShotCalculator.setLauncherRPM(inputs.wheelVelocityRPM);
