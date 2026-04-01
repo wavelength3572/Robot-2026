@@ -432,7 +432,7 @@ public class Intake extends SubsystemBase {
       return;
     }
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
-    io.setDeployBrakeMode(false); // Coast mode while PID is driving
+    io.setDeployBrakeMode(true); // Brake mode while PID is driving
     applyDeployMotionConfig();
     deployCommanded = true;
     movingFirstCycle = true;

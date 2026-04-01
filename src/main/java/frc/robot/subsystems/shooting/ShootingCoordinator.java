@@ -374,15 +374,13 @@ public class ShootingCoordinator extends SubsystemBase {
           return new Pose3d(pose2d);
         };
 
-    if (Constants.currentMode == Constants.Mode.SIM) {
-      this.visualizer =
-          new ShotVisualizer(
-              pose3dSupplier,
-              speedsSupplier,
-              turretConfig.heightMeters(),
-              turretConfig.xOffset(),
-              turretConfig.yOffset());
-    }
+    this.visualizer =
+        new ShotVisualizer(
+            pose3dSupplier,
+            speedsSupplier,
+            turretConfig.heightMeters(),
+            turretConfig.xOffset(),
+            turretConfig.yOffset());
   }
 
   @Override
