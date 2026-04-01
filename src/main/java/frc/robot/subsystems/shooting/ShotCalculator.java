@@ -35,13 +35,21 @@ public final class ShotCalculator {
   // MidDist, FarDist) — single source of truth for both zone classification and efficiency.
   // Efficiency values are tunable via NetworkTables under Shots/SmartLaunch/Efficiency/.
   private static final LoggedTunableNumber efficiencyClose =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Close", Constants.getRobotConfig().getShotEfficiencyClose()); // was .774
+      new LoggedTunableNumber(
+          "Shots/SmartLaunch/Efficiency/Close",
+          Constants.getRobotConfig().getShotEfficiencyClose()); // was .774
   private static final LoggedTunableNumber efficiencyMid =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Mid", Constants.getRobotConfig().getShotEfficiencyMid()); // was .774
+      new LoggedTunableNumber(
+          "Shots/SmartLaunch/Efficiency/Mid",
+          Constants.getRobotConfig().getShotEfficiencyMid()); // was .774
   private static final LoggedTunableNumber efficiencyFar =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Far", Constants.getRobotConfig().getShotEfficiencyFar()); // was .75
+      new LoggedTunableNumber(
+          "Shots/SmartLaunch/Efficiency/Far",
+          Constants.getRobotConfig().getShotEfficiencyFar()); // was .75
   private static final LoggedTunableNumber efficiencyCorner =
-      new LoggedTunableNumber("Shots/SmartLaunch/Efficiency/Corner", Constants.getRobotConfig().getShotEfficiencyCorner());
+      new LoggedTunableNumber(
+          "Shots/SmartLaunch/Efficiency/Corner",
+          Constants.getRobotConfig().getShotEfficiencyCorner());
 
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
@@ -49,9 +57,11 @@ public final class ShotCalculator {
 
   // Velocity compensation multipliers for shoot-while-moving (0.0 = no compensation, 1.0 = full)
   private static final LoggedTunableNumber velocityCompX =
-      new LoggedTunableNumber("Shots/VelocityComp/X", Constants.getRobotConfig().getShotVelocityCompX());
+      new LoggedTunableNumber(
+          "Shots/VelocityComp/X", Constants.getRobotConfig().getShotVelocityCompX());
   private static final LoggedTunableNumber velocityCompY =
-      new LoggedTunableNumber("Shots/VelocityComp/Y", Constants.getRobotConfig().getShotVelocityCompY());
+      new LoggedTunableNumber(
+          "Shots/VelocityComp/Y", Constants.getRobotConfig().getShotVelocityCompY());
 
   // ========== Launcher RPM Tracking ==========
   // currentLauncherRPM = what the launcher is actually doing right now

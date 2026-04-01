@@ -55,7 +55,9 @@ public class HubShiftUtil {
 
   /** Seconds before shifted active window to suppress all feeding (passing + shooting). */
   public static final LoggedTunableNumber preActiveCutoffSeconds =
-      new LoggedTunableNumber("HubShift/PreActiveCutoffSec", Constants.getRobotConfig().getHubShiftPreActiveCutoffSec());
+      new LoggedTunableNumber(
+          "HubShift/PreActiveCutoffSec",
+          Constants.getRobotConfig().getHubShiftPreActiveCutoffSec());
 
   @Setter private static Supplier<Optional<Boolean>> allianceWinOverride = () -> Optional.empty();
 

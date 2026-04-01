@@ -26,18 +26,24 @@ public class FixedHeightPassStrategy implements ShotStrategy {
 
   // Peak height for passes — lower than hub shots since we're clearing an obstacle, not scoring
   private static final LoggedTunableNumber peakHeightIn =
-      new LoggedTunableNumber("Shots/FixedHeightPass/PeakHeightIn", Constants.getRobotConfig().getFixedHeightPassPeakHeightIn());
+      new LoggedTunableNumber(
+          "Shots/FixedHeightPass/PeakHeightIn",
+          Constants.getRobotConfig().getFixedHeightPassPeakHeightIn());
 
   // RPM limits for passes
   private static final LoggedTunableNumber minRPM =
-      new LoggedTunableNumber("Shots/FixedHeightPass/MinRPM", Constants.getRobotConfig().getFixedHeightPassMinRPM());
+      new LoggedTunableNumber(
+          "Shots/FixedHeightPass/MinRPM", Constants.getRobotConfig().getFixedHeightPassMinRPM());
 
   private static final LoggedTunableNumber maxRPM =
-      new LoggedTunableNumber("Shots/FixedHeightPass/MaxRPM", Constants.getRobotConfig().getFixedHeightPassMaxRPM());
+      new LoggedTunableNumber(
+          "Shots/FixedHeightPass/MaxRPM", Constants.getRobotConfig().getFixedHeightPassMaxRPM());
 
   // Hood floor for passes — prevents near-vertical launches
   private static final LoggedTunableNumber hoodMinFloor =
-      new LoggedTunableNumber("Shots/FixedHeightPass/HoodMinDeg", Constants.getRobotConfig().getFixedHeightPassHoodMinDeg());
+      new LoggedTunableNumber(
+          "Shots/FixedHeightPass/HoodMinDeg",
+          Constants.getRobotConfig().getFixedHeightPassHoodMinDeg());
 
   @Override
   public ShotCalculator.ShotResult calculateShot(

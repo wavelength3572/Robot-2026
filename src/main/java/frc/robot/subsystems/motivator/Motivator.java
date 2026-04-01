@@ -42,7 +42,8 @@ public class Motivator extends SubsystemBase {
     kS = new LoggedTunableNumber("Tuning/Motivator/kS", config.getMotivatorKs());
     kV = new LoggedTunableNumber("Tuning/Motivator/kV", config.getMotivatorKv());
     motivatorToleranceRPM =
-        new LoggedTunableNumber("Tuning/Motivator/ReadyToleranceRPM", config.getMotivatorReadyToleranceRPM());
+        new LoggedTunableNumber(
+            "Tuning/Motivator/ReadyToleranceRPM", config.getMotivatorReadyToleranceRPM());
   }
 
   // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control

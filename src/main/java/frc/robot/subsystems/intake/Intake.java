@@ -1,6 +1,7 @@
 package frc.robot.subsystems.intake;
 
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -88,8 +89,12 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/RetractedPosition",
             config.getIntakeDeployRetractedPosition());
-    deployTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/Tolerance", config.getIntakeDeployTolerance());
-    holdTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/HoldTolerance", config.getIntakeDeployHoldTolerance());
+    deployTolerance =
+        new LoggedTunableNumber(
+            "Tuning/Intake/IntakeDeploy/Tolerance", config.getIntakeDeployTolerance());
+    holdTolerance =
+        new LoggedTunableNumber(
+            "Tuning/Intake/IntakeDeploy/HoldTolerance", config.getIntakeDeployHoldTolerance());
     rollerKP =
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kP", config.getIntakeRollerKp());
     rollerKI =
@@ -107,30 +112,59 @@ public class Intake extends SubsystemBase {
     deployMaxAcceleration =
         new LoggedTunableNumber(
             "Tuning/Intake/Deploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
-    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/Deploy/OutputLimit", config.getIntakeDeployOutputLimit());
-    deployBrakeTime = new LoggedTunableNumber("Tuning/Intake/Deploy/BrakeTimeSec", config.getIntakeDeployBrakeTimeSec());
+    deployOutputLimit =
+        new LoggedTunableNumber(
+            "Tuning/Intake/Deploy/OutputLimit", config.getIntakeDeployOutputLimit());
+    deployBrakeTime =
+        new LoggedTunableNumber(
+            "Tuning/Intake/Deploy/BrakeTimeSec", config.getIntakeDeployBrakeTimeSec());
     // Retract motion profile
-    retractMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Retract/MaxVelocity", config.getIntakeRetractMaxVelocity());
-    retractMaxAcceleration = new LoggedTunableNumber("Tuning/Intake/Retract/MaxAcceleration", config.getIntakeRetractMaxAcceleration());
-    retractOutputLimit = new LoggedTunableNumber("Tuning/Intake/Retract/OutputLimit", config.getIntakeRetractOutputLimit());
+    retractMaxVelocity =
+        new LoggedTunableNumber(
+            "Tuning/Intake/Retract/MaxVelocity", config.getIntakeRetractMaxVelocity());
+    retractMaxAcceleration =
+        new LoggedTunableNumber(
+            "Tuning/Intake/Retract/MaxAcceleration", config.getIntakeRetractMaxAcceleration());
+    retractOutputLimit =
+        new LoggedTunableNumber(
+            "Tuning/Intake/Retract/OutputLimit", config.getIntakeRetractOutputLimit());
     // Agitation motion profile
-    agitationMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Agitation/MaxVelocity", config.getIntakeAgitationMaxVelocity());
+    agitationMaxVelocity =
+        new LoggedTunableNumber(
+            "Tuning/Intake/Agitation/MaxVelocity", config.getIntakeAgitationMaxVelocity());
     agitationMaxAcceleration =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/MaxAcceleration", config.getIntakeAgitationMaxAcceleration());
+        new LoggedTunableNumber(
+            "Tuning/Intake/Agitation/MaxAcceleration", config.getIntakeAgitationMaxAcceleration());
     agitationRetractOutputLimit =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractOutputLimit", config.getIntakeAgitationRetractOutputLimit());
+        new LoggedTunableNumber(
+            "Tuning/Intake/Agitation/RetractOutputLimit",
+            config.getIntakeAgitationRetractOutputLimit());
     agitationRetractTarget =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractTarget", config.getIntakeAgitationRetractTarget());
-    agitationTimeoutSec = new LoggedTunableNumber("Tuning/Intake/Agitation/TimeoutSec", config.getIntakeAgitationTimeoutSec());
-    agitationCoastTimeSec = new LoggedTunableNumber("Tuning/Intake/Agitation/CoastTimeSec", config.getIntakeAgitationCoastTimeSec());
-    agitationFallTime = new LoggedTunableNumber("Tuning/Intake/Agitation/FallTimeSec", config.getIntakeAgitationFallTimeSec());
+        new LoggedTunableNumber(
+            "Tuning/Intake/Agitation/RetractTarget", config.getIntakeAgitationRetractTarget());
+    agitationTimeoutSec =
+        new LoggedTunableNumber(
+            "Tuning/Intake/Agitation/TimeoutSec", config.getIntakeAgitationTimeoutSec());
+    agitationCoastTimeSec =
+        new LoggedTunableNumber(
+            "Tuning/Intake/Agitation/CoastTimeSec", config.getIntakeAgitationCoastTimeSec());
+    agitationFallTime =
+        new LoggedTunableNumber(
+            "Tuning/Intake/Agitation/FallTimeSec", config.getIntakeAgitationFallTimeSec());
     agitationSpeedThreshold =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/SpeedThresholdMps", config.getIntakeAgitationSpeedThresholdMps());
+        new LoggedTunableNumber(
+            "Tuning/Intake/Agitation/SpeedThresholdMps",
+            config.getIntakeAgitationSpeedThresholdMps());
     agitationStationaryDwellSec =
-        new LoggedTunableNumber("Tuning/Intake/Agitation/StationaryDwellSec", config.getIntakeAgitationStationaryDwellSec());
+        new LoggedTunableNumber(
+            "Tuning/Intake/Agitation/StationaryDwellSec",
+            config.getIntakeAgitationStationaryDwellSec());
+    SmartDashboard.putBoolean("Intake/AgitationEnabled", false);
     // Shared
     rollerMinDeployPosition =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", config.getIntakeRollerMinDeployPosition());
+        new LoggedTunableNumber(
+            "Tuning/Intake/IntakeDeploy/RollerMinDeployPosition",
+            config.getIntakeRollerMinDeployPosition());
   }
 
   // Deploy positions (from config, used for soft limit init)
@@ -749,7 +783,9 @@ public class Intake extends SubsystemBase {
                                 .until(
                                     () ->
                                         stationaryTimer.hasElapsed(
-                                            agitationStationaryDwellSec.get())),
+                                                agitationStationaryDwellSec.get())
+                                            && SmartDashboard.getBoolean(
+                                                "Intake/AgitationEnabled", false)),
                             // Phase 2: Agitation cycles — run while stationary and not intaking
                             Commands.sequence(
                                     // UP phase: MAXMotion position control retracts against gravity

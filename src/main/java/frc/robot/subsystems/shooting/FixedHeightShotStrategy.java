@@ -28,20 +28,28 @@ public class FixedHeightShotStrategy implements ShotStrategy {
 
   // All spatial tunables in inches
   private static final LoggedTunableNumber peakHeightIn =
-      new LoggedTunableNumber("Shots/FixedHeight/PeakHeightIn", Constants.getRobotConfig().getFixedHeightPeakHeightIn());
+      new LoggedTunableNumber(
+          "Shots/FixedHeight/PeakHeightIn",
+          Constants.getRobotConfig().getFixedHeightPeakHeightIn());
 
   private static final LoggedTunableNumber passThroughHeightIn =
-      new LoggedTunableNumber("Shots/FixedHeight/PassThroughHeightIn", Constants.getRobotConfig().getFixedHeightPassThroughHeightIn());
+      new LoggedTunableNumber(
+          "Shots/FixedHeight/PassThroughHeightIn",
+          Constants.getRobotConfig().getFixedHeightPassThroughHeightIn());
 
   private static final LoggedTunableNumber horizontalOffsetIn =
-      new LoggedTunableNumber("Shots/FixedHeight/HorizontalOffsetIn", Constants.getRobotConfig().getFixedHeightHorizontalOffsetIn());
+      new LoggedTunableNumber(
+          "Shots/FixedHeight/HorizontalOffsetIn",
+          Constants.getRobotConfig().getFixedHeightHorizontalOffsetIn());
 
   // RPM limits
   private static final LoggedTunableNumber minRPM =
-      new LoggedTunableNumber("Shots/FixedHeight/MinRPM", Constants.getRobotConfig().getFixedHeightMinRPM());
+      new LoggedTunableNumber(
+          "Shots/FixedHeight/MinRPM", Constants.getRobotConfig().getFixedHeightMinRPM());
 
   private static final LoggedTunableNumber maxRPM =
-      new LoggedTunableNumber("Shots/FixedHeight/MaxRPM", Constants.getRobotConfig().getFixedHeightMaxRPM());
+      new LoggedTunableNumber(
+          "Shots/FixedHeight/MaxRPM", Constants.getRobotConfig().getFixedHeightMaxRPM());
 
   @Override
   public ShotCalculator.ShotResult calculateShot(

@@ -988,6 +988,10 @@ public interface RobotConfig {
     return 0.2;
   }
 
+  default double getPassingMotivatorRPM() {
+    return 500.0;
+  }
+
   default double getSpindexerCloseRPM() {
     return 300.0;
   }

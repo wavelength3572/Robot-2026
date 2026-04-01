@@ -15,7 +15,7 @@ import edu.wpi.first.math.util.Units;
 
 /**
  * Configuration for MainBot2026 - 31" wide x 23.5" deep chassis with NEO drive motors. Intake is on
- * the 31" (wide) front edge. Based on MainBot-2025 configuration from wavelength3572/MainBot-2025
+ * the 31" (wide) front edge.
  */
 public class MainBotConfig implements RobotConfig {
 
@@ -337,9 +337,10 @@ public class MainBotConfig implements RobotConfig {
 
   // ========== Shooting Commands — Feed Ratios ==========
   private static final double motivatorLauncherRatio = 0.2;
+  private static final double passingMotivatorRPM = 1650.0;
   private static final double spindexerCloseRPM = 300.0;
   private static final double spindexerFarRPM = 300.0;
-  private static final double spindexerPassRPM = 375.0;
+  private static final double spindexerPassRPM = 550.0;
 
   // ========== Shooting Commands — Override Defaults ==========
   private static final double overrideLauncherRPM = 2500.0;
@@ -1593,6 +1594,11 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getMotivatorLauncherRatio() {
     return motivatorLauncherRatio;
+  }
+
+  @Override
+  public double getPassingMotivatorRPM() {
+    return passingMotivatorRPM;
   }
 
   @Override

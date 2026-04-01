@@ -87,7 +87,8 @@ public class Spindexer extends SubsystemBase {
     kD = new LoggedTunableNumber("Tuning/Spindexer/kD", config.getSpindexerKd());
     kS = new LoggedTunableNumber("Tuning/Spindexer/kS", config.getSpindexerKs());
     kV = new LoggedTunableNumber("Tuning/Spindexer/kV", config.getSpindexerKv());
-    unclogRPM = new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", config.getSpindexerUnclogRPM());
+    unclogRPM =
+        new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", config.getSpindexerUnclogRPM());
     autoUnclogStallCurrentThreshold =
         new LoggedTunableNumber(
             "Tuning/Spindexer/AutoUnclog/StallCurrentAmps",
@@ -112,7 +113,8 @@ public class Spindexer extends SubsystemBase {
             "Tuning/Spindexer/Reciprocate/RPM", config.getSpindexerReciprocateRPM());
     reciprocateIntervalSec =
         new LoggedTunableNumber(
-            "Tuning/Spindexer/Reciprocate/IntervalSec", config.getSpindexerReciprocateIntervalSec());
+            "Tuning/Spindexer/Reciprocate/IntervalSec",
+            config.getSpindexerReciprocateIntervalSec());
     spindexerToleranceRPM =
         new LoggedTunableNumber(
             "Tuning/Spindexer/ReadyToleranceRPM", config.getSpindexerReadyToleranceRPM());

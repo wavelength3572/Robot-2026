@@ -15,14 +15,14 @@ import frc.robot.FieldConstants;
  *   <li><b>DANGER_TRENCH</b> — 0.6m band at the alliance/neutral trench boundary. Hood
  *       force-lowered, robot near-stopped when hood is above safe angle. No shooting.
  *   <li><b>ALLIANCE_TRENCH</b> — under trench in alliance zone. Can shoot hub normally.
- *   <li><b>NEUTRAL_TRENCH</b> — under trench in neutral zone or opponent trench. Hood clamped
- *       to min, no shooting.
+ *   <li><b>NEUTRAL_TRENCH</b> — under trench in neutral zone or opponent trench. Hood clamped to
+ *       min, no shooting.
  *   <li><b>ALLIANCE_CLOSE</b> — alliance zone, within close-distance boundary of hub
  *   <li><b>ALLIANCE_MID</b> — alliance zone, between close and far distance boundaries
  *   <li><b>ALLIANCE_FAR</b> — alliance zone, beyond far-distance boundary
  *   <li><b>NEUTRAL</b> — mid-field. Pass shots allowed (speed-gated by tunable).
- *   <li><b>OPPONENT</b> — their side. Pass back to alliance zone (same target as NEUTRAL,
- *       just longer distance).
+ *   <li><b>OPPONENT</b> — their side. Pass back to alliance zone (same target as NEUTRAL, just
+ *       longer distance).
  * </ol>
  *
  * <p>BUMP zones use the physical bump geometry and require gyro pitch confirmation. TRENCH zone
@@ -63,13 +63,15 @@ public class ZoneDetector {
   // interpolation also uses these boundaries so zone edges and efficiency breakpoints always agree.
   // Tunable via NetworkTables under Shots/Zones/.
   private static final LoggedTunableNumber zoneBoundaryClose =
-      new LoggedTunableNumber("Shots/Zones/CloseDist", Constants.getRobotConfig().getZoneCloseDist());
+      new LoggedTunableNumber(
+          "Shots/Zones/CloseDist", Constants.getRobotConfig().getZoneCloseDist());
   private static final LoggedTunableNumber zoneBoundaryMid =
       new LoggedTunableNumber("Shots/Zones/MidDist", Constants.getRobotConfig().getZoneMidDist());
   private static final LoggedTunableNumber zoneBoundaryFar =
       new LoggedTunableNumber("Shots/Zones/FarDist", Constants.getRobotConfig().getZoneFarDist());
   private static final LoggedTunableNumber zoneBoundaryCorner =
-      new LoggedTunableNumber("Shots/Zones/CornerDist", Constants.getRobotConfig().getZoneCornerDist());
+      new LoggedTunableNumber(
+          "Shots/Zones/CornerDist", Constants.getRobotConfig().getZoneCornerDist());
 
   /** Get the close zone boundary distance (meters). */
   public static double getZoneBoundaryClose() {
