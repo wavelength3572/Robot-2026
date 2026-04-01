@@ -404,9 +404,9 @@ public class RobotContainer {
               .withName("LauncherShiftIdle"));
     }
 
-    // Dashboard toggle: defaults to competition mode (safe for matches)
-    SmartDashboard.putBoolean("Competition Mode", true);
-    autoChooser = buildAutoChooserForMode(true);
+    // Dashboard toggle: defaults to practice mode (shows all autos including test autos)
+    SmartDashboard.putBoolean("Competition Mode", false);
+    autoChooser = buildAutoChooserForMode(false);
 
     // Auton strategy choosers — created once; selection resets when auto changes.
     initStrategyChoosers();
