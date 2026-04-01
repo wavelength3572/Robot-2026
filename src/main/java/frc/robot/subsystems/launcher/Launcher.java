@@ -35,7 +35,7 @@ public class Launcher extends SubsystemBase {
   private static final LoggedTunableNumber kV;
 
   private static final LoggedTunableNumber recoveryArbFFPct =
-      new LoggedTunableNumber("Tuning/Launcher/RecoveryArbFFPct", 0.15);
+      new LoggedTunableNumber("Tuning/Launcher/RecoveryArbFFPct", 0.0);
 
   // IZone: integral only accumulates when error is below this threshold (motor RPM).
   // Prevents windup during spin-up while allowing kI to eliminate steady-state error.

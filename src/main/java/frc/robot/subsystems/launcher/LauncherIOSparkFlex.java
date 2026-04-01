@@ -99,19 +99,18 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
     // PID + feedforward all run onboard the SparkFlex at 1kHz — no CAN latency.
     // kS/kV applied automatically in kVelocity mode (per REV 2026 API).
-    // Slot 0: Normal PID gains (gentle, for steady-state holding)
-    // Slot 1: Recovery PID gains (aggressive kP + kD for fast recovery after ball impacts)
+    // Both slots use identical gains — with a high-MOI flywheel, per-ball dips are
+    // small enough that gentle feedforward-dominant control keeps things stable.
+    // Aggressive recovery PID fights the dip and can cause oscillation/overshoot
+    // that's worse than just letting the flywheel coast through it.
     double initKp = config.getLauncherKp();
     double initKi = config.getLauncherKi();
     double initKd = config.getLauncherKd();
-    // Recovery slot: 8x kP for aggressive correction, add kD for damping
-    double recoveryKp = initKp * 8.0;
-    double recoveryKd = 0.0004;
     leaderConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot0)
-        .pid(recoveryKp, initKi, recoveryKd, ClosedLoopSlot.kSlot1)
+        .pid(initKp, initKi, initKd, ClosedLoopSlot.kSlot1)
         .iZone(config.getLauncherIZone());
     leaderConfig
         .closedLoop
@@ -305,12 +304,11 @@ public class LauncherIOSparkFlex implements LauncherIO {
 
   @Override
   public void configurePID(double kP, double kI, double kD, double iZone) {
-    // Recovery slot gets 8x kP + derivative damping for fast flywheel recovery
     var pidConfig = new SparkFlexConfig();
     pidConfig
         .closedLoop
         .pid(kP, kI, kD, ClosedLoopSlot.kSlot0)
-        .pid(kP * 8.0, kI, 0.0004, ClosedLoopSlot.kSlot1)
+        .pid(kP, kI, kD, ClosedLoopSlot.kSlot1)
         .iZone(iZone);
     leaderMotor.configure(
         pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
