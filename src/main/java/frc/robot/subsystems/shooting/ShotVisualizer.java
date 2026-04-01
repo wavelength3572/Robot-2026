@@ -312,7 +312,7 @@ public class ShotVisualizer {
     // The RPM-based model (calculateExitVelocityFromRPM) underestimates real exit velocity
     // because it only models the main wheel + hood roller and ignores the motivator's
     // contribution. Instead, solve for the velocity that reaches the target at the given
-    // launch angle — this matches what the empirically-calibrated LUT shots actually do.
+    // launch angle — this matches what the real shots actually do.
     double distanceToTarget =
         Math.sqrt(
             Math.pow(target.getX() - turretPos.getX(), 2)

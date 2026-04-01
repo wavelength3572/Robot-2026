@@ -47,11 +47,8 @@ public class ShootingCoordinator extends SubsystemBase {
   // Turret geometry config (immutable)
   private final ShotCalculator.TurretConfig turretConfig;
 
-  // Shot strategy system: parametric (physics-based) with procedural fallback chain
-  // (NORMAL → FIXED_HOOD → RELAXED → LUT). Alliance sub-zones (CLOSE/MID/FAR) use
-  // continuous distance-based efficiency interpolation — no per-zone strategy needed.
-  // Trench shots bypass the strategy pipeline entirely via empirical RPM lerp.
-  private final SendableChooser<String> strategyChooser = new SendableChooser<>();
+  // Shot strategies: fixed-height parabola for hub shots and passes.
+  // Both use the same vertex-form solver with different peak heights.
 
   /** State machine for coordinated shooting. Drives feeding decisions in SmartLaunch. */
   public enum CoordinatorState {
@@ -93,17 +90,8 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   private final SendableChooser<PassingStrategy> passingStrategyChooser = new SendableChooser<>();
-  private final ShotLookupTable lookupTable = new ShotLookupTable();
-  private final ShotLookupTable alternateLookupTable = new ShotLookupTable();
-  private final StationaryShotBatchRecorder batchRecorder = new StationaryShotBatchRecorder();
-  private final ParametricShotStrategy parametricStrategy = new ParametricShotStrategy();
-  private final LUTShotStrategy lutStrategy;
-  private final LUTShotStrategy alternateLutStrategy;
-  private final ParametricWithLUTFallbackStrategy parametricWithLutFallback;
-  private final ParametricWithProceduralFallbackStrategy parametricWithProceduralFallback;
   private final FixedHeightShotStrategy fixedHeightStrategy = new FixedHeightShotStrategy();
   private final FixedHeightPassStrategy fixedHeightPassStrategy = new FixedHeightPassStrategy();
-  private ShotStrategy activeStrategy;
 
   // Visualizer (created during initialize)
   private ShotVisualizer visualizer = null;
@@ -313,32 +301,10 @@ public class ShootingCoordinator extends SubsystemBase {
         new ShotCalculator.TurretConfig(
             config.getTurretHeightMeters(), config.getTurretOffsetX(), config.getTurretOffsetY());
 
-    // Initialize shot strategies — completely independent, no shared efficiency
-    // model
-    this.lutStrategy = new LUTShotStrategy(lookupTable);
-    this.alternateLutStrategy = new LUTShotStrategy(alternateLookupTable);
-    this.parametricWithLutFallback =
-        new ParametricWithLUTFallbackStrategy(parametricStrategy, lutStrategy);
-    this.parametricWithProceduralFallback =
-        new ParametricWithProceduralFallbackStrategy(lutStrategy);
-    this.activeStrategy = fixedHeightStrategy;
-
-    // Strategy dropdown on dashboard — four options
-    strategyChooser.addOption("Parametric", "Parametric");
-    strategyChooser.addOption("LUT (Lookup Table)", "LUT");
-    strategyChooser.addOption("LUT Alternate", "LUT_ALTERNATE");
-    strategyChooser.addOption("Parametric + LUT Fallback", "PARAMETRIC_LUT_FALLBACK");
-    strategyChooser.addOption("Parametric + Procedural Fallback", "PARAMETRIC_PROCEDURAL_FALLBACK");
-    strategyChooser.setDefaultOption("Fixed Height", "FIXED_HEIGHT");
-    SmartDashboard.putData("Shots/Strategy/Mode", strategyChooser);
-
     // Passing strategy chooser — how to pick left vs right pass target
     passingStrategyChooser.setDefaultOption("Symmetric (Y-based)", PassingStrategy.SYMMETRIC);
     passingStrategyChooser.addOption("Driver Station", PassingStrategy.DRIVER_STATION);
     SmartDashboard.putData("SmartLaunch/Pass/Strategy", passingStrategyChooser);
-
-    // Load any previously recorded LUT data from disk
-    reloadLUTData();
   }
 
   /**
@@ -585,7 +551,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
       switch (aimResult.mode()) {
         case SHOOT_ON_THE_MOVE -> {
-          Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub " + activeStrategy.getName());
+          Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub FixedHeight");
           calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
         }
         case PASS -> {
@@ -624,7 +590,7 @@ public class ShootingCoordinator extends SubsystemBase {
               robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
         }
         case NONE -> {
-          Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub " + activeStrategy.getName());
+          Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub FixedHeight");
           calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
         }
       }
@@ -701,9 +667,6 @@ public class ShootingCoordinator extends SubsystemBase {
       target = applyTurretTrim(target, tfp[0], tfp[1]);
     }
 
-    // Update active strategy based on tunable selector
-    updateActiveStrategy();
-
     double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
     double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
 
@@ -718,9 +681,8 @@ public class ShootingCoordinator extends SubsystemBase {
     double turretMin = turret.getMinAngle();
     double turretMax = turret.getMaxAngle();
 
-    // Normal strategy always runs — no trench-specific lerp override.
     currentShot =
-        activeStrategy.calculateShot(
+        fixedHeightStrategy.calculateShot(
             robotPose,
             fieldSpeeds,
             target,
@@ -809,22 +771,9 @@ public class ShootingCoordinator extends SubsystemBase {
    * auto-track, or none) is active.
    */
   private void logShotState() {
-    // --- Targets (what we're commanding) ---
-    boolean overridesActive = SmartDashboard.getBoolean("LUTDev/UseOverrides", false);
-    Logger.recordOutput("LUTDev/OverridesActive", overridesActive);
-
-    double targetRPM;
-    double targetHoodDeg;
-    if (overridesActive) {
-      targetRPM = SmartDashboard.getNumber("LUTDev/OverrideRPM", 0);
-      targetHoodDeg = SmartDashboard.getNumber("LUTDev/OverrideHoodDeg", 0);
-    } else if (currentShot != null) {
-      targetRPM = currentShot.launcherRPM();
-      targetHoodDeg = currentShot.hoodAngleDeg();
-    } else {
-      targetRPM = 0;
-      targetHoodDeg = 0;
-    }
+    // --- Targets (what we're commanding, respecting per-actuator overrides) ---
+    double targetRPM = frc.robot.commands.ShootingCommands.getEffectiveRPM(currentShot);
+    double targetHoodDeg = frc.robot.commands.ShootingCommands.getEffectiveHoodDeg(currentShot);
 
     Logger.recordOutput("SmartLaunch/Target/LauncherRPM", targetRPM);
     Logger.recordOutput("SmartLaunch/Target/HoodDeg", targetHoodDeg);
@@ -840,10 +789,10 @@ public class ShootingCoordinator extends SubsystemBase {
         "SmartLaunch/Target/Achievable", currentShot != null && currentShot.achievable());
     Logger.recordOutput(
         "SmartLaunch/Target/MotivatorRPM",
-        frc.robot.commands.ShootingCommands.getMotivatorRPM(targetRPM, this));
+        frc.robot.commands.ShootingCommands.getEffectiveMotivatorRPM(targetRPM, this));
     Logger.recordOutput(
         "SmartLaunch/Target/SpindexerRPM",
-        frc.robot.commands.ShootingCommands.getSpindexerRPM(currentDistanceM));
+        frc.robot.commands.ShootingCommands.getEffectiveSpindexerRPM(this));
 
     // --- Actuals (what hardware is doing) ---
     Logger.recordOutput(
@@ -870,14 +819,11 @@ public class ShootingCoordinator extends SubsystemBase {
               Math.pow(aim.getX() - turretPos[0], 2) + Math.pow(aim.getY() - turretPos[1], 2));
       Logger.recordOutput("SmartLaunch/Status/DistanceToAimPoint", distance);
 
-      // Parametric TOF from physics (exit velocity + launch angle)
-      double parametricTOF =
+      // TOF from physics (exit velocity + launch angle)
+      double tof =
           ShotCalculator.calculateTimeOfFlight(
               currentShot.exitVelocityMps(), currentShot.launchAngleRad(), distance);
-      Logger.recordOutput("SmartLaunch/Parametric/TOF", parametricTOF);
-
-      // LUT TOF from empirical data
-      Logger.recordOutput("SmartLaunch/LUT/TOF", lookupTable.lookupTOF(distance));
+      Logger.recordOutput("SmartLaunch/TOF", tof);
     }
   }
 
@@ -909,7 +855,7 @@ public class ShootingCoordinator extends SubsystemBase {
       // the
       // motivator's contribution to ball speed. Solving for the velocity that hits
       // the target
-      // at the given launch angle matches real-world LUT shot behavior.
+      // at the given launch angle matches real-world shot behavior.
       double distanceToTarget =
           Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
       double heightDelta = target.getZ() - turretConfig.heightMeters();
@@ -1496,68 +1442,6 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   public ShotVisualizer getVisualizer() {
     return visualizer;
-  }
-
-  // ========== Shot Strategy Management ==========
-
-  /** Update the active strategy based on the dashboard dropdown. */
-  private void updateActiveStrategy() {
-    String selected = strategyChooser.getSelected();
-    if (selected == null) selected = "FIXED_HEIGHT";
-
-    ShotStrategy newStrategy;
-    switch (selected) {
-      case "Parametric" -> newStrategy = parametricStrategy;
-      case "LUT" -> newStrategy = lutStrategy;
-      case "LUT_ALTERNATE" -> newStrategy = alternateLutStrategy;
-      case "PARAMETRIC_LUT_FALLBACK" -> newStrategy = parametricWithLutFallback;
-      case "PARAMETRIC_PROCEDURAL_FALLBACK" -> newStrategy = parametricWithProceduralFallback;
-      case "FIXED_HEIGHT" -> newStrategy = fixedHeightStrategy;
-      default -> newStrategy = fixedHeightStrategy;
-    }
-
-    if (newStrategy != activeStrategy) {
-      System.out.println("[ShootingCoordinator] Strategy changed to: " + newStrategy.getName());
-      activeStrategy = newStrategy;
-    }
-  }
-
-  /**
-   * Reload LUT data. Loads the hardcoded baseline table first, then overlays any field-recorded
-   * entries on top (field data overrides baseline at matching distances).
-   *
-   * <p>To update the baseline: edit {@link ShotTableConstants#BASELINE_TABLE} and push code. To add
-   * data on the fly: use the batch recorder during practice.
-   */
-  public void reloadLUTData() {
-    lookupTable.clear();
-    alternateLookupTable.clear();
-
-    // Load hardcoded baseline only — field-recorded data is for offline review,
-    // not runtime use. To update shots, edit ShotTableConstants and redeploy.
-    int baselineCount = ShotTableConstants.loadBaseline(lookupTable);
-    int alternateCount = ShotTableConstants.loadAlternate(alternateLookupTable);
-
-    // Log full table to AdvantageKit for live dashboard viewing
-    lookupTable.logTable("LUTDev/Table");
-    alternateLookupTable.logTable("LUTDev/AlternateTable");
-
-    frc.robot.util.StartupLogger.log(
-        "[ShootingCoordinator] LUT loaded: "
-            + baselineCount
-            + " baseline, "
-            + alternateCount
-            + " alternate entries");
-  }
-
-  /** Get the batch recorder for recording new data collection sessions. */
-  public StationaryShotBatchRecorder getBatchRecorder() {
-    return batchRecorder;
-  }
-
-  /** Get the lookup table (for dashboard display of entry count, etc.). */
-  public ShotLookupTable getLookupTable() {
-    return lookupTable;
   }
 
   /**
