@@ -393,7 +393,6 @@ public class ButtonsAndDashboardBindings {
             .withName("Read Optimized Shot"));
   }
 
-
   /****************************** */
   /*** DRIVER BINDINGS ****** */
   /****************************** */

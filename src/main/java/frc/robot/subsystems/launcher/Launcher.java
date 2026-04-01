@@ -171,7 +171,8 @@ public class Launcher extends SubsystemBase {
       // Feeding stopped — reset impact tracking
       if (impactCount > 0) {
         Logger.recordOutput("Launcher/BallImpact/SessionTotal", impactCount);
-        Logger.recordOutput("Launcher/BallImpact/SessionAvgDipRPM",
+        Logger.recordOutput(
+            "Launcher/BallImpact/SessionAvgDipRPM",
             impactCount > 0 ? totalDipMagnitude / impactCount : 0.0);
       }
       inDip = false;

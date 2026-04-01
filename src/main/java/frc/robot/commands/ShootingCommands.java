@@ -1,6 +1,5 @@
 package frc.robot.commands;
 
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -287,7 +286,6 @@ public class ShootingCommands {
     SmartDashboard.putBoolean("Match/Status/ReadyMotivators", false);
     SmartDashboard.putBoolean("Match/Status/ReadyTurret", false);
     SmartDashboard.putString("Match/Status/State", "Idle");
-
   }
 
   /**
@@ -901,7 +899,8 @@ public class ShootingCommands {
   }
 
   /** Get effective motivator RPM — override value when toggled, otherwise derived from launcher. */
-  public static double getEffectiveMotivatorRPM(double launcherRPM, ShootingCoordinator coordinator) {
+  public static double getEffectiveMotivatorRPM(
+      double launcherRPM, ShootingCoordinator coordinator) {
     if (SmartDashboard.getBoolean("Overrides/Motivator", false)) {
       return overrideMotivatorRPM.get();
     }
@@ -918,6 +917,4 @@ public class ShootingCommands {
         ? getSpindexerPassRPM()
         : getSpindexerRPM(dist > 0 ? dist : 1.16);
   }
-
-
 }
