@@ -772,14 +772,14 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   private void logShotState() {
     // --- Targets (what we're commanding) ---
-    boolean overridesActive = SmartDashboard.getBoolean("LUTDev/UseOverrides", false);
-    Logger.recordOutput("LUTDev/OverridesActive", overridesActive);
+    boolean overridesActive = SmartDashboard.getBoolean("Overrides/Enabled", false);
+    Logger.recordOutput("Overrides/Active", overridesActive);
 
     double targetRPM;
     double targetHoodDeg;
     if (overridesActive) {
-      targetRPM = SmartDashboard.getNumber("LUTDev/OverrideRPM", 0);
-      targetHoodDeg = SmartDashboard.getNumber("LUTDev/OverrideHoodDeg", 0);
+      targetRPM = SmartDashboard.getNumber("Overrides/LauncherRPM", 0);
+      targetHoodDeg = SmartDashboard.getNumber("Overrides/HoodDeg", 0);
     } else if (currentShot != null) {
       targetRPM = currentShot.launcherRPM();
       targetHoodDeg = currentShot.hoodAngleDeg();
@@ -802,10 +802,10 @@ public class ShootingCoordinator extends SubsystemBase {
         "SmartLaunch/Target/Achievable", currentShot != null && currentShot.achievable());
     Logger.recordOutput(
         "SmartLaunch/Target/MotivatorRPM",
-        frc.robot.commands.ShootingCommands.getMotivatorRPM(targetRPM, this));
+        frc.robot.commands.ShootingCommands.getEffectiveMotivatorRPM(targetRPM, this));
     Logger.recordOutput(
         "SmartLaunch/Target/SpindexerRPM",
-        frc.robot.commands.ShootingCommands.getSpindexerRPM(currentDistanceM));
+        frc.robot.commands.ShootingCommands.getEffectiveSpindexerRPM(this));
 
     // --- Actuals (what hardware is doing) ---
     Logger.recordOutput(

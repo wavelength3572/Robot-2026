@@ -138,11 +138,15 @@ public class ShootingCommands {
   private static final LoggedTunableNumber spindexerPassRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 375.0);
 
-  // ===== LUT Dev Overrides (manual RPM/hood for data collection) =====
-  private static final LoggedTunableNumber lutDevOverrideRPM =
-      new LoggedTunableNumber("LUTDev/OverrideRPM", 2500.0);
-  private static final LoggedTunableNumber lutDevOverrideHoodDeg =
-      new LoggedTunableNumber("LUTDev/OverrideHoodDeg", 25.0);
+  // ===== Manual Overrides (dashboard-tunable values used when Overrides/Enabled is true) =====
+  private static final LoggedTunableNumber overrideLauncherRPM =
+      new LoggedTunableNumber("Overrides/LauncherRPM", 2500.0);
+  private static final LoggedTunableNumber overrideHoodDeg =
+      new LoggedTunableNumber("Overrides/HoodDeg", 25.0);
+  private static final LoggedTunableNumber overrideMotivatorRPM =
+      new LoggedTunableNumber("Overrides/MotivatorRPM", 500.0);
+  private static final LoggedTunableNumber overrideSpindexerRPM =
+      new LoggedTunableNumber("Overrides/SpindexerRPM", 300.0);
 
   // ===== Launcher RPM Trim =====
 
@@ -258,8 +262,10 @@ public class ShootingCommands {
     rightTrenchSpindexerRPM.get();
 
     // LUT Dev override tunables
-    lutDevOverrideRPM.get();
-    lutDevOverrideHoodDeg.get();
+    overrideLauncherRPM.get();
+    overrideHoodDeg.get();
+    overrideMotivatorRPM.get();
+    overrideSpindexerRPM.get();
 
     // Trim initial value on dashboard
     SmartDashboard.putNumber("Trim/LauncherRPM", launcherTrimRPM);
@@ -771,7 +777,8 @@ public class ShootingCommands {
                         ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                         if (s != null) {
                           double launcherRPM = getEffectiveRPM(s);
-                          motivator.setMotivatorVelocity(getMotivatorRPM(launcherRPM, coordinator));
+                          motivator.setMotivatorVelocity(
+                              getEffectiveMotivatorRPM(launcherRPM, coordinator));
                         } else {
                           motivator.stopMotivator();
                         }
@@ -790,11 +797,7 @@ public class ShootingCommands {
                               || motivator.getState() == Motivator.MotivatorState.READY;
                       if (feedingAllowed && motivatorReady) {
                         launcher.setFeedingActive(true);
-                        double dist = coordinator.getDistanceToTarget();
-                        double spnRPM =
-                            coordinator.isInPassZone()
-                                ? getSpindexerPassRPM()
-                                : getSpindexerRPM(dist > 0 ? dist : 1.16);
+                        double spnRPM = getEffectiveSpindexerRPM(coordinator);
                         if (turret.getState() == Turret.TurretState.FLIPPING) {
                           spindexer.stopSpindexer();
                         } else {
@@ -863,51 +866,52 @@ public class ShootingCommands {
     //     label, targetRPM, actualRPM, hoodTarget, hoodActual, motTarget, motActual);
   }
 
-  // ===== LUT Dev Override Helpers =====
+  // ===== Manual Override Helpers =====
 
-  private static boolean isLutDevOverrideActive() {
-    return SmartDashboard.getBoolean("LUTDev/UseOverrides", false);
+  /** Check if manual overrides are enabled via the dashboard toggle. */
+  public static boolean isOverrideActive() {
+    return SmartDashboard.getBoolean("Overrides/Enabled", false);
   }
 
   // Safety cap: matches LauncherIOSparkFlex.MAX_VELOCITY_RPM hardware limit
   private static final double MAX_LAUNCHER_RPM = 5000.0;
 
-  private static double getEffectiveRPM(ShotCalculator.ShotResult shot) {
+  /** Get effective launcher RPM — override value or calculated shot + trim. */
+  public static double getEffectiveRPM(ShotCalculator.ShotResult shot) {
     double rpm;
-    if (isLutDevOverrideActive()) {
-      rpm = lutDevOverrideRPM.get() + launcherTrimRPM;
+    if (isOverrideActive()) {
+      rpm = overrideLauncherRPM.get() + launcherTrimRPM;
     } else {
       rpm = shot != null ? shot.launcherRPM() + launcherTrimRPM : 0.0;
     }
     return Math.min(rpm, MAX_LAUNCHER_RPM);
   }
 
-  private static double getEffectiveHoodDeg(ShotCalculator.ShotResult shot) {
-    if (isLutDevOverrideActive()) {
-      return lutDevOverrideHoodDeg.get();
+  /** Get effective hood angle — override value or calculated shot. */
+  public static double getEffectiveHoodDeg(ShotCalculator.ShotResult shot) {
+    if (isOverrideActive()) {
+      return overrideHoodDeg.get();
     }
     return shot != null ? shot.hoodAngleDeg() : 0.0;
   }
 
-  /**
-   * Seeds the LUT dev override sliders from the current calculated shot, so you can start from the
-   * physics answer and fine-tune. Also enables UseOverrides automatically.
-   */
-  public static Command seedOverridesFromCalculatedCommand(ShootingCoordinator coordinator) {
-    return Commands.runOnce(
-        () -> {
-          ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
-          if (shot == null) {
-            System.out.println("[LUTDev] No calculated shot available to seed from");
-            return;
-          }
-          lutDevOverrideRPM.set(shot.launcherRPM());
-          lutDevOverrideHoodDeg.set(shot.hoodAngleDeg());
-          SmartDashboard.putBoolean("LUTDev/UseOverrides", true);
-          System.out.printf(
-              "[LUTDev] Seeded overrides from calculated shot: RPM=%.0f, Hood=%.1f deg%n",
-              shot.launcherRPM(), shot.hoodAngleDeg());
-        });
+  /** Get effective motivator RPM — override value or derived from launcher RPM. */
+  public static double getEffectiveMotivatorRPM(double launcherRPM, ShootingCoordinator coordinator) {
+    if (isOverrideActive()) {
+      return overrideMotivatorRPM.get();
+    }
+    return getMotivatorRPM(launcherRPM, coordinator);
+  }
+
+  /** Get effective spindexer RPM — override value or distance-based. */
+  public static double getEffectiveSpindexerRPM(ShootingCoordinator coordinator) {
+    if (isOverrideActive()) {
+      return overrideSpindexerRPM.get();
+    }
+    double dist = coordinator.getDistanceToTarget();
+    return coordinator.isInPassZone()
+        ? getSpindexerPassRPM()
+        : getSpindexerRPM(dist > 0 ? dist : 1.16);
   }
 
 
