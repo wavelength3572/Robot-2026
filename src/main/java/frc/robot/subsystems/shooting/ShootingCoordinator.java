@@ -771,22 +771,9 @@ public class ShootingCoordinator extends SubsystemBase {
    * auto-track, or none) is active.
    */
   private void logShotState() {
-    // --- Targets (what we're commanding) ---
-    boolean overridesActive = SmartDashboard.getBoolean("Overrides/Enabled", false);
-    Logger.recordOutput("Overrides/Active", overridesActive);
-
-    double targetRPM;
-    double targetHoodDeg;
-    if (overridesActive) {
-      targetRPM = SmartDashboard.getNumber("Overrides/LauncherRPM", 0);
-      targetHoodDeg = SmartDashboard.getNumber("Overrides/HoodDeg", 0);
-    } else if (currentShot != null) {
-      targetRPM = currentShot.launcherRPM();
-      targetHoodDeg = currentShot.hoodAngleDeg();
-    } else {
-      targetRPM = 0;
-      targetHoodDeg = 0;
-    }
+    // --- Targets (what we're commanding, respecting per-actuator overrides) ---
+    double targetRPM = frc.robot.commands.ShootingCommands.getEffectiveRPM(currentShot);
+    double targetHoodDeg = frc.robot.commands.ShootingCommands.getEffectiveHoodDeg(currentShot);
 
     Logger.recordOutput("SmartLaunch/Target/LauncherRPM", targetRPM);
     Logger.recordOutput("SmartLaunch/Target/HoodDeg", targetHoodDeg);

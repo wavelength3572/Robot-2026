@@ -138,7 +138,10 @@ public class ShootingCommands {
   private static final LoggedTunableNumber spindexerPassRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/SpindexerPassRPM", 375.0);
 
-  // ===== Manual Overrides (dashboard-tunable values used when Overrides/Enabled is true) =====
+  // ===== Per-Actuator Overrides =====
+  // Each actuator can be individually overridden via a dashboard toggle + tunable value.
+  // When an override is off, the calculated value is used. When on, the tunable is used.
+  // Any combination of 0-4 overrides can be active at once.
   private static final LoggedTunableNumber overrideLauncherRPM =
       new LoggedTunableNumber("Overrides/LauncherRPM", 2500.0);
   private static final LoggedTunableNumber overrideHoodDeg =
@@ -261,11 +264,15 @@ public class ShootingCommands {
     rightTrenchMotivatorRPM.get();
     rightTrenchSpindexerRPM.get();
 
-    // LUT Dev override tunables
+    // Per-actuator override tunables and toggles (all default off)
     overrideLauncherRPM.get();
     overrideHoodDeg.get();
     overrideMotivatorRPM.get();
     overrideSpindexerRPM.get();
+    SmartDashboard.putBoolean("Overrides/Launcher", false);
+    SmartDashboard.putBoolean("Overrides/Hood", false);
+    SmartDashboard.putBoolean("Overrides/Motivator", false);
+    SmartDashboard.putBoolean("Overrides/Spindexer", false);
 
     // Trim initial value on dashboard
     SmartDashboard.putNumber("Trim/LauncherRPM", launcherTrimRPM);
@@ -866,20 +873,18 @@ public class ShootingCommands {
     //     label, targetRPM, actualRPM, hoodTarget, hoodActual, motTarget, motActual);
   }
 
-  // ===== Manual Override Helpers =====
-
-  /** Check if manual overrides are enabled via the dashboard toggle. */
-  public static boolean isOverrideActive() {
-    return SmartDashboard.getBoolean("Overrides/Enabled", false);
-  }
+  // ===== Per-Actuator Override Helpers =====
+  // Each actuator has its own Overrides/<Name> toggle. When the toggle is true,
+  // the corresponding tunable value is used instead of the calculated one.
+  // Override any combination of 1-4 actuators independently.
 
   // Safety cap: matches LauncherIOSparkFlex.MAX_VELOCITY_RPM hardware limit
   private static final double MAX_LAUNCHER_RPM = 5000.0;
 
-  /** Get effective launcher RPM — override value or calculated shot + trim. */
+  /** Get effective launcher RPM — override value when toggled, otherwise calculated + trim. */
   public static double getEffectiveRPM(ShotCalculator.ShotResult shot) {
     double rpm;
-    if (isOverrideActive()) {
+    if (SmartDashboard.getBoolean("Overrides/Launcher", false)) {
       rpm = overrideLauncherRPM.get() + launcherTrimRPM;
     } else {
       rpm = shot != null ? shot.launcherRPM() + launcherTrimRPM : 0.0;
@@ -887,25 +892,25 @@ public class ShootingCommands {
     return Math.min(rpm, MAX_LAUNCHER_RPM);
   }
 
-  /** Get effective hood angle — override value or calculated shot. */
+  /** Get effective hood angle — override value when toggled, otherwise calculated. */
   public static double getEffectiveHoodDeg(ShotCalculator.ShotResult shot) {
-    if (isOverrideActive()) {
+    if (SmartDashboard.getBoolean("Overrides/Hood", false)) {
       return overrideHoodDeg.get();
     }
     return shot != null ? shot.hoodAngleDeg() : 0.0;
   }
 
-  /** Get effective motivator RPM — override value or derived from launcher RPM. */
+  /** Get effective motivator RPM — override value when toggled, otherwise derived from launcher. */
   public static double getEffectiveMotivatorRPM(double launcherRPM, ShootingCoordinator coordinator) {
-    if (isOverrideActive()) {
+    if (SmartDashboard.getBoolean("Overrides/Motivator", false)) {
       return overrideMotivatorRPM.get();
     }
     return getMotivatorRPM(launcherRPM, coordinator);
   }
 
-  /** Get effective spindexer RPM — override value or distance-based. */
+  /** Get effective spindexer RPM — override value when toggled, otherwise distance-based. */
   public static double getEffectiveSpindexerRPM(ShootingCoordinator coordinator) {
-    if (isOverrideActive()) {
+    if (SmartDashboard.getBoolean("Overrides/Spindexer", false)) {
       return overrideSpindexerRPM.get();
     }
     double dist = coordinator.getDistanceToTarget();
