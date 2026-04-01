@@ -415,12 +415,23 @@ public final class ShotCalculator {
     double turretY = turretFieldPos[1];
     Translation3d turretPos = new Translation3d(turretX, turretY, config.heightMeters());
 
+    // Diagnostic: log exact optimizer inputs so orientation-dependence can be verified
+    double turretToTargetD =
+        Math.sqrt(
+            Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
+    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+    Logger.recordOutput("SmartLaunch/Debug/RobotHeadingDeg", Math.toDegrees(robotHeadingRad));
+    Logger.recordOutput("SmartLaunch/Debug/TurretFieldX", turretX);
+    Logger.recordOutput("SmartLaunch/Debug/TurretFieldY", turretY);
+    Logger.recordOutput("SmartLaunch/Debug/TurretToTargetD", turretToTargetD);
+    Logger.recordOutput("SmartLaunch/Debug/RobotSpeedMps", robotSpeed);
+    Logger.recordOutput("SmartLaunch/Debug/VelocityCompActive", robotSpeed > 0.1);
+
     // Velocity compensation: adjust aim point to counteract robot movement during flight.
     // Only apply when the initial shot is achievable — if the optimizer fails (returns
     // exitVelocityMps=0), the ToF calculation produces Double.MAX_VALUE and predictTargetPos
     // generates infinity coordinates, causing the turret to snap to a garbage angle.
     Translation3d aimTarget = hubTarget;
-    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     if (robotSpeed > 0.1) {
       TrajectoryOptimizer.OptimalShot initialShot =
           TrajectoryOptimizer.calculateOptimalShotWithFallback(
@@ -526,6 +537,16 @@ public final class ShotCalculator {
     // Velocity compensation (same logic as calculateHubShot, using fallback solver)
     Translation3d aimTarget = hubTarget;
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+    // Diagnostic logging shared with calculateHubShot — values are identical for same inputs
+    double turretToTargetD =
+        Math.sqrt(
+            Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
+    Logger.recordOutput("SmartLaunch/Debug/RobotHeadingDeg", Math.toDegrees(robotHeadingRad));
+    Logger.recordOutput("SmartLaunch/Debug/TurretFieldX", turretX);
+    Logger.recordOutput("SmartLaunch/Debug/TurretFieldY", turretY);
+    Logger.recordOutput("SmartLaunch/Debug/TurretToTargetD", turretToTargetD);
+    Logger.recordOutput("SmartLaunch/Debug/RobotSpeedMps", robotSpeed);
+    Logger.recordOutput("SmartLaunch/Debug/VelocityCompActive", robotSpeed > 0.1);
     if (robotSpeed > 0.1) {
       TrajectoryOptimizer.OptimalShot initialShot =
           TrajectoryOptimizer.calculateOptimalShotWithFallback(
