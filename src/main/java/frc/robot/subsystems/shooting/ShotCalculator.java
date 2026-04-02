@@ -51,6 +51,17 @@ public final class ShotCalculator {
           "Shots/SmartLaunch/Efficiency/Corner",
           Constants.getRobotConfig().getShotEfficiencyCorner());
 
+  // Fixed velocity added to the exit speed by the motivator wheel (m/s).
+  // The motivator runs at a constant RPM (Shots/SmartLaunch/ShootingMotivatorRPM) regardless
+  // of the launcher RPM, so its contribution is modeled as an additive constant here rather
+  // than folded into the roller efficiency. At practice 4-1-26 arcs peaked ~24" above the 96"
+  // constraint; back-calculating from that overshoot gives ~1.0 m/s motivator contribution
+  // at mid-range. Tune: if arcs are high, increase; if short, decrease.
+  private static final LoggedTunableNumber motivatorVelocityMps =
+      new LoggedTunableNumber(
+          "Shots/SmartLaunch/MotivatorVelocityMps",
+          Constants.getRobotConfig().getShotMotivatorVelocityMps());
+
   // Hood angle fudge factor (degrees), interpolated by distance.
   // Positive values increase hood angle (flatter shot), negative values decrease it (steeper shot).
   // Use this to calibrate the arc to match what you see on screen.
@@ -200,7 +211,7 @@ public final class ShotCalculator {
     double mainSurfaceVelocity = (rpm * 2.0 * Math.PI * MAIN_WHEEL_RADIUS_METERS) / 60.0;
     double hoodSurfaceVelocity = mainSurfaceVelocity * HOOD_SURFACE_SPEED_RATIO;
     double averageSurfaceVelocity = (mainSurfaceVelocity + hoodSurfaceVelocity) / 2.0;
-    return averageSurfaceVelocity * getEfficiency(distanceMeters);
+    return averageSurfaceVelocity * getEfficiency(distanceMeters) + motivatorVelocityMps.get();
   }
 
   /** Overload using default mid-range efficiency (for call sites without distance context). */
@@ -226,7 +237,10 @@ public final class ShotCalculator {
    * @return Required wheel RPM
    */
   public static double calculateRPMForVelocity(double targetExitVelocity, double distanceMeters) {
-    double averageSurfaceVelocity = targetExitVelocity / getEfficiency(distanceMeters);
+    // Subtract the motivator's fixed contribution; the rollers only need to supply the remainder.
+    double rollerVelocity =
+        Math.max(0.0, targetExitVelocity - motivatorVelocityMps.get());
+    double averageSurfaceVelocity = rollerVelocity / getEfficiency(distanceMeters);
     // Reverse the two-roller average: avg = main × (1 + hoodRatio) / 2
     double mainSurfaceVelocity = averageSurfaceVelocity * 2.0 / (1.0 + HOOD_SURFACE_SPEED_RATIO);
     return (mainSurfaceVelocity * 60.0) / (2.0 * Math.PI * MAIN_WHEEL_RADIUS_METERS);
