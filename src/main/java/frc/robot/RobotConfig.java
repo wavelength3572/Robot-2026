@@ -744,6 +744,10 @@ public interface RobotConfig {
     return 0.69;
   }
 
+  default double getShotMotivatorVelocityMps() {
+    return 0.0;
+  }
+
   default double getShotHoodAngleFudgeClose() {
     return 0.0;
   }

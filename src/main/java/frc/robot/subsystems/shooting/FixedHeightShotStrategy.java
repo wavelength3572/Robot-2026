@@ -125,7 +125,6 @@ public class FixedHeightShotStrategy implements ShotStrategy {
     }
 
     double thetaDeg = result.launchAngleDeg();
-    double theta = Math.toRadians(thetaDeg);
     double hoodAngleDeg = 90.0 - thetaDeg;
     double velocity = result.exitVelocityMps();
 
@@ -133,9 +132,14 @@ public class FixedHeightShotStrategy implements ShotStrategy {
     double hoodFudge = ShotCalculator.getHoodAngleFudge(D);
     hoodAngleDeg += hoodFudge;
 
+    // Derive the actual launch angle from the commanded hood angle (after fudge).
+    // ShotResult.launchAngleRad must reflect what the hood will actually do so the
+    // visualizer trajectory matches the real arc.
+    double theta = Math.toRadians(90.0 - hoodAngleDeg);
+
     // Log trajectory values
     Logger.recordOutput("Shots/FixedHeight/VertexXM", result.vertexXM());
-    Logger.recordOutput("Shots/FixedHeight/LaunchAngleDeg", thetaDeg);
+    Logger.recordOutput("Shots/FixedHeight/LaunchAngleDeg", Math.toDegrees(theta));
     Logger.recordOutput("Shots/FixedHeight/HoodAngleFudgeDeg", hoodFudge);
     Logger.recordOutput("Shots/FixedHeight/HoodAngleDeg", hoodAngleDeg);
     Logger.recordOutput("Shots/FixedHeight/Clamped", result.clamped());
