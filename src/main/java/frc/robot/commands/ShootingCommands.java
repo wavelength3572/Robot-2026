@@ -693,7 +693,7 @@ public class ShootingCommands {
 
   /**
    * State-machine-driven SmartLaunch with configurable arm trigger. For sprint autos, use
-   * ON_PASS_ZONE or ON_TRENCH_RETURN to prevent shooting preloads at the start.
+   * ON_PASS_ZONE or ON_ALLIANCE_RETURN to prevent shooting preloads at the start.
    */
   public static Command smartLaunchDangerousCommand(
       Launcher launcher,

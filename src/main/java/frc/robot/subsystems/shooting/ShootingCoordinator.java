@@ -77,8 +77,8 @@ public class ShootingCoordinator extends SubsystemBase {
     IMMEDIATE,
     /** Sprint + AUTO_SHOOT — arm when first entering a pass zone (NEUTRAL/OPPONENT). */
     ON_PASS_ZONE,
-    /** Sprint + STATIONARY — arm when entering alliance trench after visiting neutral zone. */
-    ON_TRENCH_RETURN
+    /** Sprint — arm when entering any alliance zone after visiting neutral. */
+    ON_ALLIANCE_RETURN
   }
 
   /** Strategy for selecting which pass target (left vs right trench) to use. */
@@ -1225,7 +1225,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
   /**
    * Notify the coordinator that SmartLaunch has started or stopped, with a specific arm trigger.
-   * For sprint autos, use ON_PASS_ZONE or ON_TRENCH_RETURN to prevent shooting preloads at start.
+   * For sprint autos, use ON_PASS_ZONE or ON_ALLIANCE_RETURN to prevent shooting preloads at start.
    */
   public void setSmartLaunchActive(boolean active, ArmTrigger trigger) {
     this.smartLaunchActive = active;
@@ -1310,9 +1310,9 @@ public class ShootingCoordinator extends SubsystemBase {
             armed = true;
           }
         }
-        case ON_TRENCH_RETURN -> {
-          // Arm when entering alliance trench after having visited neutral
-          if (hasVisitedNeutral && currentZone == ZoneDetector.Zone.ALLIANCE_TRENCH) {
+        case ON_ALLIANCE_RETURN -> {
+          // Arm when entering any alliance zone after having visited neutral
+          if (hasVisitedNeutral && isInAllianceZone()) {
             armed = true;
           }
         }

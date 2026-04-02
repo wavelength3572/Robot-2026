@@ -47,7 +47,12 @@ public class AutoWrapperFactory {
      * Always track hub (turret/launcher/motivator spin up); only fire when stationary in near
      * trench or alliance zone. Hood tracks in near trench and alliance only (not far trench).
      */
-    AUTO_TRACKING_STATIONARY
+    AUTO_TRACKING_STATIONARY,
+    /**
+     * Shoot on the move in alliance zones (hub shots under speed threshold); collect only in
+     * neutral zone — no passing. Identical to AUTO_SHOOT except passing is disabled.
+     */
+    SHOOT_ON_THE_MOVE_NO_PASS
   }
 
   // ---- Public wrapper assembler ----
@@ -83,13 +88,17 @@ public class AutoWrapperFactory {
     // Determine arm trigger for sprint-start protection:
     //   - SHOOT_PRELOADS: IMMEDIATE — fire as soon as subsystems are ready
     //   - SPRINT + AUTO_SHOOT: ON_PASS_ZONE — arm when first entering neutral/opponent zone
-    //   - SPRINT + STATIONARY: ON_TRENCH_RETURN — arm when entering alliance trench after neutral
+    //   - SPRINT + SotM_NO_PASS: ON_ALLIANCE_RETURN — arm when entering any alliance zone
+    //   - SPRINT + others: ON_ALLIANCE_RETURN — arm when entering any alliance zone
     ShootingCoordinator.ArmTrigger trigger = ShootingCoordinator.ArmTrigger.IMMEDIATE;
     if (startStrategy == StartStrategy.SPRINT) {
-      trigger =
-          (pathStrategy == PathShootingStrategy.AUTO_SHOOT)
-              ? ShootingCoordinator.ArmTrigger.ON_PASS_ZONE
-              : ShootingCoordinator.ArmTrigger.ON_TRENCH_RETURN;
+      if (pathStrategy == PathShootingStrategy.AUTO_SHOOT) {
+        trigger = ShootingCoordinator.ArmTrigger.ON_PASS_ZONE;
+      } else if (pathStrategy == PathShootingStrategy.SHOOT_ON_THE_MOVE_NO_PASS) {
+        trigger = ShootingCoordinator.ArmTrigger.ON_ALLIANCE_RETURN;
+      } else {
+        trigger = ShootingCoordinator.ArmTrigger.ON_ALLIANCE_RETURN;
+      }
     }
 
     // AUTO_SHOOT fires in pass zones; other strategies only fire in alliance zones.
@@ -109,14 +118,13 @@ public class AutoWrapperFactory {
 
     Command pathWithIntake = Commands.parallel(pathParallel.toArray(Command[]::new));
 
-    // For AUTO_SHOOT and AUTO_TRACKING_STATIONARY: SmartLaunch2 runs for the ENTIRE auto
-    // (path + post-path). It doesn't die when the path ends — the path is just one step
-    // in the sequence that runs underneath it. After the path, the robot is stationary and
-    // SmartLaunch2 keeps firing until auto ends.
+    // For AUTO_SHOOT, AUTO_TRACKING_STATIONARY, and SHOOT_ON_THE_MOVE_NO_PASS: SmartLaunch2
+    // runs for the ENTIRE auto (path + post-path). It doesn't die when the path ends — the
+    // path is just one step in the sequence that runs underneath it. After the path, the
+    // robot is stationary and SmartLaunch2 keeps firing until auto ends.
     //
     // For END_OF_PATH: SmartLaunch2 only runs after the path completes.
-    if (pathStrategy == PathShootingStrategy.AUTO_SHOOT
-        || pathStrategy == PathShootingStrategy.AUTO_TRACKING_STATIONARY) {
+    if (pathStrategy != PathShootingStrategy.END_OF_PATH) {
       // Path runs as a sequence step, SmartLaunch2 wraps the whole thing in parallel.
       // When the path ends, the sequence moves to a "wait forever" that keeps SmartLaunch2
       // alive until auto ends (the overall auto timeout or disable kills everything).

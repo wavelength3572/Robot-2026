@@ -498,16 +498,19 @@ public class RobotContainer {
   /** Returns true for any folder that should receive the comp wrapper. */
   private static boolean isCompFolder(String folder) {
     return "CompShootPreloadsEndofPath".equals(folder)
+        || "CompShootPreloadsAutoShoot".equals(folder)
         || "CompSprintAutoShoot".equals(folder)
         || "CompSprintEndofPath".equals(folder)
-        || "CompSprintStationaryShoot".equals(folder);
+        || "CompSprintStationaryShoot".equals(folder)
+        || "CompSprintSotMNoPass".equals(folder);
   }
 
   /** Folder-based default for start strategy. CompSprint sprints; everything else shoots first. */
   private static AutoWrapperFactory.StartStrategy defaultStartStrategy(String folder) {
     return ("CompSprintAutoShoot".equals(folder)
             || "CompSprintEndofPath".equals(folder)
-            || "CompSprintStationaryShoot".equals(folder))
+            || "CompSprintStationaryShoot".equals(folder)
+            || "CompSprintSotMNoPass".equals(folder))
         ? AutoWrapperFactory.StartStrategy.SPRINT
         : AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS;
   }
@@ -515,10 +518,12 @@ public class RobotContainer {
   /** Folder-based default for path shooting. CompSprint auto-shoots; everything else waits. */
   private static AutoWrapperFactory.PathShootingStrategy defaultPathShootingStrategy(
       String folder) {
-    if ("CompSprintAutoShoot".equals(folder))
+    if ("CompSprintAutoShoot".equals(folder) || "CompShootPreloadsAutoShoot".equals(folder))
       return AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT;
     if ("CompSprintStationaryShoot".equals(folder))
       return AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY;
+    if ("CompSprintSotMNoPass".equals(folder))
+      return AutoWrapperFactory.PathShootingStrategy.SHOOT_ON_THE_MOVE_NO_PASS;
     return AutoWrapperFactory.PathShootingStrategy.END_OF_PATH;
   }
 
@@ -544,6 +549,8 @@ public class RobotContainer {
     pathShootingChooser.addOption(
         "Auto Tracking, Stationary",
         AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY);
+    pathShootingChooser.addOption(
+        "SotM, No Pass", AutoWrapperFactory.PathShootingStrategy.SHOOT_ON_THE_MOVE_NO_PASS);
     SmartDashboard.putData("Auton Path Shooting Strategy", pathShootingChooser);
   }
 
@@ -570,6 +577,8 @@ public class RobotContainer {
       pathName = "Auto Shoot";
     else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY)
       pathName = "Auto Tracking, Stationary";
+    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.SHOOT_ON_THE_MOVE_NO_PASS)
+      pathName = "SotM, No Pass";
 
     // Write the desired default into the NT "selected" key so the dashboard + getSelected() update
     var nt = NetworkTableInstance.getDefault();
