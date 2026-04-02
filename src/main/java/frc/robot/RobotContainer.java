@@ -820,6 +820,15 @@ public class RobotContainer {
     NamedCommands.registerCommand(
         "releaseFire", Commands.runOnce(() -> autoFeedingSuppressed = false));
 
+    // CeaseFire: immediately kill all shooting — launcher idles, hood stows, feeding stops.
+    // Use this event marker when the robot needs to stop shooting and duck under the trench
+    // mid-auto (e.g., loop autos that cross the bump after firing).
+    // Automatically re-arms when the robot reaches the neutral zone.
+    if (shootingCoordinator != null) {
+      NamedCommands.registerCommand(
+          "CeaseFire", Commands.runOnce(() -> shootingCoordinator.requestCeaseFire()));
+    }
+
     // RetractIntake: retract intake and stop rollers
     if (intake != null) {
       NamedCommands.registerCommand(

@@ -150,9 +150,31 @@ public class ShootingCoordinator extends SubsystemBase {
   // Teleop always allows passing regardless of this flag.
   private boolean autoPassingEnabled = false;
 
+  // Cease-fire: when true, all shooting subsystems immediately idle and hood stows.
+  // Set by the "CeaseFire" PathPlanner event marker during auto routines.
+  // Cleared when SmartLaunch is next activated via setSmartLaunchActive(true, ...).
+  private boolean ceaseFireRequested = false;
+
   /** Enable or disable passing during auto. Called by AutoWrapperFactory. */
   public void setAutoPassingEnabled(boolean enabled) {
     this.autoPassingEnabled = enabled;
+  }
+
+  /**
+   * Request an immediate cease-fire: all shooting subsystems idle, hood stows, feeding stops. Used
+   * by the "CeaseFire" PathPlanner event marker to kill shooting mid-auto. The flag is
+   * automatically cleared when SmartLaunch is next activated.
+   */
+  public void requestCeaseFire() {
+    ceaseFireRequested = true;
+    coordinatorState = CoordinatorState.UNARMED;
+    armed = false;
+    Logger.recordOutput("SmartLaunch/Phase", "CEASE_FIRE");
+  }
+
+  /** Check if a cease-fire has been requested. */
+  public boolean isCeaseFireRequested() {
+    return ceaseFireRequested;
   }
 
   // ========== CoordinatorState Machine ==========
@@ -1065,6 +1087,7 @@ public class ShootingCoordinator extends SubsystemBase {
    * boundary. In teleop this always returns false.
    */
   public boolean isAutoCollecting() {
+    if (ceaseFireRequested) return true; // cease-fire forces idle
     if (!DriverStation.isAutonomous()) return false;
     if (cachedAimResult == null) return false;
     if (armTrigger == ArmTrigger.IMMEDIATE) return false;
@@ -1237,6 +1260,7 @@ public class ShootingCoordinator extends SubsystemBase {
       wasFiringBeforeZoneSuppression = false;
       firingEntryPending = false;
     } else if (coordinatorState == CoordinatorState.INACTIVE) {
+      ceaseFireRequested = false; // clear any previous cease-fire
       armTrigger = trigger;
       armed = (trigger == ArmTrigger.IMMEDIATE);
       coordinatorState = armed ? CoordinatorState.AIMING : CoordinatorState.UNARMED;
@@ -1290,6 +1314,22 @@ public class ShootingCoordinator extends SubsystemBase {
 
     ZoneDetector.Zone currentZone =
         cachedAimResult != null ? cachedAimResult.zone() : ZoneDetector.Zone.ALLIANCE_MID;
+
+    // Cease-fire locks the state machine in UNARMED until the robot reaches the
+    // neutral zone, then automatically re-arms so the next shooting cycle can begin.
+    if (ceaseFireRequested) {
+      if (currentZone == ZoneDetector.Zone.NEUTRAL || currentZone == ZoneDetector.Zone.OPPONENT) {
+        ceaseFireRequested = false;
+        armed = true;
+        coordinatorState = CoordinatorState.AIMING;
+        readyTimeoutTimer.restart();
+        readyTimeoutRunning = true;
+        Logger.recordOutput("SmartLaunch/Phase", "CEASE_FIRE_CLEARED");
+      } else {
+        coordinatorState = CoordinatorState.UNARMED;
+        return;
+      }
+    }
     TurretAimingHelper.AimMode currentAimMode =
         cachedAimResult != null ? cachedAimResult.mode() : null;
 
