@@ -236,7 +236,8 @@ public class Intake extends SubsystemBase {
   public static final double ROLLER_EJECT_SPEED = -0.6;
   public static final double ROLLER_HOLD_SPEED = 0.1;
   public static final double ROLLER_INTAKE_RPM_RETRACTED = 0.0;
-  public static final double ROLLER_INTAKE_RPM_DEPLOYED = 2000.0;
+  public static final double ROLLER_INTAKE_RPM_MIN = 1800.0;
+  public static final double ROLLER_INTAKE_RPM_MAX = 2000.0;
   public static final double ROLLER_EJECT_RPM = -1000.0;
 
   // Pending roller velocity — set when deploy is commanded, applied once position threshold is met
@@ -247,6 +248,10 @@ public class Intake extends SubsystemBase {
 
   // Velocity control toggle (default: velocity control on)
   private boolean useVelocityControl = true;
+
+  // Variable-speed intake: continuously update roller RPM based on robot velocity
+  private boolean variableSpeedIntakeActive = false;
+  private double maxRobotSpeedMps = 4.0; // default, overwritten in constructor
 
   // Optional: supplier for robot velocity (for velocity-based roller speed)
   private DoubleSupplier robotVelocitySupplier = () -> 0.0;
@@ -263,6 +268,7 @@ public class Intake extends SubsystemBase {
     deployStowedPosition = config.getIntakeDeployStowedPosition();
     deployRetractedPosition = config.getIntakeDeployRetractedPosition();
     deployExtendedPosition = config.getIntakeDeployExtendedPosition();
+    maxRobotSpeedMps = config.getMaxSpeedMetersPerSec();
 
     // Command stowed position at startup so SparkMax has an active hold target
     applyRetractMotionConfig();
@@ -395,6 +401,15 @@ public class Intake extends SubsystemBase {
       io.stopRollerMotor();
     }
 
+    // Continuously update roller RPM based on robot velocity when variable-speed intake is active
+    if (variableSpeedIntakeActive && !rollersSafetyLocked && !rollersPending) {
+      double rpm = getVelocityInterpolatedIntakeRPM();
+      activeRollerRPM = rpm;
+      if (useVelocityControl) {
+        io.setRollerVelocity(rpm);
+      }
+    }
+
     // ---- Update Mechanism2d visualization ----
     // Map deploy position to visual angle:
     //   position 0 (stowed)    → 90° (straight up)
@@ -483,6 +498,7 @@ public class Intake extends SubsystemBase {
     deployCommanded = false;
     rollersPending = false;
     rollersActivelyCommanded = false;
+    variableSpeedIntakeActive = false;
     movingFirstCycle = true;
     deployState = DeployState.RETRACTING;
     io.setDeployPosition(deployRetractedPos.get());
@@ -608,13 +624,15 @@ public class Intake extends SubsystemBase {
    * the safety interlock can properly re-pend and restart the rollers.
    */
   public void runIntake() {
-    double rpm = deployCommanded ? ROLLER_INTAKE_RPM_DEPLOYED : ROLLER_INTAKE_RPM_RETRACTED;
+    double rpm =
+        deployCommanded ? getVelocityInterpolatedIntakeRPM() : ROLLER_INTAKE_RPM_RETRACTED;
 
     // Mark rollers as actively commanded so the safety interlock in periodic() can
     // re-pend them if the arm temporarily dips below the safe position threshold.
     // Without this, a momentary safety lock during auto would kill rollers permanently.
     activeRollerRPM = rpm;
     rollersActivelyCommanded = true;
+    variableSpeedIntakeActive = deployCommanded;
 
     if (isRollerSafetyLocked()) {
       // Arm is still too close to stowed — defer roller start until deploy reaches safe position
@@ -645,6 +663,7 @@ public class Intake extends SubsystemBase {
   public void stopRollers() {
     rollersPending = false;
     rollersActivelyCommanded = false;
+    variableSpeedIntakeActive = false;
     io.stopRollerMotor();
   }
 
@@ -699,6 +718,16 @@ public class Intake extends SubsystemBase {
     double compensatedSpeed = baseSpeed + (robotVelocity * velocityFactor);
     compensatedSpeed = Math.min(1.0, Math.max(-1.0, compensatedSpeed)); // Clamp to valid range
     io.setRollerDutyCycle(compensatedSpeed);
+  }
+
+  /**
+   * Compute intake roller RPM interpolated between MIN and MAX based on robot speed. Faster robot
+   * movement yields higher roller RPM to maintain grip on game pieces.
+   */
+  private double getVelocityInterpolatedIntakeRPM() {
+    double robotSpeed = Math.abs(robotVelocitySupplier.getAsDouble());
+    double fraction = Math.min(robotSpeed / maxRobotSpeedMps, 1.0);
+    return ROLLER_INTAKE_RPM_MIN + fraction * (ROLLER_INTAKE_RPM_MAX - ROLLER_INTAKE_RPM_MIN);
   }
 
   /** Get the current roller velocity in RPM. */
