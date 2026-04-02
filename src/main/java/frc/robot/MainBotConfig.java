@@ -260,10 +260,17 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeRollerMinDeployPosition = 0.05;
 
   // ========== Shot Calculation ==========
-  private static final double shotEfficiencyClose = 0.815;
-  private static final double shotEfficiencyMid = 0.76;
-  private static final double shotEfficiencyFar = 0.76;
-  private static final double shotEfficiencyCorner = 0.76;
+  // Effective launch efficiency, tuned to account for the motivator wheel's velocity
+  // contribution in addition to the main wheel + hood roller. At practice 4-1-26 arcs
+  // peaked ~24" above the 96" constraint, meaning the real exit velocity was ~13.7%
+  // higher than the two-roller model predicted (sqrt((120"-14.2")/(96"-14.2")) ≈ 1.137).
+  // Increasing efficiency by that factor causes the solver to command fewer RPMs; with the
+  // motivator's contribution the actual arc then lands at the intended peak.
+  // Starting point — re-measure and re-tune if peak heights shift again.
+  private static final double shotEfficiencyClose = 0.93;
+  private static final double shotEfficiencyMid = 0.86;
+  private static final double shotEfficiencyFar = 0.86;
+  private static final double shotEfficiencyCorner = 0.86;
   private static final double shotHoodAngleFudgeClose = 0.0;
   private static final double shotHoodAngleFudgeMid = 0.0;
   private static final double shotHoodAngleFudgeFar = 0.0;
