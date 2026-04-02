@@ -13,7 +13,6 @@ import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkFlexConfig;
-import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.filter.Debouncer;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
@@ -50,8 +49,7 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
   // setVelocityTolerances)
   private double motivatorToleranceRPM = 20.0;
 
-  // Feedforward controller (rebuilt when gains change via configureFeedforward)
-  private SimpleMotorFeedforward feedforward;
+  // Feedforward runs onboard the SparkFlex via closedLoop.feedForward.sv() at 1kHz.
 
   // Target tracking
   private double wheelTargetRPM = 0.0;
@@ -74,8 +72,6 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
     double initKs = config.getMotivatorKs();
     double initKv = config.getMotivatorKv();
 
-    feedforward = new SimpleMotorFeedforward(initKs, initKv);
-
     var motorConfig = new SparkFlexConfig();
     motorConfig
         .inverted(false) // TODO: Make robot-specific when MainBot is ready
@@ -83,10 +79,23 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
         .smartCurrentLimit(config.getMotivatorCurrentLimit())
         .voltageCompensation(12.0);
 
+    // Reduce encoder velocity filter lag for faster PID response.
+    // REV defaults use a 64-tap FIR filter (~164ms window, ~82ms phase lag) which
+    // is far too sluggish for flywheel recovery. These settings reduce the effective
+    // measurement window to ~16ms (~8ms phase lag), giving the 1kHz onboard PID
+    // much fresher velocity data to work with.
+    // See:
+    // https://www.chiefdelphi.com/t/psa-rev-spark-default-velocity-filtering-is-still-really-bad-for-flywheels/514567
+    motorConfig.encoder.uvwMeasurementPeriod(8).uvwAverageDepth(2);
+
+    // PID + feedforward all run onboard the SparkFlex at 1kHz — no CAN latency.
+    // kS/kV applied automatically in kVelocity mode (per REV 2026 API).
     motorConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(initKp, initKi, initKd);
+
+    motorConfig.closedLoop.feedForward.sv(initKs, initKv, ClosedLoopSlot.kSlot0);
 
     motorConfig
         .signals
@@ -170,14 +179,9 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
     } else {
       motivatorVelocityMode = true;
       wheelTargetRPM = Math.abs(wheelVelocityRPM);
-      // ks & kv were calculated in motor RPM thus the conversion in the parameter
-      double arbFFVolts = feedforward.calculate(wheelToMotorRPM(wheelTargetRPM));
-      // PID control is also in motor rotations
+      // kVelocity with onboard kS/kV: PID + FF all run at 1kHz on SparkFlex.
       motivatorController.setSetpoint(
-          wheelToMotorRPM(wheelTargetRPM),
-          ControlType.kVelocity,
-          ClosedLoopSlot.kSlot0,
-          arbFFVolts);
+          wheelToMotorRPM(wheelTargetRPM), ControlType.kVelocity, ClosedLoopSlot.kSlot0);
     }
   }
 
@@ -194,10 +198,9 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
   public void configureMotivatorPID(double kP, double kI, double kD, double kS, double kV) {
     var pidConfig = new SparkFlexConfig();
     pidConfig.closedLoop.pid(kP, kI, kD);
+    pidConfig.closedLoop.feedForward.sv(kS, kV, ClosedLoopSlot.kSlot0);
     motivator.configure(
         pidConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-    feedforward.setKs(kS);
-    feedforward.setKv(kV);
   }
 
   @Override
