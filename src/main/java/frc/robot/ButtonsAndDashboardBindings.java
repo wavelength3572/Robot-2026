@@ -599,8 +599,8 @@ public class ButtonsAndDashboardBindings {
       suppressTrigger.onTrue(Commands.runOnce(spindexer::suppressFeeding));
       suppressTrigger.onFalse(Commands.runOnce(spindexer::unsuppressFeeding));
 
-      // Auto-unclog toggle — on by default, disable from dashboard if needed
-      SmartDashboard.putBoolean("Tuning/Spindexer/AutoUnclog/Enabled", true);
+      // Auto-unclog toggle — off by default, enable from dashboard if needed
+      SmartDashboard.putBoolean("Tuning/Spindexer/AutoUnclog/Enabled", false);
       SmartDashboard.putData(
           "Tuning/Spindexer/AutoUnclog/Toggle",
           Commands.runOnce(

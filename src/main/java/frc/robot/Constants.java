@@ -16,7 +16,7 @@ import edu.wpi.first.wpilibj.RobotBase;
  * replay from a file), or "pit" (simulated drive with real subsystems for pit testing).
  */
 public final class Constants {
-  public static final Mode simMode = Mode.PIT;
+  public static final Mode simMode = Mode.SIM;
   public static final Mode currentMode = resolveMode();
 
   /**

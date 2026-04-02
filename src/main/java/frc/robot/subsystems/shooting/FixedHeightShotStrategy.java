@@ -129,9 +129,14 @@ public class FixedHeightShotStrategy implements ShotStrategy {
     double hoodAngleDeg = 90.0 - thetaDeg;
     double velocity = result.exitVelocityMps();
 
+    // Apply hood angle fudge factor (distance-interpolated offset in degrees)
+    double hoodFudge = ShotCalculator.getHoodAngleFudge(D);
+    hoodAngleDeg += hoodFudge;
+
     // Log trajectory values
     Logger.recordOutput("Shots/FixedHeight/VertexXM", result.vertexXM());
     Logger.recordOutput("Shots/FixedHeight/LaunchAngleDeg", thetaDeg);
+    Logger.recordOutput("Shots/FixedHeight/HoodAngleFudgeDeg", hoodFudge);
     Logger.recordOutput("Shots/FixedHeight/HoodAngleDeg", hoodAngleDeg);
     Logger.recordOutput("Shots/FixedHeight/Clamped", result.clamped());
     if (result.clamped()) {

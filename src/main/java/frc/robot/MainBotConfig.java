@@ -260,24 +260,28 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeRollerMinDeployPosition = 0.05;
 
   // ========== Shot Calculation ==========
-  private static final double shotEfficiencyClose = 0.7;
-  private static final double shotEfficiencyMid = 0.7;
-  private static final double shotEfficiencyFar = 0.7;
-  private static final double shotEfficiencyCorner = 0.69;
+  private static final double shotEfficiencyClose = 0.815;
+  private static final double shotEfficiencyMid = 0.76;
+  private static final double shotEfficiencyFar = 0.76;
+  private static final double shotEfficiencyCorner = 0.76;
+  private static final double shotHoodAngleFudgeClose = 0.0;
+  private static final double shotHoodAngleFudgeMid = 0.0;
+  private static final double shotHoodAngleFudgeFar = 0.0;
+  private static final double shotHoodAngleFudgeCorner = 0.0;
   private static final double shotVelocityCompX = 1.0;
   private static final double shotVelocityCompY = 1.0;
 
   // ========== Zone Boundaries ==========
   private static final double zoneTrenchAllianceBufferM = 0.3;
-  private static final double zoneCloseDist = 2.0;
+  private static final double zoneCloseDist = 1.9;
   private static final double zoneMidDist = 3.5;
   private static final double zoneFarDist = 4.1;
   private static final double zoneCornerDist = 5.1;
 
   // ========== Fixed Height Shot Strategy ==========
-  private static final double fixedHeightPeakHeightIn = 110.0;
-  private static final double fixedHeightPassThroughHeightIn = 72.0;
-  private static final double fixedHeightHorizontalOffsetIn = 10.0;
+  private static final double fixedHeightPeakHeightIn = 96.0;
+  private static final double fixedHeightPassThroughHeightIn = 74.0;
+  private static final double fixedHeightHorizontalOffsetIn = 5.0;
   private static final double fixedHeightMinRPM = 1500.0;
   private static final double fixedHeightMaxRPM = 4000.0;
 
@@ -338,8 +342,8 @@ public class MainBotConfig implements RobotConfig {
   // ========== Shooting Commands — Feed Ratios ==========
   private static final double motivatorLauncherRatio = 0.2;
   private static final double passingMotivatorRPM = 1650.0;
-  private static final double spindexerCloseRPM = 300.0;
-  private static final double spindexerFarRPM = 300.0;
+  private static final double spindexerCloseRPM = 400.0;
+  private static final double spindexerFarRPM = 400.0;
   private static final double spindexerPassRPM = 550.0;
 
   // ========== Shooting Commands — Override Defaults ==========
@@ -1293,6 +1297,26 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getShotEfficiencyCorner() {
     return shotEfficiencyCorner;
+  }
+
+  @Override
+  public double getShotHoodAngleFudgeClose() {
+    return shotHoodAngleFudgeClose;
+  }
+
+  @Override
+  public double getShotHoodAngleFudgeMid() {
+    return shotHoodAngleFudgeMid;
+  }
+
+  @Override
+  public double getShotHoodAngleFudgeFar() {
+    return shotHoodAngleFudgeFar;
+  }
+
+  @Override
+  public double getShotHoodAngleFudgeCorner() {
+    return shotHoodAngleFudgeCorner;
   }
 
   @Override

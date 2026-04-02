@@ -159,7 +159,7 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber(
             "Tuning/Intake/Agitation/StationaryDwellSec",
             config.getIntakeAgitationStationaryDwellSec());
-    SmartDashboard.putBoolean("Intake/AgitationEnabled", false);
+    SmartDashboard.putBoolean("Intake/AgitationEnabled", true);
     // Shared
     rollerMinDeployPosition =
         new LoggedTunableNumber(

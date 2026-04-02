@@ -51,6 +51,26 @@ public final class ShotCalculator {
           "Shots/SmartLaunch/Efficiency/Corner",
           Constants.getRobotConfig().getShotEfficiencyCorner());
 
+  // Hood angle fudge factor (degrees), interpolated by distance.
+  // Positive values increase hood angle (flatter shot), negative values decrease it (steeper shot).
+  // Use this to calibrate the arc to match what you see on screen.
+  private static final LoggedTunableNumber hoodAngleFudgeClose =
+      new LoggedTunableNumber(
+          "Shots/SmartLaunch/HoodAngleFudge/Close",
+          Constants.getRobotConfig().getShotHoodAngleFudgeClose());
+  private static final LoggedTunableNumber hoodAngleFudgeMid =
+      new LoggedTunableNumber(
+          "Shots/SmartLaunch/HoodAngleFudge/Mid",
+          Constants.getRobotConfig().getShotHoodAngleFudgeMid());
+  private static final LoggedTunableNumber hoodAngleFudgeFar =
+      new LoggedTunableNumber(
+          "Shots/SmartLaunch/HoodAngleFudge/Far",
+          Constants.getRobotConfig().getShotHoodAngleFudgeFar());
+  private static final LoggedTunableNumber hoodAngleFudgeCorner =
+      new LoggedTunableNumber(
+          "Shots/SmartLaunch/HoodAngleFudge/Corner",
+          Constants.getRobotConfig().getShotHoodAngleFudgeCorner());
+
   // Velocity limits for safety
   private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
   private static final double MAX_EXIT_VELOCITY = 15.0; // m/s
@@ -135,6 +155,36 @@ public final class ShotCalculator {
   /** Get the launch efficiency at default mid-range distance. */
   public static double getEfficiency() {
     return getEfficiency(3.0);
+  }
+
+  /**
+   * Get the hood angle fudge factor (degrees) interpolated by distance. Same zone breakpoints as
+   * efficiency. Positive values increase hood angle (flatter shot), negative decreases (steeper).
+   */
+  public static double getHoodAngleFudge(double distanceMeters) {
+    double dClose = ZoneDetector.getZoneBoundaryClose();
+    double dMid = ZoneDetector.getZoneBoundaryMid();
+    double dFar = ZoneDetector.getZoneBoundaryFar();
+    double dCorner = ZoneDetector.getZoneBoundaryCorner();
+    double fClose = hoodAngleFudgeClose.get();
+    double fMid = hoodAngleFudgeMid.get();
+    double fFar = hoodAngleFudgeFar.get();
+    double fCorner = hoodAngleFudgeCorner.get();
+
+    if (distanceMeters <= dClose) {
+      return fClose;
+    } else if (distanceMeters <= dMid) {
+      double t = (distanceMeters - dClose) / (dMid - dClose);
+      return fClose + t * (fMid - fClose);
+    } else if (distanceMeters <= dFar) {
+      double t = (distanceMeters - dMid) / (dFar - dMid);
+      return fMid + t * (fFar - fMid);
+    } else if (distanceMeters <= dCorner) {
+      double t = (distanceMeters - dFar) / (dCorner - dFar);
+      return fFar + t * (fCorner - fFar);
+    } else {
+      return fCorner;
+    }
   }
 
   /**

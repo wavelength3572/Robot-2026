@@ -744,6 +744,22 @@ public interface RobotConfig {
     return 0.69;
   }
 
+  default double getShotHoodAngleFudgeClose() {
+    return 0.0;
+  }
+
+  default double getShotHoodAngleFudgeMid() {
+    return 0.0;
+  }
+
+  default double getShotHoodAngleFudgeFar() {
+    return 0.0;
+  }
+
+  default double getShotHoodAngleFudgeCorner() {
+    return 0.0;
+  }
+
   default double getShotVelocityCompX() {
     return 1.0;
   }
@@ -983,6 +999,10 @@ public interface RobotConfig {
   }
 
   // ========== Shooting Commands — Feed Ratios ==========
+
+  default double getShootingMotivatorRPM() {
+    return 1600.0;
+  }
 
   default double getMotivatorLauncherRatio() {
     return 0.2;

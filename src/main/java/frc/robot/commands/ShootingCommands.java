@@ -143,11 +143,11 @@ public class ShootingCommands {
 
   // ===== Robot Tuning (affects real robot behavior) =====
 
-  // Motivator RPM as a ratio of launcher RPM: motivatorRPM = launcherRPM * ratio
-  private static final LoggedTunableNumber motivatorLauncherRatio =
+  // Constant motivator RPM used during shooting
+  private static final LoggedTunableNumber shootingMotivatorRPM =
       new LoggedTunableNumber(
-          "Shots/SmartLaunch/MotivatorLauncherRatio",
-          Constants.getRobotConfig().getMotivatorLauncherRatio()); // consider .68 was .565
+          "Shots/SmartLaunch/ShootingMotivatorRPM",
+          Constants.getRobotConfig().getShootingMotivatorRPM());
   // Fixed motivator RPM used during passes (instead of ratio). Toggle via SmartDashboard.
   private static final LoggedTunableNumber passingMotivatorRPM =
       new LoggedTunableNumber(
@@ -247,19 +247,19 @@ public class ShootingCommands {
     // Static factory class
   }
 
-  /** Derive motivator RPM from launcher RPM: motivatorRPM = launcherRPM * ratio. */
+  /** Get constant motivator RPM for shooting. */
   public static double getMotivatorRPM(double launcherRPM) {
-    return launcherRPM * motivatorLauncherRatio.get();
+    return shootingMotivatorRPM.get();
   }
 
   /**
-   * Derive motivator RPM from launcher RPM using a fixed ratio.
+   * Get constant motivator RPM for shooting.
    *
-   * @param launcherRPM current launcher RPM
+   * @param launcherRPM current launcher RPM (unused, kept for API compatibility)
    * @param coordinator the shooting coordinator (unused, kept for API compatibility)
    */
   public static double getMotivatorRPM(double launcherRPM, ShootingCoordinator coordinator) {
-    return launcherRPM * motivatorLauncherRatio.get();
+    return shootingMotivatorRPM.get();
   }
 
   /** Lerp spindexer RPM from distance — close (1.16m) to far (5.35m). */
@@ -825,14 +825,15 @@ public class ShootingCommands {
                 : Commands.none(),
 
             // Spindexer — feed only when coordinator allows AND motivator is at speed.
+            // Once the coordinator reaches FIRING (which requires motivator READY),
+            // we trust the motivator and don't re-check its state. Brief RPM dips
+            // from ball loading are normal and should not interrupt feeding.
+            // The gate resets automatically when the coordinator leaves FIRING.
             spindexer != null
                 ? Commands.run(
                     () -> {
                       boolean feedingAllowed = coordinator.isFeedingAllowed();
-                      boolean motivatorReady =
-                          motivator == null
-                              || motivator.getState() == Motivator.MotivatorState.READY;
-                      if (feedingAllowed && motivatorReady) {
+                      if (feedingAllowed) {
                         launcher.setFeedingActive(true);
                         double spnRPM = getEffectiveSpindexerRPM(coordinator);
                         if (turret.getState() == Turret.TurretState.FLIPPING) {
@@ -841,11 +842,6 @@ public class ShootingCommands {
                           spindexer.setSpindexerVelocity(spnRPM);
                           fireSimBallIfReady(coordinator, launcher);
                         }
-                      } else if (feedingAllowed) {
-                        // Motivator spinning up but not at speed — hold spindexer still
-                        // to avoid pushing balls into the accelerating motivator
-                        launcher.setFeedingActive(false);
-                        spindexer.stopSpindexer();
                       } else {
                         // Not firing — safe to reciprocate since motivator is stopped
                         launcher.setFeedingActive(false);
