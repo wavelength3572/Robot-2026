@@ -238,8 +238,7 @@ public final class ShotCalculator {
    */
   public static double calculateRPMForVelocity(double targetExitVelocity, double distanceMeters) {
     // Subtract the motivator's fixed contribution; the rollers only need to supply the remainder.
-    double rollerVelocity =
-        Math.max(0.0, targetExitVelocity - motivatorVelocityMps.get());
+    double rollerVelocity = Math.max(0.0, targetExitVelocity - motivatorVelocityMps.get());
     double averageSurfaceVelocity = rollerVelocity / getEfficiency(distanceMeters);
     // Reverse the two-roller average: avg = main × (1 + hoodRatio) / 2
     double mainSurfaceVelocity = averageSurfaceVelocity * 2.0 / (1.0 + HOOD_SURFACE_SPEED_RATIO);
