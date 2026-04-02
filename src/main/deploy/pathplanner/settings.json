@@ -7,10 +7,13 @@
     "Test Paths"
   ],
   "autoFolders": [
+    "CompShootPreloadsAutoShoot",
     "CompShootPreloadsEndofPath",
-    "CompSprintEndofPath",
     "CompSprintAutoShoot",
-    "CompSprintStationaryShoot"
+    "CompSprintEndofPath",
+    "CompSprintStationaryShoot",
+    "CompSprintSotMNoPass",
+    "Retired"
   ],
   "defaultMaxVel": 2.5,
   "defaultMaxAccel": 2.5,
