@@ -618,6 +618,10 @@ public interface RobotConfig {
     return 100.0;
   }
 
+  default double getMotivatorReadyExitToleranceRPM() {
+    return 500.0;
+  }
+
   // ========== Spindexer Tuning ==========
 
   default double getSpindexerUnclogRPM() {

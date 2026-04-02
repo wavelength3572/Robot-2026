@@ -49,8 +49,8 @@ public interface MotivatorIO {
   /** Configure PID gains for motivator motor 1. */
   default void configureMotivatorPID(double kP, double kI, double kD, double kS, double kV) {}
 
-  /** Set velocity tolerances for atSetpoint checks. */
-  default void setVelocityTolerance(double motivatorToleranceRPM) {}
+  /** Set velocity tolerances for atSetpoint checks (with hysteresis). */
+  default void setVelocityTolerance(double enterToleranceRPM, double exitToleranceRPM) {}
 
   default double getFFCharacterizationVelocity() {
     return 0.0;

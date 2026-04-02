@@ -45,9 +45,12 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
   // Skip CAN reads when motor is disconnected to prevent loop overruns
   private final SparkConnection motivatorConnection = new SparkConnection();
 
-  // Velocity tolerance for at-setpoint check (set by subsystem via
-  // setVelocityTolerances)
-  private double motivatorToleranceRPM = 20.0;
+  // Velocity tolerances for at-setpoint check with hysteresis (set by subsystem via
+  // setVelocityTolerance). Enter tolerance is tighter; exit tolerance is wider to
+  // prevent oscillation at the boundary.
+  private double motivatorEnterToleranceRPM = 100.0;
+  private double motivatorExitToleranceRPM = 500.0;
+  private boolean wasAtSetpoint = false;
 
   // Feedforward runs onboard the SparkFlex via closedLoop.feedForward.sv() at 1kHz.
 
@@ -158,9 +161,12 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
     // Velocity control status
     motor1Inputs.targetRPM = wheelTargetRPM;
 
-    motor1Inputs.atSetpoint =
-        motivatorVelocityMode
-            && Math.abs(motor1Inputs.wheelRPM - wheelTargetRPM) < this.motivatorToleranceRPM;
+    // Hysteresis: use tighter tolerance to enter READY, wider tolerance to leave it.
+    // This prevents oscillation when velocity ripples near the threshold.
+    double error = Math.abs(motor1Inputs.wheelRPM - wheelTargetRPM);
+    double threshold = wasAtSetpoint ? motivatorExitToleranceRPM : motivatorEnterToleranceRPM;
+    wasAtSetpoint = motivatorVelocityMode && error < threshold;
+    motor1Inputs.atSetpoint = wasAtSetpoint;
   }
 
   @Override
@@ -204,8 +210,9 @@ public class MotivatorIOSparkFlex implements MotivatorIO {
   }
 
   @Override
-  public void setVelocityTolerance(double motivatorToleranceRPM) {
-    this.motivatorToleranceRPM = motivatorToleranceRPM;
+  public void setVelocityTolerance(double enterToleranceRPM, double exitToleranceRPM) {
+    this.motivatorEnterToleranceRPM = enterToleranceRPM;
+    this.motivatorExitToleranceRPM = exitToleranceRPM;
   }
 
   @Override

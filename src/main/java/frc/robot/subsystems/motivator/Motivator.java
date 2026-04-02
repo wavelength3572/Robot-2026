@@ -41,13 +41,19 @@ public class Motivator extends SubsystemBase {
     kD = new LoggedTunableNumber("Tuning/Motivator/kD", config.getMotivatorKd());
     kS = new LoggedTunableNumber("Tuning/Motivator/kS", config.getMotivatorKs());
     kV = new LoggedTunableNumber("Tuning/Motivator/kV", config.getMotivatorKv());
-    motivatorToleranceRPM =
+    motivatorEnterToleranceRPM =
         new LoggedTunableNumber(
-            "Tuning/Motivator/ReadyToleranceRPM", config.getMotivatorReadyToleranceRPM());
+            "Tuning/Motivator/ReadyEnterToleranceRPM", config.getMotivatorReadyToleranceRPM());
+    motivatorExitToleranceRPM =
+        new LoggedTunableNumber(
+            "Tuning/Motivator/ReadyExitToleranceRPM", config.getMotivatorReadyExitToleranceRPM());
   }
 
-  // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control
-  private static final LoggedTunableNumber motivatorToleranceRPM;
+  // Tunable ready-gate tolerances with hysteresis — does NOT affect motor control.
+  // Enter tolerance is tighter (must be within this to become READY);
+  // exit tolerance is wider (must exceed this to drop back to SPINNING_UP).
+  private static final LoggedTunableNumber motivatorEnterToleranceRPM;
+  private static final LoggedTunableNumber motivatorExitToleranceRPM;
 
   // Current state — promoted from periodic() local for external readiness checks
   private MotivatorState currentState = MotivatorState.IDLE;
@@ -58,7 +64,7 @@ public class Motivator extends SubsystemBase {
     this.io = io;
 
     // Push initial velocity tolerances to IO
-    io.setVelocityTolerance(motivatorToleranceRPM.get());
+    io.setVelocityTolerance(motivatorEnterToleranceRPM.get(), motivatorExitToleranceRPM.get());
   }
 
   @Override
@@ -82,8 +88,8 @@ public class Motivator extends SubsystemBase {
     if (motivatorRunning && LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
       io.configureMotivatorPID(kP.get(), kI.get(), kD.get(), kS.get(), kV.get());
     }
-    if (LoggedTunableNumber.hasChanged(motivatorToleranceRPM)) {
-      io.setVelocityTolerance(motivatorToleranceRPM.get());
+    if (LoggedTunableNumber.hasChanged(motivatorEnterToleranceRPM, motivatorExitToleranceRPM)) {
+      io.setVelocityTolerance(motivatorEnterToleranceRPM.get(), motivatorExitToleranceRPM.get());
     }
   }
 
