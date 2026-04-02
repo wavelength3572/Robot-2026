@@ -16,15 +16,15 @@
     },
     {
       "anchor": {
-        "x": 8.0,
+        "x": 7.258,
         "y": 6.55
       },
       "prevControl": {
-        "x": 8.0,
+        "x": 7.258,
         "y": 7.55
       },
       "nextControl": {
-        "x": 8.0,
+        "x": 7.258,
         "y": 5.55
       },
       "isLocked": false,
@@ -220,7 +220,19 @@
     }
   ],
   "pointTowardsZones": [],
-  "eventMarkers": [],
+  "eventMarkers": [
+    {
+      "name": "CeaseFire",
+      "waypointRelativePos": 3.6067796610169487,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "CeaseFire"
+        }
+      }
+    }
+  ],
   "globalConstraints": {
     "maxVelocity": 2.25,
     "maxAcceleration": 3.25,
