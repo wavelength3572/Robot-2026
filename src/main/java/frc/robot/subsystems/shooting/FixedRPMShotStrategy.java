@@ -14,6 +14,9 @@ import org.littletonrobotics.junction.Logger;
  * constant launcher RPM and a distance-to-hood-angle lookup table. This eliminates
  * orientation-dependent shot variation caused by motivator energy modeling errors.
  *
+ * <p>Includes velocity compensation for shoot-on-the-move using the same approach as
+ * FixedHeightShotStrategy: estimate time-of-flight, shift target by robot velocity.
+ *
  * <p>Tuning: set the launcher RPM high enough to reach the farthest shot, then tune hood angle at
  * each distance breakpoint until shots land consistently.
  */
@@ -73,29 +76,51 @@ public class FixedRPMShotStrategy implements ShotStrategy {
     double turretX = turretFieldPos[0];
     double turretY = turretFieldPos[1];
 
-    // Distance from turret to target
-    double D = Math.hypot(target.getX() - turretX, target.getY() - turretY);
+    double rpm = launcherRPM.get();
 
-    // Interpolate hood angle from distance lookup table
+    // Velocity compensation for shoot-on-the-move:
+    // Static solve → estimate TOF → shift target → final solve
+    Translation3d compensatedTarget = target;
+    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+
+    if (robotSpeed > 0.1) {
+      // Static distance and hood angle
+      double staticD = Math.hypot(target.getX() - turretX, target.getY() - turretY);
+      double staticHoodDeg = interpolateHoodAngle(staticD);
+      staticHoodDeg = Math.max(hoodMinAngleDeg, Math.min(hoodMaxAngleDeg, staticHoodDeg));
+      double staticTheta = Math.toRadians(90.0 - staticHoodDeg);
+
+      // Estimate exit velocity and time of flight
+      double staticExitVelocity = ShotCalculator.calculateExitVelocityFromRPM(rpm, staticD);
+      double tof = ShotCalculator.calculateTimeOfFlight(staticExitVelocity, staticTheta, staticD);
+
+      if (tof > 0 && tof < Double.MAX_VALUE) {
+        compensatedTarget =
+            ShotCalculator.clampAimOffset(
+                ShotCalculator.predictTargetPos(target, fieldSpeeds, tof), target);
+      }
+    }
+
+    // Compute distance and hood angle for the (possibly shifted) target
+    double D = Math.hypot(compensatedTarget.getX() - turretX, compensatedTarget.getY() - turretY);
     double hoodAngleDeg = interpolateHoodAngle(D);
 
     // Clamp hood to mechanical limits
     hoodAngleDeg = Math.max(hoodMinAngleDeg, Math.min(hoodMaxAngleDeg, hoodAngleDeg));
 
-    // Calculate turret angle
+    // Calculate turret angle to the velocity-compensated target
     double turretAngleDeg =
         ShotCalculator.calculateOutsideTurretAngle(
             robotPose.getX(),
             robotPose.getY(),
             robotPose.getRotation().getDegrees(),
-            target.getX(),
-            target.getY(),
+            compensatedTarget.getX(),
+            compensatedTarget.getY(),
             currentTurretAngleDeg,
             effectiveMinDeg,
             effectiveMaxDeg,
             config);
 
-    double rpm = launcherRPM.get();
     double theta = Math.toRadians(90.0 - hoodAngleDeg);
     double exitVelocity = ShotCalculator.calculateExitVelocityFromRPM(rpm, D);
 
@@ -104,15 +129,18 @@ public class FixedRPMShotStrategy implements ShotStrategy {
     Logger.recordOutput("Shots/FixedRPM/HoodAngleDeg", hoodAngleDeg);
     Logger.recordOutput("Shots/FixedRPM/LauncherRPM", rpm);
     Logger.recordOutput("Shots/FixedRPM/ExitVelocityMps", exitVelocity);
+    Logger.recordOutput("Shots/FixedRPM/RobotSpeedMps", robotSpeed);
 
     return new ShotCalculator.ShotResult(
-        exitVelocity, rpm, theta, hoodAngleDeg, turretAngleDeg, target, true);
+        exitVelocity, rpm, theta, hoodAngleDeg, turretAngleDeg, compensatedTarget, true);
   }
 
   /** Piecewise-linear interpolation of hood angle from 5 distance breakpoints. */
   private static double interpolateHoodAngle(double distanceM) {
     double[] dists = {dist1M.get(), dist2M.get(), dist3M.get(), dist4M.get(), dist5M.get()};
-    double[] hoods = {hood1Deg.get(), hood2Deg.get(), hood3Deg.get(), hood4Deg.get(), hood5Deg.get()};
+    double[] hoods = {
+      hood1Deg.get(), hood2Deg.get(), hood3Deg.get(), hood4Deg.get(), hood5Deg.get()
+    };
 
     // Below first breakpoint — clamp
     if (distanceM <= dists[0]) return hoods[0];
