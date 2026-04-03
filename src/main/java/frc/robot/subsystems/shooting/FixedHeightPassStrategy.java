@@ -134,19 +134,7 @@ public class FixedHeightPassStrategy implements ShotStrategy {
           result.actualPeakHeightM() / INCHES_TO_METERS);
     }
 
-    // Convert to RPM
-    double rpm = ShotCalculator.calculateRPMForVelocity(velocity, D);
-
-    Logger.recordOutput("Shots/FixedHeightPass/ExitVelocityMps", velocity);
-    Logger.recordOutput("Shots/FixedHeightPass/RPM", rpm);
-
-    // Check RPM limits
-    if (rpm < minRPM.get() || rpm > maxRPM.get()) {
-      logFailure("RPM %.0f outside [%.0f-%.0f] at D=%.2fm", rpm, minRPM.get(), maxRPM.get(), D);
-      return new ShotCalculator.ShotResult(0, 0, 0, hoodAngleDeg, 0, target, false);
-    }
-
-    // Turret aims at the pass-through point direction
+    // Calculate turret angle first (needed for angle-dependent motivator velocity)
     double turretAngleDeg =
         ShotCalculator.calculateOutsideTurretAngle(
             robotPose.getX(),
@@ -158,6 +146,18 @@ public class FixedHeightPassStrategy implements ShotStrategy {
             effectiveMinDeg,
             effectiveMaxDeg,
             config);
+
+    // Convert to RPM using angle-dependent motivator velocity
+    double rpm = ShotCalculator.calculateRPMForVelocity(velocity, D, turretAngleDeg);
+
+    Logger.recordOutput("Shots/FixedHeightPass/ExitVelocityMps", velocity);
+    Logger.recordOutput("Shots/FixedHeightPass/RPM", rpm);
+
+    // Check RPM limits
+    if (rpm < minRPM.get() || rpm > maxRPM.get()) {
+      logFailure("RPM %.0f outside [%.0f-%.0f] at D=%.2fm", rpm, minRPM.get(), maxRPM.get(), D);
+      return new ShotCalculator.ShotResult(0, 0, 0, hoodAngleDeg, 0, target, false);
+    }
 
     // Status logging
     if (result.clamped()) {

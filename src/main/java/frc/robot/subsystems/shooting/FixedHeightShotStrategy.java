@@ -148,8 +148,21 @@ public class FixedHeightShotStrategy implements ShotStrategy {
           "Shots/FixedHeight/ActualPeakHeightIn", result.actualPeakHeightM() / INCHES_TO_METERS);
     }
 
-    // Convert to RPM
-    double rpm = ShotCalculator.calculateRPMForVelocity(velocity, D);
+    // Calculate turret angle first (needed for angle-dependent motivator velocity)
+    double turretAngleDeg =
+        ShotCalculator.calculateOutsideTurretAngle(
+            robotPose.getX(),
+            robotPose.getY(),
+            robotPose.getRotation().getDegrees(),
+            compensatedTarget.getX(),
+            compensatedTarget.getY(),
+            currentTurretAngleDeg,
+            effectiveMinDeg,
+            effectiveMaxDeg,
+            config);
+
+    // Convert to RPM using angle-dependent motivator velocity
+    double rpm = ShotCalculator.calculateRPMForVelocity(velocity, D, turretAngleDeg);
 
     Logger.recordOutput("Shots/FixedHeight/ExitVelocityMps", velocity);
     Logger.recordOutput("Shots/FixedHeight/RPM", rpm);
@@ -165,19 +178,6 @@ public class FixedHeightShotStrategy implements ShotStrategy {
     double dirY = (compensatedTarget.getY() - turretY) / D;
     Translation3d aimTarget =
         new Translation3d(turretX + dirX * x_p, turretY + dirY * x_p, passThroughHeightM);
-
-    // Calculate turret angle to the velocity-compensated hub center
-    double turretAngleDeg =
-        ShotCalculator.calculateOutsideTurretAngle(
-            robotPose.getX(),
-            robotPose.getY(),
-            robotPose.getRotation().getDegrees(),
-            compensatedTarget.getX(),
-            compensatedTarget.getY(),
-            currentTurretAngleDeg,
-            effectiveMinDeg,
-            effectiveMaxDeg,
-            config);
 
     // Status logging
     if (result.clamped()) {

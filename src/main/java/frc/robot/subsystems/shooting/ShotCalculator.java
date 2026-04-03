@@ -57,10 +57,34 @@ public final class ShotCalculator {
   // than folded into the roller efficiency. At practice 4-1-26 arcs peaked ~24" above the 96"
   // constraint; back-calculating from that overshoot gives ~1.0 m/s motivator contribution
   // at mid-range. Tune: if arcs are high, increase; if short, decrease.
+  // This single value is used as a fallback for callers without turret angle context.
   private static final LoggedTunableNumber motivatorVelocityMps =
       new LoggedTunableNumber(
           "Shots/SmartLaunch/MotivatorVelocityMps",
           Constants.getRobotConfig().getShotMotivatorVelocityMps());
+
+  // Angle-dependent motivator velocity (m/s) at 8 turret-relative angles.
+  // The motivator's effective contribution varies with how the turret is rotated relative to
+  // the robot chassis. 0° = turret pointing same direction as intake (robot front).
+  // Data from practice 4-1-26: robot placed at midfield, turret auto-aimed at hub,
+  // robot rotated to 8 headings and the needed motivator correction was measured.
+  // Piecewise linear interpolation is used between breakpoints.
+  private static final LoggedTunableNumber motivatorAt0 =
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorVelocity/At0Deg", 0.0);
+  private static final LoggedTunableNumber motivatorAt45 =
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorVelocity/At45Deg", 0.25);
+  private static final LoggedTunableNumber motivatorAt90 =
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorVelocity/At90Deg", 0.55);
+  private static final LoggedTunableNumber motivatorAt135 =
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorVelocity/At135Deg", 0.55);
+  private static final LoggedTunableNumber motivatorAt180 =
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorVelocity/At180Deg", 0.55);
+  private static final LoggedTunableNumber motivatorAtNeg135 =
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorVelocity/AtNeg135Deg", 0.25);
+  private static final LoggedTunableNumber motivatorAtNeg90 =
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorVelocity/AtNeg90Deg", 0.25);
+  private static final LoggedTunableNumber motivatorAtNeg45 =
+      new LoggedTunableNumber("Shots/SmartLaunch/MotivatorVelocity/AtNeg45Deg", -0.25);
 
   // Hood angle fudge factor (degrees), interpolated by distance.
   // Positive values increase hood angle (flatter shot), negative values decrease it (steeper shot).
@@ -199,6 +223,49 @@ public final class ShotCalculator {
   }
 
   /**
+   * Get the motivator velocity (m/s) interpolated by turret-relative angle. The turret angle is
+   * robot-relative: 0° = turret pointing same direction as intake, 180° = opposite. Linearly
+   * interpolates between 8 breakpoints at 45° increments.
+   */
+  public static double getMotivatorVelocity(double turretAngleDeg) {
+    // Normalize to [-180, 180]
+    double angle = turretAngleDeg % 360.0;
+    if (angle > 180.0) angle -= 360.0;
+    else if (angle <= -180.0) angle += 360.0;
+
+    // Breakpoints and values, sorted by angle
+    double[] angles = {-180, -135, -90, -45, 0, 45, 90, 135, 180};
+    double[] values = {
+      motivatorAt180.get(),
+      motivatorAtNeg135.get(),
+      motivatorAtNeg90.get(),
+      motivatorAtNeg45.get(),
+      motivatorAt0.get(),
+      motivatorAt45.get(),
+      motivatorAt90.get(),
+      motivatorAt135.get(),
+      motivatorAt180.get()
+    };
+
+    // Clamp (should not happen after normalization, but safety)
+    if (angle <= -180.0) return values[0];
+    if (angle >= 180.0) return values[8];
+
+    // Find the segment and interpolate
+    for (int i = 0; i < angles.length - 1; i++) {
+      if (angle <= angles[i + 1]) {
+        double t = (angle - angles[i]) / (angles[i + 1] - angles[i]);
+        double result = values[i] + t * (values[i + 1] - values[i]);
+        Logger.recordOutput("Shots/SmartLaunch/MotivatorVelocityInterpolated", result);
+        Logger.recordOutput("Shots/SmartLaunch/MotivatorTurretAngleDeg", angle);
+        return result;
+      }
+    }
+
+    return values[8]; // fallback
+  }
+
+  /**
    * Calculate ball exit velocity from a given wheel RPM using the two-roller model.
    *
    * <p>Exit velocity = average of main wheel and hood roller surface speeds × distance-dependent
@@ -212,6 +279,16 @@ public final class ShotCalculator {
     double hoodSurfaceVelocity = mainSurfaceVelocity * HOOD_SURFACE_SPEED_RATIO;
     double averageSurfaceVelocity = (mainSurfaceVelocity + hoodSurfaceVelocity) / 2.0;
     return averageSurfaceVelocity * getEfficiency(distanceMeters) + motivatorVelocityMps.get();
+  }
+
+  /** Overload with turret angle for angle-dependent motivator velocity. */
+  public static double calculateExitVelocityFromRPM(
+      double rpm, double distanceMeters, double turretAngleDeg) {
+    double mainSurfaceVelocity = (rpm * 2.0 * Math.PI * MAIN_WHEEL_RADIUS_METERS) / 60.0;
+    double hoodSurfaceVelocity = mainSurfaceVelocity * HOOD_SURFACE_SPEED_RATIO;
+    double averageSurfaceVelocity = (mainSurfaceVelocity + hoodSurfaceVelocity) / 2.0;
+    return averageSurfaceVelocity * getEfficiency(distanceMeters)
+        + getMotivatorVelocity(turretAngleDeg);
   }
 
   /** Overload using default mid-range efficiency (for call sites without distance context). */
@@ -241,6 +318,16 @@ public final class ShotCalculator {
     double rollerVelocity = Math.max(0.0, targetExitVelocity - motivatorVelocityMps.get());
     double averageSurfaceVelocity = rollerVelocity / getEfficiency(distanceMeters);
     // Reverse the two-roller average: avg = main × (1 + hoodRatio) / 2
+    double mainSurfaceVelocity = averageSurfaceVelocity * 2.0 / (1.0 + HOOD_SURFACE_SPEED_RATIO);
+    return (mainSurfaceVelocity * 60.0) / (2.0 * Math.PI * MAIN_WHEEL_RADIUS_METERS);
+  }
+
+  /** Overload with turret angle for angle-dependent motivator velocity. */
+  public static double calculateRPMForVelocity(
+      double targetExitVelocity, double distanceMeters, double turretAngleDeg) {
+    double rollerVelocity =
+        Math.max(0.0, targetExitVelocity - getMotivatorVelocity(turretAngleDeg));
+    double averageSurfaceVelocity = rollerVelocity / getEfficiency(distanceMeters);
     double mainSurfaceVelocity = averageSurfaceVelocity * 2.0 / (1.0 + HOOD_SURFACE_SPEED_RATIO);
     return (mainSurfaceVelocity * 60.0) / (2.0 * Math.PI * MAIN_WHEEL_RADIUS_METERS);
   }
