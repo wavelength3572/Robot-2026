@@ -120,7 +120,7 @@
         "y": 6.016602759682273
       },
       "nextControl": {
-        "x": 0.37763709677419455,
+        "x": 0.3776370967741946,
         "y": 5.9952903225806455
       },
       "isLocked": false,
@@ -171,7 +171,7 @@
     {
       "name": "Passing Zone",
       "minWaypointRelativePos": 1.27,
-      "maxWaypointRelativePos": 2.460024600246002,
+      "maxWaypointRelativePos": 3.3627118644067804,
       "constraints": {
         "maxVelocity": 0.75,
         "maxAcceleration": 1.5,
