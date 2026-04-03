@@ -92,6 +92,9 @@ public class ShootingCoordinator extends SubsystemBase {
   private final SendableChooser<PassingStrategy> passingStrategyChooser = new SendableChooser<>();
   private final FixedHeightShotStrategy fixedHeightStrategy = new FixedHeightShotStrategy();
   private final FixedHeightPassStrategy fixedHeightPassStrategy = new FixedHeightPassStrategy();
+  private final FixedRPMShotStrategy fixedRPMStrategy = new FixedRPMShotStrategy();
+
+  private final SendableChooser<ShotStrategy> shotStrategyChooser = new SendableChooser<>();
 
   // Visualizer (created during initialize)
   private ShotVisualizer visualizer = null;
@@ -377,6 +380,11 @@ public class ShootingCoordinator extends SubsystemBase {
     passingStrategyChooser.setDefaultOption("Symmetric (Y-based)", PassingStrategy.SYMMETRIC);
     passingStrategyChooser.addOption("Driver Station", PassingStrategy.DRIVER_STATION);
     SmartDashboard.putData("SmartLaunch/Pass/Strategy", passingStrategyChooser);
+
+    // Shot strategy chooser — FixedRPM is simpler and eliminates orientation-dependent variation
+    shotStrategyChooser.setDefaultOption("FixedRPM (simple)", fixedRPMStrategy);
+    shotStrategyChooser.addOption("FixedHeight (parabola)", fixedHeightStrategy);
+    SmartDashboard.putData("SmartLaunch/ShotStrategy", shotStrategyChooser);
   }
 
   /**
@@ -760,8 +768,11 @@ public class ShootingCoordinator extends SubsystemBase {
     double turretMin = turret.getMinAngle();
     double turretMax = turret.getMaxAngle();
 
+    ShotStrategy activeStrategy = shotStrategyChooser.getSelected();
+    if (activeStrategy == null) activeStrategy = fixedRPMStrategy;
+
     currentShot =
-        fixedHeightStrategy.calculateShot(
+        activeStrategy.calculateShot(
             robotPose,
             fieldSpeeds,
             target,
@@ -771,6 +782,8 @@ public class ShootingCoordinator extends SubsystemBase {
             turretMax,
             hoodMin,
             hoodMax);
+
+    Logger.recordOutput("SmartLaunch/Status/ActiveStrategy", activeStrategy.getName());
 
     // Throttle target/distance logging to ~10Hz (distance itself is updated every
     // cycle in updateShotCalculation for zone refinement)
