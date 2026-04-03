@@ -148,7 +148,7 @@ public class FixedHeightShotStrategy implements ShotStrategy {
           "Shots/FixedHeight/ActualPeakHeightIn", result.actualPeakHeightM() / INCHES_TO_METERS);
     }
 
-    // Calculate turret angle first (needed for angle-dependent motivator velocity)
+    // Calculate turret angle (needed for turret-dependent hood fudge)
     double turretAngleDeg =
         ShotCalculator.calculateOutsideTurretAngle(
             robotPose.getX(),
@@ -161,8 +161,17 @@ public class FixedHeightShotStrategy implements ShotStrategy {
             effectiveMaxDeg,
             config);
 
-    // Convert to RPM using angle-dependent motivator velocity
-    double rpm = ShotCalculator.calculateRPMForVelocity(velocity, D, turretAngleDeg);
+    // Apply turret-angle-dependent hood fudge to compensate for ball entry angle changes
+    double hoodTurretFudge = ShotCalculator.getHoodAngleTurretFudge(turretAngleDeg);
+    hoodAngleDeg += hoodTurretFudge;
+
+    // Recalculate the actual launch angle after turret fudge
+    theta = Math.toRadians(90.0 - hoodAngleDeg);
+
+    Logger.recordOutput("Shots/FixedHeight/HoodTurretFudgeDeg", hoodTurretFudge);
+
+    // Convert to RPM
+    double rpm = ShotCalculator.calculateRPMForVelocity(velocity, D);
 
     Logger.recordOutput("Shots/FixedHeight/ExitVelocityMps", velocity);
     Logger.recordOutput("Shots/FixedHeight/RPM", rpm);
