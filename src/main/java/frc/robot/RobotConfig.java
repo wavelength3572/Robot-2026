@@ -573,9 +573,46 @@ public interface RobotConfig {
     return 5.0;
   }
 
-  /** Hood Climber CAN ID. */
+  // ========== Climber ==========
+
+  /** Whether this robot has a climber. */
+  default boolean hasClimber() {
+    return false;
+  }
+
+  /** Climber motor CAN ID. */
   default int getClimberCanId() {
     return 0;
+  }
+
+  /** Climber motor gear ratio (motor rotations per output rotation). */
+  default double getClimberGearRatio() {
+    return 25.0;
+  }
+
+  /** Winch drum diameter in inches. */
+  default double getClimberDrumDiameterInches() {
+    return 0.75;
+  }
+
+  /** Motor rotations to release the rope (positive = release direction). */
+  default double getClimberReleaseRotations() {
+    return 50.0;
+  }
+
+  /** Motor rotations to climb from released position (negative = retract direction). */
+  default double getClimberClimbRotations() {
+    return -100.0;
+  }
+
+  /** Climber position PID P gain. */
+  default double getClimberKp() {
+    return 0.1;
+  }
+
+  /** Climber current limit in amps. */
+  default int getClimberCurrentLimit() {
+    return 40;
   }
 
   // ========== Turret Tuning ==========

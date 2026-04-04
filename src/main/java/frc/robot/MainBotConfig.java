@@ -210,8 +210,14 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeRollerKd = 0.000001;
   private static final double intakeRollerKff = 0.004644;
 
-  // Climb Configuration:
+  // ========== Climber Configuration ==========
   private static final int climberMotorCanId = 30;
+  private static final double climberGearRatio = 25.0; // NEO 25:1
+  private static final double climberDrumDiameterInches = 0.75;
+  private static final double climberReleaseRotations = 50.0; // Motor rotations to release rope
+  private static final double climberClimbRotations = -100.0; // Motor rotations to climb (retract)
+  private static final double climberKp = 0.1;
+  private static final int climberCurrentLimit = 40;
 
   // ========== Turret Tuning ==========
   private static final double turretWarningZoneDeg = 20.0;
@@ -1090,9 +1096,46 @@ public class MainBotConfig implements RobotConfig {
     return intakeDeployMaxAcceleration;
   }
 
+  // ========== Climber ==========
+
+  @Override
+  public boolean hasClimber() {
+    return true;
+  }
+
   @Override
   public int getClimberCanId() {
     return climberMotorCanId;
+  }
+
+  @Override
+  public double getClimberGearRatio() {
+    return climberGearRatio;
+  }
+
+  @Override
+  public double getClimberDrumDiameterInches() {
+    return climberDrumDiameterInches;
+  }
+
+  @Override
+  public double getClimberReleaseRotations() {
+    return climberReleaseRotations;
+  }
+
+  @Override
+  public double getClimberClimbRotations() {
+    return climberClimbRotations;
+  }
+
+  @Override
+  public double getClimberKp() {
+    return climberKp;
+  }
+
+  @Override
+  public int getClimberCurrentLimit() {
+    return climberCurrentLimit;
   }
 
   // ========== Turret Tuning ==========

@@ -42,6 +42,10 @@ import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.motivator.MotivatorIO;
 import frc.robot.subsystems.motivator.MotivatorIOSim;
 import frc.robot.subsystems.motivator.MotivatorIOSparkFlex;
+import frc.robot.subsystems.climber.Climber;
+import frc.robot.subsystems.climber.ClimberIO;
+import frc.robot.subsystems.climber.ClimberIOSim;
+import frc.robot.subsystems.climber.ClimberIOSpark;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.spindexer.SpindexerIO;
@@ -78,6 +82,7 @@ public class RobotContainer {
   private final Hood hood;
   private final Motivator motivator;
   private final Spindexer spindexer;
+  private final Climber climber;
   private final ShootingCoordinator shootingCoordinator;
   private final IndicatorLight leds;
   private OperatorInterface oi = new OperatorInterface() {};
@@ -109,6 +114,7 @@ public class RobotContainer {
         hood = config.hasHood() ? new Hood(new HoodIOSparkMax()) : null;
         motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkFlex()) : null;
         spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSparkMax()) : null;
+        climber = config.hasClimber() ? new Climber(new ClimberIOSpark()) : null;
 
         drive =
             config.hasDrive()
@@ -153,6 +159,7 @@ public class RobotContainer {
         hood = config.hasHood() ? new Hood(new HoodIOSparkMax()) : null;
         motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkFlex()) : null;
         spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSparkMax()) : null;
+        climber = config.hasClimber() ? new Climber(new ClimberIOSpark()) : null;
 
         drive =
             new Drive(
@@ -186,6 +193,7 @@ public class RobotContainer {
         hood = config.hasHood() ? new Hood(new HoodIOSim()) : null;
         motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSim()) : null;
         spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSim()) : null;
+        climber = config.hasClimber() ? new Climber(new ClimberIOSim()) : null;
 
         drive =
             new Drive(
@@ -228,6 +236,7 @@ public class RobotContainer {
         hood = config.hasHood() ? new Hood(new HoodIO() {}) : null;
         motivator = config.hasMotivator() ? new Motivator(new MotivatorIO() {}) : null;
         spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIO() {}) : null;
+        climber = config.hasClimber() ? new Climber(new ClimberIO() {}) : null;
 
         drive =
             new Drive(
@@ -438,7 +447,8 @@ public class RobotContainer {
         motivator,
         spindexer,
         hood,
-        shootingCoordinator);
+        shootingCoordinator,
+        climber);
   }
 
   // Comp autos get the full shooting wrap (fuel, auto-shoot, intake, launcher
@@ -821,6 +831,13 @@ public class RobotContainer {
                 intake.stopRollers();
               },
               intake));
+    }
+
+    // Climber: full auto climb sequence (release rope then climb)
+    if (climber != null) {
+      NamedCommands.registerCommand("AutoClimb", climber.autoClimbCommand().asProxy());
+    } else {
+      NamedCommands.registerCommand("AutoClimb", Commands.none());
     }
 
     // StowHood: drive hood to min angle, unblocks when ≤18° (safe to enter trench).

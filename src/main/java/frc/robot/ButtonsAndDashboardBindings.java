@@ -21,6 +21,7 @@ import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.shooting.ShotCalculator;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
+import frc.robot.subsystems.climber.Climber;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
@@ -39,6 +40,7 @@ public class ButtonsAndDashboardBindings {
   private static Motivator motivator;
   private static Spindexer spindexer;
   private static Hood hood;
+  private static Climber climber;
   private static ShootingCoordinator shootingCoordinator;
 
   // Per-subsystem tuning setpoints
@@ -95,7 +97,8 @@ public class ButtonsAndDashboardBindings {
       Motivator motivator,
       Spindexer spindexer,
       Hood hood,
-      ShootingCoordinator shootingCoordinator) {
+      ShootingCoordinator shootingCoordinator,
+      Climber climber) {
     ButtonsAndDashboardBindings.oi = operatorInterface;
     ButtonsAndDashboardBindings.drive = drive;
     ButtonsAndDashboardBindings.vision = vision;
@@ -106,6 +109,7 @@ public class ButtonsAndDashboardBindings {
     ButtonsAndDashboardBindings.spindexer = spindexer;
     ButtonsAndDashboardBindings.hood = hood;
     ButtonsAndDashboardBindings.shootingCoordinator = shootingCoordinator;
+    ButtonsAndDashboardBindings.climber = climber;
 
     configureDriverButtonBindings();
     configureOperatorButtonBindings();
@@ -622,5 +626,11 @@ public class ButtonsAndDashboardBindings {
         .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimLeft()).ignoringDisable(true));
     oi.getButtonBox1Button10()
         .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimRight()).ignoringDisable(true));
+
+    // Climber controls — Button 9: release rope, Button Box 2 Button 1: climb
+    if (climber != null) {
+      oi.getButtonBox1Button9().onTrue(Commands.runOnce(climber::release, climber));
+      oi.getButtonBox2Button1().onTrue(Commands.runOnce(climber::climb, climber));
+    }
   }
 }
