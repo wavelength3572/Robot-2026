@@ -428,14 +428,11 @@ public class ButtonsAndDashboardBindings {
             DriveCommands.joystickDriveAtAngle(
                 drive, oi::getTranslateX, oi::getTranslateY, () -> Rotation2d.fromDegrees(90.0)));
 
-    // Aim at nearest tower pole — driver controls translation, robot auto-rotates.
-    // Only works when climber is extended (lined up with pole).
+    // Pathfind to nearest tower pole — only works when climber is extended.
     if (climber != null) {
       oi.getRightJoyDownButton()
           .and(() -> climber.getState() == frc.robot.subsystems.climber.Climber.ClimberState.EXTENDED)
-          .toggleOnTrue(
-              DriveCommands.joystickDriveAimAtNearestPole(
-                  drive, oi::getTranslateX, oi::getTranslateY));
+          .onTrue(DriveCommands.pathfindToNearestPole(drive));
     }
 
     // X-stance button (interlink button 13): while held, lock wheels in X pattern.

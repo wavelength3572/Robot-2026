@@ -22,6 +22,8 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Constants;
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.path.PathConstraints;
 import frc.robot.FieldConstants;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
@@ -262,15 +264,15 @@ public class DriveCommands {
   }
 
   /**
-   * Field relative drive that auto-aims toward the nearest tower pole while the driver controls
-   * translation. Uses the same angle-locking PID as joystickDriveAtAngle.
+   * Pathfind to the nearest tower pole using PathPlanner's on-the-fly pathfinding. The robot will
+   * plan a path and drive itself to a pose facing the closest upright, offset by half the robot
+   * length so the front bumper is at the pole.
    */
-  public static Command joystickDriveAimAtNearestPole(
-      Drive drive, DoubleSupplier xSupplier, DoubleSupplier ySupplier) {
-    return joystickDriveAtAngle(
-        drive,
-        xSupplier,
-        ySupplier,
+  public static Command pathfindToNearestPole(Drive drive) {
+    // Constraints for climbing approach — slow and controlled
+    PathConstraints constraints = new PathConstraints(1.5, 2.0, 2 * Math.PI, 4 * Math.PI);
+
+    return Commands.defer(
         () -> {
           Pose2d robotPose = drive.getPose();
           boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
@@ -288,10 +290,17 @@ public class DriveCommands {
                   ? leftPole
                   : rightPole;
 
-          // Calculate angle from robot to pole
+          // Robot faces the pole — offset back by half the robot length so bumper meets pole
+          double bumperOffset = Constants.getRobotConfig().getBumperLength() / 2.0;
           Translation2d delta = closest.minus(robotPose.getTranslation());
-          return new Rotation2d(delta.getX(), delta.getY());
-        });
+          Rotation2d angleToTarget = new Rotation2d(delta.getX(), delta.getY());
+          Translation2d offsetPosition =
+              closest.minus(new Translation2d(bumperOffset, angleToTarget));
+          Pose2d targetPose = new Pose2d(offsetPosition, angleToTarget);
+
+          return AutoBuilder.pathfindToPose(targetPose, constraints, 0.0);
+        },
+        drive);
   }
 
   /**
