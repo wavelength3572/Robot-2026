@@ -266,6 +266,9 @@ public class DriveCommands {
   // Max distance from tower to allow pole alignment activation
   private static final double POLE_ALIGN_MAX_DISTANCE_METERS = 4.0;
 
+  // Max distance from tower to allow pole alignment activation
+  private static final double POLE_ALIGN_MAX_DISTANCE_METERS = 4.0;
+
   /**
    * Pathfind to the nearest tower pole using PathPlanner's on-the-fly pathfinding. Approaches head
    * on (perpendicular to the tower face) so the robot drives straight into the pole.
@@ -276,25 +279,12 @@ public class DriveCommands {
 
     return Commands.defer(
         () -> {
-          Pose2d robotPose = drive.getPose();
-          boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
-
-          // Pick the alliance-correct uprights
-          Translation2d leftPole =
-              isRed ? FieldConstants.Tower.oppLeftUpright : FieldConstants.Tower.leftUpright;
-          Translation2d rightPole =
-              isRed ? FieldConstants.Tower.oppRightUpright : FieldConstants.Tower.rightUpright;
-
-          // Find the closest pole
-          Translation2d closest =
-              robotPose.getTranslation().getDistance(leftPole)
-                      < robotPose.getTranslation().getDistance(rightPole)
-                  ? leftPole
-                  : rightPole;
+          Translation2d closest = findNearestPole(drive);
 
           // Approach heading: straight into the tower face (perpendicular)
           // Blue alliance tower is at low X → robot faces toward -X (180°)
           // Red alliance tower is at high X → robot faces toward +X (0°)
+          boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
           Rotation2d approachHeading =
               isRed ? Rotation2d.fromDegrees(0.0) : Rotation2d.fromDegrees(180.0);
 
@@ -311,31 +301,48 @@ public class DriveCommands {
 
   /**
    * Returns true if the robot is close enough to the alliance tower to allow pole alignment. Checks
-   * that the robot is within {@link #POLE_ALIGN_MAX_DISTANCE_METERS} of the nearest upright and on
-   * the correct side of the field (in front of the tower, not behind it).
+   * that the robot is on the correct side of the field, in front of the tower, and within {@link
+   * #POLE_ALIGN_MAX_DISTANCE_METERS} of the nearest pole.
    */
   public static boolean isNearAllianceTower(Drive drive) {
     Pose2d robotPose = drive.getPose();
     boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
 
-    // Robot must be on the alliance side of the field (near the tower, not across)
+    // Robot must be on the alliance side of the field
     double midFieldX = FieldConstants.fieldLength / 2.0;
     if (isRed && robotPose.getX() < midFieldX) return false;
     if (!isRed && robotPose.getX() > midFieldX) return false;
 
     // Robot must be in front of the tower (not behind it against the wall)
-    double towerX = isRed ? FieldConstants.fieldLength - FieldConstants.Tower.frontFaceX : FieldConstants.Tower.frontFaceX;
+    double towerX =
+        isRed
+            ? FieldConstants.fieldLength - FieldConstants.Tower.frontFaceX
+            : FieldConstants.Tower.frontFaceX;
     if (isRed && robotPose.getX() < towerX) return false;
     if (!isRed && robotPose.getX() > towerX) return false;
 
     // Check distance to nearest pole
-    Translation2d leftPole =
-        isRed ? FieldConstants.Tower.oppLeftUpright : FieldConstants.Tower.leftUpright;
-    Translation2d rightPole =
-        isRed ? FieldConstants.Tower.oppRightUpright : FieldConstants.Tower.rightUpright;
-    double distLeft = robotPose.getTranslation().getDistance(leftPole);
-    double distRight = robotPose.getTranslation().getDistance(rightPole);
-    return Math.min(distLeft, distRight) < POLE_ALIGN_MAX_DISTANCE_METERS;
+    return robotPose.getTranslation().getDistance(findNearestPole(drive))
+        < POLE_ALIGN_MAX_DISTANCE_METERS;
+  }
+
+  /** Find the nearest alliance pole to the robot's current position. */
+  private static Translation2d findNearestPole(Drive drive) {
+    Pose2d robotPose = drive.getPose();
+    boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
+    Translation2d[] poles =
+        isRed ? FieldConstants.Tower.oppPoles : FieldConstants.Tower.poles;
+
+    Translation2d closest = poles[0];
+    double closestDist = robotPose.getTranslation().getDistance(closest);
+    for (int i = 1; i < poles.length; i++) {
+      double dist = robotPose.getTranslation().getDistance(poles[i]);
+      if (dist < closestDist) {
+        closest = poles[i];
+        closestDist = dist;
+      }
+    }
+    return closest;
   }
 
   /**

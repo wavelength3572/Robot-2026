@@ -260,6 +260,10 @@ public class FieldConstants {
                 - innerOpeningWidth / 2
                 - Units.inchesToMeters(0.75));
 
+    // Climbing pole positions (alliance side) — all at same X, different Y.
+    // TODO: Replace with exact Pose3d values when available.
+    public static final Translation2d[] poles = {leftUpright, rightUpright};
+
     // Relevant reference points on opposing side
     public static final Translation2d oppCenterPoint =
         new Translation2d(
@@ -277,6 +281,9 @@ public class FieldConstants {
             (AprilTagLayoutType.OFFICIAL.getLayout().getTagPose(15).get().getY())
                 - innerOpeningWidth / 2
                 - Units.inchesToMeters(0.75));
+
+    // Climbing pole positions (opposing side)
+    public static final Translation2d[] oppPoles = {oppLeftUpright, oppRightUpright};
   }
 
   public static class Depot {
