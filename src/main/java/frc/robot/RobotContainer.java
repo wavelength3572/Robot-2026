@@ -741,6 +741,11 @@ public class RobotContainer {
     return motivator;
   }
 
+  /** Get the climber subsystem (may be null). */
+  public Climber getClimber() {
+    return climber;
+  }
+
   /** Register NamedCommands for PathPlanner autos. Must be called before buildAutoChooser. */
   private void registerNamedCommands() {
     // Set fuel count commands for testing

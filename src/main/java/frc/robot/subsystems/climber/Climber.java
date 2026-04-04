@@ -14,25 +14,25 @@ import org.littletonrobotics.junction.Logger;
  * <p>Hardware: single NEO motor through a 25:1 gearbox driving a 0.75" winch drum. The motor has a
  * brake so the mechanism holds position when the motor stops.
  *
- * <p>States:
+ * <p>Match play flow: STOWED → RELEASING → RELEASED → CLIMBING → CLIMBED → EXTENDING → RELEASED →
+ * STOWING → STOWED
  *
- * <ul>
- *   <li>STOWED — starting position, encoder zeroed, motor stopped
- *   <li>RELEASING — motor runs forward to release rope
- *   <li>RELEASED — rope is out, waiting for climb command
- *   <li>CLIMBING — motor retracts rope to pull robot up
- *   <li>CLIMBED — robot is up, motor stopped, brake holds
- * </ul>
+ * <p>Endgame flow: STOWED → RELEASING → RELEASED → CLIMBING → CLIMBED (stays up)
+ *
+ * <p>If the robot climbed in auto, teleopInit() automatically extends back down so the robot can
+ * drive. The operator then presses the same button to stow.
  */
 public class Climber extends SubsystemBase {
 
   /** Climber state machine states. */
   public enum ClimberState {
-    STOWED,
-    RELEASING,
-    RELEASED,
-    CLIMBING,
-    CLIMBED
+    STOWED, // Starting position, encoder zeroed
+    RELEASING, // Motor extending to release rope
+    RELEASED, // Rope is out, robot on ground
+    CLIMBING, // Motor retracting rope, pulling robot up
+    CLIMBED, // Robot is up, brake holds
+    EXTENDING, // Motor extending back down after climb (putting robot back on ground)
+    STOWING // Motor retracting all the way back to stowed position
   }
 
   private final ClimberIO io;
@@ -40,6 +40,7 @@ public class Climber extends SubsystemBase {
 
   private ClimberState state = ClimberState.STOWED;
   private double targetPositionRotations = 0.0;
+  private boolean climbedOnce = false;
 
   // Tunable positions (motor rotations)
   private static final LoggedTunableNumber releaseRotations =
@@ -72,14 +73,12 @@ public class Climber extends SubsystemBase {
       io.configurePID(kP.get());
     }
 
-    // State machine transitions
+    // State machine transitions — check if we've reached the target position
     switch (state) {
       case STOWED:
-        // Motor stopped, waiting for release command
         break;
 
       case RELEASING:
-        // Check if we've reached the release position
         if (atPosition(targetPositionRotations)) {
           io.stop();
           state = ClimberState.RELEASED;
@@ -87,30 +86,42 @@ public class Climber extends SubsystemBase {
         break;
 
       case RELEASED:
-        // Rope is out, waiting for climb command
         break;
 
       case CLIMBING:
-        // Check if we've reached the climb (or stow) position
         if (atPosition(targetPositionRotations)) {
           io.stop();
+          climbedOnce = true;
           state = ClimberState.CLIMBED;
         }
         break;
 
       case CLIMBED:
-        // Done — brake holds the robot up
+        break;
+
+      case EXTENDING:
+        if (atPosition(targetPositionRotations)) {
+          io.stop();
+          state = ClimberState.RELEASED;
+        }
+        break;
+
+      case STOWING:
+        if (atPosition(targetPositionRotations)) {
+          io.stop();
+          state = ClimberState.STOWED;
+        }
         break;
     }
 
     Logger.recordOutput("Climber/State", state.name());
-    Logger.recordOutput("Climber/TargetRelease", releaseRotations.get());
-    Logger.recordOutput("Climber/TargetClimb", releaseRotations.get() + climbRotations.get());
+    Logger.recordOutput("Climber/TargetPosition", targetPositionRotations);
+    Logger.recordOutput("Climber/ClimbedOnce", climbedOnce);
   }
 
-  // ===== Commands =====
+  // ===== Actions =====
 
-  /** Release the rope (STOWED → RELEASING → RELEASED). */
+  /** Release the rope. STOWED → RELEASING */
   public void release() {
     if (state == ClimberState.STOWED) {
       targetPositionRotations = releaseRotations.get();
@@ -119,7 +130,7 @@ public class Climber extends SubsystemBase {
     }
   }
 
-  /** Climb (retract rope) (RELEASED → CLIMBING → CLIMBED). */
+  /** Climb (retract rope to pull robot up). RELEASED → CLIMBING */
   public void climb() {
     if (state == ClimberState.RELEASED) {
       targetPositionRotations = releaseRotations.get() + climbRotations.get();
@@ -128,28 +139,55 @@ public class Climber extends SubsystemBase {
     }
   }
 
-  /** Retract fully back to stowed position (from RELEASED only — for match play). */
+  /** Extend back down after climbing (put robot back on ground). CLIMBED → EXTENDING → RELEASED */
+  public void extend() {
+    if (state == ClimberState.CLIMBED) {
+      targetPositionRotations = releaseRotations.get();
+      io.setPosition(targetPositionRotations);
+      state = ClimberState.EXTENDING;
+    }
+  }
+
+  /** Retract climber to stowed position. RELEASED → STOWING → STOWED */
   public void stow() {
     if (state == ClimberState.RELEASED) {
       targetPositionRotations = 0.0;
       io.setPosition(targetPositionRotations);
-      state = ClimberState.CLIMBING;
+      state = ClimberState.STOWING;
     }
   }
 
-  /** Get current state. */
+  /**
+   * Called on teleop init. If the robot climbed in auto, automatically extend back down so the
+   * robot can drive away. The operator then presses stow when ready.
+   */
+  public void onTeleopInit() {
+    if (state == ClimberState.CLIMBED) {
+      extend();
+    }
+  }
+
+  // ===== State queries =====
+
   public ClimberState getState() {
     return state;
   }
 
-  /** Returns true when the climber has finished climbing. */
+  /** True if the climber has completed a climb at any point this match. */
+  public boolean hasClimbedOnce() {
+    return climbedOnce;
+  }
+
   public boolean isClimbed() {
     return state == ClimberState.CLIMBED;
   }
 
-  /** Returns true when the rope is fully released. */
   public boolean isReleased() {
     return state == ClimberState.RELEASED;
+  }
+
+  public boolean isStowed() {
+    return state == ClimberState.STOWED;
   }
 
   // ===== Command factories =====
@@ -168,7 +206,7 @@ public class Climber extends SubsystemBase {
         .withName("ClimberClimb");
   }
 
-  /** Command: full auto climb sequence (release → wait → climb). */
+  /** Command: full auto climb sequence (release then climb). */
   public Command autoClimbCommand() {
     return releaseCommand().andThen(climbCommand()).withName("ClimberAutoClimb");
   }
