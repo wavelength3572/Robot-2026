@@ -9,30 +9,47 @@ import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
 /**
- * Climber subsystem — two positions, two buttons.
+ * Climber subsystem — three positions, two buttons.
  *
  * <p>Hardware: single NEO motor through a 25:1 gearbox driving a 0.75" winch drum. Brake mode
  * holds position when the motor stops.
  *
- * <p>Extend = rope out, arm up. Retract = rope in, arm down. "Climbing" is just retracting while
- * hooked on the bar. "Stowing" is also just retracting.
+ * <p>Positions:
+ *
+ * <ul>
+ *   <li>Stowed (0) — fully retracted, put away
+ *   <li>Extended (extendPosition) — arm up, lined up with the pole
+ *   <li>Climbed (climbPosition) — partially retracted, robot off the ground
+ * </ul>
+ *
+ * <p>Operator buttons:
+ *
+ * <ul>
+ *   <li>B9 (extend): STOWED→EXTENDED, CLIMBED→EXTENDED, EXTENDED→STOWED
+ *   <li>B2-1 (climb): EXTENDED→CLIMBED
+ * </ul>
  */
 public class Climber extends SubsystemBase {
 
   public enum ClimberState {
-    RETRACTED, // At position 0 — stowed or climbed
+    STOWED, // Position 0 — put away
     EXTENDING, // Moving to extended position
-    EXTENDED, // Rope out, arm up
-    RETRACTING // Moving back to position 0
+    EXTENDED, // Arm up, lined up with pole
+    CLIMBING, // Moving to climb position
+    CLIMBED, // Off the ground, brake holds
+    STOWING // Moving back to position 0
   }
 
   private final ClimberIO io;
   private final ClimberIOInputsAutoLogged inputs = new ClimberIOInputsAutoLogged();
 
-  private ClimberState state = ClimberState.RETRACTED;
+  private ClimberState state = ClimberState.STOWED;
+  private double targetPositionRotations = 0.0;
 
   private static final LoggedTunableNumber extendPosition =
       new LoggedTunableNumber("Climber/extendPosition");
+  private static final LoggedTunableNumber climbPosition =
+      new LoggedTunableNumber("Climber/climbPosition");
   private static final LoggedTunableNumber kP = new LoggedTunableNumber("Climber/kP");
   private static final LoggedTunableNumber positionTolerance =
       new LoggedTunableNumber("Climber/positionTolerance", 2.0);
@@ -42,6 +59,7 @@ public class Climber extends SubsystemBase {
 
     RobotConfig config = Constants.getRobotConfig();
     extendPosition.initDefault(config.getClimberExtendPosition());
+    climbPosition.initDefault(config.getClimberClimbPosition());
     kP.initDefault(config.getClimberKp());
   }
 
@@ -55,11 +73,11 @@ public class Climber extends SubsystemBase {
     }
 
     switch (state) {
-      case RETRACTED:
+      case STOWED:
         break;
 
       case EXTENDING:
-        if (atPosition(extendPosition.get())) {
+        if (atPosition(targetPositionRotations)) {
           io.stop();
           state = ClimberState.EXTENDED;
         }
@@ -68,32 +86,60 @@ public class Climber extends SubsystemBase {
       case EXTENDED:
         break;
 
-      case RETRACTING:
-        if (atPosition(0.0)) {
+      case CLIMBING:
+        if (atPosition(targetPositionRotations)) {
           io.stop();
-          state = ClimberState.RETRACTED;
+          state = ClimberState.CLIMBED;
+        }
+        break;
+
+      case CLIMBED:
+        break;
+
+      case STOWING:
+        if (atPosition(targetPositionRotations)) {
+          io.stop();
+          state = ClimberState.STOWED;
         }
         break;
     }
 
     Logger.recordOutput("Climber/State", state.name());
+    Logger.recordOutput("Climber/TargetPosition", targetPositionRotations);
   }
 
   // ===== Actions =====
 
-  /** Extend the climber (rope out, arm up). */
-  public void extend() {
-    if (state == ClimberState.RETRACTED) {
-      io.setPosition(extendPosition.get());
-      state = ClimberState.EXTENDING;
+  /**
+   * Extend button action. Goes to extended position from stowed or climbed. If already extended,
+   * stows instead.
+   */
+  public void toggleExtend() {
+    switch (state) {
+      case STOWED:
+      case CLIMBED:
+        targetPositionRotations = extendPosition.get();
+        io.setPosition(targetPositionRotations);
+        state = ClimberState.EXTENDING;
+        break;
+
+      case EXTENDED:
+        targetPositionRotations = 0.0;
+        io.setPosition(targetPositionRotations);
+        state = ClimberState.STOWING;
+        break;
+
+      default:
+        break;
     }
   }
 
-  /** Retract the climber (rope in, arm down). Climbs if hooked, stows if not. */
-  public void retract() {
+  /** Climb button action. From extended, retracts to climb position (off the ground). */
+  public void climb() {
     if (state == ClimberState.EXTENDED) {
-      io.setPosition(0.0);
-      state = ClimberState.RETRACTING;
+      targetPositionRotations = climbPosition.get();
+      io.setPosition(targetPositionRotations);
+      state = ClimberState.CLIMBING;
     }
   }
 
@@ -107,24 +153,28 @@ public class Climber extends SubsystemBase {
     return state == ClimberState.EXTENDED;
   }
 
-  public boolean isRetracted() {
-    return state == ClimberState.RETRACTED;
+  public boolean isClimbed() {
+    return state == ClimberState.CLIMBED;
+  }
+
+  public boolean isStowed() {
+    return state == ClimberState.STOWED;
   }
 
   // ===== Command factories =====
 
   /** Command: extend, finishes when extended. */
   public Command extendCommand() {
-    return Commands.runOnce(this::extend, this)
+    return Commands.runOnce(this::toggleExtend, this)
         .andThen(Commands.waitUntil(this::isExtended))
         .withName("ClimberExtend");
   }
 
-  /** Command: retract, finishes when retracted. */
-  public Command retractCommand() {
-    return Commands.runOnce(this::retract, this)
-        .andThen(Commands.waitUntil(this::isRetracted))
-        .withName("ClimberRetract");
+  /** Command: climb, finishes when climbed. */
+  public Command climbCommand() {
+    return Commands.runOnce(this::climb, this)
+        .andThen(Commands.waitUntil(this::isClimbed))
+        .withName("ClimberClimb");
   }
 
   // ===== Helpers =====

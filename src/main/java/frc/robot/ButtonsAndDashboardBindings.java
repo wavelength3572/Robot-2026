@@ -627,10 +627,10 @@ public class ButtonsAndDashboardBindings {
     oi.getButtonBox1Button10()
         .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimRight()).ignoringDisable(true));
 
-    // Climber controls — B9: extend (rope out), B2-1: retract (climb/stow)
+    // Climber controls — B9: extend/stow toggle, B2-1: climb
     if (climber != null) {
-      oi.getButtonBox1Button9().onTrue(Commands.runOnce(climber::extend, climber));
-      oi.getButtonBox2Button1().onTrue(Commands.runOnce(climber::retract, climber));
+      oi.getButtonBox1Button9().onTrue(Commands.runOnce(climber::toggleExtend, climber));
+      oi.getButtonBox2Button1().onTrue(Commands.runOnce(climber::climb, climber));
     }
   }
 }

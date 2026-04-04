@@ -214,7 +214,8 @@ public class MainBotConfig implements RobotConfig {
   private static final int climberMotorCanId = 30;
   private static final double climberGearRatio = 25.0; // NEO 25:1
   private static final double climberDrumDiameterInches = 0.75;
-  private static final double climberExtendPosition = 50.0; // Motor rotations to extend
+  private static final double climberExtendPosition = 50.0; // Motor rotations to extend (arm up)
+  private static final double climberClimbPosition = 10.0; // Motor rotations when climbed (off ground)
   private static final double climberKp = 0.1;
   private static final int climberCurrentLimit = 40;
 
@@ -1120,6 +1121,11 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getClimberExtendPosition() {
     return climberExtendPosition;
+  }
+
+  @Override
+  public double getClimberClimbPosition() {
+    return climberClimbPosition;
   }
 
   @Override

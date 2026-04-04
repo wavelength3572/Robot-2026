@@ -595,9 +595,14 @@ public interface RobotConfig {
     return 0.75;
   }
 
-  /** Motor rotations to extend (rope out, arm up). Retract target is always 0. */
+  /** Motor rotations to extend (arm up, lined up with pole). */
   default double getClimberExtendPosition() {
     return 50.0;
+  }
+
+  /** Motor rotations for climb (partially retracted, off the ground). */
+  default double getClimberClimbPosition() {
+    return 10.0;
   }
 
   /** Climber position PID P gain. */
