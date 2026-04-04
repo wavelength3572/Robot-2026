@@ -428,10 +428,12 @@ public class ButtonsAndDashboardBindings {
             DriveCommands.joystickDriveAtAngle(
                 drive, oi::getTranslateX, oi::getTranslateY, () -> Rotation2d.fromDegrees(90.0)));
 
-    // Pathfind to nearest tower pole — only works when climber is extended.
+    // Pathfind to nearest tower pole — only works when climber is extended
+    // AND the robot is near the alliance tower (correct side, within 4m).
     if (climber != null) {
       oi.getRightJoyDownButton()
           .and(() -> climber.getState() == frc.robot.subsystems.climber.Climber.ClimberState.EXTENDED)
+          .and(() -> DriveCommands.isNearAllianceTower(drive))
           .onTrue(DriveCommands.pathfindToNearestPole(drive));
     }
 

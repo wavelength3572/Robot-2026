@@ -263,10 +263,12 @@ public class DriveCommands {
         .beforeStarting(() -> angleController.reset(drive.getRotation().getRadians()));
   }
 
+  // Max distance from tower to allow pole alignment activation
+  private static final double POLE_ALIGN_MAX_DISTANCE_METERS = 4.0;
+
   /**
-   * Pathfind to the nearest tower pole using PathPlanner's on-the-fly pathfinding. The robot will
-   * plan a path and drive itself to a pose facing the closest upright, offset by half the robot
-   * length so the front bumper is at the pole.
+   * Pathfind to the nearest tower pole using PathPlanner's on-the-fly pathfinding. Approaches head
+   * on (perpendicular to the tower face) so the robot drives straight into the pole.
    */
   public static Command pathfindToNearestPole(Drive drive) {
     // Constraints for climbing approach — slow and controlled
@@ -290,17 +292,50 @@ public class DriveCommands {
                   ? leftPole
                   : rightPole;
 
-          // Robot faces the pole — offset back by half the robot length so bumper meets pole
+          // Approach heading: straight into the tower face (perpendicular)
+          // Blue alliance tower is at low X → robot faces toward -X (180°)
+          // Red alliance tower is at high X → robot faces toward +X (0°)
+          Rotation2d approachHeading =
+              isRed ? Rotation2d.fromDegrees(0.0) : Rotation2d.fromDegrees(180.0);
+
+          // Offset back from the pole so the front bumper ends up at the pole
           double bumperOffset = Constants.getRobotConfig().getBumperLength() / 2.0;
-          Translation2d delta = closest.minus(robotPose.getTranslation());
-          Rotation2d angleToTarget = new Rotation2d(delta.getX(), delta.getY());
           Translation2d offsetPosition =
-              closest.minus(new Translation2d(bumperOffset, angleToTarget));
-          Pose2d targetPose = new Pose2d(offsetPosition, angleToTarget);
+              closest.minus(new Translation2d(bumperOffset, approachHeading));
+          Pose2d targetPose = new Pose2d(offsetPosition, approachHeading);
 
           return AutoBuilder.pathfindToPose(targetPose, constraints, 0.0);
         },
         drive);
+  }
+
+  /**
+   * Returns true if the robot is close enough to the alliance tower to allow pole alignment. Checks
+   * that the robot is within {@link #POLE_ALIGN_MAX_DISTANCE_METERS} of the nearest upright and on
+   * the correct side of the field (in front of the tower, not behind it).
+   */
+  public static boolean isNearAllianceTower(Drive drive) {
+    Pose2d robotPose = drive.getPose();
+    boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
+
+    // Robot must be on the alliance side of the field (near the tower, not across)
+    double midFieldX = FieldConstants.fieldLength / 2.0;
+    if (isRed && robotPose.getX() < midFieldX) return false;
+    if (!isRed && robotPose.getX() > midFieldX) return false;
+
+    // Robot must be in front of the tower (not behind it against the wall)
+    double towerX = isRed ? FieldConstants.fieldLength - FieldConstants.Tower.frontFaceX : FieldConstants.Tower.frontFaceX;
+    if (isRed && robotPose.getX() < towerX) return false;
+    if (!isRed && robotPose.getX() > towerX) return false;
+
+    // Check distance to nearest pole
+    Translation2d leftPole =
+        isRed ? FieldConstants.Tower.oppLeftUpright : FieldConstants.Tower.leftUpright;
+    Translation2d rightPole =
+        isRed ? FieldConstants.Tower.oppRightUpright : FieldConstants.Tower.rightUpright;
+    double distLeft = robotPose.getTranslation().getDistance(leftPole);
+    double distRight = robotPose.getTranslation().getDistance(rightPole);
+    return Math.min(distLeft, distRight) < POLE_ALIGN_MAX_DISTANCE_METERS;
   }
 
   /**
