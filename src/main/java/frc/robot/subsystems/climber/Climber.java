@@ -161,16 +161,24 @@ public class Climber extends SubsystemBase {
     return state == ClimberState.STOWED;
   }
 
-  // ===== Command factories =====
+  // ===== Command factories (for auto — explicit, not toggles) =====
 
-  /** Command: extend, finishes when extended. */
+  /** Command: extend from stowed, finishes when extended. */
   public Command extendCommand() {
-    return Commands.runOnce(this::toggleExtend, this)
+    return Commands.runOnce(
+            () -> {
+              if (state == ClimberState.STOWED) {
+                targetPositionRotations = extendPosition.get();
+                io.setPosition(targetPositionRotations);
+                state = ClimberState.EXTENDING;
+              }
+            },
+            this)
         .andThen(Commands.waitUntil(this::isExtended))
         .withName("ClimberExtend");
   }
 
-  /** Command: climb, finishes when climbed. */
+  /** Command: climb from extended, finishes when climbed. */
   public Command climbCommand() {
     return Commands.runOnce(this::climb, this)
         .andThen(Commands.waitUntil(this::isClimbed))

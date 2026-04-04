@@ -838,13 +838,13 @@ public class RobotContainer {
               intake));
     }
 
-    // Climber: extend and retract events for auto
+    // Climber: extend and climb events for auto
     if (climber != null) {
       NamedCommands.registerCommand("ClimberExtend", climber.extendCommand().asProxy());
-      NamedCommands.registerCommand("ClimberRetract", climber.retractCommand().asProxy());
+      NamedCommands.registerCommand("ClimberClimb", climber.climbCommand().asProxy());
     } else {
       NamedCommands.registerCommand("ClimberExtend", Commands.none());
-      NamedCommands.registerCommand("ClimberRetract", Commands.none());
+      NamedCommands.registerCommand("ClimberClimb", Commands.none());
     }
 
     // StowHood: drive hood to min angle, unblocks when ≤18° (safe to enter trench).
