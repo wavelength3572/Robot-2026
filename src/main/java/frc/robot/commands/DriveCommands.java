@@ -22,6 +22,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Constants;
+import frc.robot.FieldConstants;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
 import frc.robot.util.LoggedTunableNumber;
@@ -258,6 +259,39 @@ public class DriveCommands {
 
         // Reset PID controller when command starts
         .beforeStarting(() -> angleController.reset(drive.getRotation().getRadians()));
+  }
+
+  /**
+   * Field relative drive that auto-aims toward the nearest tower pole while the driver controls
+   * translation. Uses the same angle-locking PID as joystickDriveAtAngle.
+   */
+  public static Command joystickDriveAimAtNearestPole(
+      Drive drive, DoubleSupplier xSupplier, DoubleSupplier ySupplier) {
+    return joystickDriveAtAngle(
+        drive,
+        xSupplier,
+        ySupplier,
+        () -> {
+          Pose2d robotPose = drive.getPose();
+          boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
+
+          // Pick the alliance-correct uprights
+          Translation2d leftPole =
+              isRed ? FieldConstants.Tower.oppLeftUpright : FieldConstants.Tower.leftUpright;
+          Translation2d rightPole =
+              isRed ? FieldConstants.Tower.oppRightUpright : FieldConstants.Tower.rightUpright;
+
+          // Find the closest pole
+          Translation2d closest =
+              robotPose.getTranslation().getDistance(leftPole)
+                      < robotPose.getTranslation().getDistance(rightPole)
+                  ? leftPole
+                  : rightPole;
+
+          // Calculate angle from robot to pole
+          Translation2d delta = closest.minus(robotPose.getTranslation());
+          return new Rotation2d(delta.getX(), delta.getY());
+        });
   }
 
   /**
