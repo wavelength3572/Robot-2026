@@ -238,11 +238,6 @@ public class Robot extends LoggedRobot {
     // Clear any stale speed limit from a previous command that didn't end cleanly
     DriveCommands.clearSpeedLimit();
 
-    // If the climber climbed in auto, automatically extend it back down so the robot can drive
-    if (robotContainer.getClimber() != null) {
-      robotContainer.getClimber().onTeleopInit();
-    }
-
     // Force OI rebind on teleop init to ensure controls are bound
     // This fixes the issue where going directly to teleop without
     // being disabled first would leave controls unbound

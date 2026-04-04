@@ -595,14 +595,9 @@ public interface RobotConfig {
     return 0.75;
   }
 
-  /** Motor rotations to release the rope (positive = release direction). */
-  default double getClimberReleaseRotations() {
+  /** Motor rotations to extend (rope out, arm up). Retract target is always 0. */
+  default double getClimberExtendPosition() {
     return 50.0;
-  }
-
-  /** Motor rotations to climb from released position (negative = retract direction). */
-  default double getClimberClimbRotations() {
-    return -100.0;
   }
 
   /** Climber position PID P gain. */

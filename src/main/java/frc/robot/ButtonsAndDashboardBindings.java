@@ -627,26 +627,10 @@ public class ButtonsAndDashboardBindings {
     oi.getButtonBox1Button10()
         .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimRight()).ignoringDisable(true));
 
-    // Climber controls
-    //   Box1 B9: release rope (first action in match)
-    //   Box2 B1: context-smart — climbs if released, stows if extended after climb
+    // Climber controls — B9: extend (rope out), B2-1: retract (climb/stow)
     if (climber != null) {
-      oi.getButtonBox1Button9().onTrue(Commands.runOnce(climber::release, climber));
-      oi.getButtonBox2Button1()
-          .onTrue(
-              Commands.runOnce(
-                  () -> {
-                    if (climber.getState() == Climber.ClimberState.RELEASED) {
-                      // First time RELEASED = hasn't climbed yet → climb
-                      // After extending back down = already climbed → stow
-                      if (!climber.hasClimbedOnce()) {
-                        climber.climb();
-                      } else {
-                        climber.stow();
-                      }
-                    }
-                  },
-                  climber));
+      oi.getButtonBox1Button9().onTrue(Commands.runOnce(climber::extend, climber));
+      oi.getButtonBox2Button1().onTrue(Commands.runOnce(climber::retract, climber));
     }
   }
 }
