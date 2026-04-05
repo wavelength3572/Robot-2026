@@ -66,11 +66,14 @@ public class Climber extends SubsystemBase {
   private static final LoggedTunableNumber kP =
       new LoggedTunableNumber("Climber/kP", Constants.getRobotConfig().getClimberKp());
   private static final LoggedTunableNumber positionTolerance =
-      new LoggedTunableNumber("Climber/positionTolerance", 2.0);
+      new LoggedTunableNumber(
+          "Climber/positionTolerance", Constants.getRobotConfig().getClimberPositionTolerance());
   private static final LoggedTunableNumber extendTimeoutSec =
-      new LoggedTunableNumber("Climber/extendTimeoutSec", 5.0);
+      new LoggedTunableNumber(
+          "Climber/extendTimeoutSec", Constants.getRobotConfig().getClimberExtendTimeoutSec());
   private static final LoggedTunableNumber climbTimeoutSec =
-      new LoggedTunableNumber("Climber/climbTimeoutSec", 5.0);
+      new LoggedTunableNumber(
+          "Climber/climbTimeoutSec", Constants.getRobotConfig().getClimberClimbTimeoutSec());
 
   private boolean lastClimbSucceeded = false;
 

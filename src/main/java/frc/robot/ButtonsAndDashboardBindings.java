@@ -4,6 +4,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -454,7 +455,8 @@ public class ButtonsAndDashboardBindings {
                                     .getTranslation()
                                     .getDistance(
                                         DriveCommands.findNearestClimbPose(drive).getTranslation())
-                                <= 1.0)
+                                <= Units.feetToMeters(
+                                    Constants.getRobotConfig().getClimberAutoExtendDistanceFeet()))
                     .andThen(Commands.runOnce(climber::extend))
                     .withName("AutoExtendClimber"))
             : DriveCommands.pathfindToNearestPole(drive);
@@ -673,7 +675,9 @@ public class ButtonsAndDashboardBindings {
     // B2-1: climb (from EXTENDED only)
     if (climber != null) {
       oi.getButtonBox1Button9().onTrue(Commands.runOnce(climber::extend));
-      oi.getButtonBox1Button9().debounce(2.0).onTrue(Commands.runOnce(climber::stow));
+      oi.getButtonBox1Button9()
+          .debounce(Constants.getRobotConfig().getClimberStowHoldTimeSec())
+          .onTrue(Commands.runOnce(climber::stow));
       oi.getButtonBox2Button1().onTrue(Commands.runOnce(climber::climb));
     }
   }

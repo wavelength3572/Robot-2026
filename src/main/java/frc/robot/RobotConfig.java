@@ -615,6 +615,63 @@ public interface RobotConfig {
     return 40;
   }
 
+  /** Climber position tolerance in motor rotations. */
+  default double getClimberPositionTolerance() {
+    return 2.0;
+  }
+
+  /** Timeout for climber extend command in seconds. */
+  default double getClimberExtendTimeoutSec() {
+    return 5.0;
+  }
+
+  /** Timeout for climber climb command in seconds. */
+  default double getClimberClimbTimeoutSec() {
+    return 5.0;
+  }
+
+  /** Hold duration for B9 stow action in seconds. */
+  default double getClimberStowHoldTimeSec() {
+    return 2.0;
+  }
+
+  /** Distance from climb pose to auto-extend climber in feet. */
+  default double getClimberAutoExtendDistanceFeet() {
+    return 3.0;
+  }
+
+  // ========== Pole Alignment Tuning ==========
+
+  /** Max distance from climb pose to activate pole alignment in feet. */
+  default double getPoleAlignMaxDistanceFeet() {
+    return 10.0;
+  }
+
+  /** Waypoint offset distance from final climb pose in feet. */
+  default double getPoleAlignWaypointOffsetFeet() {
+    return 2.5;
+  }
+
+  /** Skip waypoint if closer than this to final pose in feet. */
+  default double getPoleAlignCloseThresholdFeet() {
+    return 3.0;
+  }
+
+  /** Max velocity for pole alignment approach in feet/sec. */
+  default double getPoleAlignMaxVelocityFeetPerSec() {
+    return 5.0;
+  }
+
+  /** Max acceleration for pole alignment approach in feet/sec². */
+  default double getPoleAlignMaxAccelerationFeetPerSec2() {
+    return 6.5;
+  }
+
+  /** DriveToPose speed scalar for final pole alignment (0.0-1.0). */
+  default double getPoleAlignFinalApproachSpeed() {
+    return 0.5;
+  }
+
   // ========== Turret Tuning ==========
 
   default double getTurretWarningZoneDeg() {

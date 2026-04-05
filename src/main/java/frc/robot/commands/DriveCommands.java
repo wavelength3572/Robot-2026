@@ -25,6 +25,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Constants;
 import frc.robot.FieldConstants;
+import frc.robot.RobotConfig;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
 import frc.robot.util.LoggedTunableNumber;
@@ -264,17 +265,14 @@ public class DriveCommands {
         .beforeStarting(() -> angleController.reset(drive.getRotation().getRadians()));
   }
 
-  // Max distance from a climb pose to allow pole alignment activation
-  private static final double POLE_ALIGN_MAX_DISTANCE_METERS = 3.0;
-
-  // Distance in front of the final climb pose to place the X-alignment waypoint.
-  // Must be comfortably above PathPlanner's internal goal tolerance (~0.5 m) or the second
-  // pathfindToPose will consider itself already done and exit without moving.
-  private static final double CLIMB_WAYPOINT_OFFSET_METERS = Units.feetToMeters(2.5);
-  // Switch to direct-pathfind branch when within this distance of the final pose.
-  // Must be > CLIMB_WAYPOINT_OFFSET_METERS so we never try to pathfind to a waypoint
-  // that's behind the robot.
-  private static final double CLIMB_CLOSE_THRESHOLD_METERS = Units.feetToMeters(3.0);
+  // Pole alignment tuning — config values in feet/inches, converted to meters here
+  private static final RobotConfig config = Constants.getRobotConfig();
+  private static final double POLE_ALIGN_MAX_DISTANCE_METERS =
+      Units.feetToMeters(config.getPoleAlignMaxDistanceFeet());
+  private static final double CLIMB_WAYPOINT_OFFSET_METERS =
+      Units.feetToMeters(config.getPoleAlignWaypointOffsetFeet());
+  private static final double CLIMB_CLOSE_THRESHOLD_METERS =
+      Units.feetToMeters(config.getPoleAlignCloseThresholdFeet());
 
   /**
    * Pathfind to the nearest tower pole in two stages:
@@ -286,7 +284,12 @@ public class DriveCommands {
    * </ol>
    */
   public static Command pathfindToNearestPole(Drive drive) {
-    PathConstraints constraints = new PathConstraints(1.5, 2.0, 2 * Math.PI, 4 * Math.PI);
+    PathConstraints constraints =
+        new PathConstraints(
+            Units.feetToMeters(config.getPoleAlignMaxVelocityFeetPerSec()),
+            Units.feetToMeters(config.getPoleAlignMaxAccelerationFeetPerSec2()),
+            2 * Math.PI,
+            4 * Math.PI);
 
     return Commands.defer(
         () -> {
@@ -305,12 +308,12 @@ public class DriveCommands {
           // If already inside the close threshold, skip the waypoint and use DriveToPose
           // directly. PathPlanner's AD* pathfinder struggles with short distances (<1m).
           if (distToFinal <= CLIMB_CLOSE_THRESHOLD_METERS) {
-            return new DriveToPose(drive, () -> finalPose, 0.5);
+            return new DriveToPose(drive, () -> finalPose, config.getPoleAlignFinalApproachSpeed());
           }
 
           return Commands.sequence(
               AutoBuilder.pathfindToPose(waypointPose, constraints, 0.0),
-              new DriveToPose(drive, () -> finalPose, 0.5));
+              new DriveToPose(drive, () -> finalPose, config.getPoleAlignFinalApproachSpeed()));
         },
         Set.of(drive));
   }
