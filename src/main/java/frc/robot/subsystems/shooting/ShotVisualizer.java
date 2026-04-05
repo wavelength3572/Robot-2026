@@ -309,11 +309,10 @@ public class ShotVisualizer {
     this.currentAzimuthAngle = targetAzimuthAngle;
 
     // Compute exit velocity from ballistic physics to reach the aim target.
-    // The back-solve and the solver give mathematically identical velocities (same angle,
-    // same pass-through point), so the visualizer always shows the *planned* arc — the arc
-    // the model intends to produce. The efficiency values in ShotCalculator are calibrated
-    // to include the motivator's contribution, so when correctly tuned the planned arc
-    // matches what the real launcher actually does.
+    // The RPM-based model (calculateExitVelocityFromRPM) underestimates real exit velocity
+    // because it only models the main wheel + hood roller and ignores the motivator's
+    // contribution. Instead, solve for the velocity that reaches the target at the given
+    // launch angle — this matches what the real shots actually do.
     double distanceToTarget =
         Math.sqrt(
             Math.pow(target.getX() - turretPos.getX(), 2)

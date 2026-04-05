@@ -280,18 +280,10 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeRollerMinDeployPosition = 0.05;
 
   // ========== Shot Calculation ==========
-  // Two-roller efficiency (main wheel + hood roller only).
-  // The motivator's fixed-speed contribution is modeled separately via
-  // shotMotivatorVelocityMps so these values reflect only the roller slip.
-  private static final double shotEfficiencyClose = 0.73;
-  private static final double shotEfficiencyMid = 0.72;
-  private static final double shotEfficiencyFar = 0.71;
-  private static final double shotEfficiencyCorner = 0.691;
-  // Fixed velocity added by the motivator wheel (m/s) regardless of launcher RPM.
-  // Derived from practice 4-1-26: arcs peaked ~24" above the 96" constraint, meaning
-  // the motivator added ~1.0 m/s to the exit speed at mid-range (θ ≈ 58°).
-  // Tune on robot: if arcs are still high, increase this value; if short, decrease it.
-  private static final double shotMotivatorVelocityMps = .55;
+  private static final double shotEfficiencyClose = 0.815;
+  private static final double shotEfficiencyMid = 0.76;
+  private static final double shotEfficiencyFar = 0.76;
+  private static final double shotEfficiencyCorner = 0.76;
   private static final double shotHoodAngleFudgeClose = 0.0;
   private static final double shotHoodAngleFudgeMid = 0.0;
   private static final double shotHoodAngleFudgeFar = 0.0;
@@ -1419,11 +1411,6 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getShotEfficiencyCorner() {
     return shotEfficiencyCorner;
-  }
-
-  @Override
-  public double getShotMotivatorVelocityMps() {
-    return shotMotivatorVelocityMps;
   }
 
   @Override
