@@ -439,17 +439,38 @@ public class ButtonsAndDashboardBindings {
 
     // Pathfind to nearest tower pole — hold to follow path, release to stop.
     // Re-pressing recalculates from current position.
-    // Gated on isNearAllianceTower so it only activates within 4m of a pole.
+    // Auto-extends climber if operator hasn't already (within 1m, runs in parallel with driving).
+    // Gated on isNearAllianceTower so it only activates within 3m of a climb pose.
     // Buttons 23 (left slider) and 24 (right slider) below the right axis, plus button 25.
+    Command poleAlignWithAutoExtend =
+        climber != null
+            ? Commands.parallel(
+                DriveCommands.pathfindToNearestPole(drive),
+                Commands.waitUntil(
+                        () ->
+                            drive
+                                    .getPose()
+                                    .getTranslation()
+                                    .getDistance(
+                                        DriveCommands.findNearestClimbPose(drive).getTranslation())
+                                <= 1.0)
+                    .andThen(
+                        Commands.runOnce(
+                            () -> {
+                              if (climber.isStowed()) climber.toggleExtend();
+                            },
+                            climber))
+                    .withName("AutoExtendClimber"))
+            : DriveCommands.pathfindToNearestPole(drive);
     oi.getRightJoyLeftButton()
         .and(() -> DriveCommands.isNearAllianceTower(drive))
-        .whileTrue(DriveCommands.pathfindToNearestPole(drive));
+        .whileTrue(poleAlignWithAutoExtend);
     oi.getRightJoyRightButton()
         .and(() -> DriveCommands.isNearAllianceTower(drive))
-        .whileTrue(DriveCommands.pathfindToNearestPole(drive));
+        .whileTrue(poleAlignWithAutoExtend);
     oi.getRightJoyDownButton()
         .and(() -> DriveCommands.isNearAllianceTower(drive))
-        .whileTrue(DriveCommands.pathfindToNearestPole(drive));
+        .whileTrue(poleAlignWithAutoExtend);
 
     // X-stance button (interlink button 13): while held, lock wheels in X pattern.
     // Only activates when robot speed is below 1 m/s to prevent skidding.

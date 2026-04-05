@@ -353,7 +353,7 @@ public class DriveCommands {
   }
 
   /** Find the nearest alliance climb pose to the robot's current position. */
-  private static Pose2d findNearestClimbPose(Drive drive) {
+  public static Pose2d findNearestClimbPose(Drive drive) {
     Pose2d robotPose = drive.getPose();
     boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
     Pose2d[] poses = isRed ? FieldConstants.Tower.oppClimbPoses : FieldConstants.Tower.climbPoses;

@@ -265,9 +265,9 @@ public class FieldConstants {
 
     // Measured robot climb poses (blue alliance) — robot position + heading when latched on pole.
     public static final Pose2d leftClimbPose =
-        new Pose2d(1.013, 4.590, Rotation2d.fromDegrees(90.0));
+        new Pose2d(1.013, 4.577, Rotation2d.fromDegrees(90.0));
     public static final Pose2d rightClimbPose =
-        new Pose2d(1.013, 2.840, Rotation2d.fromDegrees(-90.0));
+        new Pose2d(1.109, 2.916, Rotation2d.fromDegrees(-90.0));
     public static final Pose2d[] climbPoses = {leftClimbPose, rightClimbPose};
 
     // Relevant reference points on opposing side
@@ -293,9 +293,9 @@ public class FieldConstants {
 
     // Measured robot climb poses (red alliance) — 180° rotation of blue poses around field center.
     public static final Pose2d oppLeftClimbPose =
-        new Pose2d(fieldLength - 1.013, fieldWidth - 4.590, Rotation2d.fromDegrees(-90.0));
+        new Pose2d(fieldLength - 1.013, fieldWidth - 4.577, Rotation2d.fromDegrees(-90.0));
     public static final Pose2d oppRightClimbPose =
-        new Pose2d(fieldLength - 1.013, fieldWidth - 2.840, Rotation2d.fromDegrees(90.0));
+        new Pose2d(fieldLength - 1.109, fieldWidth - 2.916, Rotation2d.fromDegrees(90.0));
     public static final Pose2d[] oppClimbPoses = {oppLeftClimbPose, oppRightClimbPose};
   }
 
