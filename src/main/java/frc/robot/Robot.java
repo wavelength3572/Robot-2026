@@ -168,6 +168,9 @@ public class Robot extends LoggedRobot {
     // Update fuel simulation (only runs in SIM mode)
     robotContainer.updateFuelSim();
 
+    // Log climb activation boundary for AdvantageScope visualization
+    DriveCommands.logClimbActivationBoundary();
+
     // Log hub shift info
     HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getOfficialShiftInfo();
     Logger.recordOutput("HubShift/CurrentShift", shiftInfo.currentShift().toString());

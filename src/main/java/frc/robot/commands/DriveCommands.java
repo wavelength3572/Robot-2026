@@ -7,6 +7,8 @@
 
 package frc.robot.commands;
 
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.path.PathConstraints;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.filter.SlewRateLimiter;
@@ -22,8 +24,6 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Constants;
-import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.path.PathConstraints;
 import frc.robot.FieldConstants;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
@@ -33,6 +33,7 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
@@ -263,82 +264,106 @@ public class DriveCommands {
         .beforeStarting(() -> angleController.reset(drive.getRotation().getRadians()));
   }
 
-  // Max distance from tower to allow pole alignment activation
-  private static final double POLE_ALIGN_MAX_DISTANCE_METERS = 4.0;
+  // Max distance from a climb pose to allow pole alignment activation
+  private static final double POLE_ALIGN_MAX_DISTANCE_METERS = 3.0;
 
-  // Max distance from tower to allow pole alignment activation
-  private static final double POLE_ALIGN_MAX_DISTANCE_METERS = 4.0;
+  // Distance in front of the final climb pose to place the X-alignment waypoint.
+  // Must be comfortably above PathPlanner's internal goal tolerance (~0.5 m) or the second
+  // pathfindToPose will consider itself already done and exit without moving.
+  private static final double CLIMB_WAYPOINT_OFFSET_METERS = Units.feetToMeters(2.5);
+  // Switch to direct-pathfind branch when within this distance of the final pose.
+  // Must be > CLIMB_WAYPOINT_OFFSET_METERS so we never try to pathfind to a waypoint
+  // that's behind the robot.
+  private static final double CLIMB_CLOSE_THRESHOLD_METERS = Units.feetToMeters(3.0);
 
   /**
-   * Pathfind to the nearest tower pole using PathPlanner's on-the-fly pathfinding. Approaches head
-   * on (perpendicular to the tower face) so the robot drives straight into the pole.
+   * Pathfind to the nearest tower pole in two stages:
+   *
+   * <ol>
+   *   <li>Pathfind to a waypoint 2 ft out from the final pose (in the direction the robot faces),
+   *       so the robot locks in its X position and heading before committing to Y.
+   *   <li>Slow precise drive from the waypoint straight into the final climb pose.
+   * </ol>
    */
   public static Command pathfindToNearestPole(Drive drive) {
-    // Constraints for climbing approach — slow and controlled
     PathConstraints constraints = new PathConstraints(1.5, 2.0, 2 * Math.PI, 4 * Math.PI);
 
     return Commands.defer(
         () -> {
-          Translation2d closest = findNearestPole(drive);
+          Pose2d finalPose = findNearestClimbPose(drive);
 
-          // Approach heading: straight into the tower face (perpendicular)
-          // Blue alliance tower is at low X → robot faces toward -X (180°)
-          // Red alliance tower is at high X → robot faces toward +X (0°)
-          boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
-          Rotation2d approachHeading =
-              isRed ? Rotation2d.fromDegrees(0.0) : Rotation2d.fromDegrees(180.0);
+          // Waypoint is CLIMB_WAYPOINT_OFFSET_METERS in front of the final pose (robot's +X
+          // direction in robot frame = the direction the robot faces in field frame).
+          // For left pose (90°): offsets in +Y.  For right pose (-90°): offsets in -Y.
+          Pose2d waypointPose =
+              finalPose.transformBy(
+                  new Transform2d(CLIMB_WAYPOINT_OFFSET_METERS, 0, new Rotation2d()));
 
-          // Offset back from the pole so the front bumper ends up at the pole
-          double bumperOffset = Constants.getRobotConfig().getBumperLength() / 2.0;
-          Translation2d offsetPosition =
-              closest.minus(new Translation2d(bumperOffset, approachHeading));
-          Pose2d targetPose = new Pose2d(offsetPosition, approachHeading);
+          double distToFinal =
+              drive.getPose().getTranslation().getDistance(finalPose.getTranslation());
 
-          return AutoBuilder.pathfindToPose(targetPose, constraints, 0.0);
+          // If already inside the close threshold, skip the waypoint and use DriveToPose
+          // directly. PathPlanner's AD* pathfinder struggles with short distances (<1m).
+          if (distToFinal <= CLIMB_CLOSE_THRESHOLD_METERS) {
+            return new DriveToPose(drive, () -> finalPose, 0.5);
+          }
+
+          return Commands.sequence(
+              AutoBuilder.pathfindToPose(waypointPose, constraints, 0.0),
+              new DriveToPose(drive, () -> finalPose, 0.5));
         },
-        drive);
+        Set.of(drive));
   }
 
   /**
-   * Returns true if the robot is close enough to the alliance tower to allow pole alignment. Checks
-   * that the robot is on the correct side of the field, in front of the tower, and within {@link
-   * #POLE_ALIGN_MAX_DISTANCE_METERS} of the nearest pole.
+   * Returns true if the robot is within {@link #POLE_ALIGN_MAX_DISTANCE_METERS} of the nearest
+   * alliance climb pose.
    */
   public static boolean isNearAllianceTower(Drive drive) {
-    Pose2d robotPose = drive.getPose();
-    boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
-
-    // Robot must be on the alliance side of the field
-    double midFieldX = FieldConstants.fieldLength / 2.0;
-    if (isRed && robotPose.getX() < midFieldX) return false;
-    if (!isRed && robotPose.getX() > midFieldX) return false;
-
-    // Robot must be in front of the tower (not behind it against the wall)
-    double towerX =
-        isRed
-            ? FieldConstants.fieldLength - FieldConstants.Tower.frontFaceX
-            : FieldConstants.Tower.frontFaceX;
-    if (isRed && robotPose.getX() < towerX) return false;
-    if (!isRed && robotPose.getX() > towerX) return false;
-
-    // Check distance to nearest pole
-    return robotPose.getTranslation().getDistance(findNearestPole(drive))
+    return drive
+            .getPose()
+            .getTranslation()
+            .getDistance(findNearestClimbPose(drive).getTranslation())
         < POLE_ALIGN_MAX_DISTANCE_METERS;
   }
 
-  /** Find the nearest alliance pole to the robot's current position. */
-  private static Translation2d findNearestPole(Drive drive) {
+  /**
+   * Logs the pole-alignment activation boundary (3m circle around each alliance climb pose) so it
+   * can be visualized on the AdvantageScope field view.
+   */
+  public static void logClimbActivationBoundary() {
+    boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
+    Pose2d[] poses = isRed ? FieldConstants.Tower.oppClimbPoses : FieldConstants.Tower.climbPoses;
+
+    int pointsPerCircle = 60;
+    List<Pose2d> boundaryPoints = new java.util.ArrayList<>();
+
+    for (Pose2d climbPose : poses) {
+      Translation2d center = climbPose.getTranslation();
+      for (int i = 0; i <= pointsPerCircle; i++) {
+        double angle = 2.0 * Math.PI * i / pointsPerCircle;
+        double x = center.getX() + POLE_ALIGN_MAX_DISTANCE_METERS * Math.cos(angle);
+        double y = center.getY() + POLE_ALIGN_MAX_DISTANCE_METERS * Math.sin(angle);
+        boundaryPoints.add(new Pose2d(x, y, new Rotation2d()));
+      }
+    }
+
+    Logger.recordOutput(
+        "Visualizations/ClimbActivationBoundary", boundaryPoints.toArray(new Pose2d[0]));
+  }
+
+  /** Find the nearest alliance climb pose to the robot's current position. */
+  private static Pose2d findNearestClimbPose(Drive drive) {
     Pose2d robotPose = drive.getPose();
     boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
-    Translation2d[] poles =
-        isRed ? FieldConstants.Tower.oppPoles : FieldConstants.Tower.poles;
+    Pose2d[] poses = isRed ? FieldConstants.Tower.oppClimbPoses : FieldConstants.Tower.climbPoses;
 
-    Translation2d closest = poles[0];
-    double closestDist = robotPose.getTranslation().getDistance(closest);
-    for (int i = 1; i < poles.length; i++) {
-      double dist = robotPose.getTranslation().getDistance(poles[i]);
+    Pose2d closest = poses[0];
+    double closestDist = robotPose.getTranslation().getDistance(closest.getTranslation());
+    for (int i = 1; i < poses.length; i++) {
+      double dist = robotPose.getTranslation().getDistance(poses[i].getTranslation());
       if (dist < closestDist) {
-        closest = poles[i];
+        closest = poses[i];
         closestDist = dist;
       }
     }
