@@ -19,6 +19,10 @@ import frc.robot.commands.AutoWrapperFactory;
 import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
+import frc.robot.subsystems.climber.Climber;
+import frc.robot.subsystems.climber.ClimberIO;
+import frc.robot.subsystems.climber.ClimberIOSim;
+import frc.robot.subsystems.climber.ClimberIOSpark;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
 import frc.robot.subsystems.drive.GyroIOPigeon2;
@@ -78,6 +82,7 @@ public class RobotContainer {
   private final Hood hood;
   private final Motivator motivator;
   private final Spindexer spindexer;
+  private final Climber climber;
   private final ShootingCoordinator shootingCoordinator;
   private final IndicatorLight leds;
   private OperatorInterface oi = new OperatorInterface() {};
@@ -109,6 +114,7 @@ public class RobotContainer {
         hood = config.hasHood() ? new Hood(new HoodIOSparkMax()) : null;
         motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkFlex()) : null;
         spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSparkMax()) : null;
+        climber = config.hasClimber() ? new Climber(new ClimberIOSpark()) : null;
 
         drive =
             config.hasDrive()
@@ -153,6 +159,7 @@ public class RobotContainer {
         hood = config.hasHood() ? new Hood(new HoodIOSparkMax()) : null;
         motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkFlex()) : null;
         spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSparkMax()) : null;
+        climber = config.hasClimber() ? new Climber(new ClimberIOSpark()) : null;
 
         drive =
             new Drive(
@@ -186,6 +193,7 @@ public class RobotContainer {
         hood = config.hasHood() ? new Hood(new HoodIOSim()) : null;
         motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSim()) : null;
         spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSim()) : null;
+        climber = config.hasClimber() ? new Climber(new ClimberIOSim()) : null;
 
         drive =
             new Drive(
@@ -228,6 +236,7 @@ public class RobotContainer {
         hood = config.hasHood() ? new Hood(new HoodIO() {}) : null;
         motivator = config.hasMotivator() ? new Motivator(new MotivatorIO() {}) : null;
         spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIO() {}) : null;
+        climber = config.hasClimber() ? new Climber(new ClimberIO() {}) : null;
 
         drive =
             new Drive(
@@ -340,6 +349,13 @@ public class RobotContainer {
       leds.setTurretEncoderStatusSupplier(turret::getEncoderValidationStatus);
     }
 
+    // Wire climber state to LEDs for segment party when climb is complete
+    if (climber != null) {
+      leds.setClimberClimbedSupplier(climber::isClimbed);
+      climber.setPitchSupplier(drive::getPitchDeg);
+      climber.setRollSupplier(drive::getRollDeg);
+    }
+
     // Initialize FuelSim for simulation mode (after coordinator so intake can be
     // registered)
     if (Constants.currentMode == Constants.Mode.SIM
@@ -438,7 +454,8 @@ public class RobotContainer {
         motivator,
         spindexer,
         hood,
-        shootingCoordinator);
+        shootingCoordinator,
+        climber);
   }
 
   // Comp autos get the full shooting wrap (fuel, auto-shoot, intake, launcher
@@ -740,6 +757,11 @@ public class RobotContainer {
     return motivator;
   }
 
+  /** Get the climber subsystem (may be null). */
+  public Climber getClimber() {
+    return climber;
+  }
+
   /** Register NamedCommands for PathPlanner autos. Must be called before buildAutoChooser. */
   private void registerNamedCommands() {
     // Set fuel count commands for testing
@@ -839,6 +861,15 @@ public class RobotContainer {
                 intake.stopRollers();
               },
               intake));
+    }
+
+    // Climber: extend and climb events for auto
+    if (climber != null) {
+      NamedCommands.registerCommand("ClimberExtend", climber.extendCommand().asProxy());
+      NamedCommands.registerCommand("ClimberClimb", climber.climbCommand().asProxy());
+    } else {
+      NamedCommands.registerCommand("ClimberExtend", Commands.none());
+      NamedCommands.registerCommand("ClimberClimb", Commands.none());
     }
 
     // StowHood: drive hood to min angle, unblocks when ≤18° (safe to enter trench).

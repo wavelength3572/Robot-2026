@@ -112,9 +112,10 @@ public final class VisionConstants {
   // Positions measured from robot center origin, converted inches → meters (×0.0254)
 
   // Center Rear camera (forward facing) - mounted at rear center, looking forward
+  // Moved 1.5" forward (toward intake) to clear climber
   public static Transform3d mainBotToCenterRearCam =
       new Transform3d(
-          -0.26538, // X: 10.448" to rear
+          -0.22728, // X: 8.948" to rear (was 10.448", shifted 1.5" forward for climber)
           -0.04445, // Y: 1.750" to the right
           0.52093, // Z: 20.509" up
           new Rotation3d(

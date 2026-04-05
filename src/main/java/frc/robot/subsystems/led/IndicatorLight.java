@@ -14,6 +14,7 @@ import frc.robot.Constants;
 import frc.robot.subsystems.led.IndicatorLightConstants.LED_EFFECTS;
 import frc.robot.util.HubShiftUtil;
 import java.util.Random;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
 
@@ -81,6 +82,9 @@ public class IndicatorLight extends SubsystemBase {
   // Turret encoder validation supplier (set by RobotContainer)
   private Supplier<TurretEncoderStatus> turretEncoderStatusSupplier =
       () -> TurretEncoderStatus.VALID;
+
+  // Climber state supplier — true when the robot has finished climbing (set by RobotContainer)
+  private BooleanSupplier climberClimbedSupplier = () -> false;
 
   // Emergency strobe state
   private double strobePhaseStartTime = 0.0;
@@ -257,6 +261,11 @@ public class IndicatorLight extends SubsystemBase {
    */
   public void setTurretEncoderStatusSupplier(Supplier<TurretEncoderStatus> supplier) {
     this.turretEncoderStatusSupplier = supplier;
+  }
+
+  /** Set the supplier for climber "climbed" state. When true, LEDs show SEGMENTPARTY. */
+  public void setClimberClimbedSupplier(BooleanSupplier supplier) {
+    this.climberClimbedSupplier = supplier;
   }
 
   // ========== Public setters for LED effects ==========
@@ -819,6 +828,12 @@ public class IndicatorLight extends SubsystemBase {
     if (DriverStation.isDisabled()) {
       return LED_EFFECTS.RSL;
     }
+
+    // Climber finished — segment party in both auto and teleop
+    if (climberClimbedSupplier.getAsBoolean()) {
+      return LED_EFFECTS.SEGMENTPARTY;
+    }
+
     if (DriverStation.isAutonomous()) {
       return LED_EFFECTS.PURPLE;
     }

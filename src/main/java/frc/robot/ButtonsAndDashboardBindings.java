@@ -4,6 +4,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -12,6 +13,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OperatorInterface;
+import frc.robot.subsystems.climber.Climber;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.intake.Intake;
@@ -39,6 +41,7 @@ public class ButtonsAndDashboardBindings {
   private static Motivator motivator;
   private static Spindexer spindexer;
   private static Hood hood;
+  private static Climber climber;
   private static ShootingCoordinator shootingCoordinator;
 
   // Per-subsystem tuning setpoints
@@ -95,7 +98,8 @@ public class ButtonsAndDashboardBindings {
       Motivator motivator,
       Spindexer spindexer,
       Hood hood,
-      ShootingCoordinator shootingCoordinator) {
+      ShootingCoordinator shootingCoordinator,
+      Climber climber) {
     ButtonsAndDashboardBindings.oi = operatorInterface;
     ButtonsAndDashboardBindings.drive = drive;
     ButtonsAndDashboardBindings.vision = vision;
@@ -106,6 +110,7 @@ public class ButtonsAndDashboardBindings {
     ButtonsAndDashboardBindings.spindexer = spindexer;
     ButtonsAndDashboardBindings.hood = hood;
     ButtonsAndDashboardBindings.shootingCoordinator = shootingCoordinator;
+    ButtonsAndDashboardBindings.climber = climber;
 
     configureDriverButtonBindings();
     configureOperatorButtonBindings();
@@ -143,6 +148,16 @@ public class ButtonsAndDashboardBindings {
           Commands.runOnce(() -> FuelSim.getInstance().toggleOutpostBarriers())
               .ignoringDisable(true)
               .withName("Toggle Outpost Barriers"));
+    }
+
+    // Climber dashboard buttons (mirrors button box)
+    if (climber != null) {
+      SmartDashboard.putData(
+          "Sim/ClimberExtend", Commands.runOnce(climber::extend).withName("Climber Extend"));
+      SmartDashboard.putData(
+          "Sim/ClimberStow", Commands.runOnce(climber::stow).withName("Climber Stow"));
+      SmartDashboard.putData(
+          "Sim/ClimberClimb", Commands.runOnce(climber::climb).withName("Climber Climb"));
     }
 
     // Launcher RPM trim buttons (mirrors button box axis knob positions)
@@ -424,6 +439,37 @@ public class ButtonsAndDashboardBindings {
             DriveCommands.joystickDriveAtAngle(
                 drive, oi::getTranslateX, oi::getTranslateY, () -> Rotation2d.fromDegrees(90.0)));
 
+    // Pathfind to nearest tower pole — hold to follow path, release to stop.
+    // Re-pressing recalculates from current position.
+    // Auto-extends climber if operator hasn't already (within 1m, runs in parallel with driving).
+    // Gated on isNearAllianceTower so it only activates within 3m of a climb pose.
+    // Buttons 23 (left slider) and 24 (right slider) below the right axis, plus button 25.
+    Command poleAlignWithAutoExtend =
+        climber != null
+            ? Commands.parallel(
+                DriveCommands.pathfindToNearestPole(drive),
+                Commands.waitUntil(
+                        () ->
+                            drive
+                                    .getPose()
+                                    .getTranslation()
+                                    .getDistance(
+                                        DriveCommands.findNearestClimbPose(drive).getTranslation())
+                                <= Units.feetToMeters(
+                                    Constants.getRobotConfig().getClimberAutoExtendDistanceFeet()))
+                    .andThen(Commands.runOnce(climber::extend))
+                    .withName("AutoExtendClimber"))
+            : DriveCommands.pathfindToNearestPole(drive);
+    oi.getRightJoyLeftButton()
+        .and(() -> DriveCommands.isNearAllianceTower(drive))
+        .whileTrue(poleAlignWithAutoExtend);
+    oi.getRightJoyRightButton()
+        .and(() -> DriveCommands.isNearAllianceTower(drive))
+        .whileTrue(poleAlignWithAutoExtend);
+    oi.getRightJoyDownButton()
+        .and(() -> DriveCommands.isNearAllianceTower(drive))
+        .whileTrue(poleAlignWithAutoExtend);
+
     // X-stance button (interlink button 13): while held, lock wheels in X pattern.
     // Only activates when robot speed is below 1 m/s to prevent skidding.
     oi.getLockWheels()
@@ -622,5 +668,17 @@ public class ButtonsAndDashboardBindings {
         .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimLeft()).ignoringDisable(true));
     oi.getButtonBox1Button10()
         .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimRight()).ignoringDisable(true));
+
+    // Climber controls — no subsystem requirement to avoid canceling driver auto-align
+    // B9 tap: extend (from STOWED or CLIMBED, no-op if already extended)
+    // B9 hold 2s: stow (from EXTENDED only, deliberate action)
+    // B2-1: climb (from EXTENDED only)
+    if (climber != null) {
+      oi.getButtonBox1Button9().onTrue(Commands.runOnce(climber::extend));
+      oi.getButtonBox1Button9()
+          .debounce(Constants.getRobotConfig().getClimberStowHoldTimeSec())
+          .onTrue(Commands.runOnce(climber::stow));
+      oi.getButtonBox2Button1().onTrue(Commands.runOnce(climber::climb));
+    }
   }
 }

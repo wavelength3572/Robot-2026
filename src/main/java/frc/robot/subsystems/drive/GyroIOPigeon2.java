@@ -28,6 +28,7 @@ public class GyroIOPigeon2 implements GyroIO {
   private final Queue<Double> yawTimestampQueue;
   private final StatusSignal<AngularVelocity> yawVelocity = pigeon.getAngularVelocityZWorld();
   private final StatusSignal<Angle> pitch = pigeon.getPitch();
+  private final StatusSignal<Angle> roll = pigeon.getRoll();
 
   public GyroIOPigeon2() {
     pigeon.getConfigurator().apply(new Pigeon2Configuration());
@@ -36,6 +37,7 @@ public class GyroIOPigeon2 implements GyroIO {
     yawVelocity.setUpdateFrequency(50.0);
     accX.setUpdateFrequency(odometryFrequency);
     pitch.setUpdateFrequency(50.0);
+    roll.setUpdateFrequency(50.0);
     pigeon.optimizeBusUtilization();
     yawTimestampQueue = SparkOdometryThread.getInstance().makeTimestampQueue();
     var yawClone = yaw.clone(); // Status signals are not thread-safe
@@ -55,6 +57,7 @@ public class GyroIOPigeon2 implements GyroIO {
     inputs.yawPosition = Rotation2d.fromDegrees(yaw.getValueAsDouble());
     inputs.yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
     inputs.pitchDeg = pitch.getValueAsDouble();
+    inputs.rollDeg = roll.getValueAsDouble();
     accX.refresh();
     inputs.accX = accX.getValueAsDouble();
 

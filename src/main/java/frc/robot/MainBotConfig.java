@@ -210,8 +210,28 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeRollerKd = 0.000001;
   private static final double intakeRollerKff = 0.004644;
 
-  // Climb Configuration:
+  // ========== Climber Configuration ==========
   private static final int climberMotorCanId = 30;
+  private static final double climberGearRatio = 25.0; // NEO 25:1
+  private static final double climberDrumDiameterInches = 0.75;
+  private static final double climberExtendPosition = 50.0; // Motor rotations to extend (arm up)
+  private static final double climberClimbPosition =
+      10.0; // Motor rotations when climbed (off ground)
+  private static final double climberKp = 0.1;
+  private static final int climberCurrentLimit = 40;
+  private static final double climberPositionTolerance = 2.0; // Motor rotations
+  private static final double climberExtendTimeoutSec = 5.0;
+  private static final double climberClimbTimeoutSec = 5.0;
+  private static final double climberStowHoldTimeSec = 2.0; // Hold B9 this long to stow
+  private static final double climberAutoExtendDistanceFeet = 3.0; // Auto-extend within this dist
+
+  // ========== Pole Alignment Tuning ==========
+  private static final double poleAlignMaxDistanceFeet = 10.0; // Activation boundary
+  private static final double poleAlignWaypointOffsetFeet = 2.5; // Waypoint distance from final
+  private static final double poleAlignCloseThresholdFeet = 3.0; // Skip waypoint if closer
+  private static final double poleAlignMaxVelocityFeetPerSec = 5.0; // ~1.5 m/s
+  private static final double poleAlignMaxAccelerationFeetPerSec2 = 6.5; // ~2.0 m/s²
+  private static final double poleAlignFinalApproachSpeed = 0.5; // DriveToPose speed scalar (0-1)
 
   // ========== Turret Tuning ==========
   private static final double turretWarningZoneDeg = 20.0;
@@ -1098,9 +1118,103 @@ public class MainBotConfig implements RobotConfig {
     return intakeDeployMaxAcceleration;
   }
 
+  // ========== Climber ==========
+
+  @Override
+  public boolean hasClimber() {
+    return true;
+  }
+
   @Override
   public int getClimberCanId() {
     return climberMotorCanId;
+  }
+
+  @Override
+  public double getClimberGearRatio() {
+    return climberGearRatio;
+  }
+
+  @Override
+  public double getClimberDrumDiameterInches() {
+    return climberDrumDiameterInches;
+  }
+
+  @Override
+  public double getClimberExtendPosition() {
+    return climberExtendPosition;
+  }
+
+  @Override
+  public double getClimberClimbPosition() {
+    return climberClimbPosition;
+  }
+
+  @Override
+  public double getClimberKp() {
+    return climberKp;
+  }
+
+  @Override
+  public int getClimberCurrentLimit() {
+    return climberCurrentLimit;
+  }
+
+  @Override
+  public double getClimberPositionTolerance() {
+    return climberPositionTolerance;
+  }
+
+  @Override
+  public double getClimberExtendTimeoutSec() {
+    return climberExtendTimeoutSec;
+  }
+
+  @Override
+  public double getClimberClimbTimeoutSec() {
+    return climberClimbTimeoutSec;
+  }
+
+  @Override
+  public double getClimberStowHoldTimeSec() {
+    return climberStowHoldTimeSec;
+  }
+
+  @Override
+  public double getClimberAutoExtendDistanceFeet() {
+    return climberAutoExtendDistanceFeet;
+  }
+
+  // ========== Pole Alignment Tuning ==========
+
+  @Override
+  public double getPoleAlignMaxDistanceFeet() {
+    return poleAlignMaxDistanceFeet;
+  }
+
+  @Override
+  public double getPoleAlignWaypointOffsetFeet() {
+    return poleAlignWaypointOffsetFeet;
+  }
+
+  @Override
+  public double getPoleAlignCloseThresholdFeet() {
+    return poleAlignCloseThresholdFeet;
+  }
+
+  @Override
+  public double getPoleAlignMaxVelocityFeetPerSec() {
+    return poleAlignMaxVelocityFeetPerSec;
+  }
+
+  @Override
+  public double getPoleAlignMaxAccelerationFeetPerSec2() {
+    return poleAlignMaxAccelerationFeetPerSec2;
+  }
+
+  @Override
+  public double getPoleAlignFinalApproachSpeed() {
+    return poleAlignFinalApproachSpeed;
   }
 
   // ========== Turret Tuning ==========
