@@ -19,6 +19,10 @@ import frc.robot.commands.AutoWrapperFactory;
 import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
+import frc.robot.subsystems.climber.Climber;
+import frc.robot.subsystems.climber.ClimberIO;
+import frc.robot.subsystems.climber.ClimberIOSim;
+import frc.robot.subsystems.climber.ClimberIOSpark;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
 import frc.robot.subsystems.drive.GyroIOPigeon2;
@@ -42,10 +46,6 @@ import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.motivator.MotivatorIO;
 import frc.robot.subsystems.motivator.MotivatorIOSim;
 import frc.robot.subsystems.motivator.MotivatorIOSparkFlex;
-import frc.robot.subsystems.climber.Climber;
-import frc.robot.subsystems.climber.ClimberIO;
-import frc.robot.subsystems.climber.ClimberIOSim;
-import frc.robot.subsystems.climber.ClimberIOSpark;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.spindexer.SpindexerIO;
@@ -347,6 +347,13 @@ public class RobotContainer {
     // Wire turret encoder validation to LEDs for startup error/warning patterns
     if (turret != null) {
       leds.setTurretEncoderStatusSupplier(turret::getEncoderValidationStatus);
+    }
+
+    // Wire climber state to LEDs for segment party when climb is complete
+    if (climber != null) {
+      leds.setClimberClimbedSupplier(climber::isClimbed);
+      climber.setPitchSupplier(drive::getPitchDeg);
+      climber.setRollSupplier(drive::getRollDeg);
     }
 
     // Initialize FuelSim for simulation mode (after coordinator so intake can be

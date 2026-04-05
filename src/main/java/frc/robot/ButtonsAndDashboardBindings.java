@@ -12,6 +12,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OperatorInterface;
+import frc.robot.subsystems.climber.Climber;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.intake.Intake;
@@ -21,7 +22,6 @@ import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.shooting.ShotCalculator;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
-import frc.robot.subsystems.climber.Climber;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
@@ -147,6 +147,15 @@ public class ButtonsAndDashboardBindings {
           Commands.runOnce(() -> FuelSim.getInstance().toggleOutpostBarriers())
               .ignoringDisable(true)
               .withName("Toggle Outpost Barriers"));
+    }
+
+    // Climber dashboard buttons (mirrors button box: B9 = extend/stow, B2-1 = climb)
+    if (climber != null) {
+      SmartDashboard.putData(
+          "Sim/ClimberExtendToggle",
+          Commands.runOnce(climber::toggleExtend, climber).withName("Climber Extend/Stow"));
+      SmartDashboard.putData(
+          "Sim/ClimberClimb", Commands.runOnce(climber::climb, climber).withName("Climber Climb"));
     }
 
     // Launcher RPM trim buttons (mirrors button box axis knob positions)
@@ -429,14 +438,18 @@ public class ButtonsAndDashboardBindings {
                 drive, oi::getTranslateX, oi::getTranslateY, () -> Rotation2d.fromDegrees(90.0)));
 
     // Pathfind to nearest tower pole — hold to follow path, release to stop.
-    // Re-pressing recalculates from current position. Only works when climber
-    // is extended AND robot is near the alliance tower.
-    if (climber != null) {
-      oi.getRightJoyDownButton()
-          .and(() -> climber.getState() == frc.robot.subsystems.climber.Climber.ClimberState.EXTENDED)
-          .and(() -> DriveCommands.isNearAllianceTower(drive))
-          .whileTrue(DriveCommands.pathfindToNearestPole(drive));
-    }
+    // Re-pressing recalculates from current position.
+    // Gated on isNearAllianceTower so it only activates within 4m of a pole.
+    // Buttons 23 (left slider) and 24 (right slider) below the right axis, plus button 25.
+    oi.getRightJoyLeftButton()
+        .and(() -> DriveCommands.isNearAllianceTower(drive))
+        .whileTrue(DriveCommands.pathfindToNearestPole(drive));
+    oi.getRightJoyRightButton()
+        .and(() -> DriveCommands.isNearAllianceTower(drive))
+        .whileTrue(DriveCommands.pathfindToNearestPole(drive));
+    oi.getRightJoyDownButton()
+        .and(() -> DriveCommands.isNearAllianceTower(drive))
+        .whileTrue(DriveCommands.pathfindToNearestPole(drive));
 
     // X-stance button (interlink button 13): while held, lock wheels in X pattern.
     // Only activates when robot speed is below 1 m/s to prevent skidding.

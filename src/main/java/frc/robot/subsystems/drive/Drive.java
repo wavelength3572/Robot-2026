@@ -336,6 +336,11 @@ public class Drive extends SubsystemBase {
     return gyroInputs.pitchDeg;
   }
 
+  /** Returns the current gyro roll in degrees (positive = right side down). */
+  public double getRollDeg() {
+    return gyroInputs.rollDeg;
+  }
+
   /**
    * Returns the pose projected forward by the aim phase delay, accounting for current velocity. Use
    * this for aiming calculations that need to compensate for control loop latency.
