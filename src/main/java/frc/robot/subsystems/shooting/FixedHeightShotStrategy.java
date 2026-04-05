@@ -4,6 +4,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import frc.robot.Constants;
+import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
@@ -50,6 +51,17 @@ public class FixedHeightShotStrategy implements ShotStrategy {
   private static final LoggedTunableNumber maxRPM =
       new LoggedTunableNumber(
           "Shots/FixedHeight/MaxRPM", Constants.getRobotConfig().getFixedHeightMaxRPM());
+
+  private static final RobotConfig config = Constants.getRobotConfig();
+
+  // Motivator and spindexer RPM
+  private static final LoggedTunableNumber motivatorRPM =
+      new LoggedTunableNumber(
+          "Shots/FixedHeight/MotivatorRPM", config.getHubShotMotivatorRPM());
+  private static final LoggedTunableNumber spindexerCloseRPM =
+      new LoggedTunableNumber("Shots/FixedHeight/SpindexerCloseRPM", config.getSpindexerCloseRPM());
+  private static final LoggedTunableNumber spindexerFarRPM =
+      new LoggedTunableNumber("Shots/FixedHeight/SpindexerFarRPM", config.getSpindexerFarRPM());
 
   @Override
   public ShotCalculator.ShotResult calculateShot(
@@ -121,7 +133,7 @@ public class FixedHeightShotStrategy implements ShotStrategy {
 
     if (!result.achievable()) {
       logFailure("%s at D=%.2fm", result.failureReason(), D);
-      return new ShotCalculator.ShotResult(0, 0, 0, 0, 0, target, false);
+      return new ShotCalculator.ShotResult(0, 0, 0, 0, 0, 0, 0, target, false);
     }
 
     double thetaDeg = result.launchAngleDeg();
@@ -179,7 +191,7 @@ public class FixedHeightShotStrategy implements ShotStrategy {
     // Check RPM limits
     if (rpm < minRPM.get() || rpm > maxRPM.get()) {
       logFailure("RPM %.0f outside [%.0f-%.0f] at D=%.2fm", rpm, minRPM.get(), maxRPM.get(), D);
-      return new ShotCalculator.ShotResult(0, 0, 0, hoodAngleDeg, 0, target, false);
+      return new ShotCalculator.ShotResult(0, 0, 0, hoodAngleDeg, 0, 0, 0, target, false);
     }
 
     // Build the pass-through point in field coordinates for the visualizer
@@ -205,8 +217,13 @@ public class FixedHeightShotStrategy implements ShotStrategy {
     }
     Logger.recordOutput("Shots/FixedHeight/Achievable", true);
 
+    // Lerp spindexer RPM by distance (same as previous ShootingCommands behavior)
+    double spnT = Math.max(0, Math.min(1, (D - 1.16) / (5.35 - 1.16)));
+    double spindexerRPM = spindexerCloseRPM.get() + spnT * (spindexerFarRPM.get() - spindexerCloseRPM.get());
+
     return new ShotCalculator.ShotResult(
-        velocity, rpm, theta, hoodAngleDeg, turretAngleDeg, aimTarget, true);
+        velocity, rpm, theta, hoodAngleDeg, turretAngleDeg,
+        motivatorRPM.get(), spindexerRPM, aimTarget, true);
   }
 
   private static void logFailure(String format, Object... args) {

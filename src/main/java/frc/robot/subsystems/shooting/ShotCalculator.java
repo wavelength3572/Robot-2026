@@ -119,13 +119,15 @@ public final class ShotCalculator {
   /** Turret geometry config (immutable, set once at startup). */
   public record TurretConfig(double heightMeters, double xOffset, double yOffset) {}
 
-  /** Result of a shot calculation. */
+  /** Result of a shot calculation. All four physical outputs that control the shot. */
   public record ShotResult(
       double exitVelocityMps,
-      double launcherRPM, // pre-computed RPM (uses launch efficiency)
+      double launcherRPM,
       double launchAngleRad,
       double hoodAngleDeg,
       double turretAngleDeg, // robot-relative
+      double motivatorRPM,
+      double spindexerRPM,
       Translation3d aimTarget, // velocity-compensated
       boolean achievable) {
 
@@ -638,6 +640,8 @@ public final class ShotCalculator {
         launchAngleRad,
         hoodAngleDeg,
         turretAngleDeg,
+        0,
+        0,
         target,
         true);
   }

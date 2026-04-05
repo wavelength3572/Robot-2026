@@ -926,25 +926,30 @@ public class ShootingCommands {
     return shot != null ? shot.hoodAngleDeg() : 0.0;
   }
 
-  /** Get effective motivator RPM — override value when toggled, otherwise derived from launcher. */
+  /** Get effective motivator RPM — override value when toggled, otherwise from strategy. */
   public static double getEffectiveMotivatorRPM(
       double launcherRPM, ShootingCoordinator coordinator) {
     if (SmartDashboard.getBoolean("Overrides/Motivator", false)) {
       return overrideMotivatorRPM.get();
     }
-    if (coordinator != null
-        && coordinator.isInPassZone()
-        && SmartDashboard.getBoolean("Passes/UseFixedMotivatorRPM", true)) {
-      return passingMotivatorRPM.get();
+    ShotCalculator.ShotResult shot = coordinator != null ? coordinator.getCurrentShot() : null;
+    if (shot != null && shot.motivatorRPM() > 0) {
+      return shot.motivatorRPM();
     }
+    // Fallback for strategies that don't set motivator RPM
     return getMotivatorRPM(launcherRPM, coordinator);
   }
 
-  /** Get effective spindexer RPM — override value when toggled, otherwise distance-based. */
+  /** Get effective spindexer RPM — override value when toggled, otherwise from strategy. */
   public static double getEffectiveSpindexerRPM(ShootingCoordinator coordinator) {
     if (SmartDashboard.getBoolean("Overrides/Spindexer", false)) {
       return overrideSpindexerRPM.get();
     }
+    ShotCalculator.ShotResult shot = coordinator != null ? coordinator.getCurrentShot() : null;
+    if (shot != null && shot.spindexerRPM() > 0) {
+      return shot.spindexerRPM();
+    }
+    // Fallback for strategies that don't set spindexer RPM
     double dist = coordinator.getDistanceToTarget();
     return coordinator.isInPassZone()
         ? getSpindexerPassRPM()

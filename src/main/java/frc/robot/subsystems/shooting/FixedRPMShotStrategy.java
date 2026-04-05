@@ -3,6 +3,7 @@ package frc.robot.subsystems.shooting;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.Constants;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
@@ -33,6 +34,23 @@ public class FixedRPMShotStrategy implements ShotStrategy {
       new LoggedTunableNumber("Shots/FixedRPM/FarRPM", 3000.0);
   private static final LoggedTunableNumber farHoodDeg =
       new LoggedTunableNumber("Shots/FixedRPM/FarHoodDeg", 42.0);
+
+  // Motivator and spindexer RPM (also linear close/far)
+  private static final LoggedTunableNumber closeMotivatorRPM =
+      new LoggedTunableNumber(
+          "Shots/FixedRPM/CloseMotivatorRPM",
+          Constants.getRobotConfig().getHubShotMotivatorRPM());
+  private static final LoggedTunableNumber farMotivatorRPM =
+      new LoggedTunableNumber(
+          "Shots/FixedRPM/FarMotivatorRPM",
+          Constants.getRobotConfig().getHubShotMotivatorRPM());
+  private static final LoggedTunableNumber closeSpindexerRPM =
+      new LoggedTunableNumber(
+          "Shots/FixedRPM/CloseSpindexerRPM",
+          Constants.getRobotConfig().getSpindexerCloseRPM());
+  private static final LoggedTunableNumber farSpindexerRPM =
+      new LoggedTunableNumber(
+          "Shots/FixedRPM/FarSpindexerRPM", Constants.getRobotConfig().getSpindexerFarRPM());
 
   @Override
   public ShotCalculator.ShotResult calculateShot(
@@ -100,6 +118,8 @@ public class FixedRPMShotStrategy implements ShotStrategy {
             effectiveMaxDeg,
             config);
 
+    double motivator = lerp(D, closeMotivatorRPM.get(), farMotivatorRPM.get());
+    double spindexer = lerp(D, closeSpindexerRPM.get(), farSpindexerRPM.get());
     double theta = Math.toRadians(90.0 - hoodAngleDeg);
     double exitVelocity = ShotCalculator.calculateExitVelocityFromRPM(rpm, D);
 
@@ -107,11 +127,14 @@ public class FixedRPMShotStrategy implements ShotStrategy {
     Logger.recordOutput("Shots/FixedRPM/DistanceM", D);
     Logger.recordOutput("Shots/FixedRPM/HoodAngleDeg", hoodAngleDeg);
     Logger.recordOutput("Shots/FixedRPM/RPM", rpm);
+    Logger.recordOutput("Shots/FixedRPM/MotivatorRPM", motivator);
+    Logger.recordOutput("Shots/FixedRPM/SpindexerRPM", spindexer);
     Logger.recordOutput("Shots/FixedRPM/ExitVelocityMps", exitVelocity);
     Logger.recordOutput("Shots/FixedRPM/RobotSpeedMps", robotSpeed);
 
     return new ShotCalculator.ShotResult(
-        exitVelocity, rpm, theta, hoodAngleDeg, turretAngleDeg, compensatedTarget, true);
+        exitVelocity, rpm, theta, hoodAngleDeg, turretAngleDeg,
+        motivator, spindexer, compensatedTarget, true);
   }
 
   /**

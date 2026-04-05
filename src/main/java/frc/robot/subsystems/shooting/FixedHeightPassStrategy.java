@@ -4,6 +4,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import frc.robot.Constants;
+import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
@@ -38,6 +39,15 @@ public class FixedHeightPassStrategy implements ShotStrategy {
   private static final LoggedTunableNumber maxRPM =
       new LoggedTunableNumber(
           "Shots/FixedHeightPass/MaxRPM", Constants.getRobotConfig().getFixedHeightPassMaxRPM());
+
+  private static final RobotConfig robotConfig = Constants.getRobotConfig();
+
+  private static final LoggedTunableNumber motivatorRPM =
+      new LoggedTunableNumber(
+          "Shots/FixedHeightPass/MotivatorRPM", robotConfig.getPassingMotivatorRPM());
+  private static final LoggedTunableNumber spindexerRPM =
+      new LoggedTunableNumber(
+          "Shots/FixedHeightPass/SpindexerRPM", robotConfig.getSpindexerPassRPM());
 
   // Hood floor for passes — prevents near-vertical launches
   private static final LoggedTunableNumber hoodMinFloor =
@@ -115,7 +125,7 @@ public class FixedHeightPassStrategy implements ShotStrategy {
 
     if (!result.achievable()) {
       logFailure("%s at D=%.2fm", result.failureReason(), D);
-      return new ShotCalculator.ShotResult(0, 0, 0, 0, 0, target, false);
+      return new ShotCalculator.ShotResult(0, 0, 0, 0, 0, 0, 0, target, false);
     }
 
     double thetaDeg = result.launchAngleDeg();
@@ -165,7 +175,7 @@ public class FixedHeightPassStrategy implements ShotStrategy {
     // Check RPM limits
     if (rpm < minRPM.get() || rpm > maxRPM.get()) {
       logFailure("RPM %.0f outside [%.0f-%.0f] at D=%.2fm", rpm, minRPM.get(), maxRPM.get(), D);
-      return new ShotCalculator.ShotResult(0, 0, 0, hoodAngleDeg, 0, target, false);
+      return new ShotCalculator.ShotResult(0, 0, 0, hoodAngleDeg, 0, 0, 0, target, false);
     }
 
     // Status logging
@@ -186,7 +196,8 @@ public class FixedHeightPassStrategy implements ShotStrategy {
     Logger.recordOutput("Shots/FixedHeightPass/Achievable", true);
 
     return new ShotCalculator.ShotResult(
-        velocity, rpm, theta, hoodAngleDeg, turretAngleDeg, compensatedTarget, true);
+        velocity, rpm, theta, hoodAngleDeg, turretAngleDeg,
+        motivatorRPM.get(), spindexerRPM.get(), compensatedTarget, true);
   }
 
   private static void logFailure(String format, Object... args) {
