@@ -3,6 +3,9 @@ package frc.robot.subsystems.climber;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -70,6 +73,9 @@ public class Climber extends SubsystemBase {
       new LoggedTunableNumber("Climber/climbTimeoutSec", 5.0);
 
   private boolean lastClimbSucceeded = false;
+
+  private final Alert climberNotStowedAlert =
+      new Alert("Climber is not stowed — hold B9 for 2s to stow", AlertType.kWarning);
 
   // Pitch/roll suppliers for climbing observability (wired by RobotContainer)
   private DoubleSupplier pitchSupplier = () -> 0.0;
@@ -205,6 +211,9 @@ public class Climber extends SubsystemBase {
         break;
     }
 
+    // Alert operator if climber is not stowed during teleop
+    climberNotStowedAlert.set(DriverStation.isTeleopEnabled() && state != ClimberState.STOWED);
+
     Logger.recordOutput("Climber/State", state.name());
     Logger.recordOutput("Climber/TargetPosition", targetPositionRotations);
     Logger.recordOutput("Climber/LastClimbSucceeded", lastClimbSucceeded);
@@ -239,31 +248,25 @@ public class Climber extends SubsystemBase {
 
   // ===== Actions =====
 
-  /**
-   * Extend button action. Goes to extended position from stowed or climbed. If already extended,
-   * stows instead.
-   */
-  public void toggleExtend() {
-    switch (state) {
-      case STOWED:
-      case CLIMBED:
-        targetPositionRotations = extendPosition.get();
-        io.setPosition(targetPositionRotations);
-        state = ClimberState.EXTENDING;
-        break;
-
-      case EXTENDED:
-        targetPositionRotations = 0.0;
-        io.setPosition(targetPositionRotations);
-        state = ClimberState.STOWING;
-        break;
-
-      default:
-        break;
+  /** Extend action. Goes to extended position from STOWED or CLIMBED. No-op otherwise. */
+  public void extend() {
+    if (state == ClimberState.STOWED || state == ClimberState.CLIMBED) {
+      targetPositionRotations = extendPosition.get();
+      io.setPosition(targetPositionRotations);
+      state = ClimberState.EXTENDING;
     }
   }
 
-  /** Climb button action. From extended, retracts to climb position (off the ground). */
+  /** Stow action. Returns to stowed position from EXTENDED only. No-op otherwise. */
+  public void stow() {
+    if (state == ClimberState.EXTENDED) {
+      targetPositionRotations = 0.0;
+      io.setPosition(targetPositionRotations);
+      state = ClimberState.STOWING;
+    }
+  }
+
+  /** Climb action. From EXTENDED, retracts to climb position. No-op otherwise. */
   public void climb() {
     lastClimbSucceeded = false;
     if (state == ClimberState.EXTENDED) {
@@ -309,15 +312,7 @@ public class Climber extends SubsystemBase {
 
   /** Command: extend from stowed, finishes when extended or timeout. */
   public Command extendCommand() {
-    return Commands.runOnce(
-            () -> {
-              if (state == ClimberState.STOWED) {
-                targetPositionRotations = extendPosition.get();
-                io.setPosition(targetPositionRotations);
-                state = ClimberState.EXTENDING;
-              }
-            },
-            this)
+    return Commands.runOnce(this::extend, this)
         .andThen(Commands.waitUntil(this::isExtended).withTimeout(extendTimeoutSec.get()))
         .withName("ClimberExtend");
   }

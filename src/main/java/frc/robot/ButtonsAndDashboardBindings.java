@@ -149,13 +149,14 @@ public class ButtonsAndDashboardBindings {
               .withName("Toggle Outpost Barriers"));
     }
 
-    // Climber dashboard buttons (mirrors button box: B9 = extend/stow, B2-1 = climb)
+    // Climber dashboard buttons (mirrors button box)
     if (climber != null) {
       SmartDashboard.putData(
-          "Sim/ClimberExtendToggle",
-          Commands.runOnce(climber::toggleExtend, climber).withName("Climber Extend/Stow"));
+          "Sim/ClimberExtend", Commands.runOnce(climber::extend).withName("Climber Extend"));
       SmartDashboard.putData(
-          "Sim/ClimberClimb", Commands.runOnce(climber::climb, climber).withName("Climber Climb"));
+          "Sim/ClimberStow", Commands.runOnce(climber::stow).withName("Climber Stow"));
+      SmartDashboard.putData(
+          "Sim/ClimberClimb", Commands.runOnce(climber::climb).withName("Climber Climb"));
     }
 
     // Launcher RPM trim buttons (mirrors button box axis knob positions)
@@ -454,12 +455,7 @@ public class ButtonsAndDashboardBindings {
                                     .getDistance(
                                         DriveCommands.findNearestClimbPose(drive).getTranslation())
                                 <= 1.0)
-                    .andThen(
-                        Commands.runOnce(
-                            () -> {
-                              if (climber.isStowed()) climber.toggleExtend();
-                            },
-                            climber))
+                    .andThen(Commands.runOnce(climber::extend))
                     .withName("AutoExtendClimber"))
             : DriveCommands.pathfindToNearestPole(drive);
     oi.getRightJoyLeftButton()
@@ -671,10 +667,14 @@ public class ButtonsAndDashboardBindings {
     oi.getButtonBox1Button10()
         .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimRight()).ignoringDisable(true));
 
-    // Climber controls — B9: extend/stow toggle, B2-1: climb
+    // Climber controls — no subsystem requirement to avoid canceling driver auto-align
+    // B9 tap: extend (from STOWED or CLIMBED, no-op if already extended)
+    // B9 hold 2s: stow (from EXTENDED only, deliberate action)
+    // B2-1: climb (from EXTENDED only)
     if (climber != null) {
-      oi.getButtonBox1Button9().onTrue(Commands.runOnce(climber::toggleExtend, climber));
-      oi.getButtonBox2Button1().onTrue(Commands.runOnce(climber::climb, climber));
+      oi.getButtonBox1Button9().onTrue(Commands.runOnce(climber::extend));
+      oi.getButtonBox1Button9().debounce(2.0).onTrue(Commands.runOnce(climber::stow));
+      oi.getButtonBox2Button1().onTrue(Commands.runOnce(climber::climb));
     }
   }
 }
