@@ -42,6 +42,6 @@
   "robotFeatures": [
     "{\"name\":\"Turret\",\"type\":\"circle\",\"data\":{\"center\":{\"x\":-0.083,\"y\":0.18415},\"radius\":0.075,\"strokeWidth\":0.01,\"filled\":false}}",
     "{\"name\":\"Intake\",\"type\":\"rounded_rect\",\"data\":{\"center\":{\"x\":0.451,\"y\":0.0},\"size\":{\"width\":0.7874,\"length\":0.305},\"borderRadius\":0.015,\"strokeWidth\":0.02,\"filled\":false}}",
-    "{\"name\":\"Climber\",\"type\":\"rounded_rect\",\"data\":{\"center\":{\"x\":-0.25,\"y\":0.025},\"size\":{\"width\":0.1,\"length\":0.2},\"borderRadius\":0.0,\"strokeWidth\":0.02,\"filled\":false}}"
+    "{\"name\":\"Climber\",\"type\":\"rounded_rect\",\"data\":{\"center\":{\"x\":-0.35,\"y\":-0.048},\"size\":{\"width\":0.05,\"length\":0.05},\"borderRadius\":0.0,\"strokeWidth\":0.02,\"filled\":false}}"
   ]
 }

@@ -64,12 +64,28 @@
     },
     {
       "anchor": {
-        "x": 1.0935614035087717,
-        "y": 1.8709298245614034
+        "x": 1.3958947368366401,
+        "y": 0.6854649122806973
       },
       "prevControl": {
-        "x": 1.0299122807017542,
-        "y": 0.3353947368421064
+        "x": 2.179823804768186,
+        "y": 0.6732138617601102
+      },
+      "nextControl": {
+        "x": 0.6119656689050939,
+        "y": 0.6977159628012843
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 1.1062912280701755,
+        "y": 2.916366666666671
+      },
+      "prevControl": {
+        "x": 0.9869491228070177,
+        "y": 1.7309017543859684
       },
       "nextControl": null,
       "isLocked": false,
@@ -98,23 +114,27 @@
       "rotationDegrees": 180.0
     },
     {
-      "waypointRelativePos": 3.347264437689969,
+      "waypointRelativePos": 3.7,
       "rotationDegrees": 180.0
     },
     {
-      "waypointRelativePos": 3.5399515738498843,
+      "waypointRelativePos": 4.1,
       "rotationDegrees": -160.0
     },
     {
-      "waypointRelativePos": 3.7868561278863293,
+      "waypointRelativePos": 4.55,
       "rotationDegrees": -160.0
+    },
+    {
+      "waypointRelativePos": 4.794188861985478,
+      "rotationDegrees": -90.0
     }
   ],
   "constraintZones": [
     {
       "name": "SoTM",
-      "minWaypointRelativePos": 3.310428455941798,
-      "maxWaypointRelativePos": 4.0,
+      "minWaypointRelativePos": 3.6,
+      "maxWaypointRelativePos": 5.0,
       "constraints": {
         "maxVelocity": 0.6,
         "maxAcceleration": 0.6,
@@ -152,7 +172,19 @@
     }
   ],
   "pointTowardsZones": [],
-  "eventMarkers": [],
+  "eventMarkers": [
+    {
+      "name": "ClimberExtend",
+      "waypointRelativePos": 4.537102473498244,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "ClimberExtend"
+        }
+      }
+    }
+  ],
   "globalConstraints": {
     "maxVelocity": 2.5,
     "maxAcceleration": 3.0,
