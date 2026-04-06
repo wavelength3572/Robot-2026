@@ -297,6 +297,13 @@ public class Climber extends SubsystemBase {
     return state == ClimberState.STOWED;
   }
 
+  /** Force state back to STOWED and stop the motor. Safe to call on auto init. */
+  public void resetToStowed() {
+    io.stop();
+    state = ClimberState.STOWED;
+    targetPositionRotations = 0.0;
+  }
+
   public boolean didLastClimbSucceed() {
     return lastClimbSucceeded;
   }

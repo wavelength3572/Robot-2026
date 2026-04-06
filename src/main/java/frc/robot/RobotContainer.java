@@ -9,6 +9,7 @@ package frc.robot;
 
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -16,6 +17,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.AutoWrapperFactory;
+import frc.robot.commands.DriveCommands;
 import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
@@ -867,9 +869,36 @@ public class RobotContainer {
     if (climber != null) {
       NamedCommands.registerCommand("ClimberExtend", climber.extendCommand().asProxy());
       NamedCommands.registerCommand("ClimberClimb", climber.climbCommand().asProxy());
+
+      // AutoClimb: single named command that pathfinds to nearest pole, auto-extends the climber
+      // when close enough (same as teleop), then climbs once positioned. Drop this at the end of
+      // any auto to get a full climb sequence.
+      final Climber climbRef = climber;
+      NamedCommands.registerCommand(
+          "AutoClimb",
+          Commands.runOnce(climbRef::resetToStowed)
+              .andThen(
+                  Commands.parallel(
+                      DriveCommands.pathfindToNearestPole(drive),
+                      Commands.waitUntil(
+                              () ->
+                                  drive
+                                          .getPose()
+                                          .getTranslation()
+                                          .getDistance(
+                                              DriveCommands.findNearestClimbPose(drive)
+                                                  .getTranslation())
+                                      <= Units.feetToMeters(
+                                          Constants.getRobotConfig()
+                                              .getClimberAutoExtendDistanceFeet()))
+                          .andThen(Commands.runOnce(climbRef::extend))
+                          .withName("AutoExtendClimber")))
+              .andThen(climbRef.climbCommand())
+              .asProxy());
     } else {
       NamedCommands.registerCommand("ClimberExtend", Commands.none());
       NamedCommands.registerCommand("ClimberClimb", Commands.none());
+      NamedCommands.registerCommand("AutoClimb", Commands.none());
     }
 
     // StowHood: drive hood to min angle, unblocks when ≤18° (safe to enter trench).
