@@ -128,12 +128,28 @@
     },
     {
       "anchor": {
-        "x": 2.1331209677419363,
-        "y": 5.7685403225806455
+        "x": 1.3799824561439795,
+        "y": 5.642140350871646
       },
       "prevControl": {
-        "x": 1.6430483870967754,
-        "y": 5.797798387096775
+        "x": 1.6790723194663417,
+        "y": 5.781608244615395
+      },
+      "nextControl": {
+        "x": 1.0510443502526294,
+        "y": 5.48875399303551
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 1.0123948165599828,
+        "y": 4.6455749581503145
+      },
+      "prevControl": {
+        "x": 1.0123948165599828,
+        "y": 5.28216296356944
       },
       "nextControl": null,
       "isLocked": false,
@@ -152,15 +168,23 @@
     {
       "waypointRelativePos": 3.464125560538109,
       "rotationDegrees": 180.0
+    },
+    {
+      "waypointRelativePos": 7.55084745762713,
+      "rotationDegrees": 180.0
+    },
+    {
+      "waypointRelativePos": 8.237288135593232,
+      "rotationDegrees": 90.0
     }
   ],
   "constraintZones": [
     {
       "name": "Shoot on the Move Zone",
       "minWaypointRelativePos": 4.229587712206946,
-      "maxWaypointRelativePos": 8.0,
+      "maxWaypointRelativePos": 9.0,
       "constraints": {
-        "maxVelocity": 0.75,
+        "maxVelocity": 0.95,
         "maxAcceleration": 0.49,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
@@ -173,7 +197,7 @@
       "minWaypointRelativePos": 1.27,
       "maxWaypointRelativePos": 2.460024600246002,
       "constraints": {
-        "maxVelocity": 0.75,
+        "maxVelocity": 0.85,
         "maxAcceleration": 1.5,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
@@ -207,7 +231,7 @@
   },
   "goalEndState": {
     "velocity": 0.0,
-    "rotation": 180.0
+    "rotation": 90.0
   },
   "reversed": false,
   "folder": "Auto Paths",
