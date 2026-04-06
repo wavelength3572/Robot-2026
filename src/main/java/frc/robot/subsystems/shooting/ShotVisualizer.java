@@ -297,37 +297,30 @@ public class ShotVisualizer {
    */
   public void visualizeShot(
       ShotCalculator.ShotResult shotResult,
+      Translation3d compensatedAimTarget,
+      double exitVelocityMps,
       double currentTurretAngleRad,
       double robotHeadingRad,
       ShotSnapshot.TrajectoryReadiness readiness) {
     Translation3d turretPos = getTurretFieldPosition();
-    Translation3d target = shotResult.aimTarget();
+
+    if (compensatedAimTarget == null) return;
 
     double targetAzimuthAngle =
-        Math.atan2(target.getY() - turretPos.getY(), target.getX() - turretPos.getX());
+        Math.atan2(
+            compensatedAimTarget.getY() - turretPos.getY(),
+            compensatedAimTarget.getX() - turretPos.getX());
 
     this.currentAzimuthAngle = targetAzimuthAngle;
 
-    // Compute exit velocity from ballistic physics to reach the aim target.
-    // The RPM-based model (calculateExitVelocityFromRPM) underestimates real exit velocity
-    // because it only models the main wheel + hood roller and ignores the motivator's
-    // contribution. Instead, solve for the velocity that reaches the target at the given
-    // launch angle — this matches what the real shots actually do.
-    double distanceToTarget =
-        Math.sqrt(
-            Math.pow(target.getX() - turretPos.getX(), 2)
-                + Math.pow(target.getY() - turretPos.getY(), 2));
-    double heightDelta = target.getZ() - turretPos.getZ();
+    // Use exit velocity from the coordinator (strategy-computed)
     double launchAngle = shotResult.launchAngleRad();
-    double actualExitVelocity =
-        calculateVelocityToHitTarget(distanceToTarget, heightDelta, launchAngle);
 
     // Actual trajectory: aim direction + robot velocity
-    updateActualTrajectory(
-        actualExitVelocity, shotResult.launchAngleRad(), targetAzimuthAngle, readiness);
+    updateActualTrajectory(exitVelocityMps, launchAngle, targetAzimuthAngle, readiness);
 
     Logger.recordOutput(
-        "Visualizations/CompensatedTarget", new Pose3d(shotResult.aimTarget(), Rotation3d.kZero));
+        "Visualizations/CompensatedTarget", new Pose3d(compensatedAimTarget, Rotation3d.kZero));
   }
 
   /**
@@ -380,6 +373,8 @@ public class ShotVisualizer {
       double robotHeadingRad = snapshot.robotPose().getRotation().getRadians();
       visualizeShot(
           snapshot.currentShot(),
+          snapshot.compensatedAimTarget(),
+          snapshot.exitVelocityMps(),
           currentTurretAngleRad,
           robotHeadingRad,
           snapshot.trajectoryReadiness());

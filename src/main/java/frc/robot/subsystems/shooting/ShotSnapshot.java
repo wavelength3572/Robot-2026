@@ -1,6 +1,7 @@
 package frc.robot.subsystems.shooting;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import frc.robot.util.ZoneDetector;
 
@@ -19,6 +20,8 @@ public record ShotSnapshot(
     double centerOffsetDeg,
     double warningZoneDeg,
     ShotCalculator.ShotResult currentShot,
+    Translation3d compensatedAimTarget,
+    double exitVelocityMps,
     double turretHeightMeters,
     double turretXOffset,
     double turretYOffset,

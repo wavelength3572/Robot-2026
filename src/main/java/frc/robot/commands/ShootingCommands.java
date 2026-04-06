@@ -734,10 +734,9 @@ public class ShootingCommands {
                     turret.setActivelyCommanded(true);
                     return; // hold position
                   }
-                  ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
-                  if (shot != null) {
+                  if (coordinator.getCurrentShot() != null) {
                     turret.setActivelyCommanded(true);
-                    turret.setOutsideTurretAngle(shot.turretAngleDeg());
+                    turret.setOutsideTurretAngle(coordinator.getCurrentTurretAngleDeg());
                   }
                 },
                 turret),
@@ -926,25 +925,32 @@ public class ShootingCommands {
     return shot != null ? shot.hoodAngleDeg() : 0.0;
   }
 
-  /** Get effective motivator RPM — override value when toggled, otherwise derived from launcher. */
+  /** Get effective motivator RPM — override value when toggled, otherwise from strategy. */
   public static double getEffectiveMotivatorRPM(
       double launcherRPM, ShootingCoordinator coordinator) {
     if (SmartDashboard.getBoolean("Overrides/Motivator", false)) {
       return overrideMotivatorRPM.get();
     }
-    if (coordinator != null
-        && coordinator.isInPassZone()
-        && SmartDashboard.getBoolean("Passes/UseFixedMotivatorRPM", true)) {
-      return passingMotivatorRPM.get();
+    // Strategy provides motivator RPM via ShotResult
+    ShotCalculator.ShotResult shot = coordinator != null ? coordinator.getCurrentShot() : null;
+    if (shot != null && shot.motivatorRPM() > 0) {
+      return shot.motivatorRPM();
     }
+    // Fallback to old logic if strategy doesn't provide
     return getMotivatorRPM(launcherRPM, coordinator);
   }
 
-  /** Get effective spindexer RPM — override value when toggled, otherwise distance-based. */
+  /** Get effective spindexer RPM — override value when toggled, otherwise from strategy. */
   public static double getEffectiveSpindexerRPM(ShootingCoordinator coordinator) {
     if (SmartDashboard.getBoolean("Overrides/Spindexer", false)) {
       return overrideSpindexerRPM.get();
     }
+    // Strategy provides spindexer RPM via ShotResult
+    ShotCalculator.ShotResult shot = coordinator != null ? coordinator.getCurrentShot() : null;
+    if (shot != null && shot.spindexerRPM() > 0) {
+      return shot.spindexerRPM();
+    }
+    // Fallback to old logic
     double dist = coordinator.getDistanceToTarget();
     return coordinator.isInPassZone()
         ? getSpindexerPassRPM()

@@ -93,6 +93,25 @@ public class ShootingCoordinator extends SubsystemBase {
   private final FixedHeightShotStrategy fixedHeightStrategy = new FixedHeightShotStrategy();
   private final FixedHeightPassStrategy fixedHeightPassStrategy = new FixedHeightPassStrategy();
 
+  // Hub strategy chooser — selectable via dashboard dropdown
+  private final SendableChooser<ShotStrategy> hubStrategyChooser = new SendableChooser<>();
+  private final TwoStageShotStrategy twoStageStrategy = new TwoStageShotStrategy();
+
+  // Velocity compensation tunables (moved from ShotCalculator)
+  private final LoggedTunableNumber velocityCompX =
+      new LoggedTunableNumber(
+          "Shots/VelocityComp/X", Constants.getRobotConfig().getShotVelocityCompX());
+  private final LoggedTunableNumber velocityCompY =
+      new LoggedTunableNumber(
+          "Shots/VelocityComp/Y", Constants.getRobotConfig().getShotVelocityCompY());
+
+  // ========== Coordinator-computed fields (derived from strategy + geometry) ==========
+  // These are computed after the strategy returns and exposed via getters.
+  private double currentTurretAngleDeg = 0.0;
+  private Translation3d compensatedAimTarget = null;
+  private double currentExitVelocityMps = 0.0;
+  private boolean currentShotAchievable = true;
+
   // Visualizer (created during initialize)
   private ShotVisualizer visualizer = null;
 
@@ -377,6 +396,11 @@ public class ShootingCoordinator extends SubsystemBase {
     passingStrategyChooser.setDefaultOption("Symmetric (Y-based)", PassingStrategy.SYMMETRIC);
     passingStrategyChooser.addOption("Driver Station", PassingStrategy.DRIVER_STATION);
     SmartDashboard.putData("SmartLaunch/Pass/Strategy", passingStrategyChooser);
+
+    // Hub strategy chooser — which shot strategy to use for hub shots
+    hubStrategyChooser.setDefaultOption("FixedHeight (baseline)", fixedHeightStrategy);
+    hubStrategyChooser.addOption("TwoStage (motivator model)", twoStageStrategy);
+    SmartDashboard.putData("SmartLaunch/HubStrategy", hubStrategyChooser);
   }
 
   /**
@@ -735,56 +759,85 @@ public class ShootingCoordinator extends SubsystemBase {
   private void calculateShotToTarget(
       Pose2d robotPose, ChassisSpeeds fieldSpeeds, Translation3d target) {
 
+    double robotHeadingRad = robotPose.getRotation().getRadians();
+    double[] turretFieldPos =
+        ShotCalculator.getTurretFieldPosition(
+            robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
+    double turretX = turretFieldPos[0];
+    double turretY = turretFieldPos[1];
+
     // Apply operator turret trim — rotate aim target around turret field position
     if (turretTrimDeg != 0.0) {
-      double headingRad = robotPose.getRotation().getRadians();
-      double[] tfp =
-          ShotCalculator.getTurretFieldPosition(
-              robotPose.getX(), robotPose.getY(), headingRad, turretConfig);
-      target = applyTurretTrim(target, tfp[0], tfp[1]);
+      target = applyTurretTrim(target, turretX, turretY);
     }
 
-    double hoodMin = hood != null ? hood.getMinAngle() : 16.0;
-    double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
+    // Select active hub strategy from chooser
+    ShotStrategy activeStrategy = hubStrategyChooser.getSelected();
+    if (activeStrategy == null) activeStrategy = fixedHeightStrategy;
 
-    // Force hood to minimum in neutral trench and danger zone (setClamped already handled above)
-    boolean inNeutralTrench =
-        cachedAimResult != null && cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
-    boolean inDangerTrench =
-        cachedAimResult != null && cachedAimResult.zone() == ZoneDetector.Zone.DANGER_TRENCH;
-    if (inNeutralTrench || inDangerTrench) {
-      hoodMax = hoodMin;
+    // Velocity compensation: solve static → estimate TOF → shift target → re-solve
+    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+    compensatedAimTarget = target;
+
+    if (robotSpeed > 0.1) {
+      double staticDist = Math.hypot(target.getX() - turretX, target.getY() - turretY);
+      ShotCalculator.ShotResult staticShot = activeStrategy.calculateShot(staticDist);
+      double exitVel = activeStrategy.estimateExitVelocity(staticShot.launcherRPM(), staticDist);
+      double launchAngle = staticShot.launchAngleRad();
+      double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, staticDist);
+      if (tof > 0 && tof < Double.MAX_VALUE) {
+        compensatedAimTarget = predictTargetPos(target, fieldSpeeds, tof);
+      }
     }
 
-    double currentTurretAngle = turret.getOutsideCurrentAngle();
-    double turretMin = turret.getMinAngle();
-    double turretMax = turret.getMaxAngle();
+    // Compute final distance to the compensated target and run the strategy
+    double D =
+        Math.hypot(compensatedAimTarget.getX() - turretX, compensatedAimTarget.getY() - turretY);
+    currentShot = activeStrategy.calculateShot(D);
+    currentDistanceM = D;
 
-    currentShot =
-        fixedHeightStrategy.calculateShot(
-            robotPose,
-            fieldSpeeds,
-            target,
-            turretConfig,
-            currentTurretAngle,
-            turretMin,
-            turretMax,
-            hoodMin,
-            hoodMax);
+    // Compute exit velocity for logging/sim
+    currentExitVelocityMps = activeStrategy.estimateExitVelocity(currentShot.launcherRPM(), D);
 
-    // Throttle target/distance logging to ~10Hz (distance itself is updated every
-    // cycle in updateShotCalculation for zone refinement)
+    // Compute turret angle (coordinator's job now)
+    currentTurretAngleDeg =
+        ShotCalculator.calculateOutsideTurretAngle(
+            robotPose.getX(),
+            robotPose.getY(),
+            robotPose.getRotation().getDegrees(),
+            compensatedAimTarget.getX(),
+            compensatedAimTarget.getY(),
+            turret.getOutsideCurrentAngle(),
+            turret.getMinAngle(),
+            turret.getMaxAngle(),
+            turretConfig);
+
+    // Achievability — strategy always returns valid commands, but flag edge cases
+    currentShotAchievable = true;
+
+    Logger.recordOutput("SmartLaunch/Status/ActiveStrategy", activeStrategy.getName());
+
+    // Throttle target/distance logging to ~10Hz
     if (periodicCounter % 5 == 0) {
       Logger.recordOutput("SmartLaunch/Status/TargetX", target.getX());
       Logger.recordOutput("SmartLaunch/Status/TargetY", target.getY());
       Logger.recordOutput("SmartLaunch/Status/DistanceM", currentDistanceM);
-      Logger.recordOutput(
-          "SmartLaunch/Status/Efficiency", ShotCalculator.getEfficiency(currentDistanceM));
-      if (currentShot != null && currentShot.aimTarget() != null) {
-        Logger.recordOutput("SmartLaunch/Status/AimTargetX", currentShot.aimTarget().getX());
-        Logger.recordOutput("SmartLaunch/Status/AimTargetY", currentShot.aimTarget().getY());
-      }
+      Logger.recordOutput("SmartLaunch/Status/AimTargetX", compensatedAimTarget.getX());
+      Logger.recordOutput("SmartLaunch/Status/AimTargetY", compensatedAimTarget.getY());
     }
+  }
+
+  /**
+   * Predict where the target will be after a given time, accounting for robot motion. Used for
+   * velocity compensation (leading the shot).
+   */
+  private Translation3d predictTargetPos(
+      Translation3d target, ChassisSpeeds fieldSpeeds, double timeOfFlight) {
+    double predictedX =
+        target.getX() - fieldSpeeds.vxMetersPerSecond * timeOfFlight * velocityCompX.get();
+    double predictedY =
+        target.getY() - fieldSpeeds.vyMetersPerSecond * timeOfFlight * velocityCompY.get();
+    return new Translation3d(predictedX, predictedY, target.getZ());
   }
 
   /** Hub net top height in meters (120.36 inches — top of the net, not the lip). */
@@ -816,30 +869,48 @@ public class ShootingCoordinator extends SubsystemBase {
     // Apply operator turret trim — rotate aim target around turret field position
     target = applyTurretTrim(target, turretX, turretY);
 
-    double horizontalDist =
-        Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
+    // Velocity compensation for passes
+    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+    compensatedAimTarget = target;
 
-    // Pass the landing target directly to the strategy. The solver treats it as the
-    // pass-through point at ground level — peak height is the only arc control,
-    // same concept as the hub strategy's fixed peak.
+    if (robotSpeed > 0.1) {
+      double staticDist = Math.hypot(target.getX() - turretX, target.getY() - turretY);
+      ShotCalculator.ShotResult staticShot = fixedHeightPassStrategy.calculateShot(staticDist);
+      double exitVel =
+          fixedHeightPassStrategy.estimateExitVelocity(staticShot.launcherRPM(), staticDist);
+      double launchAngle = staticShot.launchAngleRad();
+      double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, staticDist);
+      if (tof > 0 && tof < Double.MAX_VALUE) {
+        compensatedAimTarget = predictTargetPos(target, fieldSpeeds, tof);
+      }
+    }
+
+    double horizontalDist =
+        Math.hypot(compensatedAimTarget.getX() - turretX, compensatedAimTarget.getY() - turretY);
+
     Logger.recordOutput("SmartLaunch/Pass/TargetDistM", horizontalDist);
 
-    double hoodMax = hood != null ? hood.getMaxAngle() : 46.0;
+    currentShot = fixedHeightPassStrategy.calculateShot(horizontalDist);
+    currentDistanceM = horizontalDist;
 
-    ShotCalculator.ShotResult result =
-        fixedHeightPassStrategy.calculateShot(
-            robotPose,
-            fieldSpeeds,
-            target,
-            turretConfig,
+    // Compute exit velocity for logging/sim
+    currentExitVelocityMps =
+        fixedHeightPassStrategy.estimateExitVelocity(currentShot.launcherRPM(), horizontalDist);
+
+    // Compute turret angle
+    currentTurretAngleDeg =
+        ShotCalculator.calculateOutsideTurretAngle(
+            robotPose.getX(),
+            robotPose.getY(),
+            robotPose.getRotation().getDegrees(),
+            compensatedAimTarget.getX(),
+            compensatedAimTarget.getY(),
             turret.getOutsideCurrentAngle(),
             turret.getMinAngle(),
             turret.getMaxAngle(),
-            18.0, // hood min floor handled inside strategy, but pass as baseline
-            hoodMax);
+            turretConfig);
 
-    currentShot = result;
-    currentDistanceM = horizontalDist;
+    currentShotAchievable = true;
   }
 
   // ========== Shot State Logging ==========
@@ -856,16 +927,12 @@ public class ShootingCoordinator extends SubsystemBase {
 
     Logger.recordOutput("SmartLaunch/Target/LauncherRPM", targetRPM);
     Logger.recordOutput("SmartLaunch/Target/HoodDeg", targetHoodDeg);
-    Logger.recordOutput(
-        "SmartLaunch/Target/TurretDeg", currentShot != null ? currentShot.turretAngleDeg() : 0.0);
+    Logger.recordOutput("SmartLaunch/Target/TurretDeg", currentTurretAngleDeg);
     Logger.recordOutput(
         "SmartLaunch/Target/LaunchAngleDeg",
         currentShot != null ? currentShot.getLaunchAngleDegrees() : 0.0);
-    Logger.recordOutput(
-        "SmartLaunch/Target/ExitVelocityMps",
-        currentShot != null ? currentShot.exitVelocityMps() : 0.0);
-    Logger.recordOutput(
-        "SmartLaunch/Target/Achievable", currentShot != null && currentShot.achievable());
+    Logger.recordOutput("SmartLaunch/Target/ExitVelocityMps", currentExitVelocityMps);
+    Logger.recordOutput("SmartLaunch/Target/Achievable", currentShotAchievable);
     Logger.recordOutput(
         "SmartLaunch/Target/MotivatorRPM",
         frc.robot.commands.ShootingCommands.getEffectiveMotivatorRPM(targetRPM, this));
@@ -886,22 +953,22 @@ public class ShootingCoordinator extends SubsystemBase {
         spindexer != null ? spindexer.getSpindexerWheelVelocity() : 0.0);
 
     // Distance and TOF
-    if (currentShot != null && robotPoseSupplier != null) {
+    if (currentShot != null && robotPoseSupplier != null && compensatedAimTarget != null) {
       Pose2d robotPose = robotPoseSupplier.get();
       double robotHeadingRad = robotPose.getRotation().getRadians();
       double[] turretPos =
           ShotCalculator.getTurretFieldPosition(
               robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
-      Translation3d aim = currentShot.aimTarget();
       double distance =
           Math.sqrt(
-              Math.pow(aim.getX() - turretPos[0], 2) + Math.pow(aim.getY() - turretPos[1], 2));
+              Math.pow(compensatedAimTarget.getX() - turretPos[0], 2)
+                  + Math.pow(compensatedAimTarget.getY() - turretPos[1], 2));
       Logger.recordOutput("SmartLaunch/Status/DistanceToAimPoint", distance);
 
       // TOF from physics (exit velocity + launch angle)
       double tof =
           ShotCalculator.calculateTimeOfFlight(
-              currentShot.exitVelocityMps(), currentShot.launchAngleRad(), distance);
+              currentExitVelocityMps, currentShot.launchAngleRad(), distance);
       Logger.recordOutput("SmartLaunch/TOF", tof);
     }
   }
@@ -916,7 +983,10 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Launch a fuel ball using the current shot parameters. */
   public void launchFuel() {
     if (feedingSuppressedSupplier.getAsBoolean()) return;
-    if (visualizer != null && currentShot != null && robotPoseSupplier != null) {
+    if (visualizer != null
+        && currentShot != null
+        && robotPoseSupplier != null
+        && compensatedAimTarget != null) {
       Pose2d robotPose = robotPoseSupplier.get();
       double robotHeadingRad = robotPose.getRotation().getRadians();
 
@@ -926,27 +996,12 @@ public class ShootingCoordinator extends SubsystemBase {
       double turretX = turretFieldPos[0];
       double turretY = turretFieldPos[1];
 
-      Translation3d target = currentShot.aimTarget();
-      double azimuthAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
+      double azimuthAngle =
+          Math.atan2(compensatedAimTarget.getY() - turretY, compensatedAimTarget.getX() - turretX);
 
-      // Compute exit velocity from ballistic physics to reach the aim target.
-      // The RPM-based exitVelocityMps underestimates because it doesn't account for
-      // the
-      // motivator's contribution to ball speed. Solving for the velocity that hits
-      // the target
-      // at the given launch angle matches real-world shot behavior.
-      double distanceToTarget =
-          Math.sqrt(Math.pow(target.getX() - turretX, 2) + Math.pow(target.getY() - turretY, 2));
-      double heightDelta = target.getZ() - turretConfig.heightMeters();
+      // Use the strategy's exit velocity estimate for simulation
       double launchAngle = currentShot.launchAngleRad();
-      double cosTheta = Math.cos(launchAngle);
-      double tanTheta = Math.tan(launchAngle);
-      double denom = 2.0 * cosTheta * cosTheta * (distanceToTarget * tanTheta - heightDelta);
-      double actualExitVelocity =
-          (denom > 0 && distanceToTarget >= 0.1)
-              ? Math.sqrt(9.81 * distanceToTarget * distanceToTarget / denom)
-              : currentShot.exitVelocityMps();
-      visualizer.launchFuel(actualExitVelocity, currentShot.launchAngleRad(), azimuthAngle);
+      visualizer.launchFuel(currentExitVelocityMps, launchAngle, azimuthAngle);
 
       // Track shot counts (auto vs teleop)
       totalShots++;
@@ -981,7 +1036,7 @@ public class ShootingCoordinator extends SubsystemBase {
       return runOnce(() -> {}); // No-op if visualizer not initialized
     }
     return visualizer.repeatedlyLaunchFuel(
-        () -> currentShot != null ? currentShot.exitVelocityMps() : 0.0,
+        () -> currentExitVelocityMps,
         () -> currentShot != null ? currentShot.launchAngleRad() : 0.0,
         this);
   }
@@ -997,6 +1052,26 @@ public class ShootingCoordinator extends SubsystemBase {
     return currentShot;
   }
 
+  /** Get the coordinator-computed turret angle (from velocity-compensated aim target). */
+  public double getCurrentTurretAngleDeg() {
+    return currentTurretAngleDeg;
+  }
+
+  /** Get the velocity-compensated aim target (for visualizer). May be null if no shot active. */
+  public Translation3d getCompensatedAimTarget() {
+    return compensatedAimTarget;
+  }
+
+  /** Get the coordinator-computed exit velocity (from active strategy). */
+  public double getCurrentExitVelocityMps() {
+    return currentExitVelocityMps;
+  }
+
+  /** Get whether the current shot is achievable. */
+  public boolean isCurrentShotAchievable() {
+    return currentShotAchievable;
+  }
+
   /**
    * Set manual shot parameters for test mode. Overrides auto-calculated shot.
    *
@@ -1006,15 +1081,14 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   public void setManualShotParameters(
       double launcherRPM, double hoodAngleDeg, double targetTurretAngleDeg) {
-    if (robotPoseSupplier != null) {
-      Pose2d robotPose = robotPoseSupplier.get();
-      currentShot =
-          ShotCalculator.calculateManualShot(
-              robotPose, turretConfig, launcherRPM, hoodAngleDeg, targetTurretAngleDeg);
+    currentShot = ShotCalculator.calculateManualShot(launcherRPM, hoodAngleDeg);
+    currentTurretAngleDeg = targetTurretAngleDeg;
+    currentExitVelocityMps = 0.0;
+    currentShotAchievable = true;
+    compensatedAimTarget = null;
 
-      // Update the ShotCalculator's target RPM for consistency
-      ShotCalculator.setTargetLauncherRPM(launcherRPM);
-    }
+    // Update the ShotCalculator's target RPM for consistency
+    ShotCalculator.setTargetLauncherRPM(launcherRPM);
   }
 
   /** Clear manual shot parameters and return to auto-calculated shots. */
@@ -1451,7 +1525,7 @@ public class ShootingCoordinator extends SubsystemBase {
       motivatorReady = motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
       turretReady = turret.getState() == Turret.TurretState.READY;
       hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
-      shotAchievable = currentShot != null && currentShot.achievable();
+      shotAchievable = currentShot != null && currentShotAchievable;
       boolean turretNotFlipping = turret.getState() != Turret.TurretState.FLIPPING;
       speedOk = isRobotSlowEnoughForCurrentZone();
       allReady =
@@ -1660,7 +1734,7 @@ public class ShootingCoordinator extends SubsystemBase {
           motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
       boolean turretReady = turret.atTarget();
       boolean hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
-      boolean achievable = currentShot.achievable();
+      boolean achievable = currentShotAchievable;
       readiness =
           (launcherReady && motivatorReady && turretReady && hoodReady && achievable)
               ? ShotSnapshot.TrajectoryReadiness.READY
@@ -1678,6 +1752,8 @@ public class ShootingCoordinator extends SubsystemBase {
         turret.getOutsideCenterDeg(),
         turret.getWarningZoneDeg(),
         currentShot,
+        compensatedAimTarget,
+        currentExitVelocityMps,
         turretConfig.heightMeters(),
         turretConfig.xOffset(),
         turretConfig.yOffset(),

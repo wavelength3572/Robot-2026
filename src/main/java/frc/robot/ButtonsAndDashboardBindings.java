@@ -270,15 +270,16 @@ public class ButtonsAndDashboardBindings {
                   () -> {
                     if (SmartDashboard.getBoolean("Shots/AutoTrack/Enabled", false)) {
                       turret.setActivelyCommanded(true);
-                      ShotCalculator.ShotResult shot = shootingCoordinator.getCurrentShot();
-                      if (shot != null) {
-                        turret.setOutsideTurretAngle(shot.turretAngleDeg());
+                      if (shootingCoordinator.getCurrentShot() != null) {
+                        turret.setOutsideTurretAngle(
+                            shootingCoordinator.getCurrentTurretAngleDeg());
                         boolean turretReady = turret.atTarget();
-                        boolean aimReady = turretReady && shot.achievable();
+                        boolean achievable = shootingCoordinator.isCurrentShotAchievable();
+                        boolean aimReady = turretReady && achievable;
                         Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", aimReady);
                         SmartDashboard.putString(
                             "Match/Status/AutoTrackAimMode",
-                            shot.achievable() ? "Tracking" : "Out of Range");
+                            achievable ? "Tracking" : "Out of Range");
                         SmartDashboard.putBoolean("Match/Status/AutoTrackAimReady", aimReady);
                       } else {
                         Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", false);
