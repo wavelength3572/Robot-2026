@@ -661,10 +661,11 @@ public class ShootingCommands {
   }
 
   /**
-   * Aggressive SmartLaunch variant ("dangerous"). Motivator pre-spins in parallel with launcher and
-   * aiming — no reverse pulse, no waiting for FIRING. Saves ~0.3-0.5s per firing cycle. Subsystems
-   * idle while auto collecting (open neutral/opponent zones). Hood clamps in trench while moving,
-   * pops up below 0.6 m/s in alliance trench only.
+   * Aggressive SmartLaunch variant ("dangerous"). Motivator holds gentle reverse until launcher is
+   * at speed, then spins forward — prevents errant shots from balls migrating past the spindexer
+   * while still reaching READY quickly for the coordinator gate. Subsystems idle while auto
+   * collecting (open neutral/opponent zones). Hood clamps in trench while moving, pops up below
+   * 0.6 m/s in alliance trench only.
    *
    * @param launcher The launcher subsystem
    * @param coordinator The shooting coordinator (owns the state machine)
@@ -772,10 +773,12 @@ public class ShootingCommands {
                     hood)
                 : Commands.none(),
 
-            // Motivator — always pre-spin in teleop (ready for passing or shooting).
-            // In auto, idle only while collecting (open neutral/opponent zones).
-            // Reverse pulse runs on first spin-up (not on FIRING entry) to clear any
-            // ball stuck at the motivator/launcher interface during free time.
+            // Motivator — holds gentle reverse until launcher is at speed to prevent
+            // errant shots from balls migrating past the spindexer. Once launcher
+            // is ready, spins forward to reach READY quickly for the coordinator gate.
+            // In auto, idles while collecting (open neutral/opponent zones).
+            // Initial reverse pulse on first spin-up clears any ball stuck at the
+            // motivator/launcher interface during free time.
             motivator != null
                 ? Commands.run(
                     new Runnable() {
@@ -810,11 +813,19 @@ public class ShootingCommands {
                           }
                         }
 
+                        // Hold motivator in gentle reverse until launcher is at speed
+                        // to prevent errant shots from balls migrating past the
+                        // spindexer. Once launcher is ready, spin forward so the
+                        // motivator reaches READY quickly for the coordinator gate.
                         ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                         if (s != null) {
-                          double launcherRPM = getEffectiveRPM(s);
-                          motivator.setMotivatorVelocity(
-                              getEffectiveMotivatorRPM(launcherRPM, coordinator));
+                          if (launcher.isReady()) {
+                            double launcherRPM = getEffectiveRPM(s);
+                            motivator.setMotivatorVelocity(
+                                getEffectiveMotivatorRPM(launcherRPM, coordinator));
+                          } else {
+                            motivator.setMotivatorVoltage(-1.0);
+                          }
                         } else {
                           motivator.stopMotivator();
                         }
