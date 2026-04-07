@@ -1,5 +1,7 @@
 package frc.robot.subsystems.intake;
 
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color;
@@ -426,6 +428,13 @@ public class Intake extends SubsystemBase {
     }
 
     Logger.recordOutput("Visualizations/Intake2d", mechanism);
+
+    // 3D component pose for AdvantageScope — intake pivots from stowed (up) to deployed (forward)
+    // deployFraction 0 = stowed, 1 = fully deployed; maps to Y-axis rotation (pitch forward)
+    double deployAngleRad = Math.toRadians(-90.0 * Math.min(deployFraction, 1.0));
+    Logger.recordOutput(
+        "Visualizations/Intake",
+        new Pose3d(0.0, 0.0, 0.0, new Rotation3d(0.0, deployAngleRad, 0.0)));
 
     // Log state machines
     Logger.recordOutput("Subsystems/IntakeDeployState", deployState.name());

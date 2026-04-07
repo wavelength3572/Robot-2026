@@ -85,7 +85,7 @@
       },
       "prevControl": {
         "x": 0.9869491228070177,
-        "y": 1.7309017543859684
+        "y": 1.7309017543859682
       },
       "nextControl": null,
       "isLocked": false,
@@ -175,7 +175,7 @@
   "eventMarkers": [
     {
       "name": "ClimberExtend",
-      "waypointRelativePos": 4.537102473498244,
+      "waypointRelativePos": 4.420697412823437,
       "endWaypointRelativePos": null,
       "command": {
         "type": "named",

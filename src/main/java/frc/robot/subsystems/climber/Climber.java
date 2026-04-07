@@ -51,6 +51,11 @@ public class Climber extends SubsystemBase {
     STOWING // Moving back to position 0
   }
 
+  // 3D stowed offset for AdvantageScope (absolute position relative to robot origin)
+  private static final double CLIMBER_3D_X = -0.556;
+  private static final double CLIMBER_3D_Y = -0.103;
+  private static final double CLIMBER_3D_Z = -0.190;
+
   private final ClimberIO io;
   private final ClimberIOInputsAutoLogged inputs = new ClimberIOInputsAutoLogged();
 
@@ -239,14 +244,16 @@ public class Climber extends SubsystemBase {
     Logger.recordOutput("Visualizations/Climber2d", mechanism);
 
     // 3D component pose for AdvantageScope — climber moves vertically
-    // Delta from stowed position using drum math, with tunable correction
+    // Logged pose is absolute (replaces zeroedPosition in config), so include stowed offset
     double gearRatio = Constants.getRobotConfig().getClimberGearRatio();
     double drumDiameterMeters =
         Units.inchesToMeters(Constants.getRobotConfig().getClimberDrumDiameterInches());
     double linearHeightMeters =
         (inputs.positionRotations / gearRatio) * Math.PI * drumDiameterMeters;
     Logger.recordOutput(
-        "Visualizations/Climber", new Pose3d(0.0, 0.0, linearHeightMeters, new Rotation3d()));
+        "Visualizations/Climber",
+        new Pose3d(
+            CLIMBER_3D_X, CLIMBER_3D_Y, CLIMBER_3D_Z + linearHeightMeters, new Rotation3d()));
   }
 
   // ===== Actions =====
@@ -280,6 +287,13 @@ public class Climber extends SubsystemBase {
   }
 
   // ===== State queries =====
+
+  /** Force the climber back to stowed state (e.g. at auto init). */
+  public void forceStow() {
+    targetPositionRotations = 0.0;
+    io.setPosition(0.0);
+    state = ClimberState.STOWED;
+  }
 
   public ClimberState getState() {
     return state;

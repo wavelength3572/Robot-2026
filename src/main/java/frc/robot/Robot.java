@@ -211,6 +211,11 @@ public class Robot extends LoggedRobot {
       robotContainer.getSpindexer().enableAutoUnclog();
     }
 
+    // Reset climber to stowed so it starts clean each auto
+    if (robotContainer.getClimber() != null) {
+      robotContainer.getClimber().forceStow();
+    }
+
     autonomousCommand = robotContainer.getAutonomousCommand();
 
     // schedule the autonomous command (example)
