@@ -211,9 +211,14 @@ public class Robot extends LoggedRobot {
       robotContainer.getSpindexer().enableAutoUnclog();
     }
 
-    // Reset climber to stowed so it starts clean each auto
-    if (robotContainer.getClimber() != null) {
-      robotContainer.getClimber().forceStow();
+    // Reset climber and intake to stowed so sim starts clean each auto
+    if (Constants.currentMode == Constants.Mode.SIM) {
+      if (robotContainer.getClimber() != null) {
+        robotContainer.getClimber().forceStow();
+      }
+      if (robotContainer.getIntake() != null) {
+        robotContainer.getIntake().forceStow();
+      }
     }
 
     autonomousCommand = robotContainer.getAutonomousCommand();

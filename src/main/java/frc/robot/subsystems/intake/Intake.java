@@ -429,12 +429,13 @@ public class Intake extends SubsystemBase {
 
     Logger.recordOutput("Visualizations/Intake2d", mechanism);
 
-    // 3D component pose for AdvantageScope — intake pivots from stowed (up) to deployed (forward)
-    // deployFraction 0 = stowed, 1 = fully deployed; maps to Y-axis rotation (pitch forward)
-    double deployAngleRad = Math.toRadians(-90.0 * Math.min(deployFraction, 1.0));
-    Logger.recordOutput(
-        "Visualizations/Intake",
-        new Pose3d(0.0, 0.0, 0.0, new Rotation3d(0.0, deployAngleRad, 0.0)));
+    // 3D component poses for AdvantageScope — two models: stowed (model_2) and deployed (model_3)
+    // Show deployed model for any non-retracted state, stowed model otherwise
+    boolean showDeployed =
+        deployState != DeployState.RETRACTED && deployState != DeployState.RETRACTING;
+    Pose3d hidden = new Pose3d(0.0, 0.0, -100.0, new Rotation3d());
+    Logger.recordOutput("Visualizations/Intake", showDeployed ? hidden : new Pose3d());
+    Logger.recordOutput("Visualizations/IntakeDeployed", showDeployed ? new Pose3d() : hidden);
 
     // Log state machines
     Logger.recordOutput("Subsystems/IntakeDeployState", deployState.name());
@@ -464,6 +465,17 @@ public class Intake extends SubsystemBase {
   private void applyRetractMotionConfig() {
     io.configureDeployMaxMotion(
         retractMaxVelocity.get(), retractMaxAcceleration.get(), deployTolerance.get());
+  }
+
+  /** Force the intake back to retracted/stowed state (e.g. at auto init). */
+  public void forceStow() {
+    io.stopDeploy();
+    io.stopRollerMotor();
+    io.setDeployPosition(deployStowedPos.get());
+    deployState = DeployState.RETRACTED;
+    deployCommanded = false;
+    rollersActivelyCommanded = false;
+    rollersPending = false;
   }
 
   /** Deploy the intake (extend). Stops motor first for clean retarget. */
