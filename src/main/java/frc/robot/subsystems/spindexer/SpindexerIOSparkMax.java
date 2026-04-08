@@ -32,8 +32,6 @@ import java.util.function.DoubleSupplier;
 public class SpindexerIOSparkMax implements SpindexerIO {
   private final RobotConfig config;
 
-  // private final PowerDistribution pdh;
-
   // Hardware - Spindexer motor 1 (CAN ID 55)
   private final SparkMax spindexer;
   private final RelativeEncoder spindexerEncoder;
@@ -61,9 +59,6 @@ public class SpindexerIOSparkMax implements SpindexerIO {
 
   public SpindexerIOSparkMax() {
     config = Constants.getRobotConfig();
-
-    // Create PDH for independent current monitoring
-    // pdh = new PowerDistribution();
 
     // Create SparkFlex controllers
     spindexer = new SparkMax(config.getSpindexerCanId(), MotorType.kBrushless);

@@ -58,7 +58,7 @@ public class MainBotConfig implements RobotConfig {
   private static final int backRightCanCoderId = 43;
 
   // Drive motor configuration
-  private static final int driveMotorCurrentLimit = 50;
+  private static final int driveMotorCurrentLimit = 60;
   private static final double wheelRadiusMeters = Units.inchesToMeters(1.983);
   private static final double driveMotorReduction =
       (50.0 / 14.0) * (17.0 / 27.0) * (45.0 / 15.0); // SDS MK4i L2
@@ -104,19 +104,6 @@ public class MainBotConfig implements RobotConfig {
   private static final double wheelCOF = 1.2;
 
   // Turret configuration
-  private static final int turretMotorCanId = 50;
-  private static final double turretHeightMeters = 0.3597275;
-  private static final double turretInsideMaxAngleDeg = 180.0;
-  private static final double turretInsideMinAngleDeg = -180.0;
-  private static final double turretZeroOffset = 63.873;
-  private static final double turretOutsideMaxAngleDeg = turretInsideMaxAngleDeg + turretZeroOffset;
-  private static final double turretOutsideMinAngleDeg = turretInsideMinAngleDeg + turretZeroOffset;
-  private static final double turretAbsoluteEncoderOffset = 0.8223; // 0.8283; // 0.078061;
-  private static final int turretCurrentLimitAmps = 10;
-  private static final double turretKp = 0.15;
-  private static final double turretKd = 0.0;
-  private static final boolean turretMotorInverted = true;
-
   // Gear ratios:
   // - NEO 550 internal gearbox: 10:1
   // - External gearing from encoder to turret: 66:12 (~5.5:1)
@@ -126,6 +113,25 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretExternalGearRatio = 66.0 / 12.0; // ~5.5 (encoder to turret)
   private static final double turretMotorGearRatio = 10.0;
   private static final double turretGearRatio = turretExternalGearRatio * turretMotorGearRatio;
+
+  private static final int turretMotorCanId = 50;
+  private static final double turretHeightMeters = 0.3597275;
+  private static final double turretInsideMaxAngleDeg = 180.0;
+  private static final double turretInsideMinAngleDeg = -180.0;
+  private static final double turretZeroOffset = 63.873;
+  private static final double turretOutsideMaxAngleDeg = turretInsideMaxAngleDeg + turretZeroOffset;
+  private static final double turretOutsideMinAngleDeg = turretInsideMinAngleDeg + turretZeroOffset;
+  private static final double turretAbsoluteEncoderOffsetTweak =
+      1.5; // 2.827154; // This is in degrees. + is CCW
+  private static final double turretAbsoluteEncoderOffset =
+      0.30148 + (turretAbsoluteEncoderOffsetTweak / (360.0 / turretExternalGearRatio));
+
+  private static final int turretCurrentLimitAmps = 20;
+  private static final double turretKp = 0.12;
+  private static final double turretKd = 2.0;
+  private static final double turretToleranceAngleDeg = 4.0;
+
+  private static final boolean turretMotorInverted = true;
 
   // Physical dimensions
   // Turret offset from robot center (in robot-relative coordinates)
@@ -139,13 +145,12 @@ public class MainBotConfig implements RobotConfig {
   private static final int launcherFollowerCanId = 59;
   private static final double launcherGearRatio = 1.5; // 1 motor rot = 1.5 wheel rot
   private static final int launcherCurrentLimitAmps = 80;
-  private static final double launcherKp = 0.00004;
-  private static final double launcherKi = 0.0000005;
-  private static final double launcherKd = 0.003;
-  private static final double launcherKv = 0.00174;
-  private static final double launcherKs = 0.31;
-  private static final double launcherIZone = 50.0; // motor RPM - integral only below this error
-  private static final double launcherMaxAcceleration = 10000.0; // motor RPM/s
+  private static final double launcherKp = 0.000023; // 0.00014;
+  private static final double launcherKi = 0.0;
+  private static final double launcherKd = 0.0; // 0.006;
+  private static final double launcherKv = 0.00183;
+  private static final double launcherKs = 0.198;
+  private static final double launcherIZone = 100.0; // motor RPM - integral only below this error
 
   // Hood Configuration
   private static final int hoodMotorCanId = 60;
@@ -173,22 +178,22 @@ public class MainBotConfig implements RobotConfig {
 
   private static final double spindexerKs = 0.23368;
   private static final double spindexerKv = 0.0021;
-  private static final double spindexerGearRatio = 1.0 / 3.0;
+  private static final double spindexerGearRatio = 1.0 / 9.0;
 
   // Intake Configuration
   private static final int intakeDeployMotorCanId = 45;
   private static final int intakeRollerMotorCanId = 46;
-  private static final double intakeDeployGearRatio = 20.0;
-  private static final double intakeRollerGearRatio = 2.0;
+  private static final double intakeDeployGearRatio = 25.0;
+  private static final double intakeRollerGearRatio = 2.625;
   private static final boolean intakeDeployMotorInverted = false;
   private static final boolean intakeRollerMotorInverted = true;
-  // 80A through 20:1 gearbox is enormous torque - lower limit for safer tuning.
-  // Can increase once PID is tuned and mechanism moves smoothly.
-  private static final int intakeDeployCurrentLimit = 40;
+  // 100A is safe for short bursts (agitation UP phase is capped at 0.4s by timeout).
+  // NEO stall current is ~105A; 40A breaker won't trip on sub-second spikes.
+  private static final int intakeDeployCurrentLimit = 100;
   private static final int intakeRollerCurrentLimit = 40;
   private static final double intakeDeployStowedPosition = 0.0;
   private static final double intakeDeployRetractedPosition = 0.0;
-  private static final double intakeDeployExtendedPosition = 0.055;
+  private static final double intakeDeployExtendedPosition = 0.085;
   // kP=100 caused massive oscillation because it saturates output for any error > 0.01 rotations
   // (total travel is only 0.13 rotations). REV recommends starting at kP=0.01 for rotations.
   // kP=5 gives 65% duty cycle at full travel error - strong but not saturated.
@@ -583,6 +588,11 @@ public class MainBotConfig implements RobotConfig {
     return turretKd;
   }
 
+  @Override
+  public double getTurretToleranceAngleDeg() {
+    return turretToleranceAngleDeg;
+  }
+
   // ========== Drive Configuration ==========
 
   @Override
@@ -659,11 +669,6 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getLauncherIZone() {
     return launcherIZone;
-  }
-
-  @Override
-  public double getLauncherMaxAcceleration() {
-    return launcherMaxAcceleration;
   }
 
   // ========== Hood Configuration ==========

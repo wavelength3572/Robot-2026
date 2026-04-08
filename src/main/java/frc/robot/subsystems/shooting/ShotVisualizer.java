@@ -4,7 +4,6 @@
 
 package frc.robot.subsystems.shooting;
 
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation3d;
@@ -13,19 +12,11 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.FieldConstants;
 import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.LinkedList;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
-
-/** Launcher status for trajectory color coding. */
-enum LauncherStatus {
-  UNPOWERED, // Red - launcher not running
-  SPINNING_UP, // Yellow - powered but not at setpoint
-  AT_SETPOINT // Green - at setpoint, ready to fire
-}
 
 /**
  * Handles visualization of shot trajectory and fuel simulation integration. Calculates and logs
@@ -38,12 +29,7 @@ public class ShotVisualizer {
 
   // Trajectory for visualization (where the ball would actually go)
   private final Translation3d[] actualTrajectory = new Translation3d[TRAJECTORY_POINTS];
-  private final Translation3d[] whatIfTrajectory = new Translation3d[TRAJECTORY_POINTS];
   private static final Translation3d[] EMPTY_TRAJECTORY = new Translation3d[0];
-
-  // Threshold for determining launcher status
-  private static final double RPM_VELOCITY_THRESHOLD = 50.0;
-  private static final double RPM_SETPOINT_TOLERANCE = 100.0; // RPM tolerance for "at setpoint"
 
   private final Supplier<Pose3d> robotPoseSupplier;
   private final Supplier<ChassisSpeeds> fieldSpeedsSupplier;
@@ -91,7 +77,6 @@ public class ShotVisualizer {
     // Initialize trajectory arrays
     for (int i = 0; i < TRAJECTORY_POINTS; i++) {
       actualTrajectory[i] = new Translation3d();
-      whatIfTrajectory[i] = new Translation3d();
     }
   }
 
@@ -270,68 +255,51 @@ public class ShotVisualizer {
   }
 
   /**
-   * Determine the launcher status based on current and target RPM.
-   *
-   * @return LauncherStatus indicating ready state
-   */
-  private LauncherStatus getLauncherStatus() {
-    double currentRPM = ShotCalculator.getCurrentLauncherRPM();
-    double targetRPM = ShotCalculator.getTargetLauncherRPM();
-
-    if (Math.abs(currentRPM) < RPM_VELOCITY_THRESHOLD
-        && Math.abs(targetRPM) < RPM_VELOCITY_THRESHOLD) {
-      return LauncherStatus.UNPOWERED;
-    }
-
-    if (Math.abs(currentRPM - targetRPM) < RPM_SETPOINT_TOLERANCE
-        && targetRPM > RPM_VELOCITY_THRESHOLD) {
-      return LauncherStatus.AT_SETPOINT;
-    }
-
-    return LauncherStatus.SPINNING_UP;
-  }
-
-  /**
    * Update the ACTUAL trajectory visualization (where we'd REALLY shoot). Uses current launcher RPM
-   * and turret angle. Also logs color-coded trajectories based on launcher status.
+   * and turret angle. Logs color-coded trajectories based on shot readiness gating.
    */
   public void updateActualTrajectory(
-      double currentExitVelocity, double currentLaunchAngle, double currentAzimuthAngle) {
+      double currentExitVelocity,
+      double currentLaunchAngle,
+      double currentAzimuthAngle,
+      ShotSnapshot.TrajectoryReadiness readiness) {
     calculateTrajectoryPoints(
         currentExitVelocity, currentLaunchAngle, currentAzimuthAngle, actualTrajectory);
 
-    LauncherStatus status = getLauncherStatus();
-    Logger.recordOutput("Turret/LauncherStatus", status.name());
-
     Logger.recordOutput(
-        "Turret/Trajectory/Red",
-        status == LauncherStatus.UNPOWERED ? actualTrajectory : EMPTY_TRAJECTORY);
+        "Visualizations/Trajectory/Red",
+        readiness == ShotSnapshot.TrajectoryReadiness.NOT_ACTIVE
+            ? actualTrajectory
+            : EMPTY_TRAJECTORY);
     Logger.recordOutput(
-        "Turret/Trajectory/Yellow",
-        status == LauncherStatus.SPINNING_UP ? actualTrajectory : EMPTY_TRAJECTORY);
+        "Visualizations/Trajectory/Yellow",
+        readiness == ShotSnapshot.TrajectoryReadiness.NOT_READY
+            ? actualTrajectory
+            : EMPTY_TRAJECTORY);
     Logger.recordOutput(
-        "Turret/Trajectory/Green",
-        status == LauncherStatus.AT_SETPOINT ? actualTrajectory : EMPTY_TRAJECTORY);
+        "Visualizations/Trajectory/Green",
+        readiness == ShotSnapshot.TrajectoryReadiness.READY ? actualTrajectory : EMPTY_TRAJECTORY);
   }
 
   /** Log fuel inventory status and process pending fuel arrivals. */
   public void logFuelStatus() {
     processPendingFuel();
-    Logger.recordOutput("Match/Fuel/Stored", fuelStored);
-    Logger.recordOutput("Match/Fuel/InTransit", pendingFuelTimestamps.size());
-    Logger.recordOutput("Match/Fuel/CanIntake", canIntake());
   }
 
   /**
    * Calculate and visualize the trajectory for a target. Updates the color-coded trajectory
-   * (red/yellow/green based on launcher status).
+   * (red/yellow/green based on shot readiness).
    *
    * @param shotResult The calculated shot parameters
    * @param currentTurretAngleRad Current turret angle in radians (for actual trajectory)
    * @param robotHeadingRad Robot heading in radians (to convert turret angle to field-relative)
+   * @param readiness Trajectory readiness state for color coding
    */
   public void visualizeShot(
-      ShotCalculator.ShotResult shotResult, double currentTurretAngleRad, double robotHeadingRad) {
+      ShotCalculator.ShotResult shotResult,
+      double currentTurretAngleRad,
+      double robotHeadingRad,
+      ShotSnapshot.TrajectoryReadiness readiness) {
     Translation3d turretPos = getTurretFieldPosition();
     Translation3d target = shotResult.aimTarget();
 
@@ -340,26 +308,45 @@ public class ShotVisualizer {
 
     this.currentAzimuthAngle = targetAzimuthAngle;
 
-    // Use the RPM-derived exit velocity (what the ball will ACTUALLY do at the commanded RPM).
+    // Compute exit velocity from ballistic physics to reach the aim target.
+    // The RPM-based model (calculateExitVelocityFromRPM) underestimates real exit velocity
+    // because it only models the main wheel + hood roller and ignores the motivator's
+    // contribution. Instead, solve for the velocity that reaches the target at the given
+    // launch angle — this matches what the empirically-calibrated LUT shots actually do.
     double distanceToTarget =
         Math.sqrt(
             Math.pow(target.getX() - turretPos.getX(), 2)
                 + Math.pow(target.getY() - turretPos.getY(), 2));
+    double heightDelta = target.getZ() - turretPos.getZ();
+    double launchAngle = shotResult.launchAngleRad();
     double actualExitVelocity =
-        ShotCalculator.calculateExitVelocityFromRPM(shotResult.launcherRPM(), distanceToTarget);
+        calculateVelocityToHitTarget(distanceToTarget, heightDelta, launchAngle);
 
-    // Actual trajectory: aim direction + robot velocity (what the sim ball does)
-    updateActualTrajectory(actualExitVelocity, shotResult.launchAngleRad(), targetAzimuthAngle);
+    // Actual trajectory: aim direction + robot velocity
+    updateActualTrajectory(
+        actualExitVelocity, shotResult.launchAngleRad(), targetAzimuthAngle, readiness);
 
-    // Static aim trajectory: aim direction only, no robot velocity
-    // Shows where the turret is pointing — what a stationary robot would produce
-    calculateStaticTrajectoryPoints(
-        actualExitVelocity, shotResult.launchAngleRad(), targetAzimuthAngle, whatIfTrajectory);
-    Logger.recordOutput("Turret/Trajectory/StaticAim", whatIfTrajectory);
-
-    Logger.recordOutput("Turret/Shot/CurrentRPM", ShotCalculator.getCurrentLauncherRPM());
     Logger.recordOutput(
-        "Turret/Shot/CompensatedTarget", new Pose3d(shotResult.aimTarget(), Rotation3d.kZero));
+        "Visualizations/CompensatedTarget", new Pose3d(shotResult.aimTarget(), Rotation3d.kZero));
+  }
+
+  /**
+   * Solve for the exit velocity needed to hit a target at a given launch angle using projectile
+   * physics: v^2 = g * d^2 / (2 * cos^2(theta) * (d * tan(theta) - h)). Falls back to the
+   * ShotResult's exit velocity if the physics solution is invalid.
+   */
+  private static double calculateVelocityToHitTarget(
+      double horizontalDistance, double heightDelta, double launchAngleRad) {
+    double cosTheta = Math.cos(launchAngleRad);
+    double tanTheta = Math.tan(launchAngleRad);
+    double denominator = 2.0 * cosTheta * cosTheta * (horizontalDistance * tanTheta - heightDelta);
+
+    if (denominator <= 0 || horizontalDistance < 0.1) {
+      // No valid ballistic solution — target unreachable at this angle
+      return 0.0;
+    }
+
+    return Math.sqrt(GRAVITY * horizontalDistance * horizontalDistance / denominator);
   }
 
   /**
@@ -369,52 +356,6 @@ public class ShotVisualizer {
    */
   public double getCurrentAzimuthAngle() {
     return currentAzimuthAngle;
-  }
-
-  /**
-   * Calculate trajectory points WITHOUT robot velocity — shows pure aim direction. This is what a
-   * stationary robot would produce, useful for visualizing velocity compensation offset.
-   */
-  private void calculateStaticTrajectoryPoints(
-      double exitVelocity,
-      double launchAngle,
-      double azimuthAngle,
-      Translation3d[] trajectoryArray) {
-    double horizontalVel = exitVelocity * Math.cos(launchAngle);
-    double verticalVel = exitVelocity * Math.sin(launchAngle);
-    double vx = horizontalVel * Math.cos(azimuthAngle);
-    double vy = horizontalVel * Math.sin(azimuthAngle);
-
-    Translation3d turretPos = getTurretFieldPosition();
-    double startX = turretPos.getX();
-    double startY = turretPos.getY();
-    double startZ = turretPos.getZ();
-
-    for (int i = 0; i < TRAJECTORY_POINTS; i++) {
-      double t = i * TRAJECTORY_TIME_STEP;
-      double x = startX + vx * t;
-      double y = startY + vy * t;
-      double z = startZ + verticalVel * t - 0.5 * GRAVITY * t * t;
-      if (z < 0) z = 0;
-      trajectoryArray[i] = new Translation3d(x, y, z);
-    }
-  }
-
-  /**
-   * Update the what-if trajectory visualization with user-specified parameters.
-   *
-   * @param exitVelocity Exit velocity in m/s
-   * @param launchAngle Launch angle in radians
-   * @param azimuthAngle Turret azimuth angle in radians (field-relative direction to target)
-   */
-  public void updateWhatIfTrajectory(double exitVelocity, double launchAngle, double azimuthAngle) {
-    calculateTrajectoryPoints(exitVelocity, launchAngle, azimuthAngle, whatIfTrajectory);
-    Logger.recordOutput("Turret/Trajectory/WhatIf", whatIfTrajectory);
-  }
-
-  /** Clear the what-if trajectory visualization. */
-  public void clearWhatIfTrajectory() {
-    Logger.recordOutput("Turret/Trajectory/WhatIf", EMPTY_TRAJECTORY);
   }
 
   // ========== Snapshot-driven visualization ==========
@@ -427,170 +368,19 @@ public class ShotVisualizer {
    */
   public void update(ShotSnapshot snapshot) {
     logFuelStatus();
-    logSafetyMetrics(snapshot);
-    updateTurretOverlay(snapshot);
     if (snapshot.currentShot() != null) {
       double currentTurretAngleRad = Math.toRadians(snapshot.currentAngleDeg());
       double robotHeadingRad = snapshot.robotPose().getRotation().getRadians();
-      visualizeShot(snapshot.currentShot(), currentTurretAngleRad, robotHeadingRad);
-    }
-  }
-
-  /** Log safety metrics: room to limits, position %, warning/danger zone status. */
-  private void logSafetyMetrics(ShotSnapshot snapshot) {
-    double currentAngle = snapshot.currentAngleDeg();
-    double roomCW = snapshot.effectiveMaxAngleDeg() - currentAngle;
-    double roomCCW = currentAngle - snapshot.effectiveMinAngleDeg();
-    double warningZone = snapshot.warningZoneDeg();
-    double dangerZone = warningZone / 2.0;
-
-    double totalRange = snapshot.effectiveMaxAngleDeg() - snapshot.effectiveMinAngleDeg();
-    double positionPercent =
-        totalRange > 0
-            ? ((currentAngle - snapshot.effectiveMinAngleDeg()) / totalRange) * 100.0
-            : 50.0;
-
-    boolean nearLimit = roomCW <= warningZone || roomCCW <= warningZone;
-    boolean inDangerZone = roomCW <= dangerZone || roomCCW <= dangerZone;
-    Logger.recordOutput("Turret/Safety/RoomCW_Deg", roomCW);
-    Logger.recordOutput("Turret/Safety/RoomCCW_Deg", roomCCW);
-    Logger.recordOutput("Turret/Safety/PositionPercent", positionPercent);
-    Logger.recordOutput("Turret/Safety/NearLimit", nearLimit);
-    Logger.recordOutput("Turret/Safety/InDangerZone", inDangerZone);
-  }
-
-  /** Update the 3D field overlay: aim line, CW/CCW limits, center nub, and target direction. */
-  private void updateTurretOverlay(ShotSnapshot snapshot) {
-    Pose2d robotPose = snapshot.robotPose();
-    double robotX = robotPose.getX();
-    double robotY = robotPose.getY();
-    double robotHeadingDeg = robotPose.getRotation().getDegrees();
-    double robotHeadingRad = robotPose.getRotation().getRadians();
-    double currentAngle = snapshot.currentAngleDeg();
-
-    double[] turretPos = getTurretFieldPosition2d(robotX, robotY, robotHeadingRad, snapshot);
-    double turretX = turretPos[0];
-    double turretY = turretPos[1];
-
-    // Field-relative angles
-    double currentFieldAngle = robotHeadingDeg + currentAngle;
-    double cwLimitFieldAngle = robotHeadingDeg + snapshot.effectiveMaxAngleDeg();
-    double ccwLimitFieldAngle = robotHeadingDeg + snapshot.effectiveMinAngleDeg();
-
-    double turretHeight = snapshot.turretHeightMeters();
-
-    // Aim line -- extends to hub distance
-    double hubX =
-        snapshot.isBlueAlliance()
-            ? FieldConstants.Hub.innerCenterPoint.getX()
-            : FieldConstants.Hub.oppInnerCenterPoint.getX();
-    double hubY =
-        snapshot.isBlueAlliance()
-            ? FieldConstants.Hub.innerCenterPoint.getY()
-            : FieldConstants.Hub.oppInnerCenterPoint.getY();
-    double distanceToHub = Math.sqrt(Math.pow(hubX - turretX, 2) + Math.pow(hubY - turretY, 2));
-    Logger.recordOutput(
-        "Turret/Overlay/Aim",
-        generateFieldLine3d(turretX, turretY, turretHeight, currentFieldAngle, distanceToHub, 5));
-
-    // Limit visualization
-    double maxRoom = snapshot.effectiveMaxAngleDeg() - snapshot.effectiveMinAngleDeg();
-    double roomCW = snapshot.effectiveMaxAngleDeg() - currentAngle;
-    double roomCCW = currentAngle - snapshot.effectiveMinAngleDeg();
-    double center = snapshot.centerOffsetDeg();
-    double centeredZoneDeg = 10.0;
-
-    double cwProximity = Math.max(0, Math.min(1, 1.0 - (roomCW / maxRoom)));
-    double ccwProximity = Math.max(0, Math.min(1, 1.0 - (roomCCW / maxRoom)));
-
-    boolean isCentered = Math.abs(currentAngle - center) <= centeredZoneDeg;
-    boolean approachingCW = !isCentered && currentAngle > center;
-    boolean approachingCCW = !isCentered && currentAngle < center;
-
-    if (approachingCW) {
-      double cwLineLength = 0.4 + (cwProximity - 0.5) * 0.4;
-      Logger.recordOutput(
-          "Turret/Overlay/CWLimit",
-          generateFieldLine3d(turretX, turretY, turretHeight, cwLimitFieldAngle, cwLineLength, 2));
-      Logger.recordOutput("Turret/Overlay/CCWLimit", new Pose3d[] {});
-    } else if (approachingCCW) {
-      double ccwLineLength = 0.4 + (ccwProximity - 0.5) * 0.4;
-      Logger.recordOutput("Turret/Overlay/CWLimit", new Pose3d[] {});
-      Logger.recordOutput(
-          "Turret/Overlay/CCWLimit",
-          generateFieldLine3d(
-              turretX, turretY, turretHeight, ccwLimitFieldAngle, ccwLineLength, 2));
+      visualizeShot(
+          snapshot.currentShot(),
+          currentTurretAngleRad,
+          robotHeadingRad,
+          snapshot.trajectoryReadiness());
     } else {
-      double fixedLength = 0.4;
-      Logger.recordOutput(
-          "Turret/Overlay/CWLimit",
-          generateFieldLine3d(turretX, turretY, turretHeight, cwLimitFieldAngle, fixedLength, 2));
-      Logger.recordOutput(
-          "Turret/Overlay/CCWLimit",
-          generateFieldLine3d(turretX, turretY, turretHeight, ccwLimitFieldAngle, fixedLength, 2));
+      // No active shot — log empty trajectories so stale arcs don't linger
+      Logger.recordOutput("Visualizations/Trajectory/Red", EMPTY_TRAJECTORY);
+      Logger.recordOutput("Visualizations/Trajectory/Yellow", EMPTY_TRAJECTORY);
+      Logger.recordOutput("Visualizations/Trajectory/Green", EMPTY_TRAJECTORY);
     }
-
-    // Center line nub
-    double centerFieldAngle = robotHeadingDeg + snapshot.centerOffsetDeg();
-    Logger.recordOutput(
-        "Turret/Overlay/Center",
-        generateFieldLine3d(turretX, turretY, turretHeight, centerFieldAngle, 0.5, 2));
-
-    // Target direction line
-    if (snapshot.currentShot() != null) {
-      double targetX = snapshot.currentShot().aimTarget().getX();
-      double targetY = snapshot.currentShot().aimTarget().getY();
-      double targetAngle = Math.toDegrees(Math.atan2(targetY - turretY, targetX - turretX));
-      double distanceToTarget =
-          Math.sqrt(Math.pow(targetX - turretX, 2) + Math.pow(targetY - turretY, 2));
-      Logger.recordOutput(
-          "Turret/Overlay/Target",
-          generateFieldLine3d(
-              turretX, turretY, turretHeight, targetAngle, Math.min(distanceToTarget, 3.0), 4));
-    }
-  }
-
-  /**
-   * Calculate the turret's 2D field position from robot pose and snapshot offsets.
-   *
-   * @return double[] {turretFieldX, turretFieldY}
-   */
-  private double[] getTurretFieldPosition2d(
-      double robotX, double robotY, double robotHeadingRad, ShotSnapshot snapshot) {
-    double tx =
-        robotX
-            + (snapshot.turretXOffset() * Math.cos(robotHeadingRad)
-                - snapshot.turretYOffset() * Math.sin(robotHeadingRad));
-    double ty =
-        robotY
-            + (snapshot.turretXOffset() * Math.sin(robotHeadingRad)
-                + snapshot.turretYOffset() * Math.cos(robotHeadingRad));
-    return new double[] {tx, ty};
-  }
-
-  /**
-   * Generate a line of 3D poses for field overlay visualization.
-   *
-   * @param startX Start X position (meters)
-   * @param startY Start Y position (meters)
-   * @param height Height above ground (meters)
-   * @param angleDeg Direction angle in degrees (field-relative)
-   * @param length Length of line in meters
-   * @param numPoints Number of poses along the line
-   * @return Array of Pose3d representing the line
-   */
-  private Pose3d[] generateFieldLine3d(
-      double startX, double startY, double height, double angleDeg, double length, int numPoints) {
-    Pose3d[] poses = new Pose3d[numPoints];
-    double angleRad = Math.toRadians(angleDeg);
-    Rotation3d rotation = new Rotation3d(0, 0, angleRad);
-
-    for (int i = 0; i < numPoints; i++) {
-      double t = (double) i / (numPoints - 1);
-      double x = startX + t * length * Math.cos(angleRad);
-      double y = startY + t * length * Math.sin(angleRad);
-      poses[i] = new Pose3d(x, y, height, rotation);
-    }
-    return poses;
   }
 }

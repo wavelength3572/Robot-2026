@@ -5,7 +5,6 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
-import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -13,6 +12,20 @@ import org.littletonrobotics.junction.Logger;
  * ideal arc trajectories using hybrid RPM+hood control.
  */
 public class Hood extends SubsystemBase {
+
+  /** Hood operating state. */
+  public enum HoodState {
+    /** At target angle, actively commanded by a shooting command. */
+    READY,
+    /** At default (stow) position — no shooting command is driving the hood. */
+    STOWED,
+    /** At target, but angle is safety-clamped (e.g. trench) — not ready to fire. */
+    CLAMPED,
+    RAISING,
+    LOWERING,
+    DISCONNECTED
+  }
+
   private final HoodIO io;
   private final HoodIOInputsAutoLogged inputs = new HoodIOInputsAutoLogged();
 
@@ -24,13 +37,23 @@ public class Hood extends SubsystemBase {
   private static final LoggedTunableNumber kD =
       new LoggedTunableNumber("Tuning/Hood/kD", Constants.getRobotConfig().getHoodKd());
 
-  // TODO: Hood uses PD-only control (no kI, no feedforward). This causes steady-state error
-  // where the motor can't push through friction/gravity at small errors. Consider adding kI and/or
-  // kS.
+  // Note: Hood uses PD-only control (no kI, no feedforward). If steady-state error from
+  // friction/gravity becomes a problem, consider adding kI and/or kS.
 
   // Tunable ready-gate tolerance for atTarget() — does NOT affect motor control
   private static final LoggedTunableNumber readyToleranceAngleDeg =
       new LoggedTunableNumber("Tuning/Hood/ReadyToleranceAngleDeg", 1.0);
+
+  // Current state — promoted from periodic() local for external readiness checks
+  private HoodState currentState = HoodState.STOWED;
+
+  // When true, the hood is being driven by a shooting command (not the default stow).
+  // Set via setActivelyCommanded() — shooting commands set true, default command sets false.
+  private boolean activelyCommanded = false;
+
+  // When true, the hood angle is being safety-clamped (e.g. trench mode).
+  // Set by ShootingCoordinator. Prevents READY state so firing is blocked until unclamped.
+  private boolean clamped = false;
 
   public Hood(HoodIO io) {
     this.io = io;
@@ -44,6 +67,25 @@ public class Hood extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs("Hood", inputs);
 
+    // Compute and log state
+    if (!inputs.connected) {
+      currentState = HoodState.DISCONNECTED;
+    } else if (inputs.atTarget) {
+      if (clamped) {
+        currentState = HoodState.CLAMPED;
+      } else if (currentState == HoodState.CLAMPED) {
+        // Just unclamped but still at old clamped target — hold CLAMPED until new target propagates
+      } else {
+        currentState = activelyCommanded ? HoodState.READY : HoodState.STOWED;
+      }
+    } else if (inputs.targetAngleDeg > inputs.currentAngleDeg) {
+      currentState = HoodState.RAISING;
+    } else {
+      currentState = HoodState.LOWERING;
+    }
+    Logger.recordOutput("Subsystems/HoodState", currentState.name());
+    Logger.recordOutput("Subsystems/HoodTrenchClamped", clamped);
+
     // Push tunable PID changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kD)) {
       io.configurePID(kP.get(), kD.get());
@@ -51,11 +93,6 @@ public class Hood extends SubsystemBase {
     if (LoggedTunableNumber.hasChanged(readyToleranceAngleDeg)) {
       io.setAngleTolerance(readyToleranceAngleDeg.get());
     }
-
-    // Log additional useful values
-    Logger.recordOutput("Hood/AngleError", inputs.targetAngleDeg - inputs.currentAngleDeg);
-    Logger.recordOutput("Hood/MinLimit", config.getHoodMinAngleDegrees());
-    Logger.recordOutput("Hood/MaxLimit", config.getHoodMaxAngleDegrees());
   }
 
   /**
@@ -66,10 +103,6 @@ public class Hood extends SubsystemBase {
   public void setHoodAngle(double angleDeg) {
     double clamped = clampToLimits(angleDeg);
     io.setAngle(clamped);
-
-    if (clamped != angleDeg) {
-      Logger.recordOutput("Hood/ClampedRequest", angleDeg);
-    }
   }
 
   /**
@@ -77,7 +110,6 @@ public class Hood extends SubsystemBase {
    *
    * @return Current angle in degrees
    */
-  @AutoLogOutput(key = "Hood/currentAngle")
   public double getCurrentAngle() {
     return inputs.currentAngleDeg;
   }
@@ -89,6 +121,32 @@ public class Hood extends SubsystemBase {
    */
   public double getTargetAngle() {
     return inputs.targetAngleDeg;
+  }
+
+  /**
+   * Get the current hood operating state.
+   *
+   * @return Current HoodState
+   */
+  public HoodState getState() {
+    return currentState;
+  }
+
+  /**
+   * Mark whether the hood is being actively commanded by a shooting command. When false (default
+   * command running), at-target reports STOWED instead of READY. Shooting commands should call
+   * setActivelyCommanded(true); the default stow command should call setActivelyCommanded(false).
+   */
+  public void setActivelyCommanded(boolean commanded) {
+    this.activelyCommanded = commanded;
+  }
+
+  /**
+   * Mark whether the hood angle is being safety-clamped. When clamped, at-target reports CLAMPED
+   * instead of READY so the coordinator won't gate firing on a clamped angle.
+   */
+  public void setClamped(boolean clamped) {
+    this.clamped = clamped;
   }
 
   /**

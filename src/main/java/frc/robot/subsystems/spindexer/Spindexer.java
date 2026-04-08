@@ -1,5 +1,7 @@
 package frc.robot.subsystems.spindexer;
 
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
@@ -18,6 +20,20 @@ public class Spindexer extends SubsystemBase {
   private final SpindexerIO io;
   private final MotorInputsAutoLogged spindexerInputs = new MotorInputsAutoLogged();
 
+  // Spindexer state — tracks what the motor is actually doing, logged for observability
+  private enum SpindexerState {
+    STOPPED, // Motor off
+    FEEDING, // Running at commanded velocity to deliver fuel
+    SUPPRESSED, // Feeding suppressed by operator (motor held at 0)
+    UNCLOGGING, // Reversed to clear a jam (manual)
+    AUTO_UNCLOGGING, // Reversed to clear a detected stall (automatic)
+    JAMMED, // Jam detected but auto-unclog disabled — logged only, no motor action
+    RECIPROCATING // Gentle back-and-forth jostle to keep fuel loose
+  }
+
+  private SpindexerState state = SpindexerState.STOPPED;
+  private boolean stallDetected = false;
+
   // When true, setSpindexerVelocity() sends 0 instead of the requested RPM.
   // Used by the driver to temporarily suppress feeding without interrupting shooting commands.
   private boolean feedingSuppressed = false;
@@ -29,7 +45,41 @@ public class Spindexer extends SubsystemBase {
   private boolean wasUnclogActive = false;
 
   private static final LoggedTunableNumber unclogRPM =
-      new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", 1000.0);
+      new LoggedTunableNumber("Tuning/Spindexer/UnclogRPM", 650.0);
+
+  // Auto-unclog — detects stall during FEEDING and briefly reverses to clear the jam.
+  // Enabled by default; can be toggled from dashboard if needed.
+  private boolean autoUnclogEnabled = true;
+  private boolean autoUnclogInProgress = false;
+  private final Timer stallTimer = new Timer(); // How long stall condition has persisted
+  private final Timer autoUnclogTimer = new Timer(); // How long the reverse burst has been running
+  private int autoUnclogAttempts = 0; // Attempts this feeding session
+
+  private static final LoggedTunableNumber autoUnclogStallCurrentThreshold =
+      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallCurrentAmps", 10.0);
+  private static final LoggedTunableNumber autoUnclogStallVelocityThreshold =
+      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallRPMError", 20.0);
+  private static final LoggedTunableNumber autoUnclogStallDurationSec =
+      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/StallDurationSec", 0.2);
+  private static final LoggedTunableNumber autoUnclogReverseDurationSec =
+      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/ReverseDurationSec", 0.50);
+  private static final LoggedTunableNumber autoUnclogMaxAttempts =
+      new LoggedTunableNumber("Tuning/Spindexer/AutoUnclog/MaxAttempts", 30);
+
+  // Reciprocation — gentle back-and-forth jostle to keep fuel loose when not actively feeding.
+  // Call reciprocate() each cycle to jostle; it alternates direction on a timer.
+  private boolean reciprocateForward = true;
+  private final Timer reciprocateTimer = new Timer();
+
+  // Reverse kick — brief reverse pulse after reciprocation ends to push any partially-fed ball
+  // back.
+  private boolean reverseKickActive = false;
+  private final Timer reverseKickTimer = new Timer();
+
+  private static final LoggedTunableNumber reciprocateRPM =
+      new LoggedTunableNumber("Tuning/Spindexer/Reciprocate/RPM", 50.0);
+  private static final LoggedTunableNumber reciprocateIntervalSec =
+      new LoggedTunableNumber("Tuning/Spindexer/Reciprocate/IntervalSec", 1.0);
 
   // Tunable PID gains
   private static final LoggedTunableNumber kP;
@@ -56,21 +106,85 @@ public class Spindexer extends SubsystemBase {
 
     // Push initial velocity tolerances to IO
     io.setVelocityTolerance(spindexerToleranceRPM.get());
+
+    // Default reciprocation on — toggle from Elastic dashboard
+    SmartDashboard.putBoolean("Tuning/Spindexer/Reciprocate/Enabled", true);
   }
 
   @Override
   public void periodic() {
     io.updateInputs(spindexerInputs);
     Logger.processInputs("Spindexer", spindexerInputs);
-    Logger.recordOutput("Spindexer/FeedingSuppressed", feedingSuppressed);
-    Logger.recordOutput("Spindexer/UnclogActive", unclogActive);
 
-    // When no shooting command is running, drive unclog directly from periodic
+    Logger.recordOutput("Subsystems/SpindexerState", state.name());
+
+    // Stall detection: always runs during FEEDING so we can see jam events in logs.
+    // Only triggers the reverse burst when autoUnclogEnabled.
+    if (!unclogActive) {
+      if (autoUnclogInProgress) {
+        // Reverse burst in progress — check if duration has elapsed
+        if (autoUnclogTimer.hasElapsed(autoUnclogReverseDurationSec.get())) {
+          autoUnclogInProgress = false;
+          stallDetected = false;
+          autoUnclogTimer.stop();
+          stallTimer.stop();
+          // State will return to FEEDING on next setSpindexerVelocity() call from shooting command
+        }
+      } else if (state == SpindexerState.FEEDING || state == SpindexerState.JAMMED) {
+        double rpmError = Math.abs(spindexerInputs.targetRPM) - Math.abs(spindexerInputs.wheelRPM);
+        boolean stalled =
+            Math.abs(spindexerInputs.wheelRPM) > 100.0
+                && spindexerInputs.currentAmps > autoUnclogStallCurrentThreshold.get()
+                && rpmError > autoUnclogStallVelocityThreshold.get();
+        if (stalled) {
+          if (!stallTimer.isRunning()) {
+            stallTimer.restart();
+          }
+          if (stallTimer.hasElapsed(autoUnclogStallDurationSec.get())
+              && autoUnclogAttempts < (int) autoUnclogMaxAttempts.get()) {
+            stallDetected = true;
+            if (autoUnclogEnabled) {
+              autoUnclogInProgress = true;
+              autoUnclogAttempts++;
+              autoUnclogTimer.restart();
+            } else {
+              state = SpindexerState.JAMMED;
+            }
+          }
+        } else {
+          stallTimer.stop();
+          stallDetected = false;
+        }
+      } else {
+        // Not feeding — reset stall detection
+        stallTimer.stop();
+        stallDetected = false;
+      }
+    }
+
+    // Reset auto-unclog attempt counter when we leave feeding
+    if (state != SpindexerState.FEEDING
+        && state != SpindexerState.AUTO_UNCLOGGING
+        && state != SpindexerState.JAMMED) {
+      autoUnclogAttempts = 0;
+    }
+
+    // When no command owns the spindexer, handle unclog and reverse kick
     if (getCurrentCommand() == null) {
       if (unclogActive) {
         io.setSpindexerVelocity(-Math.abs(unclogRPM.get()));
+        state = SpindexerState.UNCLOGGING;
       } else if (wasUnclogActive) {
         io.stopSpindexer();
+        state = SpindexerState.STOPPED;
+      } else if (reverseKickActive) {
+        // Reverse kick in progress — stop when one interval elapses
+        if (reverseKickTimer.hasElapsed(reciprocateIntervalSec.get())) {
+          reverseKickActive = false;
+          reverseKickTimer.stop();
+          io.stopSpindexer();
+          state = SpindexerState.STOPPED;
+        }
       }
     }
     wasUnclogActive = unclogActive;
@@ -94,10 +208,16 @@ public class Spindexer extends SubsystemBase {
   public void setSpindexerVelocity(double velocityRPM) {
     if (unclogActive) {
       io.setSpindexerVelocity(-Math.abs(unclogRPM.get()));
+      state = SpindexerState.UNCLOGGING;
+    } else if (autoUnclogInProgress) {
+      io.setSpindexerVelocity(-Math.abs(unclogRPM.get()));
+      state = SpindexerState.AUTO_UNCLOGGING;
     } else if (feedingSuppressed) {
       io.setSpindexerVelocity(0.0);
+      state = SpindexerState.SUPPRESSED;
     } else {
       io.setSpindexerVelocity(velocityRPM);
+      state = stallDetected ? SpindexerState.JAMMED : SpindexerState.FEEDING;
     }
   }
 
@@ -108,11 +228,13 @@ public class Spindexer extends SubsystemBase {
    */
   public void reverseSpindexer(double velocityRPM) {
     io.setSpindexerVelocity(-Math.abs(velocityRPM));
+    state = SpindexerState.FEEDING;
   }
 
   /** Stop only Spindexer motor 1. */
   public void stopSpindexer() {
     io.stopSpindexer();
+    state = SpindexerState.STOPPED;
   }
 
   // ========== Status Methods ==========
@@ -124,6 +246,15 @@ public class Spindexer extends SubsystemBase {
    */
   public double getSpindexerWheelVelocity() {
     return spindexerInputs.wheelRPM;
+  }
+
+  /**
+   * Get spindexer target velocity.
+   *
+   * @return Target velocity in RPM
+   */
+  public double getSpindexerTargetRPM() {
+    return spindexerInputs.targetRPM;
   }
 
   /**
@@ -191,6 +322,67 @@ public class Spindexer extends SubsystemBase {
     return unclogActive;
   }
 
+  // ========== Auto-Unclog ==========
+
+  /** Enable auto-unclog stall detection. Off by default — enable from dashboard for testing. */
+  public void enableAutoUnclog() {
+    autoUnclogEnabled = true;
+  }
+
+  /** Disable auto-unclog stall detection. */
+  public void disableAutoUnclog() {
+    autoUnclogEnabled = false;
+    autoUnclogInProgress = false;
+    stallTimer.stop();
+    autoUnclogTimer.stop();
+  }
+
+  /**
+   * @return true if auto-unclog is enabled
+   */
+  public boolean isAutoUnclogEnabled() {
+    return autoUnclogEnabled;
+  }
+
+  // ========== Reciprocation ==========
+
+  /**
+   * Gently jostle fuel by alternating spindexer direction at low RPM. Call this each cycle when not
+   * actively feeding — it handles the timer and direction switching internally.
+   */
+  public void reciprocate() {
+    if (!SmartDashboard.getBoolean("Tuning/Spindexer/Reciprocate/Enabled", true)) {
+      // Reciprocation disabled — stop the motor and stay stopped
+      if (state == SpindexerState.RECIPROCATING) {
+        io.stopSpindexer();
+        state = SpindexerState.STOPPED;
+      }
+      return;
+    }
+    if (!reciprocateTimer.isRunning()) {
+      reciprocateTimer.restart();
+    }
+    if (reciprocateTimer.hasElapsed(reciprocateIntervalSec.get())) {
+      reciprocateForward = !reciprocateForward;
+      reciprocateTimer.restart();
+    }
+    double rpm = reciprocateRPM.get();
+    io.setSpindexerVelocity(reciprocateForward ? rpm : -rpm + -100);
+    state = SpindexerState.RECIPROCATING;
+  }
+
+  /**
+   * Stop reciprocation with a reverse kick — one interval in the opposite direction to push any
+   * partially-fed ball back. The kick runs autonomously in periodic() and stops itself.
+   */
+  public void stopReciprocateWithKick() {
+    double rpm = reciprocateRPM.get();
+    io.setSpindexerVelocity(reciprocateForward ? -rpm : rpm);
+    reverseKickActive = true;
+    reverseKickTimer.restart();
+    state = SpindexerState.RECIPROCATING;
+  }
+
   // ========== Commands ==========
 
   /**
@@ -200,6 +392,19 @@ public class Spindexer extends SubsystemBase {
    */
   public Command stopSpindexerCommand() {
     return runOnce(this::stopSpindexer).withName("Spindexer: Stop");
+  }
+
+  /**
+   * Command that reciprocates the spindexer while running. On cancel, starts a reverse kick — one
+   * interval in the opposite direction to push any partially-fed ball back. The kick runs
+   * autonomously in periodic() and stops itself after one reciprocation interval.
+   *
+   * @return Command that runs until interrupted
+   */
+  public Command reciprocateCommand() {
+    return run(this::reciprocate)
+        .finallyDo(this::stopReciprocateWithKick)
+        .withName("Spindexer: Reciprocate");
   }
 
   /**
