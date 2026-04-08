@@ -324,25 +324,6 @@ public class ShotVisualizer {
   }
 
   /**
-   * Solve for the exit velocity needed to hit a target at a given launch angle using projectile
-   * physics: v^2 = g * d^2 / (2 * cos^2(theta) * (d * tan(theta) - h)). Falls back to the
-   * ShotResult's exit velocity if the physics solution is invalid.
-   */
-  private static double calculateVelocityToHitTarget(
-      double horizontalDistance, double heightDelta, double launchAngleRad) {
-    double cosTheta = Math.cos(launchAngleRad);
-    double tanTheta = Math.tan(launchAngleRad);
-    double denominator = 2.0 * cosTheta * cosTheta * (horizontalDistance * tanTheta - heightDelta);
-
-    if (denominator <= 0 || horizontalDistance < 0.1) {
-      // No valid ballistic solution — target unreachable at this angle
-      return 0.0;
-    }
-
-    return Math.sqrt(GRAVITY * horizontalDistance * horizontalDistance / denominator);
-  }
-
-  /**
    * Get the current azimuth angle used for trajectory visualization.
    *
    * @return Current azimuth angle in radians (field-relative direction to target)

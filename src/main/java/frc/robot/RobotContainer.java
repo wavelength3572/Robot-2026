@@ -1112,7 +1112,6 @@ public class RobotContainer {
   /** Extract a string field value from simple JSON content. Returns "" if not found. */
   private static String extractJsonStringField(String json, String field) {
     // Match "field": "value" or "field":"value"
-    String pattern = "\"" + field + "\"\\s*:\\s*\"";
     int idx = -1;
     // Simple search — avoid regex dependency for a trivial parse
     for (String variant :

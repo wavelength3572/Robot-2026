@@ -104,8 +104,6 @@ public class IndicatorLight extends SubsystemBase {
   private int center = 9;
   private final double updateInterval = 0.05; // Interval in seconds for updates
 
-  private RGBWBuffer currentActiveBuffer;
-
   public IndicatorLight() {
     // Dashboard chooser: Match (default auto-lighting), Off, or Pit (blue ombre)
     lightModeChooser.setDefaultOption("Match", LightMode.MATCH);
@@ -123,7 +121,6 @@ public class IndicatorLight extends SubsystemBase {
     wlLEDBuffer = new RGBWBuffer(numLEDs);
     wlLED.setLength(wlLEDBuffer.getInternalBuffer().getLength());
     center = wlLEDBuffer.getLength() / 2;
-    currentActiveBuffer = wlLEDBuffer;
     wlLEDBuffer.flushToBuffer();
     wlLED.setData(wlLEDBuffer.getInternalBuffer());
     wlLED.start();
@@ -871,7 +868,6 @@ public class IndicatorLight extends SubsystemBase {
   }
 
   private void setActiveBuffer(RGBWBuffer buffer) {
-    currentActiveBuffer = buffer;
     buffer.flushToBuffer();
     wlLED.setData(buffer.getInternalBuffer());
 

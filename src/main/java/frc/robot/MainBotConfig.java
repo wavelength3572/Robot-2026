@@ -853,7 +853,7 @@ public class MainBotConfig implements RobotConfig {
 
   @Override
   public int getHoodCanId() {
-    return hoodMotorCanId; // TODO: Confirm CAN ID when hardware is ready
+    return hoodMotorCanId;
   }
 
   @Override

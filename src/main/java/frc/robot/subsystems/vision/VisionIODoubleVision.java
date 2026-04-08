@@ -22,10 +22,6 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
-import frc.robot.subsystems.vision.VisionIO.PoseObservation;
-import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
-import frc.robot.subsystems.vision.VisionIO.TargetObservation;
-import frc.robot.subsystems.vision.VisionIO.VisionIOInputs;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -85,7 +81,6 @@ public class VisionIODoubleVision implements VisionIO {
       visionEst.ifPresent(
           est -> {
             // Change our trust in the measurement based on the tags we can see
-            var estStdDevs = getEstimationStdDevs();
             inputs.pvPose = est.estimatedPose;
 
             // estConsumer.accept(est.estimatedPose.toPose2d(), est.timestampSeconds, estStdDevs);

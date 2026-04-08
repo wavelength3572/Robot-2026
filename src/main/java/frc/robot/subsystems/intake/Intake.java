@@ -19,9 +19,6 @@ import org.littletonrobotics.junction.mechanism.LoggedMechanism2d;
 import org.littletonrobotics.junction.mechanism.LoggedMechanismLigament2d;
 import org.littletonrobotics.junction.mechanism.LoggedMechanismRoot2d;
 
-// TODO might need some sort of deploy sequence or intelligence to fix the backlash with respect to
-// deploy
-
 public class Intake extends SubsystemBase {
   private final IntakeIO io;
   private final IntakeIOInputsAutoLogged inputs = new IntakeIOInputsAutoLogged();
@@ -42,7 +39,6 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber deployExtendedPos;
   private static final LoggedTunableNumber deployRetractedPos;
   private static final LoggedTunableNumber deployTolerance;
-  private static final LoggedTunableNumber holdTolerance;
 
   // Tunable feedforward gains for deploy MAXMotion
   private static final LoggedTunableNumber deployKS;
@@ -94,9 +90,7 @@ public class Intake extends SubsystemBase {
     deployTolerance =
         new LoggedTunableNumber(
             "Tuning/Intake/IntakeDeploy/Tolerance", config.getIntakeDeployTolerance());
-    holdTolerance =
-        new LoggedTunableNumber(
-            "Tuning/Intake/IntakeDeploy/HoldTolerance", config.getIntakeDeployHoldTolerance());
+
     rollerKP =
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kP", config.getIntakeRollerKp());
     rollerKI =
@@ -171,8 +165,6 @@ public class Intake extends SubsystemBase {
 
   // Deploy positions (from config, used for soft limit init)
   private final double deployStowedPosition;
-  private final double deployRetractedPosition;
-  private final double deployExtendedPosition;
 
   // Tracks whether we've commanded deploy (true) or retract (false) — used for roller RPM selection
   private boolean deployCommanded = false;
@@ -263,8 +255,6 @@ public class Intake extends SubsystemBase {
 
     RobotConfig config = Constants.getRobotConfig();
     deployStowedPosition = config.getIntakeDeployStowedPosition();
-    deployRetractedPosition = config.getIntakeDeployRetractedPosition();
-    deployExtendedPosition = config.getIntakeDeployExtendedPosition();
 
     // Command stowed position at startup so SparkMax has an active hold target
     applyRetractMotionConfig();

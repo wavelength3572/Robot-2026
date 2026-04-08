@@ -35,6 +35,7 @@ import org.littletonrobotics.junction.Logger;
  * <p>The turret subsystem only handles physical rotation. ShootingCoordinator decides WHAT to aim
  * at, WHEN to fire, and provides shot parameters for commands to act on.
  */
+
 public class ShootingCoordinator extends SubsystemBase {
 
   // Subsystem references
@@ -296,46 +297,11 @@ public class ShootingCoordinator extends SubsystemBase {
       new LoggedTunableNumber(
           "SmartLaunch/Pass/Right/AdjustY", Constants.getRobotConfig().getPassRightAdjustY());
 
-  // Two-point trajectory tunables for pass shots (dashboard value in inches,
-  // converted to meters)
-  private final LoggedTunableNumber symmetricArcPeakHeightMinIn =
-      new LoggedTunableNumber(
-          "SmartLaunch/Pass/Symmetric/ArcPeakHeightMinIn",
-          Constants.getRobotConfig().getSymmetricArcPeakHeightMinIn());
-  private final LoggedTunableNumber symmetricArcPeakHeightMaxIn =
-      new LoggedTunableNumber(
-          "SmartLaunch/Pass/Symmetric/ArcPeakHeightMaxIn",
-          Constants.getRobotConfig().getSymmetricArcPeakHeightMaxIn());
-  private final LoggedTunableNumber symmetricArcDistMinM =
-      new LoggedTunableNumber(
-          "SmartLaunch/Pass/Symmetric/ArcDistMinM",
-          Constants.getRobotConfig().getSymmetricArcDistMinM());
-  private final LoggedTunableNumber symmetricArcDistMaxM =
-      new LoggedTunableNumber(
-          "SmartLaunch/Pass/Symmetric/ArcDistMaxM",
-          Constants.getRobotConfig().getSymmetricArcDistMaxM());
-  private final LoggedTunableNumber passRpmPerDegCompensation =
-      new LoggedTunableNumber(
-          "SmartLaunch/Pass/RPMPerDegCompensation",
-          Constants.getRobotConfig().getPassRpmPerDegCompensation());
-  private final LoggedTunableNumber passMaxRpmCompensation =
-      new LoggedTunableNumber(
-          "SmartLaunch/Pass/MaxRPMCompensation",
-          Constants.getRobotConfig().getPassMaxRpmCompensation());
-  private final LoggedTunableNumber lobNetClearanceMarginM =
-      new LoggedTunableNumber(
-          "SmartLaunch/Pass/Lob/NetClearanceMarginM",
-          Constants.getRobotConfig().getLobNetClearanceMarginM());
-  private final LoggedTunableNumber lobMaxPeakHeightM =
-      new LoggedTunableNumber(
-          "SmartLaunch/Pass/Lob/MaxPeakHeightM", Constants.getRobotConfig().getLobMaxPeakHeightM());
-  private final LoggedTunableNumber lobMinHubDistM =
-      new LoggedTunableNumber(
-          "SmartLaunch/Pass/Lob/MinHubDistM", Constants.getRobotConfig().getLobMinHubDistM());
   private final LoggedTunableNumber lobStation1AdjustY =
       new LoggedTunableNumber(
           "SmartLaunch/Pass/DriverStation/Station1/AdjustY",
           Constants.getRobotConfig().getLobStation1AdjustY());
+          
   private final LoggedTunableNumber lobStation3AdjustY =
       new LoggedTunableNumber(
           "SmartLaunch/Pass/DriverStation/Station3/AdjustY",
@@ -740,11 +706,6 @@ public class ShootingCoordinator extends SubsystemBase {
     return RobotStatus.isBlueAlliance() ? highY : !highY;
   }
 
-  // Tunable pass shot parameters
-  private final LoggedTunableNumber passMaxRPM =
-      new LoggedTunableNumber(
-          "SmartLaunch/Pass/MaxRPM", Constants.getRobotConfig().getPassMaxRPM());
-
   /** Calculate and apply hub shot. */
   private void calculateShotToHub(
       Pose2d robotPose, ChassisSpeeds fieldSpeeds, boolean isBlueAlliance) {
@@ -838,21 +799,6 @@ public class ShootingCoordinator extends SubsystemBase {
     double predictedY =
         target.getY() - fieldSpeeds.vyMetersPerSecond * timeOfFlight * velocityCompY.get();
     return new Translation3d(predictedX, predictedY, target.getZ());
-  }
-
-  /** Hub net top height in meters (120.36 inches — top of the net, not the lip). */
-  private static final double HUB_NET_HEIGHT = 3.057;
-
-  /** Interpolate symmetric arc peak height (inches) based on horizontal distance (meters). */
-  private double interpolatePeakHeight(double horizontalDistM) {
-    double distMin = symmetricArcDistMinM.get();
-    double distMax = symmetricArcDistMaxM.get();
-    double peakMin = symmetricArcPeakHeightMinIn.get();
-    double peakMax = symmetricArcPeakHeightMaxIn.get();
-    double t = Math.max(0.0, Math.min(1.0, (horizontalDistM - distMin) / (distMax - distMin)));
-    double peakIn = peakMin + t * (peakMax - peakMin);
-    Logger.recordOutput("SmartLaunch/Pass/Symmetric/InterpolatedPeakIn", peakIn);
-    return peakIn;
   }
 
   /** Calculate and apply pass shot using fixed-height parabola strategy. */
