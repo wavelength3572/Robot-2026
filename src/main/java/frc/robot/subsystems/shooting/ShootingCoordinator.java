@@ -935,10 +935,10 @@ public class ShootingCoordinator extends SubsystemBase {
     Logger.recordOutput("SmartLaunch/Target/Achievable", currentShotAchievable);
     Logger.recordOutput(
         "SmartLaunch/Target/MotivatorRPM",
-        frc.robot.commands.ShootingCommands.getEffectiveMotivatorRPM(targetRPM, this));
+        frc.robot.commands.ShootingCommands.getEffectiveMotivatorRPM(currentShot));
     Logger.recordOutput(
         "SmartLaunch/Target/SpindexerRPM",
-        frc.robot.commands.ShootingCommands.getEffectiveSpindexerRPM(this));
+        frc.robot.commands.ShootingCommands.getEffectiveSpindexerRPM(currentShot));
 
     // --- Actuals (what hardware is doing) ---
     Logger.recordOutput(
