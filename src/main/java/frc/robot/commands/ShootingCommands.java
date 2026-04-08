@@ -141,30 +141,16 @@ public class ShootingCommands {
           "Shots/RightTrench/SpindexerRPM",
           Constants.getRobotConfig().getRightTrenchSpindexerRPM());
 
-  // ===== Robot Tuning (affects real robot behavior) =====
-
-  // Constant motivator RPM used during shooting
-  private static final LoggedTunableNumber shootingMotivatorRPM =
-      new LoggedTunableNumber(
-          "Shots/SmartLaunch/ShootingMotivatorRPM",
-          Constants.getRobotConfig().getShootingMotivatorRPM());
-  // Fixed motivator RPM used during passes (instead of ratio). Toggle via SmartDashboard.
-  private static final LoggedTunableNumber passingMotivatorRPM =
-      new LoggedTunableNumber(
-          "Shots/SmartLaunch/PassingMotivatorRPM",
-          Constants.getRobotConfig().getPassingMotivatorRPM());
-
-  // Spindexer RPM lerped by distance: close = max, far = min
-  private static final LoggedTunableNumber spindexerCloseRPM =
-      new LoggedTunableNumber(
-          "Shots/SmartLaunch/SpindexerCloseRPM", Constants.getRobotConfig().getSpindexerCloseRPM());
-  private static final LoggedTunableNumber spindexerFarRPM =
-      new LoggedTunableNumber(
-          "Shots/SmartLaunch/SpindexerFarRPM", Constants.getRobotConfig().getSpindexerFarRPM());
-  // Fixed spindexer RPM used in pass/neutral zones (no distance lerp)
-  private static final LoggedTunableNumber spindexerPassRPM =
-      new LoggedTunableNumber(
-          "Shots/SmartLaunch/SpindexerPassRPM", Constants.getRobotConfig().getSpindexerPassRPM());
+  // ===== Motivator / Spindexer RPM Architecture =====
+  // Each ShotStrategy (FixedHeightShotStrategy, FixedHeightPassStrategy, TwoStageShotStrategy)
+  // owns its own motivator and spindexer RPM tunables and returns them in ShotResult.
+  // The strategy is the single source of truth — to change values, edit the strategy.
+  //
+  // The getEffective*() methods below apply per-actuator dashboard overrides on top of
+  // whatever the strategy returned. That's the only layer between strategy and hardware.
+  //
+  // To add a new pass strategy: implement ShotStrategy, return your motivator/spindexer
+  // RPM in the ShotResult, and the override system works automatically.
 
   // ===== Per-Actuator Overrides =====
   // Each actuator can be individually overridden via a dashboard toggle + tunable value.
@@ -247,32 +233,6 @@ public class ShootingCommands {
     // Static factory class
   }
 
-  /** Get constant motivator RPM for shooting. */
-  public static double getMotivatorRPM(double launcherRPM) {
-    return shootingMotivatorRPM.get();
-  }
-
-  /**
-   * Get constant motivator RPM for shooting.
-   *
-   * @param launcherRPM current launcher RPM (unused, kept for API compatibility)
-   * @param coordinator the shooting coordinator (unused, kept for API compatibility)
-   */
-  public static double getMotivatorRPM(double launcherRPM, ShootingCoordinator coordinator) {
-    return shootingMotivatorRPM.get();
-  }
-
-  /** Lerp spindexer RPM from distance — close (1.16m) to far (5.35m). */
-  public static double getSpindexerRPM(double distanceM) {
-    double minDist = 1.16, maxDist = 5.35;
-    double t = Math.max(0, Math.min(1, (distanceM - minDist) / (maxDist - minDist)));
-    return spindexerCloseRPM.get() + t * (spindexerFarRPM.get() - spindexerCloseRPM.get());
-  }
-
-  /** Fixed spindexer RPM for pass/neutral zones. */
-  public static double getSpindexerPassRPM() {
-    return spindexerPassRPM.get();
-  }
 
   /** Initialize tunables so they appear in the dashboard immediately. */
   public static void initTunables() {
@@ -542,7 +502,7 @@ public class ShootingCommands {
                               && turret.atTarget()
                               && (hood == null || hood.atTarget())) {
                             motivator.setMotivatorVelocity(
-                                getMotivatorRPM(motivatorRPMSupplier.getAsDouble()));
+                                motivatorRPMSupplier.getAsDouble());
                           }
 
                           boolean launcherReady = launcher.isReady();
@@ -812,9 +772,7 @@ public class ShootingCommands {
 
                         ShotCalculator.ShotResult s = coordinator.getCurrentShot();
                         if (s != null) {
-                          double launcherRPM = getEffectiveRPM(s);
-                          motivator.setMotivatorVelocity(
-                              getEffectiveMotivatorRPM(launcherRPM, coordinator));
+                          motivator.setMotivatorVelocity(getEffectiveMotivatorRPM(s));
                         } else {
                           motivator.stopMotivator();
                         }
@@ -834,7 +792,7 @@ public class ShootingCommands {
                       boolean feedingAllowed = coordinator.isFeedingAllowed();
                       if (feedingAllowed) {
                         launcher.setFeedingActive(true);
-                        double spnRPM = getEffectiveSpindexerRPM(coordinator);
+                        double spnRPM = getEffectiveSpindexerRPM(coordinator.getCurrentShot());
                         if (turret.getState() == Turret.TurretState.FLIPPING) {
                           spindexer.stopSpindexer();
                         } else {
@@ -926,34 +884,18 @@ public class ShootingCommands {
   }
 
   /** Get effective motivator RPM — override value when toggled, otherwise from strategy. */
-  public static double getEffectiveMotivatorRPM(
-      double launcherRPM, ShootingCoordinator coordinator) {
+  public static double getEffectiveMotivatorRPM(ShotCalculator.ShotResult shot) {
     if (SmartDashboard.getBoolean("Overrides/Motivator", false)) {
       return overrideMotivatorRPM.get();
     }
-    // Strategy provides motivator RPM via ShotResult
-    ShotCalculator.ShotResult shot = coordinator != null ? coordinator.getCurrentShot() : null;
-    if (shot != null && shot.motivatorRPM() > 0) {
-      return shot.motivatorRPM();
-    }
-    // Fallback to old logic if strategy doesn't provide
-    return getMotivatorRPM(launcherRPM, coordinator);
+    return shot != null ? shot.motivatorRPM() : 0.0;
   }
 
   /** Get effective spindexer RPM — override value when toggled, otherwise from strategy. */
-  public static double getEffectiveSpindexerRPM(ShootingCoordinator coordinator) {
+  public static double getEffectiveSpindexerRPM(ShotCalculator.ShotResult shot) {
     if (SmartDashboard.getBoolean("Overrides/Spindexer", false)) {
       return overrideSpindexerRPM.get();
     }
-    // Strategy provides spindexer RPM via ShotResult
-    ShotCalculator.ShotResult shot = coordinator != null ? coordinator.getCurrentShot() : null;
-    if (shot != null && shot.spindexerRPM() > 0) {
-      return shot.spindexerRPM();
-    }
-    // Fallback to old logic
-    double dist = coordinator.getDistanceToTarget();
-    return coordinator.isInPassZone()
-        ? getSpindexerPassRPM()
-        : getSpindexerRPM(dist > 0 ? dist : 1.16);
+    return shot != null ? shot.spindexerRPM() : 0.0;
   }
 }
