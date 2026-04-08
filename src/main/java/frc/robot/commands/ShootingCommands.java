@@ -148,16 +148,12 @@ public class ShootingCommands {
       new LoggedTunableNumber(
           "Shots/SmartLaunch/ShootingMotivatorRPM",
           Constants.getRobotConfig().getShootingMotivatorRPM());
-  // Fixed motivator RPM used during passes (instead of ratio). Toggle via SmartDashboard.
-  private static final LoggedTunableNumber passingMotivatorRPM =
-      new LoggedTunableNumber(
-          "Shots/SmartLaunch/PassingMotivatorRPM",
-          Constants.getRobotConfig().getPassingMotivatorRPM());
-
+          
   // Spindexer RPM lerped by distance: close = max, far = min
   private static final LoggedTunableNumber spindexerCloseRPM =
       new LoggedTunableNumber(
           "Shots/SmartLaunch/SpindexerCloseRPM", Constants.getRobotConfig().getSpindexerCloseRPM());
+          
   private static final LoggedTunableNumber spindexerFarRPM =
       new LoggedTunableNumber(
           "Shots/SmartLaunch/SpindexerFarRPM", Constants.getRobotConfig().getSpindexerFarRPM());
@@ -239,9 +235,6 @@ public class ShootingCommands {
     int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
     Logger.recordOutput("ShotLog/FuelRemaining", fuelRemaining);
   }
-
-  // Always wait for setpoint recovery before firing next shot
-  private static final boolean WAIT_FOR_RECOVERY = true;
 
   private ShootingCommands() {
     // Static factory class
@@ -568,9 +561,7 @@ public class ShootingCommands {
             // Log ready state
             Commands.runOnce(
                 () -> {
-                  SmartDashboard.putString("Match/Status/State", "Ready - Feeding");
-                  logShotStatus(
-                      "FixedShot", launcher, hood, motivator, trimmedLauncherRPM.getAsDouble());
+                  SmartDashboard.putString("Match/Status/State", "Ready - Feeding");   
                   launcher.setFeedingActive(true);
                 }),
 
@@ -711,11 +702,11 @@ public class ShootingCommands {
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
                     double rpm = getEffectiveRPM(shot);
-                    double hoodDeg = getEffectiveHoodDeg(shot);
                     double effectiveRPM = coordinator.getEffectiveLauncherRPM(rpm);
                     launcher.setVelocity(Math.max(effectiveRPM, 1500));
                     // Shot params logged via AdvantageKit
                   } else {
+                    //TODO is this right? or do we want to idle at 0?
                     launcher.setVelocity(1500);
                   }
                 },
@@ -882,21 +873,6 @@ public class ShootingCommands {
   }
 
   // Old sequential smartLaunchCommandSeq removed — replaced by smartLaunchDangerousCommand.
-
-  // ===== Shot Logging =====
-
-  /** Log target vs actual for all subsystems when feeding starts. */
-  private static void logShotStatus(
-      String label, Launcher launcher, Hood hood, Motivator motivator, double targetRPM) {
-    double actualRPM = launcher != null ? launcher.getVelocity() : 0;
-    double hoodTarget = hood != null ? hood.getTargetAngle() : 0;
-    double hoodActual = hood != null ? hood.getCurrentAngle() : 0;
-    double motTarget = motivator != null ? motivator.getMotivatorTargetRPM() : 0;
-    double motActual = motivator != null ? motivator.getMotivatorWheelVelocity() : 0;
-    // System.out.printf(
-    //     "[%s] Feeding — Launcher: %.0f/%.0f RPM | Hood: %.1f/%.1f° | Motivator: %.0f/%.0f RPM%n",
-    //     label, targetRPM, actualRPM, hoodTarget, hoodActual, motTarget, motActual);
-  }
 
   // ===== Per-Actuator Override Helpers =====
   // Each actuator has its own Overrides/<Name> toggle. When the toggle is true,

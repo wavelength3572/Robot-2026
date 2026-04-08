@@ -72,14 +72,6 @@ public class ButtonsAndDashboardBindings {
           "Tuning/Intake/IntakeRollers/RetractRollerVelocity",
           Constants.getRobotConfig().getTuningIntakeRetractRollerVelocity());
 
-  // Preset field positions for simulation (label, x_meters, y_meters, rotation_degrees)
-  private static final String[][] PRESET_POSITIONS = {
-    {"DepotStart", "3.50", "6.00", "180.0"},
-    {"HPStart", "3.56", "0.65", "180.0"},
-    {"TrenchLeft", "3.52", "7.54", "-90.28"},
-    {"TrenchRight", "3.53", "0.58", "90.0"},
-  };
-
   public ButtonsAndDashboardBindings() {}
 
   public static void configureTestModeButtonBindings(
