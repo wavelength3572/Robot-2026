@@ -64,27 +64,52 @@
     },
     {
       "anchor": {
-        "x": 1.847854838709678,
-        "y": 5.870943548387097
+        "x": 1.5961176653782077,
+        "y": 5.51201775255166
       },
       "prevControl": {
-        "x": 1.5857620650460493,
-        "y": 5.930144459333428
+        "x": 1.5961176653782077,
+        "y": 5.81201775255166
+      },
+      "nextControl": {
+        "x": 1.5961176653782077,
+        "y": 5.21201775255166
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 1.0120398853822064,
+        "y": 4.5543646637587285
+      },
+      "prevControl": {
+        "x": 1.0387239684200493,
+        "y": 5.434120688186788
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "DepotEndPoint"
+      "linkedName": "ClimbLeft"
     }
   ],
-  "rotationTargets": [],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 3.6622276029055483,
+      "rotationDegrees": 180.0
+    },
+    {
+      "waypointRelativePos": 4.443099273607764,
+      "rotationDegrees": 90.0
+    }
+  ],
   "constraintZones": [
     {
       "name": "Constraints Zone",
-      "minWaypointRelativePos": 0.433306386418756,
-      "maxWaypointRelativePos": 4.0,
+      "minWaypointRelativePos": 3.6,
+      "maxWaypointRelativePos": 5.0,
       "constraints": {
-        "maxVelocity": 0.75,
-        "maxAcceleration": 1.5,
+        "maxVelocity": 0.195,
+        "maxAcceleration": 1.0,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
         "nominalVoltage": 12.0,
@@ -93,10 +118,22 @@
     }
   ],
   "pointTowardsZones": [],
-  "eventMarkers": [],
+  "eventMarkers": [
+    {
+      "name": "ClimberExtend",
+      "waypointRelativePos": 4.332155477031796,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "ClimberExtend"
+        }
+      }
+    }
+  ],
   "globalConstraints": {
-    "maxVelocity": 2.5,
-    "maxAcceleration": 3.5,
+    "maxVelocity": 1.6,
+    "maxAcceleration": 2.5,
     "maxAngularVelocity": 540.0,
     "maxAngularAcceleration": 720.0,
     "nominalVoltage": 12.0,
@@ -104,7 +141,7 @@
   },
   "goalEndState": {
     "velocity": 0.0,
-    "rotation": 179.26183683953167
+    "rotation": 90.0
   },
   "reversed": false,
   "folder": "Auto Paths",

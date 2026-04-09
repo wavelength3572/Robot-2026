@@ -7,13 +7,19 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Depot"
+            "pathName": "DepotClimb"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "ClimberClimb"
           }
         }
       ]
     }
   },
   "resetOdom": true,
-  "folder": "CompShootPreloadsEndofPath",
+  "folder": "CompShootPreloadsAutoShoot",
   "choreoAuto": false
 }
