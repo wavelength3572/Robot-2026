@@ -913,7 +913,11 @@ public interface RobotConfig {
   // ========== Fixed Height Pass Strategy ==========
 
   default double getFixedHeightPassPeakHeightIn() {
-    return 65.0;
+    return 110.0;
+  }
+
+  default double getFixedHeightLongPassPeakHeightIn() {
+    return 150.0;
   }
 
   default double getFixedHeightPassMinRPM() {

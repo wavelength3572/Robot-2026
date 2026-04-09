@@ -112,7 +112,19 @@ public class FixedHeightPassStrategy implements ShotStrategy {
 
   @Override
   public ShotCalculator.ShotResult calculateShot(double distanceM) {
-    double peakHeightM = peakHeightIn.get() * INCHES_TO_METERS;
+    return calculateShot(distanceM, peakHeightIn.get());
+  }
+
+  /**
+   * Calculate pass shot with a specific peak height. Used by LONG_PASS to arc higher than normal
+   * passes, keeping the hood angle within mechanical limits at longer distances.
+   *
+   * @param distanceM Horizontal distance to target in meters
+   * @param peakHeightOverrideIn Peak height in inches
+   * @return Shot result with the 4 mechanical commands
+   */
+  public ShotCalculator.ShotResult calculateShot(double distanceM, double peakHeightOverrideIn) {
+    double peakHeightM = peakHeightOverrideIn * INCHES_TO_METERS;
     double passThroughHeightM = passThroughHeightIn.get() * INCHES_TO_METERS;
     double h0 = config.getTurretHeightMeters();
 
@@ -122,7 +134,7 @@ public class FixedHeightPassStrategy implements ShotStrategy {
     // Log inputs
     Logger.recordOutput("Shots/FixedHeightPass/DistanceM", distanceM);
     Logger.recordOutput("Shots/FixedHeightPass/DistanceIn", distanceM / INCHES_TO_METERS);
-    Logger.recordOutput("Shots/FixedHeightPass/PeakHeightIn", peakHeightIn.get());
+    Logger.recordOutput("Shots/FixedHeightPass/PeakHeightIn", peakHeightOverrideIn);
     Logger.recordOutput("Shots/FixedHeightPass/PassThroughHeightIn", passThroughHeightIn.get());
 
     // Solve the parabola — distance IS the pass-through distance (no horizontal offset for passes)
@@ -174,7 +186,7 @@ public class FixedHeightPassStrategy implements ShotStrategy {
                 hoodAngleDeg,
                 result.clampedLow() ? "raised" : "lowered",
                 result.actualPeakHeightM() / INCHES_TO_METERS,
-                peakHeightIn.get(),
+                peakHeightOverrideIn,
                 distanceM));
       } else {
         Logger.recordOutput("Shots/FixedHeightPass/Status", "OK");

@@ -306,7 +306,8 @@ public class MainBotConfig implements RobotConfig {
   private static final double fixedHeightMaxRPM = 4000.0;
 
   // ========== Fixed Height Pass Strategy ==========
-  private static final double fixedHeightPassPeakHeightIn = 65.0;
+  private static final double fixedHeightPassPeakHeightIn = 110.0;
+  private static final double fixedHeightLongPassPeakHeightIn = 150.0;
   private static final double fixedHeightPassMinRPM = 1000.0;
   private static final double fixedHeightPassMaxRPM = 4500.0;
   private static final double fixedHeightPassHoodMinDeg = 18.0;
@@ -1502,6 +1503,11 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getFixedHeightPassPeakHeightIn() {
     return fixedHeightPassPeakHeightIn;
+  }
+
+  @Override
+  public double getFixedHeightLongPassPeakHeightIn() {
+    return fixedHeightLongPassPeakHeightIn;
   }
 
   @Override

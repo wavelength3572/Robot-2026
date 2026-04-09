@@ -18,8 +18,8 @@ import frc.robot.FieldConstants;
  * <p>Delegates zone detection to {@link ZoneDetector} and maps zones to aim modes:
  *
  * <ul>
- *   <li>ALLIANCE → SHOOT_ON_THE_MOVE (aim at hub, fire while driving)
- *   <li>ALLIANCE_TRENCH → SHOOT_ON_THE_MOVE (aim at hub, fire while driving)
+ *   <li>ALLIANCE → HUB (aim at hub, fire while driving)
+ *   <li>ALLIANCE_TRENCH → HUB (aim at hub, fire while driving)
  *   <li>NEUTRAL → PASS (aim at pass target)
  *   <li>OPPONENT → LONG_PASS (pass back to alliance zone, same target, longer distance)
  *   <li>NEUTRAL_TRENCH / DANGER_TRENCH / BUMP → NONE (suppress shooting, keep last aim target)
@@ -29,8 +29,8 @@ public class TurretAimingHelper {
 
   /** Aiming mode based on robot position. */
   public enum AimMode {
-    /** Aim at hub and shoot while moving (alliance zone, open field, trench). */
-    SHOOT_ON_THE_MOVE,
+    /** Aim at hub (alliance zone, open field, trench). */
+    HUB,
     /** Aim at pass target and fire (neutral zone). */
     PASS,
     /** Pass from opponent zone — same target as PASS but longer distance. */
@@ -102,14 +102,14 @@ public class TurretAimingHelper {
                 (alliance == Alliance.Blue)
                     ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()
                     : FieldConstants.Hub.oppInnerCenterPoint.toTranslation2d();
-            yield new AimResult(hubTarget, AimMode.SHOOT_ON_THE_MOVE, zone);
+            yield new AimResult(hubTarget, AimMode.HUB, zone);
           }
           case ALLIANCE_TRENCH -> {
             Translation2d hubTarget =
                 (alliance == Alliance.Blue)
                     ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()
                     : FieldConstants.Hub.oppInnerCenterPoint.toTranslation2d();
-            yield new AimResult(hubTarget, AimMode.SHOOT_ON_THE_MOVE, zone);
+            yield new AimResult(hubTarget, AimMode.HUB, zone);
           }
           case NEUTRAL -> {
             double targetX =

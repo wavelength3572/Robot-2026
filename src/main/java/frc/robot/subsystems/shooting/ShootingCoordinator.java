@@ -280,7 +280,10 @@ public class ShootingCoordinator extends SubsystemBase {
 
   // Current shot data
   private ShotCalculator.ShotResult currentShot = null;
-  private double currentDistanceM = -1;
+  private double currentDistanceM = -1; // velocity-compensated distance fed to strategy
+  private double rawDistanceToTargetM = -1; // straight-line turret-to-target, no velocity comp
+  private String currentDistanceMode = ""; // what target we're shooting at (for logging)
+  private Translation3d rawTarget = null; // target before velocity compensation
 
   // Pass target offset tunables — separate for left and right trench
   private final LoggedTunableNumber passLeftAdjustX =
@@ -318,7 +321,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private int autoShots = 0;
   private int teleopShots = 0;
   // Zone-aware speed thresholds for feeding and drive limiting.
-  // SHOOT_ON_THE_MOVE: max speed for hub shots in open alliance zone.
+  // HUB: max speed for hub shots in open alliance zone.
   // Used for both spindexer gating and active drive speed limiting.
   private final LoggedTunableNumber shootOnTheMoveSpeedMps =
       new LoggedTunableNumber(
@@ -334,6 +337,12 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber autoPassSpeedMps =
       new LoggedTunableNumber(
           "Shots/SpeedLimits/AutoPassSpeedMps", Constants.getRobotConfig().getAutoPassSpeedMps());
+
+  // Long pass peak height — higher arc for opponent zone passes to keep hood in mechanical range.
+  private final LoggedTunableNumber longPassPeakHeightIn =
+      new LoggedTunableNumber(
+          "Shots/FixedHeightPass/LongPassPeakHeightIn",
+          Constants.getRobotConfig().getFixedHeightLongPassPeakHeightIn());
 
   /**
    * Creates a new ShootingCoordinator.
@@ -507,8 +516,8 @@ public class ShootingCoordinator extends SubsystemBase {
         }
       }
 
-      // Update distance to aim target every cycle (for dashboard and shot calculations)
-      currentDistanceM =
+      // Raw distance to aim target (no velocity compensation) — for logging only
+      rawDistanceToTargetM =
           Math.hypot(
               aimResult.target().getX() - turretFieldPos[0],
               aimResult.target().getY() - turretFieldPos[1]);
@@ -518,7 +527,7 @@ public class ShootingCoordinator extends SubsystemBase {
       // new state until next cycle's periodic(), so logging the previous zone here aligns them.
       if (previousAimResult != null) {
         Logger.recordOutput("SmartLaunch/Status/Zone", previousAimResult.zone().name());
-        Logger.recordOutput("SmartLaunch/Status/AllowedAction", previousAimResult.mode().name());
+        Logger.recordOutput("SmartLaunch/Status/AimMode", previousAimResult.mode().name());
       }
       previousAimResult = aimResult;
 
@@ -618,15 +627,17 @@ public class ShootingCoordinator extends SubsystemBase {
       }
 
       switch (aimResult.mode()) {
-        case SHOOT_ON_THE_MOVE -> {
-          Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub FixedHeight");
+        case HUB -> {
+          currentDistanceMode = "Hub FixedHeight";
+          Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
           calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
         }
         case PASS -> {
           PassingStrategy strategy = passingStrategyChooser.getSelected();
 
           if (strategy == PassingStrategy.DRIVER_STATION && !isTooCloseToHub(robotPose)) {
-            Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass Lob");
+            currentDistanceMode = "Pass Lob";
+            Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
             var location = DriverStation.getLocation();
             int station = location.isPresent() ? location.getAsInt() : 2;
             Translation3d activeTarget =
@@ -636,12 +647,13 @@ public class ShootingCoordinator extends SubsystemBase {
             calculatePassToTarget(
                 robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
           } else {
-            // Symmetric low pass (also used as fallback when too close to hub for lob)
+            // Symmetric pass (also used as fallback when too close to hub for lob)
             if (strategy == PassingStrategy.DRIVER_STATION) {
-              Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass Low (hub fallback)");
+              currentDistanceMode = "Pass Symmetric (hub fallback)";
             } else {
-              Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass Low");
+              currentDistanceMode = "Pass Symmetric";
             }
+            Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
             boolean isLeftTrench = selectIsLeftTrench(robotPose);
             Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
             Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
@@ -649,16 +661,21 @@ public class ShootingCoordinator extends SubsystemBase {
           }
         }
         case LONG_PASS -> {
-          Logger.recordOutput("SmartLaunch/Status/Strategy", "Pass LongLob");
+          currentDistanceMode = "Pass Symmetric Long";
+          Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
           boolean isLeftTrench = selectIsLeftTrench(robotPose);
-          Translation3d activeTarget =
-              isLeftTrench ? cachedLobStation1Target : cachedLobStation3Target;
-          Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LOB_LEFT" : "LOB_RIGHT");
+          Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
+          Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
           calculatePassToTarget(
-              robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
+              robotPose,
+              fieldSpeeds,
+              activeTarget,
+              PassingStrategy.SYMMETRIC,
+              longPassPeakHeightIn.get());
         }
         case NONE -> {
-          Logger.recordOutput("SmartLaunch/Status/Strategy", "Hub FixedHeight");
+          currentDistanceMode = "Hub FixedHeight";
+          Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
           calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
         }
       }
@@ -733,6 +750,7 @@ public class ShootingCoordinator extends SubsystemBase {
     if (turretTrimDeg != 0.0) {
       target = applyTurretTrim(target, turretX, turretY);
     }
+    rawTarget = target;
 
     // Select active hub strategy from chooser
     ShotStrategy activeStrategy = hubStrategyChooser.getSelected();
@@ -780,14 +798,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     Logger.recordOutput("SmartLaunch/Status/ActiveStrategy", activeStrategy.getName());
 
-    // Throttle target/distance logging to ~10Hz
-    if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("SmartLaunch/Status/TargetX", target.getX());
-      Logger.recordOutput("SmartLaunch/Status/TargetY", target.getY());
-      Logger.recordOutput("SmartLaunch/Status/DistanceM", currentDistanceM);
-      Logger.recordOutput("SmartLaunch/Status/AimTargetX", compensatedAimTarget.getX());
-      Logger.recordOutput("SmartLaunch/Status/AimTargetY", compensatedAimTarget.getY());
-    }
+    // Target positions now logged centrally in logShotState (SmartLaunch/Distance/)
   }
 
   /**
@@ -806,6 +817,20 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Calculate and apply pass shot using fixed-height parabola strategy. */
   private void calculatePassToTarget(
       Pose2d robotPose, ChassisSpeeds fieldSpeeds, Translation3d target, PassingStrategy strategy) {
+    calculatePassToTarget(robotPose, fieldSpeeds, target, strategy, -1);
+  }
+
+  /**
+   * Calculate and apply pass shot with an optional peak height override.
+   *
+   * @param peakHeightIn Peak height in inches, or -1 to use the strategy's default
+   */
+  private void calculatePassToTarget(
+      Pose2d robotPose,
+      ChassisSpeeds fieldSpeeds,
+      Translation3d target,
+      PassingStrategy strategy,
+      double peakHeightIn) {
 
     double robotHeadingRad = robotPose.getRotation().getRadians();
     double[] turretFieldPos =
@@ -816,6 +841,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     // Apply operator turret trim — rotate aim target around turret field position
     target = applyTurretTrim(target, turretX, turretY);
+    rawTarget = target;
 
     // Velocity compensation for passes
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
@@ -823,7 +849,10 @@ public class ShootingCoordinator extends SubsystemBase {
 
     if (robotSpeed > 0.1) {
       double staticDist = Math.hypot(target.getX() - turretX, target.getY() - turretY);
-      ShotCalculator.ShotResult staticShot = fixedHeightPassStrategy.calculateShot(staticDist);
+      ShotCalculator.ShotResult staticShot =
+          peakHeightIn > 0
+              ? fixedHeightPassStrategy.calculateShot(staticDist, peakHeightIn)
+              : fixedHeightPassStrategy.calculateShot(staticDist);
       double exitVel =
           fixedHeightPassStrategy.estimateExitVelocity(staticShot.launcherRPM(), staticDist);
       double launchAngle = staticShot.launchAngleRad();
@@ -836,9 +865,10 @@ public class ShootingCoordinator extends SubsystemBase {
     double horizontalDist =
         Math.hypot(compensatedAimTarget.getX() - turretX, compensatedAimTarget.getY() - turretY);
 
-    Logger.recordOutput("SmartLaunch/Pass/TargetDistM", horizontalDist);
-
-    currentShot = fixedHeightPassStrategy.calculateShot(horizontalDist);
+    currentShot =
+        peakHeightIn > 0
+            ? fixedHeightPassStrategy.calculateShot(horizontalDist, peakHeightIn)
+            : fixedHeightPassStrategy.calculateShot(horizontalDist);
     currentDistanceM = horizontalDist;
 
     // Compute exit velocity for logging/sim
@@ -935,24 +965,25 @@ public class ShootingCoordinator extends SubsystemBase {
         "SmartLaunch/Actual/SpindexerRPM",
         spindexer != null ? spindexer.getSpindexerWheelVelocity() : 0.0);
 
-    // Distance and TOF
-    if (currentShot != null && robotPoseSupplier != null && compensatedAimTarget != null) {
-      Pose2d robotPose = robotPoseSupplier.get();
-      double robotHeadingRad = robotPose.getRotation().getRadians();
-      double[] turretPos =
-          ShotCalculator.getTurretFieldPosition(
-              robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
-      double distance =
-          Math.sqrt(
-              Math.pow(compensatedAimTarget.getX() - turretPos[0], 2)
-                  + Math.pow(compensatedAimTarget.getY() - turretPos[1], 2));
-      Logger.recordOutput("SmartLaunch/Status/DistanceToAimPoint", distance);
-
-      // TOF from physics (exit velocity + launch angle)
+    // --- Distance group (all in one place, always fresh, never stale) ---
+    Logger.recordOutput("SmartLaunch/Distance/Mode", currentDistanceMode);
+    Logger.recordOutput("SmartLaunch/Distance/RawDistanceM", rawDistanceToTargetM);
+    Logger.recordOutput("SmartLaunch/Distance/VelocityCompensatedDistanceM", currentDistanceM);
+    if (rawTarget != null) {
+      Logger.recordOutput("SmartLaunch/Distance/RawTargetX", rawTarget.getX());
+      Logger.recordOutput("SmartLaunch/Distance/RawTargetY", rawTarget.getY());
+    }
+    if (compensatedAimTarget != null) {
+      Logger.recordOutput(
+          "SmartLaunch/Distance/VelocityCompensatedTargetX", compensatedAimTarget.getX());
+      Logger.recordOutput(
+          "SmartLaunch/Distance/VelocityCompensatedTargetY", compensatedAimTarget.getY());
+    }
+    if (currentShot != null) {
       double tof =
           ShotCalculator.calculateTimeOfFlight(
-              currentExitVelocityMps, currentShot.launchAngleRad(), distance);
-      Logger.recordOutput("SmartLaunch/TOF", tof);
+              currentExitVelocityMps, currentShot.launchAngleRad(), currentDistanceM);
+      Logger.recordOutput("SmartLaunch/Distance/TOF", tof);
     }
   }
 
@@ -1082,37 +1113,45 @@ public class ShootingCoordinator extends SubsystemBase {
   // ========== Zone-Based Speed Check ==========
 
   /**
+   * Check if firing is allowed in the current zone. Returns false when the aim mode is NONE, or
+   * when passing is blocked during auto (autoPassingEnabled is false in PASS/LONG_PASS zones). This
+   * is a policy check, not a speed check.
+   */
+  public boolean isFiringAllowedInCurrentZone() {
+    if (cachedAimResult == null) return true;
+    TurretAimingHelper.AimMode mode = cachedAimResult.mode();
+    if (mode == TurretAimingHelper.AimMode.NONE) return false;
+    boolean passingBlocked =
+        (mode == TurretAimingHelper.AimMode.PASS || mode == TurretAimingHelper.AimMode.LONG_PASS)
+            && DriverStation.isAutonomous()
+            && !autoPassingEnabled;
+    return !passingBlocked;
+  }
+
+  /**
    * Check if the robot is slow enough to fire in the current zone. Uses zone-aware speed
-   * thresholds: alliance zone allows shoot-on-the-move, trench requires stationary, pass zones
-   * allow high speed. Used by continuousSmartLaunch.
+   * thresholds: alliance zone allows shoot-on-the-move, pass zones use pass speed limits. Only
+   * checks speed — use {@link #isFiringAllowedInCurrentZone()} for zone permission.
    *
-   * @return true if the robot speed is within the zone's firing threshold
+   * @return true if firing is allowed AND the robot speed is within the zone's threshold
    */
   public boolean isRobotSlowEnoughForCurrentZone() {
+    if (!isFiringAllowedInCurrentZone()) return false;
     if (fieldSpeedsSupplier == null || cachedAimResult == null) return true;
 
     ChassisSpeeds speeds = fieldSpeedsSupplier.get();
     double robotSpeedMps = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
 
     TurretAimingHelper.AimMode mode = cachedAimResult.mode();
-    // In auto, if passing is disabled, treat PASS/LONG_PASS as no-fire zones.
-    boolean passingBlocked =
-        (mode == TurretAimingHelper.AimMode.PASS || mode == TurretAimingHelper.AimMode.LONG_PASS)
-            && DriverStation.isAutonomous()
-            && !autoPassingEnabled;
-
     double thresholdMps =
         switch (mode) {
-          case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get();
+          case HUB -> shootOnTheMoveSpeedMps.get();
           case PASS, LONG_PASS -> DriverStation.isAutonomous()
               ? autoPassSpeedMps.get()
               : passSpeedMps.get();
           case NONE -> 0.0;
         };
-    boolean slowEnough =
-        mode != TurretAimingHelper.AimMode.NONE && !passingBlocked && robotSpeedMps <= thresholdMps;
-
-    return slowEnough;
+    return robotSpeedMps <= thresholdMps;
   }
 
   /**
@@ -1521,10 +1560,14 @@ public class ShootingCoordinator extends SubsystemBase {
               && speedOk;
 
       // --- Timeout: force FIRING if stuck in AIMING too long ---
+      // Only timeout-force when firing is allowed in the current zone. Without this, the
+      // timeout bypasses zone policy and fires in zones where shooting is not permitted
+      // (e.g. passing in neutral when autoPassingEnabled is false).
       boolean timeoutForced = false;
       if (readyTimeoutRunning
           && readyTimeoutTimer.hasElapsed(readyTimeoutSec.get())
-          && coordinatorState == CoordinatorState.AIMING) {
+          && coordinatorState == CoordinatorState.AIMING
+          && isFiringAllowedInCurrentZone()) {
         coordinatorState = CoordinatorState.FIRING;
         readyTimeoutRunning = false;
         timeoutForced = true;
@@ -1692,7 +1735,7 @@ public class ShootingCoordinator extends SubsystemBase {
     double maxSpeed = Constants.getRobotConfig().getMaxSpeedMetersPerSec();
     if (cachedAimResult == null) return maxSpeed;
     return switch (cachedAimResult.mode()) {
-      case SHOOT_ON_THE_MOVE -> shootOnTheMoveSpeedMps.get() - 0.05;
+      case HUB -> shootOnTheMoveSpeedMps.get() - 0.05;
       case PASS, LONG_PASS -> passSpeedMps.get() - 0.05;
       case NONE -> maxSpeed;
     };

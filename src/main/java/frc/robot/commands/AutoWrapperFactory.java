@@ -52,7 +52,7 @@ public class AutoWrapperFactory {
      * Shoot on the move in alliance zones (hub shots under speed threshold); collect only in
      * neutral zone — no passing. Identical to AUTO_SHOOT except passing is disabled.
      */
-    SHOOT_ON_THE_MOVE_NO_PASS
+    HUB_NO_PASS
   }
 
   // ---- Public wrapper assembler ----
@@ -94,7 +94,7 @@ public class AutoWrapperFactory {
     if (startStrategy == StartStrategy.SPRINT) {
       if (pathStrategy == PathShootingStrategy.AUTO_SHOOT) {
         trigger = ShootingCoordinator.ArmTrigger.ON_PASS_ZONE;
-      } else if (pathStrategy == PathShootingStrategy.SHOOT_ON_THE_MOVE_NO_PASS) {
+      } else if (pathStrategy == PathShootingStrategy.HUB_NO_PASS) {
         trigger = ShootingCoordinator.ArmTrigger.ON_ALLIANCE_RETURN;
       } else {
         trigger = ShootingCoordinator.ArmTrigger.ON_ALLIANCE_RETURN;
@@ -102,7 +102,10 @@ public class AutoWrapperFactory {
     }
 
     // AUTO_SHOOT fires in pass zones; other strategies only fire in alliance zones.
-    coordinator.setAutoPassingEnabled(pathStrategy == PathShootingStrategy.AUTO_SHOOT);
+    // Must run inside the command sequence (not at construction time) so each auto
+    // sets the flag when it actually starts, not when all autos are built at init.
+    boolean passingEnabled = pathStrategy == PathShootingStrategy.AUTO_SHOOT;
+    steps.add(Commands.runOnce(() -> coordinator.setAutoPassingEnabled(passingEnabled)));
 
     // Build the path + intake deploy to run together
     List<Command> pathParallel = new ArrayList<>();
@@ -118,7 +121,7 @@ public class AutoWrapperFactory {
 
     Command pathWithIntake = Commands.parallel(pathParallel.toArray(Command[]::new));
 
-    // For AUTO_SHOOT, AUTO_TRACKING_STATIONARY, and SHOOT_ON_THE_MOVE_NO_PASS: SmartLaunch2
+    // For AUTO_SHOOT, AUTO_TRACKING_STATIONARY, and HUB_NO_PASS: SmartLaunch2
     // runs for the ENTIRE auto (path + post-path). It doesn't die when the path ends — the
     // path is just one step in the sequence that runs underneath it. After the path, the
     // robot is stationary and SmartLaunch2 keeps firing until auto ends.

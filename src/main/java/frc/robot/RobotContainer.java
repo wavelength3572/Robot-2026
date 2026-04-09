@@ -521,7 +521,8 @@ public class RobotContainer {
         || "CompSprintAutoShoot".equals(folder)
         || "CompSprintEndofPath".equals(folder)
         || "CompSprintStationaryShoot".equals(folder)
-        || "CompSprintSotMNoPass".equals(folder);
+        || "CompSprintSotMNoPass".equals(folder)
+        || "CompShootPreloadsSotMNoPass".equals(folder);
   }
 
   /** Folder-based default for start strategy. CompSprint sprints; everything else shoots first. */
@@ -541,8 +542,8 @@ public class RobotContainer {
       return AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT;
     if ("CompSprintStationaryShoot".equals(folder))
       return AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY;
-    if ("CompSprintSotMNoPass".equals(folder))
-      return AutoWrapperFactory.PathShootingStrategy.SHOOT_ON_THE_MOVE_NO_PASS;
+    if ("CompSprintSotMNoPass".equals(folder) || "CompShootPreloadsSotMNoPass".equals(folder))
+      return AutoWrapperFactory.PathShootingStrategy.HUB_NO_PASS;
     return AutoWrapperFactory.PathShootingStrategy.END_OF_PATH;
   }
 
@@ -569,7 +570,7 @@ public class RobotContainer {
         "Auto Tracking, Stationary",
         AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY);
     pathShootingChooser.addOption(
-        "SotM, No Pass", AutoWrapperFactory.PathShootingStrategy.SHOOT_ON_THE_MOVE_NO_PASS);
+        "SotM, No Pass", AutoWrapperFactory.PathShootingStrategy.HUB_NO_PASS);
     SmartDashboard.putData("Auton Path Shooting Strategy", pathShootingChooser);
   }
 
@@ -596,7 +597,7 @@ public class RobotContainer {
       pathName = "Auto Shoot";
     else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY)
       pathName = "Auto Tracking, Stationary";
-    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.SHOOT_ON_THE_MOVE_NO_PASS)
+    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.HUB_NO_PASS)
       pathName = "SotM, No Pass";
 
     // Write the desired default into the NT "selected" key so the dashboard + getSelected() update
