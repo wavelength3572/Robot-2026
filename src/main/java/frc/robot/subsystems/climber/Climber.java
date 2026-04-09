@@ -241,8 +241,6 @@ public class Climber extends SubsystemBase {
           case CLIMBED -> COLOR_CLIMBED;
         };
     armLigament.setColor(armColor);
-    Logger.recordOutput("Visualizations/Climber2d", mechanism);
-
     // 3D component pose for AdvantageScope — climber moves vertically
     // Logged pose is absolute (replaces zeroedPosition in config), so include stowed offset
     double gearRatio = Constants.getRobotConfig().getClimberGearRatio();
@@ -251,7 +249,7 @@ public class Climber extends SubsystemBase {
     double linearHeightMeters =
         (inputs.positionRotations / gearRatio) * Math.PI * drumDiameterMeters;
     Logger.recordOutput(
-        "Visualizations/Climber",
+        "Visualizations/Robot/1_Climber",
         new Pose3d(
             CLIMBER_3D_X, CLIMBER_3D_Y, CLIMBER_3D_Z + linearHeightMeters, new Rotation3d()));
   }

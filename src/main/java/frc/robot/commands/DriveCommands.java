@@ -352,7 +352,7 @@ public class DriveCommands {
     }
 
     Logger.recordOutput(
-        "Visualizations/ClimbActivationBoundary", boundaryPoints.toArray(new Pose2d[0]));
+        "Visualizations/Zones/ClimbActivationBoundary", boundaryPoints.toArray(new Pose2d[0]));
   }
 
   /** Find the nearest alliance climb pose to the robot's current position. */

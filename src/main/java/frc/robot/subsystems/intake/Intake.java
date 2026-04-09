@@ -417,15 +417,15 @@ public class Intake extends SubsystemBase {
       rollerLigament.setColor(COLOR_ROLLER_IDLE);
     }
 
-    Logger.recordOutput("Visualizations/Intake2d", mechanism);
-
     // 3D component poses for AdvantageScope — two models: stowed (model_2) and deployed (model_3)
     // Show deployed model for any non-retracted state, stowed model otherwise
     boolean showDeployed =
         deployState != DeployState.RETRACTED && deployState != DeployState.RETRACTING;
     Pose3d hidden = new Pose3d(0.0, 0.0, -100.0, new Rotation3d());
-    Logger.recordOutput("Visualizations/Intake", showDeployed ? hidden : new Pose3d());
-    Logger.recordOutput("Visualizations/IntakeDeployed", showDeployed ? new Pose3d() : hidden);
+    Logger.recordOutput(
+        "Visualizations/Robot/2_IntakeRetracted", showDeployed ? hidden : new Pose3d());
+    Logger.recordOutput(
+        "Visualizations/Robot/3_IntakeDeployed", showDeployed ? new Pose3d() : hidden);
 
     // Log state machines
     Logger.recordOutput("Subsystems/IntakeDeployState", deployState.name());

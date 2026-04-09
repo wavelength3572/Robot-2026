@@ -35,7 +35,6 @@ import org.littletonrobotics.junction.Logger;
  * <p>The turret subsystem only handles physical rotation. ShootingCoordinator decides WHAT to aim
  * at, WHEN to fire, and provides shot parameters for commands to act on.
  */
-
 public class ShootingCoordinator extends SubsystemBase {
 
   // Subsystem references
@@ -301,7 +300,7 @@ public class ShootingCoordinator extends SubsystemBase {
       new LoggedTunableNumber(
           "SmartLaunch/Pass/DriverStation/Station1/AdjustY",
           Constants.getRobotConfig().getLobStation1AdjustY());
-          
+
   private final LoggedTunableNumber lobStation3AdjustY =
       new LoggedTunableNumber(
           "SmartLaunch/Pass/DriverStation/Station3/AdjustY",
@@ -429,6 +428,9 @@ public class ShootingCoordinator extends SubsystemBase {
     if (periodicCounter % 5 == 0) {
       logShotState();
     }
+
+    // 3D hood component pose for AdvantageScope — mounted on turret, articulates by hood angle
+    logHoodPose();
 
     // Never command actuators while disabled — only run visualization
     if (DriverStation.isDisabled()) {
@@ -860,6 +862,41 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   // ========== Shot State Logging ==========
+
+  // Hood shaft offset from turret center in WPILib space (meters)
+  // Derived from calibrated zeroedPosition: negated values = shaft position relative to turret
+  private static final double HOOD_SHAFT_DX = 0.10668;
+  private static final double HOOD_SHAFT_DY = -0.00762;
+  private static final double HOOD_SHAFT_DZ = 0.1016;
+  // The hood model was exported at its min angle — subtract it so pitch=0 at the baked-in pose
+  private static final double HOOD_MODEL_BASE_DEG = 13.0;
+
+  /** Log the hood's 3D pose for AdvantageScope component visualization (model_4). */
+  private void logHoodPose() {
+    double hoodAngleDeg = hood != null ? hood.getCurrentAngle() : 0.0;
+    double turretYawRad =
+        edu.wpi.first.math.geometry.Rotation2d.fromDegrees(turret.getOutsideCurrentAngle())
+            .getRadians();
+
+    // Forward kinematics: rotate shaft offset by turret yaw
+    double shaftX =
+        turretConfig.xOffset()
+            + HOOD_SHAFT_DX * Math.cos(turretYawRad)
+            - HOOD_SHAFT_DY * Math.sin(turretYawRad);
+    double shaftY =
+        turretConfig.yOffset()
+            + HOOD_SHAFT_DX * Math.sin(turretYawRad)
+            + HOOD_SHAFT_DY * Math.cos(turretYawRad);
+    double shaftZ = turretConfig.heightMeters() - 0.04445 + HOOD_SHAFT_DZ;
+
+    Logger.recordOutput(
+        "Visualizations/Robot/4_Hood",
+        new Pose3d(
+            shaftX,
+            shaftY,
+            shaftZ,
+            new Rotation3d(0.0, Math.toRadians(hoodAngleDeg - HOOD_MODEL_BASE_DEG), turretYawRad)));
+  }
 
   /**
    * Log current shot state to AdvantageKit every cycle. Runs in periodic() so readiness, targets,

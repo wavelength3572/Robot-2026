@@ -581,13 +581,18 @@ public class Turret extends SubsystemBase {
 
   // ========== 3D Pose & Config ==========
 
+  // Visualization Z offset: model geometry already includes some height from the CAD assembly,
+  // so the full turretHeightMeters over-counts. This adjusts only the 3D visualization, not
+  // physics.
+  private static final double VIZ_Z_OFFSET = -0.04445; // -1.75 inches
+
   /** Returns the current turret 3D pose for component visualization. */
-  @AutoLogOutput(key = "Visualizations/Turret")
+  @AutoLogOutput(key = "Visualizations/Robot/0_Turret")
   public Pose3d getPose() {
     return new Pose3d(
         turretXOffset,
         turretYOffset,
-        turretHeightMeters,
+        turretHeightMeters + VIZ_Z_OFFSET,
         new Rotation3d(0.0, 0.0, Rotation2d.fromDegrees(getOutsideCurrentAngle()).getRadians()));
   }
 
