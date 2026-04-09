@@ -230,7 +230,6 @@ public class ShootingCommands {
     // Static factory class
   }
 
-
   /** Initialize tunables so they appear in the dashboard immediately. */
   public static void initTunables() {
     // Fixed shot preset tunables
@@ -498,8 +497,7 @@ public class ShootingCommands {
                               && launcher.isReady()
                               && turret.atTarget()
                               && (hood == null || hood.atTarget())) {
-                            motivator.setMotivatorVelocity(
-                                motivatorRPMSupplier.getAsDouble());
+                            motivator.setMotivatorVelocity(motivatorRPMSupplier.getAsDouble());
                           }
 
                           boolean launcherReady = launcher.isReady();
@@ -525,7 +523,7 @@ public class ShootingCommands {
             // Log ready state
             Commands.runOnce(
                 () -> {
-                  SmartDashboard.putString("Match/Status/State", "Ready - Feeding");   
+                  SmartDashboard.putString("Match/Status/State", "Ready - Feeding");
                   launcher.setFeedingActive(true);
                 }),
 
@@ -670,7 +668,7 @@ public class ShootingCommands {
                     launcher.setVelocity(Math.max(effectiveRPM, 1500));
                     // Shot params logged via AdvantageKit
                   } else {
-                    //TODO is this right? or do we want to idle at 0?
+                    // TODO is this right? or do we want to idle at 0?
                     launcher.setVelocity(1500);
                   }
                 },
