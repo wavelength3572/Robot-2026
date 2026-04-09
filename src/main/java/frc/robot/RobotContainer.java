@@ -1172,14 +1172,10 @@ public class RobotContainer {
     // Spawn the full match fuel layout
     fuelSim.spawnStartingFuel();
 
-    // Default sim pose: midway between the tower (climbing bars) and the hub,
-    // facing the hub
-    double midX =
-        (FieldConstants.Tower.centerPoint.getX() + FieldConstants.Hub.nearFace.getX()) / 2.0;
-    double midY = FieldConstants.fieldWidth / 2.0;
+    // Default sim pose: origin, facing forward (+X) for easy visual debugging
     drive.setPose(
         new edu.wpi.first.math.geometry.Pose2d(
-            midX, midY, new edu.wpi.first.math.geometry.Rotation2d()));
+            0.0, 0.0, new edu.wpi.first.math.geometry.Rotation2d()));
 
     // Start the simulation
     fuelSim.start();
