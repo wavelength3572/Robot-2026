@@ -48,32 +48,32 @@
     },
     {
       "anchor": {
-        "x": 6.148790322580645,
-        "y": 0.5313467741935494
+        "x": 6.079445708374072,
+        "y": 0.5672770292845541
       },
       "prevControl": {
-        "x": 7.003246724500681,
-        "y": 0.5271696282538789
+        "x": 6.933912320554054,
+        "y": 0.5672770292845543
       },
       "nextControl": {
-        "x": 4.472761405927795,
-        "y": 0.5395403079633646
+        "x": 3.079445708374072,
+        "y": 0.5672770292845538
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 1.3958947368366401,
-        "y": 0.6854649122806973
+        "x": 1.3328684352900626,
+        "y": 0.9519780932514232
       },
       "prevControl": {
-        "x": 2.179823804768186,
-        "y": 0.6732138617601102
+        "x": 2.3328684352900626,
+        "y": 0.9519780932514232
       },
       "nextControl": {
-        "x": 0.6119656689050939,
-        "y": 0.6977159628012843
+        "x": 0.5828684352900626,
+        "y": 0.9519780932514234
       },
       "isLocked": false,
       "linkedName": null
@@ -85,7 +85,7 @@
       },
       "prevControl": {
         "x": 0.9869491228070177,
-        "y": 1.7309017543859682
+        "y": 1.730901754385968
       },
       "nextControl": null,
       "isLocked": false,
@@ -114,7 +114,7 @@
       "rotationDegrees": 180.0
     },
     {
-      "waypointRelativePos": 3.7,
+      "waypointRelativePos": 3.4,
       "rotationDegrees": 180.0
     },
     {
@@ -133,7 +133,7 @@
   "constraintZones": [
     {
       "name": "SoTM",
-      "minWaypointRelativePos": 3.6,
+      "minWaypointRelativePos": 3.4,
       "maxWaypointRelativePos": 5.0,
       "constraints": {
         "maxVelocity": 0.6,
@@ -171,7 +171,18 @@
       }
     }
   ],
-  "pointTowardsZones": [],
+  "pointTowardsZones": [
+    {
+      "fieldPosition": {
+        "x": 4.62,
+        "y": 4.029
+      },
+      "rotationOffset": 180.0,
+      "minWaypointRelativePos": 3.5,
+      "maxWaypointRelativePos": 4.690663667041634,
+      "name": "Point Towards Zone"
+    }
+  ],
   "eventMarkers": [
     {
       "name": "ClimberExtend",

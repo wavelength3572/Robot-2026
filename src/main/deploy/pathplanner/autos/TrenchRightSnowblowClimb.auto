@@ -7,7 +7,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchLeftSnowblowToFrontDepotAggressive"
+            "pathName": "TrenchRightSnowblowClimb"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "ClimberClimb"
           }
         }
       ]

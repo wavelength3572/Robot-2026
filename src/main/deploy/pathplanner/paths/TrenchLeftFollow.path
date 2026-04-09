@@ -3,13 +3,13 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 3.5228790322580643,
-        "y": 7.670314516129032
+        "x": 3.5043747911359047,
+        "y": 7.196264121887351
       },
       "prevControl": null,
       "nextControl": {
-        "x": 4.2708080807408955,
-        "y": 7.614617672093076
+        "x": 4.252303839618737,
+        "y": 7.140567277851395
       },
       "isLocked": false,
       "linkedName": "TrenchLeftFollowerStart"
@@ -84,24 +84,24 @@
         "y": 7.30458870967742
       },
       "prevControl": {
-        "x": 6.953387096774194,
-        "y": 6.361016129032258
+        "x": 7.091378606780796,
+        "y": 6.6196020085218175
       },
       "nextControl": {
-        "x": 5.342505042830339,
-        "y": 7.76509575713197
+        "x": 5.381573427180871,
+        "y": 7.579172287520832
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 3.998322580645162,
-        "y": 7.289959677419355
+        "x": 4.42279264321846,
+        "y": 7.18306930807
       },
       "prevControl": {
-        "x": 4.817548387096775,
-        "y": 7.414306451612904
+        "x": 5.242018449670073,
+        "y": 7.30741608226355
       },
       "nextControl": null,
       "isLocked": false,
@@ -135,7 +135,7 @@
     },
     {
       "waypointRelativePos": 4.887537993920992,
-      "rotationDegrees": 180.0
+      "rotationDegrees": 90.0
     }
   ],
   "constraintZones": [
@@ -178,13 +178,13 @@
   },
   "goalEndState": {
     "velocity": 0.0,
-    "rotation": 180.0
+    "rotation": 90.0
   },
   "reversed": false,
   "folder": "Auto Paths",
   "idealStartingState": {
-    "velocity": 0,
-    "rotation": -90.0
+    "velocity": 0.0,
+    "rotation": 90.0
   },
   "useDefaultConstraints": false
 }

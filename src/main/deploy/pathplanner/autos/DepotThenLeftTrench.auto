@@ -7,19 +7,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRightSnowblowAggressiveClimberEvents"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "ClimberClimb"
+            "pathName": "DepotThenLeftTrench"
           }
         }
       ]
     }
   },
   "resetOdom": true,
-  "folder": "CompSprintAutoShoot",
+  "folder": "CompShootPreloadsSotMNoPass",
   "choreoAuto": false
 }
