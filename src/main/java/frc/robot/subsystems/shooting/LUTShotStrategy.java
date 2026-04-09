@@ -3,6 +3,7 @@ package frc.robot.subsystems.shooting;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
 /**
@@ -30,6 +31,23 @@ public class LUTShotStrategy implements ShotStrategy {
 
   private static final int VELOCITY_COMP_ITERATIONS = 3;
 
+  /**
+   * Max hood angle deviation (degrees) we can compensate with RPM. If the LUT wants an angle more
+   * than this far outside the allowed range, the shot is unachievable. Within this range, we clamp
+   * the hood and add RPM to compensate.
+   *
+   * <p>TODO: Tune this to support larger compensation (2-5°). There's no physical reason we
+   * couldn't clamp e.g. a 24° shot down to 18° and compensate with RPM — the ball just needs more
+   * speed on a steeper trajectory. The RPM-per-degree ratio may need to be non-linear at larger
+   * deltas. For now 1° is conservative and safe.
+   */
+  private static final LoggedTunableNumber maxCompensationDeg =
+      new LoggedTunableNumber("SmartLaunch/LUT/MaxCompensationDeg", 1.0);
+
+  /** RPM added per degree of hood compensation (scales linearly with the clamped delta). */
+  private static final LoggedTunableNumber rpmPerDegCompensation =
+      new LoggedTunableNumber("SmartLaunch/LUT/RPMPerDegCompensation", 100.0);
+
   public LUTShotStrategy(ShotLookupTable lookupTable) {
     this.lookupTable = lookupTable;
   }
@@ -48,11 +66,8 @@ public class LUTShotStrategy implements ShotStrategy {
 
     // If not enough LUT data, return non-achievable — don't silently fall back to parametric
     if (!lookupTable.hasEnoughData()) {
-      Logger.recordOutput("Shots/Strategy/LUT/Status", "NO_DATA");
-      return new ShotCalculator.ShotResult(0.0, 0.0, 0.0, 0.0, 0.0, target, false, 0.0, 0.0);
+      return new ShotCalculator.ShotResult(0.0, 0.0, 0.0, 0.0, 0.0, target, false);
     }
-
-    Logger.recordOutput("Shots/Strategy/LUT/Status", "OK");
 
     // Get turret field position
     double robotHeadingRad = robotPose.getRotation().getRadians();
@@ -98,7 +113,7 @@ public class LUTShotStrategy implements ShotStrategy {
     // Look up shot params at the final distance (clamps at boundaries)
     ShotLookupTable.ShotEntry entry = lookupTable.lookup(finalDistance);
     if (entry == null) {
-      return new ShotCalculator.ShotResult(0.0, 0.0, 0.0, 0.0, 0.0, target, false, 0.0, 0.0);
+      return new ShotCalculator.ShotResult(0.0, 0.0, 0.0, 0.0, 0.0, target, false);
     }
 
     // Calculate turret angle to aim at the target
@@ -114,35 +129,65 @@ public class LUTShotStrategy implements ShotStrategy {
             effectiveMaxDeg,
             config);
 
-    // Convert hood angle to launch angle for the result
-    double launchAngleRad = Math.toRadians(90.0 - entry.hoodAngleDeg());
+    // Clamp hood angle to the max limit (trench safety ceiling). The min limit is
+    // hardware-only — we never need to clamp upward toward the trench.
+    double rawHoodDeg = entry.hoodAngleDeg();
+    double clampedHoodDeg = Math.min(hoodMaxAngleDeg, rawHoodDeg);
+    // positive delta = LUT wanted a flatter angle than allowed, we clamped down
+    //   → steeper launch, ball falls short → add RPM to compensate
+    double hoodDelta = rawHoodDeg - clampedHoodDeg;
+    double rpmCompensation = hoodDelta * rpmPerDegCompensation.get();
+    double effectiveRPM = entry.rpm() + rpmCompensation;
 
-    // RPM comes directly from LUT — no efficiency conversion needed
-    // The LUT stores actual RPMs that worked, bypassing efficiency entirely
+    // Achievable if the hood is within hardware limits AND any trench clamp is
+    // within our RPM compensation budget
+    boolean achievable = rawHoodDeg >= hoodMinAngleDeg && hoodDelta <= maxCompensationDeg.get();
+
+    Logger.recordOutput("SmartLaunch/LUT/InRange", lookupTable.isInRange(finalDistance));
+    Logger.recordOutput("SmartLaunch/LUT/RawHoodDeg", rawHoodDeg);
+    Logger.recordOutput("SmartLaunch/LUT/ClampedHoodDeg", clampedHoodDeg);
+    Logger.recordOutput("SmartLaunch/LUT/RPMCompensation", rpmCompensation);
+
+    // Convert clamped hood angle to launch angle for the result
+    double launchAngleDeg = 90.0 - clampedHoodDeg;
+    double launchAngleRad = Math.toRadians(launchAngleDeg);
+
+    // RPM comes directly from LUT (+ any clamp compensation)
+    double efficiency = ShotCalculator.getEfficiency(finalDistance);
+    Logger.recordOutput("SmartLaunch/LUT/Efficiency", efficiency);
     double exitVelocityMps =
-        ShotCalculator.calculateExitVelocityFromRPM(entry.rpm(), finalDistance);
+        ShotCalculator.calculateExitVelocityFromRPM(effectiveRPM, finalDistance);
 
-    // Check hood angle is achievable
-    boolean achievable =
-        entry.hoodAngleDeg() >= hoodMinAngleDeg && entry.hoodAngleDeg() <= hoodMaxAngleDeg;
+    // Derive trajectory characteristics from the LUT output for comparison with parametric
+    double sinTheta = Math.sin(launchAngleRad);
+    double cosTheta = Math.cos(launchAngleRad);
+    double vy0 = exitVelocityMps * sinTheta;
+    double vx = exitVelocityMps * cosTheta;
+    double peakHeightM = config.heightMeters() + (vy0 * vy0) / (2 * 9.81);
 
-    Logger.recordOutput("Shots/Strategy/LUT/StaticDistanceM", staticDistance);
-    Logger.recordOutput("Shots/Strategy/LUT/FinalDistanceM", finalDistance);
-    Logger.recordOutput("Shots/Strategy/LUT/InRange", lookupTable.isInRange(finalDistance));
-    Logger.recordOutput("Shots/Strategy/LUT/LookupRPM", entry.rpm());
-    Logger.recordOutput("Shots/Strategy/LUT/LookupHoodDeg", entry.hoodAngleDeg());
-    Logger.recordOutput("Shots/Strategy/LUT/LookupTOF", entry.timeOfFlightS());
+    // Descent angle at hub edge: compute ball height at hub edge distance, then angle to hub center
+    double hubEdgeDist = finalDistance - 0.530; // HUB_ENTRY_RADIUS
+    if (hubEdgeDist > 0 && vx > 0) {
+      double tEdge = hubEdgeDist / vx;
+      double heightAtEdge = config.heightMeters() + vy0 * tEdge - 0.5 * 9.81 * tEdge * tEdge;
+      double heightDrop = heightAtEdge - 1.43; // HUB_CENTER_HEIGHT
+      double descentAngleDeg = Math.toDegrees(Math.atan(heightDrop / 0.530));
+      double clearanceInches = (heightAtEdge - 1.83) / 0.0254; // above HUB_LIP_HEIGHT
+
+      String prefix = "SmartLaunch/LUT/";
+      Logger.recordOutput(prefix + "DescentAngleDeg", descentAngleDeg);
+      Logger.recordOutput(prefix + "ClearanceInches", clearanceInches);
+      Logger.recordOutput(prefix + "PeakHeightM", peakHeightM);
+    }
 
     return new ShotCalculator.ShotResult(
         exitVelocityMps,
-        entry.rpm(),
+        effectiveRPM,
         launchAngleRad,
-        entry.hoodAngleDeg(),
+        clampedHoodDeg,
         turretAngleDeg,
         aimTarget,
-        achievable,
-        entry.motivatorRPM(),
-        entry.spindexerRPM());
+        achievable);
   }
 
   @Override

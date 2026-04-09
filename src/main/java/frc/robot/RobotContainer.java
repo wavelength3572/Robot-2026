@@ -7,20 +7,16 @@
 
 package frc.robot;
 
-import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-import frc.robot.commands.DriveCommands;
-import frc.robot.commands.LauncherCommands;
-import frc.robot.commands.MotivatorCommands;
+import frc.robot.commands.AutoWrapperFactory;
 import frc.robot.commands.ShootingCommands;
-import frc.robot.commands.SpindexerCommands;
 import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
 import frc.robot.subsystems.drive.Drive;
@@ -58,7 +54,7 @@ import frc.robot.subsystems.turret.TurretIOSparkMax;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
-import frc.robot.subsystems.vision.VisionIODoubleVision;
+import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.FuelSim;
 import frc.robot.util.HubShiftUtil;
@@ -66,9 +62,10 @@ import frc.robot.util.RobotStatus;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 public class RobotContainer {
@@ -87,7 +84,13 @@ public class RobotContainer {
 
   private LoggedDashboardChooser<Command> autoChooser;
   private final LoggedDashboardChooser<String> allianceWinChooser;
+  private SendableChooser<AutoWrapperFactory.StartStrategy> startStrategyChooser;
+  private SendableChooser<AutoWrapperFactory.PathShootingStrategy> pathShootingChooser;
   private boolean lastCompetitionMode = true;
+
+  // Maps display name (e.g. "[Shot] 3 Piece Source") → raw auto name ("3 Piece Source").
+  // Rebuilt alongside autoChooser so display prefixes are a pure presentation concern.
+  private Map<String, String> displayToAutoName = new HashMap<>();
 
   // Simulation: track last selected auto for pose updates
   private String lastSelectedAutoName = null;
@@ -129,11 +132,49 @@ public class RobotContainer {
                 ? new Vision(
                     drive::addVisionMeasurement,
                     new String[] {"CenterRear", "RightFront", "LeftRear", "RightRear"},
-                    new VisionIO() {},
-                    new VisionIO() {},
-                    new VisionIODoubleVision(
+                    new VisionIOPhotonVision(
+                        VisionConstants.centerRearCam, VisionConstants.mainBotToCenterRearCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.rightFrontCam, VisionConstants.mainBotToRightFrontCam),
+                    new VisionIOPhotonVision(
                         VisionConstants.leftRearCam, VisionConstants.mainBotToLeftRearCam),
-                    new VisionIODoubleVision(
+                    new VisionIOPhotonVision(
+                        VisionConstants.rightRearCam, VisionConstants.mainBotToRightRearCam))
+                : null;
+        break;
+
+      case PIT:
+        // Pit mode: simulated drive, real everything else.
+        // Lets the team "drive" around the field virtually while observing real
+        // turret, launcher, hood, vision, and shot calculations.
+        turret = config.hasTurret() ? new Turret(new TurretIOSparkMax()) : null;
+        intake = config.hasIntake() ? new Intake(new IntakeIOSparkMax()) : null;
+        launcher = config.hasLauncher() ? new Launcher(new LauncherIOSparkFlex()) : null;
+        hood = config.hasHood() ? new Hood(new HoodIOSparkMax()) : null;
+        motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkFlex()) : null;
+        spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSparkMax()) : null;
+
+        drive =
+            new Drive(
+                new GyroIO() {},
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                new ModuleIOSim(),
+                turret);
+
+        vision =
+            config.hasVision()
+                ? new Vision(
+                    drive::addVisionMeasurement,
+                    new String[] {"CenterRear", "RightFront", "LeftRear", "RightRear"},
+                    new VisionIOPhotonVision(
+                        VisionConstants.centerRearCam, VisionConstants.mainBotToCenterRearCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.rightFrontCam, VisionConstants.mainBotToRightFrontCam),
+                    new VisionIOPhotonVision(
+                        VisionConstants.leftRearCam, VisionConstants.mainBotToLeftRearCam),
+                    new VisionIOPhotonVision(
                         VisionConstants.rightRearCam, VisionConstants.mainBotToRightRearCam))
                 : null;
         break;
@@ -215,7 +256,13 @@ public class RobotContainer {
     // requirements; when they end, hood automatically returns to min angle.
     if (hood != null) {
       hood.setDefaultCommand(
-          Commands.run(() -> hood.setHoodAngle(hood.getMinAngle()), hood).withName("HoodStow"));
+          Commands.run(
+                  () -> {
+                    hood.setActivelyCommanded(false);
+                    hood.setHoodAngle(hood.getMinAngle());
+                  },
+                  hood)
+              .withName("HoodStow"));
     }
 
     // Initialize RobotStatus with subsystem references (vision may be null for
@@ -244,19 +291,42 @@ public class RobotContainer {
     // Must be created BEFORE FuelSim so intake registration can reference the
     // coordinator
     if (turret != null) {
-      shootingCoordinator = new ShootingCoordinator(turret, hood, launcher, motivator);
-      shootingCoordinator.initialize(drive::getPose, drive::getFieldRelativeSpeeds);
-      // Gate launching: suppress if spindexer is suppressed OR hub shift is inactive
+      shootingCoordinator = new ShootingCoordinator(turret, hood, launcher, motivator, spindexer);
+      shootingCoordinator.initialize(
+          drive::getPose, drive::getFieldRelativeSpeeds, drive::getPitchDeg);
+      // Gate launching: zone-aware hub shift gating with pre-active cutoff
       // (unless "Ignore Hub State" dashboard toggle is on)
       shootingCoordinator.setFeedingSuppressedSupplier(
           () -> {
-            // Spindexer operator suppression (button box)
-            if (spindexer != null && spindexer.isFeedingSuppressed()) return true;
-            // Hub shift gating (skip if override is on)
+            // Auto hold-fire (autonomous named commands) — unconditional
+            if (autoFeedingSuppressed) return true;
+
+            // Compute hub-shift suppression (only when Ignore Hub State is OFF)
+            boolean hubSuppressed = false;
             if (!SmartDashboard.getBoolean("Match/Ignore Hub State", false)) {
-              return !HubShiftUtil.getShiftedShiftInfo().active();
+              HubShiftUtil.ShiftInfo shifted = HubShiftUtil.getShiftedShiftInfo();
+
+              if (!shifted.active()) {
+                double cutoff = HubShiftUtil.preActiveCutoffSeconds.get();
+                if (shifted.remainingTime() <= cutoff) {
+                  // Pre-active cutoff: suppress ALL (stop passing, reposition)
+                  hubSuppressed = true;
+                } else if (shootingCoordinator.isInAllianceZone()) {
+                  // Alliance zone + inactive: can't score
+                  hubSuppressed = true;
+                }
+                // else: neutral/opponent zone + inactive + outside cutoff: passing OK
+              }
             }
-            return false;
+            Logger.recordOutput("HubShift/AutoSuppressed", hubSuppressed);
+
+            // Operator hold-fire — checked AFTER so we can detect conflict
+            boolean operatorSuppressed = spindexer != null && spindexer.isFeedingSuppressed();
+            // Log: operator blocking firing that hub state allows
+            Logger.recordOutput(
+                "HubShift/OperatorOverridingAllowed", operatorSuppressed && !hubSuppressed);
+
+            return hubSuppressed || operatorSuppressed;
           });
     } else {
       shootingCoordinator = null;
@@ -265,9 +335,15 @@ public class RobotContainer {
     // LED subsystem: 42 LEDs on PWM 0, wired in parallel to two physical strips
     leds = new IndicatorLight();
 
+    // Wire turret encoder validation to LEDs for startup error/warning patterns
+    if (turret != null) {
+      leds.setTurretEncoderStatusSupplier(turret::getEncoderValidationStatus);
+    }
+
     // Initialize FuelSim for simulation mode (after coordinator so intake can be
     // registered)
-    if (Constants.currentMode == Constants.Mode.SIM) {
+    if (Constants.currentMode == Constants.Mode.SIM
+        || Constants.currentMode == Constants.Mode.PIT) {
       initializeFuelSim();
     }
 
@@ -328,9 +404,12 @@ public class RobotContainer {
               .withName("LauncherShiftIdle"));
     }
 
-    // Dashboard toggle: defaults to competition mode (safe for matches)
+    // Dashboard toggle: defaults to practice mode (shows all autos including test autos)
     SmartDashboard.putBoolean("Competition Mode", false);
-    autoChooser = buildAutoChooserForMode(true);
+    autoChooser = buildAutoChooserForMode(false);
+
+    // Auton strategy choosers — created once; selection resets when auto changes.
+    initStrategyChoosers();
 
     updateOI();
   }
@@ -362,20 +441,20 @@ public class RobotContainer {
         shootingCoordinator);
   }
 
-  // Starting fuel count for autonomous (always 8)
-  private static final int AUTO_START_FUEL_COUNT = 8;
-
   // Comp autos get the full shooting wrap (fuel, auto-shoot, intake, launcher
   // spin-up).
-  // Test autos run bare — no setup/teardown, just the path.
-  // Built dynamically at startup by scanning PathPlanner auto files for "folder":
-  // "Comp".
-  private final Set<String> compAutos = loadCompAutoNames();
+  // Maps auto name → folder name (e.g. "Comp", "CompSprint", "Test Maneuvers").
+  // Built dynamically at startup by scanning PathPlanner .auto files.
+  private final Map<String, String> autoFolderMap = loadAutoFolderMap();
+
+  // Toggled by holdFire/releaseFire named commands during auto paths.
+  // Wired into feedingSuppressedSupplier so ShootingCoordinator respects it.
+  private boolean autoFeedingSuppressed = false;
 
   /**
-   * Use this to pass the autonomous command to the main {@link Robot} class. Wraps the selected
-   * auto with setup (fuel, launcher spin-up, auto-shoot enable) and teardown (disable auto-shoot,
-   * stop motors).
+   * Use this to pass the autonomous command to the main {@link Robot} class. Dispatches to the
+   * appropriate wrapper based on the auto's folder. The folder provides default strategies which
+   * the dashboard choosers can override. Test autos and unknown folders run bare.
    *
    * @return the command to run in autonomous
    */
@@ -383,114 +462,143 @@ public class RobotContainer {
     Command selectedAuto = autoChooser.get();
     if (selectedAuto == null) return null;
 
-    // Only wrap comp autos with shooting setup/teardown; test autos run bare
-    String selectedName = autoChooser.getSendableChooser().getSelected();
-    if (selectedName == null || !compAutos.contains(selectedName)) {
-      return selectedAuto;
+    String displayName = autoChooser.getSendableChooser().getSelected();
+    if (displayName == null) return selectedAuto;
+
+    // Resolve display name → raw auto name for PathPlanner and folder lookup
+    String rawName = displayToAutoName.getOrDefault(displayName, displayName);
+    String folder = autoFolderMap.getOrDefault(rawName, "");
+    edu.wpi.first.math.geometry.Pose2d startingPose = resolveStartingPose(rawName);
+
+    if (!isCompFolder(folder)) {
+      return selectedAuto; // Test autos and unknown folders run bare
     }
 
-    // Reset odometry to the auto's starting pose BEFORE any shooting commands run.
-    // Without this, the initial SmartLaunch uses a stale pose (e.g. heading=0 from
-    // gyro reset) instead of the auto's actual starting heading, causing the turret
-    // to aim in the wrong direction.
-    edu.wpi.first.math.geometry.Pose2d autoStartingPose = null;
+    // Read strategies directly — choosers always have concrete values
+    AutoWrapperFactory.StartStrategy startStrategy = startStrategyChooser.getSelected();
+    AutoWrapperFactory.PathShootingStrategy pathStrategy = pathShootingChooser.getSelected();
+    if (startStrategy == null) startStrategy = defaultStartStrategy(folder);
+    if (pathStrategy == null) pathStrategy = defaultPathShootingStrategy(folder);
+
+    return AutoWrapperFactory.compWrapped(
+        selectedAuto,
+        startingPose,
+        startStrategy,
+        pathStrategy,
+        drive,
+        intake,
+        launcher,
+        shootingCoordinator,
+        motivator,
+        turret,
+        hood,
+        spindexer);
+  }
+
+  /** Returns true for any folder that should receive the comp wrapper. */
+  private static boolean isCompFolder(String folder) {
+    return "CompShootPreloadsEndofPath".equals(folder)
+        || "CompSprintAutoShoot".equals(folder)
+        || "CompSprintEndofPath".equals(folder)
+        || "CompSprintStationaryShoot".equals(folder);
+  }
+
+  /** Folder-based default for start strategy. CompSprint sprints; everything else shoots first. */
+  private static AutoWrapperFactory.StartStrategy defaultStartStrategy(String folder) {
+    return ("CompSprintAutoShoot".equals(folder)
+            || "CompSprintEndofPath".equals(folder)
+            || "CompSprintStationaryShoot".equals(folder))
+        ? AutoWrapperFactory.StartStrategy.SPRINT
+        : AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS;
+  }
+
+  /** Folder-based default for path shooting. CompSprint auto-shoots; everything else waits. */
+  private static AutoWrapperFactory.PathShootingStrategy defaultPathShootingStrategy(
+      String folder) {
+    if ("CompSprintAutoShoot".equals(folder))
+      return AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT;
+    if ("CompSprintStationaryShoot".equals(folder))
+      return AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY;
+    return AutoWrapperFactory.PathShootingStrategy.END_OF_PATH;
+  }
+
+  /**
+   * Rebuild and publish the strategy choosers with the given folder's defaults pre-selected. Called
+   * on startup (with null folder) and whenever the auto selection changes. The operator can then
+   * override from the dashboard.
+   */
+  /** Create the strategy choosers once at startup. Called from the constructor. */
+  private void initStrategyChoosers() {
+    startStrategyChooser = new SendableChooser<>();
+    startStrategyChooser.setDefaultOption("—", null);
+    startStrategyChooser.addOption(
+        "Shoot Preloads", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS);
+    startStrategyChooser.addOption("Sprint", AutoWrapperFactory.StartStrategy.SPRINT);
+    SmartDashboard.putData("Auton Start Strategy", startStrategyChooser);
+
+    pathShootingChooser = new SendableChooser<>();
+    pathShootingChooser.setDefaultOption("—", null);
+    pathShootingChooser.addOption(
+        "End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
+    pathShootingChooser.addOption("Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
+    pathShootingChooser.addOption(
+        "Auto Tracking, Stationary",
+        AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY);
+    SmartDashboard.putData("Auton Path Shooting Strategy", pathShootingChooser);
+  }
+
+  /**
+   * Reset the strategy chooser selections to the folder-appropriate defaults. The chooser widgets
+   * stay alive on the dashboard — only the selected value changes.
+   */
+  private void resetStrategySelections(String folder) {
+    AutoWrapperFactory.StartStrategy defaultStart =
+        (folder != null) ? defaultStartStrategy(folder) : null;
+    AutoWrapperFactory.PathShootingStrategy defaultPath =
+        (folder != null) ? defaultPathShootingStrategy(folder) : null;
+
+    // Determine the option name strings to select
+    String startName = "—";
+    if (defaultStart == AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS)
+      startName = "Shoot Preloads";
+    else if (defaultStart == AutoWrapperFactory.StartStrategy.SPRINT) startName = "Sprint";
+
+    String pathName = "—";
+    if (defaultPath == AutoWrapperFactory.PathShootingStrategy.END_OF_PATH)
+      pathName = "End of Path";
+    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT)
+      pathName = "Auto Shoot";
+    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY)
+      pathName = "Auto Tracking, Stationary";
+
+    // Write the desired default into the NT "selected" key so the dashboard + getSelected() update
+    var nt = NetworkTableInstance.getDefault();
+    nt.getTable("SmartDashboard/Auton Start Strategy").getEntry("selected").setString(startName);
+    nt.getTable("SmartDashboard/Auton Path Shooting Strategy")
+        .getEntry("selected")
+        .setString(pathName);
+  }
+
+  /**
+   * Resolve the starting pose for a PathPlanner auto, flipped for red alliance. Returns null if the
+   * auto has no valid starting pose.
+   */
+  private edu.wpi.first.math.geometry.Pose2d resolveStartingPose(String autoName) {
     try {
-      PathPlannerAuto ppAuto = new PathPlannerAuto(selectedName);
-      autoStartingPose = ppAuto.getStartingPose();
-      if (autoStartingPose != null) {
+      PathPlannerAuto ppAuto = new PathPlannerAuto(autoName);
+      edu.wpi.first.math.geometry.Pose2d pose = ppAuto.getStartingPose();
+      if (pose != null) {
         edu.wpi.first.wpilibj.DriverStation.Alliance alliance =
             edu.wpi.first.wpilibj.DriverStation.getAlliance()
                 .orElse(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue);
         if (alliance == edu.wpi.first.wpilibj.DriverStation.Alliance.Red) {
-          autoStartingPose = com.pathplanner.lib.util.FlippingUtil.flipFieldPose(autoStartingPose);
+          pose = com.pathplanner.lib.util.FlippingUtil.flipFieldPose(pose);
         }
       }
+      return pose;
     } catch (Exception e) {
-      // Auto doesn't have a valid starting pose - will skip reset
+      return null;
     }
-    final edu.wpi.first.math.geometry.Pose2d startingPose = autoStartingPose;
-
-    // Wrap with shooting setup and teardown using smartLaunchCommand
-    return Commands.sequence(
-            // 0. ODOM RESET: set robot pose to auto starting position so turret aiming
-            //    in the initial SmartLaunch uses the correct heading.
-            Commands.runOnce(
-                () -> {
-                  if (startingPose != null) {
-                    drive.setPose(startingPose);
-                  }
-                }),
-            // 1. SETUP: load fuel, sim reset, deploy intake
-            Commands.runOnce(
-                () -> {
-                  // Set fuel count (sim visualizer)
-                  if (shootingCoordinator != null && shootingCoordinator.getVisualizer() != null) {
-                    shootingCoordinator.getVisualizer().setFuelCount(AUTO_START_FUEL_COUNT);
-                  }
-                  // Clear/respawn field fuel (sim)
-                  if (Constants.currentMode == Constants.Mode.SIM) {
-                    frc.robot.util.FuelSim.getInstance().clearFuel();
-                    frc.robot.util.FuelSim.getInstance().spawnStartingFuel();
-                  }
-                  // Deploy and run intake
-                  if (intake != null) {
-                    intake.deploy();
-                    intake.runIntake();
-                  }
-                }),
-            // 2. WAIT FOR INTAKE DEPLOY: block until intake reaches deployed position
-            //    before any shooting occurs — shooting with the intake stowed will rip it off.
-            intake != null
-                ? Commands.waitUntil(() -> intake.isDeployed()).withTimeout(0.25)
-                : Commands.none(),
-            // 3. INITIAL SHOT: fire preloaded balls with proper hood angle.
-            //    smartLaunch handles turret+hood+launcher+motivator+spindexer+readiness.
-            //    5s timeout controls duration (no fuel sensor yet).
-            //    Wrapped in asProxy() so subsystem requirements don't leak into the
-            //    outer sequence — otherwise the group holds hood/launcher/etc. for its
-            //    entire lifetime, blocking default commands between steps.
-            ShootingCommands.smartLaunchCommand(
-                    launcher, shootingCoordinator, motivator, turret, hood, spindexer)
-                .withTimeout(5.0)
-                .asProxy(),
-            // 4. HOOD STOW: explicitly drive hood to min angle (13 deg) and wait.
-            //    We command the hood directly rather than relying on the default command
-            //    so the hood moves regardless of subsystem scheduling.
-            //    Wrapped in asProxy() so the outer sequence holds zero subsystem
-            //    requirements — preventing conflicts when step 5's PathPlanner auto
-            //    claims hood/launcher/etc. for SmartLaunch event zones.
-            hood != null
-                ? Commands.run(() -> hood.setHoodAngle(hood.getMinAngle()), hood)
-                    .until(() -> hood.atTarget())
-                    .withTimeout(0.75)
-                    .asProxy()
-                : Commands.none(),
-            // 5. PATH: run auto path.
-            //    PathPlanner "SmartLaunch" event zones trigger full smartLaunchCommand
-            //    at path-designer-chosen safe moments (turret+hood+firing).
-            //    When zone ends, hood stows back to 13 via default command.
-            selectedAuto.asProxy(),
-            // 6. POST-PATH: fire all collected fuel with proper hood angle.
-            //    smartLaunch positions turret+hood and fires via spindexer.
-            //    10s timeout controls duration (no fuel sensor yet).
-            //    Wrapped in asProxy() to isolate subsystem requirements.
-            ShootingCommands.smartLaunchCommand(
-                    launcher, shootingCoordinator, motivator, turret, hood, spindexer)
-                .withTimeout(10.0)
-                .asProxy())
-        .finallyDo(
-            () -> {
-              // 7. TEARDOWN: stop everything
-              if (launcher != null) {
-                launcher.stop();
-              }
-              if (motivator != null) {
-                motivator.stopMotivator();
-              }
-              if (intake != null) {
-                intake.stopRollers();
-              }
-            });
   }
 
   /**
@@ -518,6 +626,10 @@ public class RobotContainer {
    */
   public ShootingCoordinator getShootingCoordinator() {
     return shootingCoordinator;
+  }
+
+  public Spindexer getSpindexer() {
+    return spindexer;
   }
 
   /**
@@ -593,6 +705,15 @@ public class RobotContainer {
   }
 
   /**
+   * Get the drive subsystem.
+   *
+   * @return drive subsystem or null if not present
+   */
+  public Drive getDrive() {
+    return drive;
+  }
+
+  /**
    * Check if the motivator subsystem is present on this robot.
    *
    * @return true if motivator exists
@@ -612,27 +733,6 @@ public class RobotContainer {
 
   /** Register NamedCommands for PathPlanner autos. Must be called before buildAutoChooser. */
   private void registerNamedCommands() {
-    // Enable auto-shoot: spins up launcher + motivator, enables auto-shoot on
-    // turret
-    NamedCommands.registerCommand(
-        "enableAutoShoot",
-        Commands.runOnce(
-            () -> {
-              if (launcher != null) launcher.setVelocity(1700.0);
-              if (motivator != null) motivator.setMotivatorVelocity(1000.0);
-              if (shootingCoordinator != null) shootingCoordinator.enableAutoShoot();
-            }));
-
-    // Disable auto-shoot: stops auto-shoot and motors
-    NamedCommands.registerCommand(
-        "disableAutoShoot",
-        Commands.runOnce(
-            () -> {
-              if (shootingCoordinator != null) shootingCoordinator.disableAutoShoot();
-              if (launcher != null) launcher.stop();
-              if (motivator != null) motivator.stopMotivator();
-            }));
-
     // Set fuel count commands for testing
     NamedCommands.registerCommand(
         "setFuel40",
@@ -672,6 +772,11 @@ public class RobotContainer {
           "resetStartingField", ShootingCommands.resetStartingFieldCommand(shootingCoordinator));
     }
 
+    // Agitate: shake loose stuck balls (used between cycles in multi-path autos)
+    if (intake != null) {
+      NamedCommands.registerCommand("Agitate", intake.agitateCommand(() -> 2000.0, () -> false));
+    }
+
     // RunIntake: deploy intake and start rollers (used by Depot auto)
     if (intake != null) {
       NamedCommands.registerCommand(
@@ -684,21 +789,45 @@ public class RobotContainer {
               intake));
     }
 
-    // StartLauncher: spin up launcher + motivator + enable auto-shoot
-    NamedCommands.registerCommand(
-        "StartLauncher",
-        Commands.runOnce(
-            () -> {
-              if (launcher != null) launcher.setVelocity(1700.0);
-              if (motivator != null) motivator.setMotivatorVelocity(1000.0);
-              if (shootingCoordinator != null) shootingCoordinator.enableAutoShoot();
-            }));
-
-    // SmartLaunch: full smartLaunch command for PathPlanner event zones
+    // SmartLaunch: state-machine-driven version (zone-aware, transition-safe)
     NamedCommands.registerCommand(
         "SmartLaunch",
-        ShootingCommands.smartLaunchCommand(
+        ShootingCommands.smartLaunchDangerousCommand(
             launcher, shootingCoordinator, motivator, turret, hood, spindexer));
+
+    // holdFire / releaseFire: suppress/allow feeding during auto paths.
+    // Useful for accumulating balls before dumping at hub.
+    NamedCommands.registerCommand("holdFire", Commands.runOnce(() -> autoFeedingSuppressed = true));
+    NamedCommands.registerCommand(
+        "releaseFire", Commands.runOnce(() -> autoFeedingSuppressed = false));
+
+    // RetractIntake: retract intake and stop rollers
+    if (intake != null) {
+      NamedCommands.registerCommand(
+          "RetractIntake",
+          Commands.runOnce(
+              () -> {
+                intake.retract();
+                intake.stopRollers();
+              },
+              intake));
+    }
+
+    // StowHood: drive hood to min angle, unblocks when ≤18° (safe to enter trench).
+    // Commands min angle but doesn't wait for full arrival — 18° clears the structure.
+    // Registered as .asProxy() so the hood subsystem requirement doesn't bubble up to
+    // PathPlannerAuto — otherwise the auto conflicts with SmartLaunch for hood ownership
+    // and the entire auto gets cancelled before the first path even runs.
+    if (hood != null) {
+      NamedCommands.registerCommand(
+          "StowHood",
+          Commands.run(() -> hood.setHoodAngle(hood.getMinAngle()), hood)
+              .until(() -> hood.getCurrentAngle() <= 18.0)
+              .withTimeout(1.5)
+              .asProxy());
+    } else {
+      NamedCommands.registerCommand("StowHood", Commands.none());
+    }
   }
 
   // Track last alliance to detect changes
@@ -711,25 +840,35 @@ public class RobotContainer {
    */
   public void updateSimulationPoseFromAuto() {
     // Get the currently selected auto name and alliance
-    String selectedAutoName = autoChooser.getSendableChooser().getSelected();
+    String selectedDisplayName = autoChooser.getSendableChooser().getSelected();
     edu.wpi.first.wpilibj.DriverStation.Alliance currentAlliance =
         edu.wpi.first.wpilibj.DriverStation.getAlliance()
             .orElse(edu.wpi.first.wpilibj.DriverStation.Alliance.Blue);
 
     // Update if either the auto selection or alliance changed
     boolean autoChanged =
-        selectedAutoName != null && !selectedAutoName.equals(lastSelectedAutoName);
+        selectedDisplayName != null && !selectedDisplayName.equals(lastSelectedAutoName);
     boolean allianceChanged = currentAlliance != lastAlliance;
 
     if (autoChanged || allianceChanged) {
-      lastSelectedAutoName = selectedAutoName;
+      lastSelectedAutoName = selectedDisplayName;
       lastAlliance = currentAlliance;
 
       // Skip if no auto selected or "None" is selected
-      if (selectedAutoName == null
-          || selectedAutoName.isEmpty()
-          || selectedAutoName.equals("None")) {
+      if (selectedDisplayName == null
+          || selectedDisplayName.isEmpty()
+          || selectedDisplayName.equals("None")) {
+        if (autoChanged) resetStrategySelections(null);
         return;
+      }
+
+      // Resolve display name → raw auto name for PathPlanner
+      String rawAutoName = displayToAutoName.getOrDefault(selectedDisplayName, selectedDisplayName);
+
+      // Rebuild strategy choosers with this auto's folder defaults
+      if (autoChanged) {
+        String folder = autoFolderMap.getOrDefault(rawAutoName, "");
+        resetStrategySelections(folder);
       }
 
       try {
@@ -737,7 +876,7 @@ public class RobotContainer {
         // PathPlannerAuto.getStartingPose() returns the pose relative to blue alliance
         // origin
         com.pathplanner.lib.commands.PathPlannerAuto auto =
-            new com.pathplanner.lib.commands.PathPlannerAuto(selectedAutoName);
+            new com.pathplanner.lib.commands.PathPlannerAuto(rawAutoName);
         edu.wpi.first.math.geometry.Pose2d startingPose = auto.getStartingPose();
 
         if (startingPose != null) {
@@ -767,87 +906,139 @@ public class RobotContainer {
   }
 
   /**
-   * Build the auto chooser for the given mode. In competition mode, only Comp-folder autos are
-   * included. In practice mode, all PathPlanner autos and SysId routines are included.
+   * Build the auto chooser for the given mode. In competition mode, only Comp and CompSprint autos
+   * are included. In practice mode, all PathPlanner autos and SysId routines are included. Display
+   * names are prefixed with a short bracket tag indicating wrapper type.
    */
   private LoggedDashboardChooser<Command> buildAutoChooserForMode(boolean competitionMode) {
+    displayToAutoName = new HashMap<>();
+
     if (competitionMode) {
       SendableChooser<Command> sendable = new SendableChooser<>();
       sendable.setDefaultOption("None", Commands.none());
-      for (String autoName : compAutos) {
-        sendable.addOption(autoName, new PathPlannerAuto(autoName));
-      }
+      autoFolderMap.entrySet().stream()
+          .filter(e -> isCompFolder(e.getValue()))
+          .sorted(Map.Entry.comparingByKey())
+          .forEachOrdered(
+              entry -> {
+                String rawName = entry.getKey();
+                String folder = entry.getValue();
+                String prefix = folderToPrefix(folder);
+                String displayName = prefix + rawName;
+                displayToAutoName.put(displayName, rawName);
+                sendable.addOption(displayName, new PathPlannerAuto(rawName));
+              });
       return new LoggedDashboardChooser<>("Auto Choices", sendable);
     } else {
+      // Practice mode: include all autos with prefixes, plus SysId utilities
+      SendableChooser<Command> sendable = new SendableChooser<>();
+      sendable.setDefaultOption("None", Commands.none());
+      autoFolderMap.entrySet().stream()
+          .sorted(Map.Entry.comparingByKey())
+          .forEachOrdered(
+              entry -> {
+                String rawName = entry.getKey();
+                String folder = entry.getValue();
+                String prefix = folderToPrefix(folder);
+                String displayName = prefix + rawName;
+                displayToAutoName.put(displayName, rawName);
+                sendable.addOption(displayName, new PathPlannerAuto(rawName));
+              });
+
       LoggedDashboardChooser<Command> chooser =
-          new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
+          new LoggedDashboardChooser<>("Auto Choices", sendable);
+
       // Add SysId routines only on real robot (not in simulation)
-      if (Constants.currentMode != Constants.Mode.SIM) {
-        chooser.addOption(
-            "Drive Wheel Radius Characterization",
-            DriveCommands.wheelRadiusCharacterization(drive));
-        chooser.addOption(
-            "Drive Simple FF Characterization",
-            DriveCommands.feedforwardCharacterizationDrive(drive));
-        chooser.addOption(
-            "Drive SysId (Quasistatic Forward)",
-            drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
-        chooser.addOption(
-            "Drive SysId (Quasistatic Reverse)",
-            drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
-        chooser.addOption(
-            "Drive SysId (Dynamic Forward)", drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
-        chooser.addOption(
-            "Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+      // if (Constants.currentMode != Constants.Mode.SIM) {
+      // chooser.addOption(
+      //     "[Util] Drive Wheel Radius Characterization",
+      //     DriveCommands.wheelRadiusCharacterization(drive));
+      // chooser.addOption(
+      //     "[Util] Drive Simple FF Characterization",
+      //     DriveCommands.feedforwardCharacterizationDrive(drive));
+      // //   chooser.addOption(
+      //       "[Util] Drive SysId (Quasistatic Forward)",
+      //       drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+      //   chooser.addOption(
+      //       "[Util] Drive SysId (Quasistatic Reverse)",
+      //       drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+      //   chooser.addOption(
+      //       "[Util] Drive SysId (Dynamic Forward)",
+      //       drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
+      //   chooser.addOption(
+      //       "[Util] Drive SysId (Dynamic Reverse)",
+      //       drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
-        if (launcher != null) {
-          chooser.addOption("Launcher SysId (Quasistatic)", launcher.launcherSysIdQuasistatic());
-          chooser.addOption("Launcher SysId (Dynamic)", launcher.launcherSysIdDynamic());
-          chooser.addOption(
-              "Launcher Simple FF Characterization",
-              LauncherCommands.feedforwardCharacterization(launcher));
-        }
-        if (motivator != null) {
-          chooser.addOption(
-              "Motivator Simple FF Characterization",
-              MotivatorCommands.feedforwardCharacterization(motivator));
-        }
+      //   if (launcher != null) {
+      //     chooser.addOption(
+      //         "[Util] Launcher Simple FF Characterization",
+      //         LauncherCommands.feedforwardCharacterization(launcher));
+      //   }
+      //   if (motivator != null) {
+      //     chooser.addOption(
+      //         "[Util] Motivator Simple FF Characterization",
+      //         MotivatorCommands.feedforwardCharacterization(motivator));
+      //   }
 
-        if (spindexer != null) {
-          chooser.addOption(
-              "Spindexer Simple FF Characterization",
-              SpindexerCommands.feedforwardCharacterization(spindexer));
-        }
-      }
+      //   if (spindexer != null) {
+      //     chooser.addOption(
+      //         "[Util] Spindexer Simple FF Characterization",
+      //         SpindexerCommands.spindexerCharacterization(spindexer));
+      //   }
+      // }
       return chooser;
     }
   }
 
+  /** Map a PathPlanner folder name to a short display prefix for the auto chooser dropdown. */
+  private static String folderToPrefix(String folder) {
+    return "";
+  }
+
   /**
-   * Scan PathPlanner auto files and return the names of autos in the "Comp" folder. Any auto placed
-   * in the Comp folder in PathPlanner will automatically get the shooting wrap (fuel loading,
-   * auto-shoot, intake, launcher spin-up/teardown).
+   * Scan PathPlanner auto files and return a map of auto name → folder name. The folder determines
+   * which wrapper is applied: "Comp" → compShotWrapped, "CompSprint" → compSprintWrapped, etc.
+   * Autos without a folder field map to "".
    */
-  private static Set<String> loadCompAutoNames() {
-    Set<String> names = new HashSet<>();
+  private static Map<String, String> loadAutoFolderMap() {
+    Map<String, String> map = new HashMap<>();
     File autosDir =
         new File(edu.wpi.first.wpilibj.Filesystem.getDeployDirectory(), "pathplanner/autos");
     File[] autoFiles = autosDir.listFiles((dir, name) -> name.endsWith(".auto"));
-    if (autoFiles == null) return names;
+    if (autoFiles == null) return map;
 
     for (File file : autoFiles) {
       try {
         String content = Files.readString(file.toPath());
-        if (content.contains("\"folder\": \"Comp\"") || content.contains("\"folder\":\"Comp\"")) {
-          // Auto name = filename without .auto extension
-          String autoName = file.getName().replace(".auto", "");
-          names.add(autoName);
-        }
+        String autoName = file.getName().replace(".auto", "");
+        // Extract folder field value from JSON content
+        String folder = extractJsonStringField(content, "folder");
+        map.put(autoName, folder);
       } catch (IOException e) {
         // Skip unreadable files
       }
     }
-    return names;
+    return map;
+  }
+
+  /** Extract a string field value from simple JSON content. Returns "" if not found. */
+  private static String extractJsonStringField(String json, String field) {
+    // Match "field": "value" or "field":"value"
+    String pattern = "\"" + field + "\"\\s*:\\s*\"";
+    int idx = -1;
+    // Simple search — avoid regex dependency for a trivial parse
+    for (String variant :
+        new String[] {"\"" + field + "\": \"", "\"" + field + "\":\"", "\"" + field + "\" : \""}) {
+      idx = json.indexOf(variant);
+      if (idx >= 0) {
+        idx += variant.length();
+        break;
+      }
+    }
+    if (idx < 0) return "";
+    int end = json.indexOf('"', idx);
+    if (end < 0) return "";
+    return json.substring(idx, end);
   }
 
   /**
@@ -866,6 +1057,10 @@ public class RobotContainer {
     // Register the robot with the simulation
     fuelSim.registerRobot(
         robotWidth, robotLength, bumperHeight, drive::getPose, drive::getFieldRelativeSpeeds);
+    // fuelSim.enableAirResistance();
+    if (shootingCoordinator != null && shootingCoordinator.getVisualizer() != null) {
+      fuelSim.setRobotFuelStoredSupplier(() -> shootingCoordinator.getVisualizer().getFuelCount());
+    }
 
     // Register intake with fuel simulation for pickup collision detection
     // Intake zone: 10 inches (0.254m) from front frame, 30 inches (0.762m) wide
@@ -905,7 +1100,8 @@ public class RobotContainer {
 
   /** Update the fuel simulation. Call this from robotPeriodic(). */
   public void updateFuelSim() {
-    if (Constants.currentMode == Constants.Mode.SIM) {
+    if (Constants.currentMode == Constants.Mode.SIM
+        || Constants.currentMode == Constants.Mode.PIT) {
       FuelSim.getInstance().updateSim();
     }
   }

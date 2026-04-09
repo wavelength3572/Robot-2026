@@ -232,6 +232,10 @@ public interface RobotConfig {
     return 0.0;
   }
 
+  default double getTurretToleranceAngleDeg() {
+    return 2.0;
+  }
+
   /** Turret feedforward gain. */
   default double getTurretKff() {
     return 0.0;
@@ -311,11 +315,6 @@ public interface RobotConfig {
   /** Launcher IZone for MAXMotion velocity control (motor RPM). */
   default double getLauncherIZone() {
     return 200.0;
-  }
-
-  /** Launcher MAXMotion max acceleration (motor RPM/s). */
-  default double getLauncherMaxAcceleration() {
-    return 10000.0;
   }
 
   // ========== Hood Configuration ==========

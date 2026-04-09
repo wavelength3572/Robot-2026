@@ -13,7 +13,6 @@ import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.wpilibj.PowerDistribution;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
 import java.util.function.DoubleSupplier;
@@ -27,7 +26,6 @@ public class IntakeIOSparkMaxRollerOnly implements IntakeIO {
   private final SparkMax rollerMotor;
   private final RelativeEncoder rollerEncoder;
   private final SparkClosedLoopController rollerController;
-  private final PowerDistribution pdh;
 
   private final Debouncer rollerConnectedDebounce =
       new Debouncer(0.5, Debouncer.DebounceType.kFalling);
@@ -76,9 +74,6 @@ public class IntakeIOSparkMaxRollerOnly implements IntakeIO {
         () ->
             rollerMotor.configure(
                 rollerConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters));
-
-    // Create PDH for independent current monitoring
-    pdh = new PowerDistribution();
   }
 
   @Override
@@ -96,8 +91,6 @@ public class IntakeIOSparkMaxRollerOnly implements IntakeIO {
         new DoubleSupplier[] {rollerMotor::getAppliedOutput, rollerMotor::getBusVoltage},
         (values) -> inputs.rollerAppliedVolts = values[0] * values[1]);
     ifOk(rollerMotor, rollerMotor::getOutputCurrent, (value) -> inputs.rollerCurrentAmps = value);
-    inputs.rollerPdhCurrentAmps = pdh.getCurrent(12);
-    inputs.rollerPdhVoltage = pdh.getVoltage();
     inputs.rollerConnected = rollerConnectedDebounce.calculate(!sparkStickyFault);
     inputs.rollerTargetSpeed = rollerTargetSpeed;
   }
@@ -112,6 +105,12 @@ public class IntakeIOSparkMaxRollerOnly implements IntakeIO {
   public void setRollerVelocity(double rpm) {
     rollerTargetSpeed = rpm;
     rollerController.setSetpoint(rpm, ControlType.kVelocity);
+  }
+
+  @Override
+  public void stopRollerMotor() {
+    rollerTargetSpeed = 0.0;
+    rollerMotor.stopMotor();
   }
 
   @Override
