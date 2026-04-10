@@ -24,6 +24,7 @@ public class IndicatorLightConstants {
     WHITE,
     RAINBOW,
     BLUEOMBRE,
+    REDOMBRE,
     BLINK,
     COUNTDOWN_BLINK,
     BLINK_RED,

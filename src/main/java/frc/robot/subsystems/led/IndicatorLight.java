@@ -235,6 +235,7 @@ public class IndicatorLight extends SubsystemBase {
       case BLINK_RED -> doBlinkRed();
       case RAINBOW -> doRainbow();
       case BLUEOMBRE -> doBlueOmbre();
+      case REDOMBRE -> doRedOmbre();
       case BLINK -> doBlink();
       case COUNTDOWN_BLINK -> doCountdownBlink();
       case BLINK_PURPLE -> blinkPurple();
@@ -426,6 +427,29 @@ public class IndicatorLight extends SubsystemBase {
     for (var i = 0; i < wlLEDBuffer.getLength(); i++) {
       final var saturation = (currentSaturation + (i * 255 / wlLEDBuffer.getLength())) % 255;
       wlLEDBuffer.setHSV(i, 103, 255, saturation);
+    }
+
+    if (forward) {
+      currentSaturation += 3;
+      if (currentSaturation >= 255) {
+        currentSaturation = 255;
+        forward = false;
+      }
+    } else {
+      currentSaturation -= 3;
+      if (currentSaturation <= 0) {
+        currentSaturation = 0;
+        forward = true;
+      }
+    }
+
+    setActiveBuffer(wlLEDBuffer);
+  }
+
+  public void doRedOmbre() {
+    for (var i = 0; i < wlLEDBuffer.getLength(); i++) {
+      final var saturation = (currentSaturation + (i * 255 / wlLEDBuffer.getLength())) % 255;
+      wlLEDBuffer.setHSV(i, 0, 255, saturation);
     }
 
     if (forward) {
@@ -826,8 +850,16 @@ public class IndicatorLight extends SubsystemBase {
       return LED_EFFECTS.RSL;
     }
 
-    // Climber finished — segment party in both auto and teleop
+    // Climber finished
     if (climberClimbedSupplier.getAsBoolean()) {
+      if (DriverStation.isAutonomous()) {
+        // Alliance-colored ombre after auto climb
+        boolean isRed =
+            DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
+                == DriverStation.Alliance.Red;
+        return isRed ? LED_EFFECTS.REDOMBRE : LED_EFFECTS.BLUEOMBRE;
+      }
+      // Party mode after endgame climb
       return LED_EFFECTS.SEGMENTPARTY;
     }
 
