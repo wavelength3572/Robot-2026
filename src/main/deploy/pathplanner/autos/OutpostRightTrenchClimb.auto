@@ -7,13 +7,19 @@
         {
           "type": "path",
           "data": {
-            "pathName": "DepotThenLeftTrench"
+            "pathName": "OutpostRightTrenchClimb"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "ClimberClimb"
           }
         }
       ]
     }
   },
   "resetOdom": true,
-  "folder": "CompShootPreloadsSotMNoPass",
+  "folder": "CompSprintImmediateArm",
   "choreoAuto": false
 }

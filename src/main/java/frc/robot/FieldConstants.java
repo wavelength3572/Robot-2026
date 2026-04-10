@@ -522,8 +522,7 @@ public class FieldConstants {
    *
    * <p>Bumps run along the Y-axis between the hub and the trenches. The X extent uses the same
    * depth as trench zones (centered on hub center line). The Y extent spans from the hub corner to
-   * the end of the bump. No lead distance is added — bump detection requires gyro pitch
-   * confirmation (>= 5 deg) which is inherently instantaneous.
+   * the end of the bump.
    */
   public static class BumpZones {
     // X extent: same as trench zones (centered on hub center line)
@@ -551,7 +550,7 @@ public class FieldConstants {
     public static final double RED_RIGHT_MIN_Y = LinesHorizontal.rightBumpEnd;
     public static final double RED_RIGHT_MAX_Y = LinesHorizontal.rightBumpStart;
 
-    /** Check if a point is inside any of the 4 bump zones (no margin — pitch confirms). */
+    /** Check if a point is inside any of the 4 bump zones. */
     public static boolean isInAnyBumpZone(double x, double y) {
       return TrenchZones.isInZone(
               x, y, BLUE_LEFT_MIN_X, BLUE_LEFT_MAX_X, BLUE_LEFT_MIN_Y, BLUE_LEFT_MAX_Y)
@@ -572,10 +571,10 @@ public class FieldConstants {
    */
   public static void logZoneBoundaries() {
     double hub = LinesVertical.hubCenter;
-    double allianceX = LinesVertical.allianceZone;
+    double allianceX = hub; // Alliance/neutral boundary aligns with hub center
     double neutralEndX = fieldLength - allianceX; // opponent zone starts here
 
-    // ALLIANCE zone — rectangle from field origin to allianceZone line, full width
+    // ALLIANCE zone — rectangle from field origin to hub center line, full width
     logRect("Visualizations/Zones/Alliance", 0, allianceX, 0, fieldWidth);
 
     // NEUTRAL zone — rectangle between alliance and opponent boundaries

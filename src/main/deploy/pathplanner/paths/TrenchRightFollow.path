@@ -105,7 +105,7 @@
       },
       "nextControl": {
         "x": 5.540172968817185,
-        "y": 0.5338939258543796
+        "y": 0.5338939258543797
       },
       "isLocked": false,
       "linkedName": null
@@ -205,7 +205,7 @@
     "rotation": -90.0
   },
   "reversed": false,
-  "folder": "Auto Paths",
+  "folder": "TrenchRightPaths",
   "idealStartingState": {
     "velocity": 0.0,
     "rotation": -90.0

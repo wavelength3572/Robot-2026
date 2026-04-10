@@ -32,7 +32,7 @@
         {
           "type": "named",
           "data": {
-            "name": "StowHood"
+            "name": "CeaseFireAndStowHood"
           }
         },
         {
@@ -45,6 +45,6 @@
     }
   },
   "resetOdom": true,
-  "folder": "CompSprintStationaryShoot",
+  "folder": "Retired",
   "choreoAuto": false
 }

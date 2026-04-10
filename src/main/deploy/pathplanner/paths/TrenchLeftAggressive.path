@@ -110,7 +110,7 @@
     "rotation": 90.0
   },
   "reversed": false,
-  "folder": "Auto Paths",
+  "folder": "RetiredPaths",
   "idealStartingState": {
     "velocity": 0.0,
     "rotation": -90.0

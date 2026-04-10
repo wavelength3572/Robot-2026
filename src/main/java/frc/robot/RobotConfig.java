@@ -932,6 +932,39 @@ public interface RobotConfig {
     return 18.0;
   }
 
+  // ========== Waypoint Pass Strategy ==========
+
+  default double getWaypointPassPeakHeightIn() {
+    return 84.0;
+  }
+
+  default double getWaypointPassMinRPM() {
+    return 1000.0;
+  }
+
+  default double getWaypointPassMaxRPM() {
+    return 4500.0;
+  }
+
+  default double getWaypointPassHoodMinDeg() {
+    return 18.0;
+  }
+
+  /** Waypoint X position in meters (blue alliance). Mirrored for red. */
+  default double getWaypointPassBlueXM() {
+    return 4.3;
+  }
+
+  /** Waypoint Y position for the right trench waypoint (meters from field origin). */
+  default double getWaypointPassRightYM() {
+    return 1.0;
+  }
+
+  /** Waypoint Z (clearance height above ground) in meters. */
+  default double getWaypointPassHeightM() {
+    return 1.5;
+  }
+
   // ========== Shooting Coordinator — Trench Safety ==========
 
   default double getTrenchHoodMaxDeg() {

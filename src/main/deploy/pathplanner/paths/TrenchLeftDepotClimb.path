@@ -120,7 +120,7 @@
         "y": 6.016602759682273
       },
       "nextControl": {
-        "x": 0.3776370967741946,
+        "x": 0.3776370967741947,
         "y": 5.9952903225806455
       },
       "isLocked": false,
@@ -144,12 +144,12 @@
     },
     {
       "anchor": {
-        "x": 1.0120398853822064,
-        "y": 4.5543646637587285
+        "x": 1.0106749734846971,
+        "y": 4.5648579278498564
       },
       "prevControl": {
-        "x": 1.0120398853822064,
-        "y": 5.190952669177854
+        "x": 1.0106749734846971,
+        "y": 5.201445933268982
       },
       "nextControl": null,
       "isLocked": false,
@@ -182,7 +182,7 @@
     {
       "name": "Shoot on the Move Zone",
       "minWaypointRelativePos": 4.229587712206946,
-      "maxWaypointRelativePos": 9.0,
+      "maxWaypointRelativePos": 7.5,
       "constraints": {
         "maxVelocity": 1.2,
         "maxAcceleration": 0.49,
@@ -217,6 +217,19 @@
         "nominalVoltage": 12.0,
         "unlimited": false
       }
+    },
+    {
+      "name": "Climbing Zone",
+      "minWaypointRelativePos": 7.5,
+      "maxWaypointRelativePos": 9.0,
+      "constraints": {
+        "maxVelocity": 0.4,
+        "maxAcceleration": 1.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
     }
   ],
   "pointTowardsZones": [],
@@ -246,7 +259,7 @@
     "rotation": 90.0
   },
   "reversed": false,
-  "folder": "Auto Paths",
+  "folder": "TrenchLeftPaths",
   "idealStartingState": {
     "velocity": 0,
     "rotation": -90.0

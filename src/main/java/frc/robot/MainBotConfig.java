@@ -312,6 +312,15 @@ public class MainBotConfig implements RobotConfig {
   private static final double fixedHeightPassMaxRPM = 4500.0;
   private static final double fixedHeightPassHoodMinDeg = 18.0;
 
+  // ========== Waypoint Pass Strategy ==========
+  private static final double waypointPassPeakHeightIn = 84.0;
+  private static final double waypointPassMinRPM = 1000.0;
+  private static final double waypointPassMaxRPM = 4500.0;
+  private static final double waypointPassHoodMinDeg = 18.0;
+  private static final double waypointPassBlueXM = 4.3;
+  private static final double waypointPassRightYM = 1.0;
+  private static final double waypointPassHeightM = 1.5;
+
   // ========== Shooting Coordinator — Trench Safety ==========
   private static final double trenchHoodMaxDeg = 18.0;
   private static final double trenchSafetySpeedLimitMps = 2.0;
@@ -1523,6 +1532,43 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getFixedHeightPassHoodMinDeg() {
     return fixedHeightPassHoodMinDeg;
+  }
+
+  // ========== Waypoint Pass Strategy ==========
+
+  @Override
+  public double getWaypointPassPeakHeightIn() {
+    return waypointPassPeakHeightIn;
+  }
+
+  @Override
+  public double getWaypointPassMinRPM() {
+    return waypointPassMinRPM;
+  }
+
+  @Override
+  public double getWaypointPassMaxRPM() {
+    return waypointPassMaxRPM;
+  }
+
+  @Override
+  public double getWaypointPassHoodMinDeg() {
+    return waypointPassHoodMinDeg;
+  }
+
+  @Override
+  public double getWaypointPassBlueXM() {
+    return waypointPassBlueXM;
+  }
+
+  @Override
+  public double getWaypointPassRightYM() {
+    return waypointPassRightYM;
+  }
+
+  @Override
+  public double getWaypointPassHeightM() {
+    return waypointPassHeightM;
   }
 
   // ========== Shooting Coordinator — Trench Safety ==========

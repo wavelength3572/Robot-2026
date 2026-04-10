@@ -7,13 +7,19 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchLeftBumpLoop"
+            "pathName": "TrenchLeft2LoopsClimb"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "ClimberClimb"
           }
         }
       ]
     }
   },
   "resetOdom": true,
-  "folder": "CompSprintSotMNoPass",
+  "folder": "CompSprintNoPass",
   "choreoAuto": false
 }

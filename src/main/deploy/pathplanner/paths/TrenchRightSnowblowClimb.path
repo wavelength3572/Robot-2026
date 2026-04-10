@@ -64,16 +64,16 @@
     },
     {
       "anchor": {
-        "x": 1.3328684352900626,
+        "x": 1.5,
         "y": 0.9519780932514232
       },
       "prevControl": {
-        "x": 2.3328684352900626,
-        "y": 0.9519780932514232
+        "x": 1.8447199994035401,
+        "y": 0.6627236688924805
       },
       "nextControl": {
-        "x": 0.5828684352900626,
-        "y": 0.9519780932514234
+        "x": 1.116977778440511,
+        "y": 1.2733718980946929
       },
       "isLocked": false,
       "linkedName": null
@@ -89,7 +89,7 @@
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "ClimbRight"
     }
   ],
   "rotationTargets": [
@@ -114,16 +114,8 @@
       "rotationDegrees": 180.0
     },
     {
-      "waypointRelativePos": 3.4,
+      "waypointRelativePos": 3.323244552058103,
       "rotationDegrees": 180.0
-    },
-    {
-      "waypointRelativePos": 4.1,
-      "rotationDegrees": -160.0
-    },
-    {
-      "waypointRelativePos": 4.55,
-      "rotationDegrees": -160.0
     },
     {
       "waypointRelativePos": 4.794188861985478,
@@ -136,7 +128,7 @@
       "minWaypointRelativePos": 3.4,
       "maxWaypointRelativePos": 5.0,
       "constraints": {
-        "maxVelocity": 0.6,
+        "maxVelocity": 0.5,
         "maxAcceleration": 0.6,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
@@ -175,10 +167,10 @@
     {
       "fieldPosition": {
         "x": 4.62,
-        "y": 4.029
+        "y": 4.01
       },
       "rotationOffset": 180.0,
-      "minWaypointRelativePos": 3.5,
+      "minWaypointRelativePos": 3.9,
       "maxWaypointRelativePos": 4.690663667041634,
       "name": "Point Towards Zone"
     }
@@ -209,7 +201,7 @@
     "rotation": -90.0
   },
   "reversed": false,
-  "folder": "Auto Paths",
+  "folder": "TrenchRightPaths",
   "idealStartingState": {
     "velocity": 0,
     "rotation": 90.0

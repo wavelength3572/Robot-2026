@@ -133,7 +133,7 @@
     "rotation": -90.0
   },
   "reversed": false,
-  "folder": "Auto Paths",
+  "folder": "TrenchRightPaths",
   "idealStartingState": {
     "velocity": 0,
     "rotation": -90.0

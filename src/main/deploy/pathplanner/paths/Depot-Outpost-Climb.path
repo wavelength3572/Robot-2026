@@ -1,0 +1,272 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 3.6166438357500246,
+        "y": 6.290526810250611
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 2.3632669113442235,
+        "y": 6.26431130911042
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 0.75,
+        "y": 6.289105251769122
+      },
+      "prevControl": {
+        "x": 1.249999999999997,
+        "y": 6.289105251769122
+      },
+      "nextControl": {
+        "x": 0.25,
+        "y": 6.289105251769122
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 1.133342105263158,
+        "y": 5.864912280701755
+      },
+      "prevControl": {
+        "x": 1.133342105263158,
+        "y": 6.114912280701755
+      },
+      "nextControl": {
+        "x": 1.133342105263158,
+        "y": 5.364912280701755
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 0.75,
+        "y": 5.490061424506823
+      },
+      "prevControl": {
+        "x": 0.25000000000000266,
+        "y": 5.490061424506823
+      },
+      "nextControl": {
+        "x": 1.1436140066157854,
+        "y": 5.490061424506823
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 2.0,
+        "y": 5.053385964912281
+      },
+      "prevControl": {
+        "x": 2.0,
+        "y": 5.653385964912281
+      },
+      "nextControl": {
+        "x": 2.0,
+        "y": 4.803385964912281
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 1.9639677498555121,
+        "y": 1.3397443803712725
+      },
+      "prevControl": {
+        "x": 1.9583345057536232,
+        "y": 1.7397047116053694
+      },
+      "nextControl": {
+        "x": 1.9738259270338179,
+        "y": 0.6398138007116031
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 0.65,
+        "y": 0.7012521290262919
+      },
+      "prevControl": {
+        "x": 0.65,
+        "y": 0.30125212902629184
+      },
+      "nextControl": {
+        "x": 0.65,
+        "y": 1.101252129026292
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 1.106,
+        "y": 1.2200270832440878
+      },
+      "prevControl": {
+        "x": 1.106,
+        "y": 0.9700270832440878
+      },
+      "nextControl": {
+        "x": 1.106,
+        "y": 1.5630270832440878
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 1.1062912280701755,
+        "y": 2.916366666666671
+      },
+      "prevControl": {
+        "x": 1.0903789473684213,
+        "y": 2.3594368421052687
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "ClimbRight"
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 3.5,
+      "rotationDegrees": 180.0
+    },
+    {
+      "waypointRelativePos": 5.462469733656125,
+      "rotationDegrees": 180.0
+    },
+    {
+      "waypointRelativePos": 7.079903147699769,
+      "rotationDegrees": 180.0
+    },
+    {
+      "waypointRelativePos": 7.65,
+      "rotationDegrees": -90.0
+    }
+  ],
+  "constraintZones": [
+    {
+      "name": "Pickup From Outpost Zone",
+      "minWaypointRelativePos": 0.9,
+      "maxWaypointRelativePos": 2.9780918727915173,
+      "constraints": {
+        "maxVelocity": 1.5,
+        "maxAcceleration": 2.5,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "Preload Shots Zone",
+      "minWaypointRelativePos": 0.1,
+      "maxWaypointRelativePos": 0.9,
+      "constraints": {
+        "maxVelocity": 1.1,
+        "maxAcceleration": 2.5,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "Shooting Zone #1",
+      "minWaypointRelativePos": 3.0,
+      "maxWaypointRelativePos": 5.65,
+      "constraints": {
+        "maxVelocity": 1.2,
+        "maxAcceleration": 1.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "Pickup From Outpost",
+      "minWaypointRelativePos": 5.65,
+      "maxWaypointRelativePos": 6.7,
+      "constraints": {
+        "maxVelocity": 0.2,
+        "maxAcceleration": 1.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "Climbing Zone",
+      "minWaypointRelativePos": 6.7,
+      "maxWaypointRelativePos": 8.0,
+      "constraints": {
+        "maxVelocity": 0.75,
+        "maxAcceleration": 1.5,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [
+    {
+      "fieldPosition": {
+        "x": 4.625,
+        "y": 4.033
+      },
+      "rotationOffset": 180.0,
+      "minWaypointRelativePos": 3.985865724381632,
+      "maxWaypointRelativePos": 5.0,
+      "name": "Point Towards Hub Zone #1"
+    }
+  ],
+  "eventMarkers": [
+    {
+      "name": "ClimberExtend",
+      "waypointRelativePos": 7.25,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "ClimberExtend"
+        }
+      }
+    }
+  ],
+  "globalConstraints": {
+    "maxVelocity": 2.5,
+    "maxAcceleration": 3.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": -90.0
+  },
+  "reversed": false,
+  "folder": "AllianceZonePaths",
+  "idealStartingState": {
+    "velocity": 0.0,
+    "rotation": 180.0
+  },
+  "useDefaultConstraints": false
+}

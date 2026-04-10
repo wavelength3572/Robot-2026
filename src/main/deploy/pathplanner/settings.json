@@ -3,16 +3,21 @@
   "robotLength": 0.787,
   "holonomicMode": true,
   "pathFolders": [
-    "Auto Paths",
-    "Test Paths"
+    "TrenchRightPaths",
+    "TrenchLeftPaths",
+    "RetiredPaths",
+    "AllianceZonePaths"
   ],
   "autoFolders": [
     "Retired",
-    "CompShootPreloadsSotMNoPass",
-    "CompSprintStationaryShoot",
-    "CompSprintSotMNoPass",
-    "CompSprintAutoShoot",
-    "CompShootPreloadsAutoShoot"
+    "CompShootPreloadsPassAndShoot",
+    "CompShootPreloadsNoPass",
+    "CompShootPreloadsImmediateArm",
+    "CompSprintPassAndShoot",
+    "CompSprintNoPass",
+    "CompSprintImmediateArm",
+    "CompShootPreloadsEndofPath",
+    "CompSprintEndofPath"
   ],
   "defaultMaxVel": 2.5,
   "defaultMaxAccel": 2.5,
