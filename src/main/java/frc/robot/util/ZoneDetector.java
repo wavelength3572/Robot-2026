@@ -164,9 +164,8 @@ public class ZoneDetector {
     turretY = Math.max(0, Math.min(fW, turretY));
 
     // --- Priority 1: 2D obstacle zones (bounds include lead distance where needed) ---
-    // BUMP: turret over a bump ramp AND robot is tilted
-    if (FieldConstants.BumpZones.isInAnyBumpZone(turretX, turretY)
-        && Math.abs(robotPitchDeg) >= BUMP_PITCH_THRESHOLD_DEG) {
+    // BUMP: turret over a bump ramp (position-only, no gyro pitch required)
+    if (FieldConstants.BumpZones.isInAnyBumpZone(turretX, turretY)) {
       return Zone.BUMP;
     }
     // TRENCH: own alliance trenches use expanded lead-distance bounds (early hood lowering).
@@ -240,7 +239,7 @@ public class ZoneDetector {
 
   /** Check if robot X is in the opponent zone (far end of field). */
   private static boolean isInOpponentZone(double robotX, Alliance alliance) {
-    double allianceZoneEnd = FieldConstants.LinesVertical.allianceZone;
+    double allianceZoneEnd = FieldConstants.LinesVertical.hubCenter;
     double opponentZoneStart = FieldConstants.fieldLength - allianceZoneEnd;
     if (alliance == Alliance.Blue) {
       return robotX > opponentZoneStart;
@@ -257,7 +256,7 @@ public class ZoneDetector {
    * @return true if in alliance area, false if neutral/opponent
    */
   private static boolean calculateIsAllianceArea(double robotX, Alliance alliance) {
-    double allianceZoneEnd = FieldConstants.LinesVertical.allianceZone;
+    double allianceZoneEnd = FieldConstants.LinesVertical.hubCenter;
     double opponentZoneStart = FieldConstants.fieldLength - allianceZoneEnd;
 
     double boundary;

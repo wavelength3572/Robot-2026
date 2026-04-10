@@ -192,6 +192,19 @@
   ],
   "constraintZones": [
     {
+      "name": "Preload SOTM Zone",
+      "minWaypointRelativePos": 0.0,
+      "maxWaypointRelativePos": 0.9,
+      "constraints": {
+        "maxVelocity": 1.2,
+        "maxAcceleration": 2.4,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
       "name": "Outpost Zone",
       "minWaypointRelativePos": 0.9,
       "maxWaypointRelativePos": 1.2,
@@ -207,23 +220,10 @@
     {
       "name": "Shooting Zone #1",
       "minWaypointRelativePos": 1.2,
-      "maxWaypointRelativePos": 2.4296962879640245,
+      "maxWaypointRelativePos": 2.5,
       "constraints": {
         "maxVelocity": 0.9,
         "maxAcceleration": 3.0,
-        "maxAngularVelocity": 540.0,
-        "maxAngularAcceleration": 720.0,
-        "nominalVoltage": 12.0,
-        "unlimited": false
-      }
-    },
-    {
-      "name": "Preload SOTM Zone",
-      "minWaypointRelativePos": 0.0,
-      "maxWaypointRelativePos": 0.9,
-      "constraints": {
-        "maxVelocity": 1.2,
-        "maxAcceleration": 2.4,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
         "nominalVoltage": 12.0,
@@ -272,7 +272,7 @@
   "eventMarkers": [
     {
       "name": "CeaseFireAndStowHood",
-      "waypointRelativePos": 2.490438695163121,
+      "waypointRelativePos": 2.38,
       "endWaypointRelativePos": null,
       "command": {
         "type": "named",
@@ -283,13 +283,18 @@
     },
     {
       "name": "ClimberExtend",
-      "waypointRelativePos": 8.7,
+      "waypointRelativePos": 8.240719910011236,
       "endWaypointRelativePos": null,
-      "command": null
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "ClimberExtend"
+        }
+      }
     }
   ],
   "globalConstraints": {
-    "maxVelocity": 2.5,
+    "maxVelocity": 2.6,
     "maxAcceleration": 3.5,
     "maxAngularVelocity": 540.0,
     "maxAngularAcceleration": 720.0,
