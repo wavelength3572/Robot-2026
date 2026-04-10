@@ -92,6 +92,12 @@ public class ShootingCoordinator extends SubsystemBase {
   private final SendableChooser<PassingStrategy> passingStrategyChooser = new SendableChooser<>();
   private final FixedHeightShotStrategy fixedHeightStrategy = new FixedHeightShotStrategy();
   private final FixedHeightPassStrategy fixedHeightPassStrategy = new FixedHeightPassStrategy();
+  private final WaypointPassStrategy waypointPassStrategy = new WaypointPassStrategy();
+
+  // Pass strategy chooser — selectable via dashboard dropdown
+  private static final String PASS_STRAT_FIXED = "FixedHeight";
+  private static final String PASS_STRAT_WAYPOINT = "Waypoint";
+  private final SendableChooser<String> passStrategyChooser = new SendableChooser<>();
 
   // Hub strategy chooser — selectable via dashboard dropdown
   private final SendableChooser<ShotStrategy> hubStrategyChooser = new SendableChooser<>();
@@ -344,6 +350,24 @@ public class ShootingCoordinator extends SubsystemBase {
           "Shots/FixedHeightPass/LongPassPeakHeightIn",
           Constants.getRobotConfig().getFixedHeightLongPassPeakHeightIn());
 
+  // ========== Waypoint Pass Tunables ==========
+  // 3D waypoint above the bump/trench that the ball must pass through.
+  // X is blue-alliance-relative (mirrored for red). Y/Z are absolute field coordinates.
+  // Left waypoint Y = fieldWidth - rightWaypointY (symmetric across centerline).
+  private final LoggedTunableNumber waypointPassBlueXM =
+      new LoggedTunableNumber(
+          "Shots/WaypointPass/BlueXM", Constants.getRobotConfig().getWaypointPassBlueXM());
+  private final LoggedTunableNumber waypointPassRightYM =
+      new LoggedTunableNumber(
+          "Shots/WaypointPass/RightYM", Constants.getRobotConfig().getWaypointPassRightYM());
+  private final LoggedTunableNumber waypointPassHeightM =
+      new LoggedTunableNumber(
+          "Shots/WaypointPass/HeightM", Constants.getRobotConfig().getWaypointPassHeightM());
+  private final LoggedTunableNumber waypointPassPeakHeightIn =
+      new LoggedTunableNumber(
+          "Shots/WaypointPass/PeakHeightIn",
+          Constants.getRobotConfig().getWaypointPassPeakHeightIn());
+
   /**
    * Creates a new ShootingCoordinator.
    *
@@ -370,6 +394,11 @@ public class ShootingCoordinator extends SubsystemBase {
     passingStrategyChooser.setDefaultOption("Symmetric (Y-based)", PassingStrategy.SYMMETRIC);
     passingStrategyChooser.addOption("Driver Station", PassingStrategy.DRIVER_STATION);
     SmartDashboard.putData("SmartLaunch/Pass/Strategy", passingStrategyChooser);
+
+    // Pass strategy chooser — which pass strategy to use (FixedHeight vs Waypoint)
+    passStrategyChooser.setDefaultOption("Waypoint (arc through point)", PASS_STRAT_WAYPOINT);
+    passStrategyChooser.addOption("FixedHeight (arc to peak)", PASS_STRAT_FIXED);
+    SmartDashboard.putData("SmartLaunch/PassStrategy", passStrategyChooser);
 
     // Hub strategy chooser — which shot strategy to use for hub shots
     hubStrategyChooser.setDefaultOption("FixedHeight (baseline)", fixedHeightStrategy);
@@ -633,9 +662,20 @@ public class ShootingCoordinator extends SubsystemBase {
           calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
         }
         case PASS -> {
+          boolean useWaypoint = PASS_STRAT_WAYPOINT.equals(passStrategyChooser.getSelected());
           PassingStrategy strategy = passingStrategyChooser.getSelected();
 
-          if (strategy == PassingStrategy.DRIVER_STATION && !isTooCloseToHub(robotPose)) {
+          if (useWaypoint) {
+            // Waypoint pass — arc through a 3D point above the bump
+            boolean isLeftTrench = selectIsLeftTrench(robotPose);
+            currentDistanceMode = "Pass Waypoint";
+            Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
+            Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
+            Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
+            Translation3d waypoint = getWaypoint(isLeftTrench, isBlueAlliance);
+            calculateWaypointPassToTarget(
+                robotPose, fieldSpeeds, activeTarget, waypoint, waypointPassPeakHeightIn.get());
+          } else if (strategy == PassingStrategy.DRIVER_STATION && !isTooCloseToHub(robotPose)) {
             currentDistanceMode = "Pass Lob";
             Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
             var location = DriverStation.getLocation();
@@ -661,17 +701,27 @@ public class ShootingCoordinator extends SubsystemBase {
           }
         }
         case LONG_PASS -> {
-          currentDistanceMode = "Pass Symmetric Long";
-          Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
+          boolean useWaypoint = PASS_STRAT_WAYPOINT.equals(passStrategyChooser.getSelected());
           boolean isLeftTrench = selectIsLeftTrench(robotPose);
           Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
           Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
-          calculatePassToTarget(
-              robotPose,
-              fieldSpeeds,
-              activeTarget,
-              PassingStrategy.SYMMETRIC,
-              longPassPeakHeightIn.get());
+
+          if (useWaypoint) {
+            currentDistanceMode = "Pass Waypoint Long";
+            Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
+            Translation3d waypoint = getWaypoint(isLeftTrench, isBlueAlliance);
+            calculateWaypointPassToTarget(
+                robotPose, fieldSpeeds, activeTarget, waypoint, waypointPassPeakHeightIn.get());
+          } else {
+            currentDistanceMode = "Pass Symmetric Long";
+            Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
+            calculatePassToTarget(
+                robotPose,
+                fieldSpeeds,
+                activeTarget,
+                PassingStrategy.SYMMETRIC,
+                longPassPeakHeightIn.get());
+          }
         }
         case NONE -> {
           currentDistanceMode = "Hub FixedHeight";
@@ -876,6 +926,108 @@ public class ShootingCoordinator extends SubsystemBase {
         fixedHeightPassStrategy.estimateExitVelocity(currentShot.launcherRPM(), horizontalDist);
 
     // Compute turret angle
+    currentTurretAngleDeg =
+        ShotCalculator.calculateOutsideTurretAngle(
+            robotPose.getX(),
+            robotPose.getY(),
+            robotPose.getRotation().getDegrees(),
+            compensatedAimTarget.getX(),
+            compensatedAimTarget.getY(),
+            turret.getOutsideCurrentAngle(),
+            turret.getMinAngle(),
+            turret.getMaxAngle(),
+            turretConfig);
+
+    currentShotAchievable = true;
+  }
+
+  /**
+   * Get the 3D waypoint for a pass, based on which trench and alliance. Blue alliance uses the
+   * configured X directly; red mirrors it across the field center. Left waypoint Y = fieldWidth -
+   * rightY (symmetric across centerline).
+   */
+  private Translation3d getWaypoint(boolean isLeftTrench, boolean isBlueAlliance) {
+    double blueX = waypointPassBlueXM.get();
+    double rightY = waypointPassRightYM.get();
+    double z = waypointPassHeightM.get();
+
+    double x = isBlueAlliance ? blueX : FieldConstants.fieldLength - blueX;
+    // "Left trench" is high Y on blue, low Y on red (driver perspective flips).
+    // Match the same convention used by the cached pass targets.
+    boolean highY = isBlueAlliance ? isLeftTrench : !isLeftTrench;
+    double y = highY ? FieldConstants.fieldWidth - rightY : rightY;
+
+    Translation3d waypoint = new Translation3d(x, y, z);
+    Logger.recordOutput("SmartLaunch/Pass/Waypoint", new Pose3d(waypoint, Rotation3d.kZero));
+    return waypoint;
+  }
+
+  /**
+   * Calculate and apply a waypoint-constrained pass. The turret aims at the pass target (for
+   * direction), but the shot parameters (RPM, hood angle) are computed so the ball arcs through the
+   * 3D waypoint above the bump.
+   *
+   * @param robotPose Current robot pose
+   * @param fieldSpeeds Field-relative chassis speeds
+   * @param target Pass landing target (used for turret aim direction)
+   * @param waypoint 3D waypoint the ball must pass through
+   * @param peakHeightIn Peak height in inches
+   */
+  private void calculateWaypointPassToTarget(
+      Pose2d robotPose,
+      ChassisSpeeds fieldSpeeds,
+      Translation3d target,
+      Translation3d waypoint,
+      double peakHeightIn) {
+
+    double robotHeadingRad = robotPose.getRotation().getRadians();
+    double[] turretFieldPos =
+        ShotCalculator.getTurretFieldPosition(
+            robotPose.getX(), robotPose.getY(), robotHeadingRad, turretConfig);
+    double turretX = turretFieldPos[0];
+    double turretY = turretFieldPos[1];
+
+    // Apply operator turret trim to the aim target (for turret direction)
+    target = applyTurretTrim(target, turretX, turretY);
+    rawTarget = target;
+
+    // Compute horizontal distance from turret to waypoint
+    double waypointDistM = Math.hypot(waypoint.getX() - turretX, waypoint.getY() - turretY);
+    double waypointHeightM = waypoint.getZ();
+
+    // Velocity compensation — use waypoint distance for initial shot calc
+    compensatedAimTarget = target;
+    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+
+    if (robotSpeed > 0.1) {
+      ShotCalculator.ShotResult staticShot =
+          waypointPassStrategy.calculateShot(waypointDistM, waypointHeightM, peakHeightIn);
+      double exitVel =
+          waypointPassStrategy.estimateExitVelocity(staticShot.launcherRPM(), waypointDistM);
+      double launchAngle = staticShot.launchAngleRad();
+      // Use distance to target (not waypoint) for time-of-flight lead
+      double targetDist = Math.hypot(target.getX() - turretX, target.getY() - turretY);
+      double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, targetDist);
+      if (tof > 0 && tof < Double.MAX_VALUE) {
+        compensatedAimTarget = predictTargetPos(target, fieldSpeeds, tof);
+      }
+    }
+
+    // Recompute waypoint distance along the compensated aim line
+    // (waypoint is fixed on the field, but turret position may shift with vel comp)
+    double compensatedWaypointDist =
+        Math.hypot(waypoint.getX() - turretX, waypoint.getY() - turretY);
+
+    currentShot =
+        waypointPassStrategy.calculateShot(compensatedWaypointDist, waypointHeightM, peakHeightIn);
+    currentDistanceM = compensatedWaypointDist;
+
+    // Compute exit velocity for logging/sim
+    currentExitVelocityMps =
+        waypointPassStrategy.estimateExitVelocity(
+            currentShot.launcherRPM(), compensatedWaypointDist);
+
+    // Compute turret angle — aim at the pass target, not the waypoint
     currentTurretAngleDeg =
         ShotCalculator.calculateOutsideTurretAngle(
             robotPose.getX(),
