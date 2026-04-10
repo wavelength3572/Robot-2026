@@ -35,4 +35,10 @@ public class ClimberIOSim implements ClimberIO {
   public void configurePID(double kP) {
     // No-op in sim
   }
+
+  @Override
+  public void zeroEncoder() {
+    currentPosition = 0.0;
+    targetPosition = 0.0;
+  }
 }

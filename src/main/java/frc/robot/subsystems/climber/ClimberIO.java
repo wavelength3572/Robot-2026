@@ -21,4 +21,7 @@ public interface ClimberIO {
 
   /** Update PID gains on the motor controller. */
   public default void configurePID(double kP) {}
+
+  /** Zero the encoder position (call in pit if robot rebooted with climber not stowed). */
+  public default void zeroEncoder() {}
 }
