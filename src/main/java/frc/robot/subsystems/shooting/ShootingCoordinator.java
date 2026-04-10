@@ -104,6 +104,10 @@ public class ShootingCoordinator extends SubsystemBase {
   private final LoggedTunableNumber velocityCompY =
       new LoggedTunableNumber(
           "Shots/VelocityComp/Y", Constants.getRobotConfig().getShotVelocityCompY());
+  // Max angular divergence (deg) between static and velocity-compensated aim points.
+  // If exceeded, the shot is flagged as not achievable (too fast to compensate).
+  private static final LoggedTunableNumber velocityCompMaxDivergenceDeg =
+      new LoggedTunableNumber("Shots/VelocityComp/MaxDivergenceDeg", 10.0);
 
   // ========== Coordinator-computed fields (derived from strategy + geometry) ==========
   // These are computed after the strategy returns and exposed via getters.
@@ -756,17 +760,23 @@ public class ShootingCoordinator extends SubsystemBase {
     ShotStrategy activeStrategy = hubStrategyChooser.getSelected();
     if (activeStrategy == null) activeStrategy = fixedHeightStrategy;
 
-    // Velocity compensation: solve static → estimate TOF → shift target → re-solve
+    // Velocity compensation: iterative refinement loop (3 passes).
+    // Each pass: compute shot at current aim distance → get TOF → shift target by velocity × TOF.
+    // Re-solving at the shifted distance refines TOF, which converges in 2-3 iterations.
+    // Uses horizontal TOF (stable, no divergence at steep angles).
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     compensatedAimTarget = target;
 
     if (robotSpeed > 0.1) {
-      double staticDist = Math.hypot(target.getX() - turretX, target.getY() - turretY);
-      ShotCalculator.ShotResult staticShot = activeStrategy.calculateShot(staticDist);
-      double exitVel = activeStrategy.estimateExitVelocity(staticShot.launcherRPM(), staticDist);
-      double launchAngle = staticShot.launchAngleRad();
-      double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, staticDist);
-      if (tof > 0 && tof < Double.MAX_VALUE) {
+      for (int i = 0; i < 3; i++) {
+        double dist =
+            Math.hypot(
+                compensatedAimTarget.getX() - turretX, compensatedAimTarget.getY() - turretY);
+        ShotCalculator.ShotResult iterShot = activeStrategy.calculateShot(dist);
+        double exitVel = activeStrategy.estimateExitVelocity(iterShot.launcherRPM(), dist);
+        double launchAngle = iterShot.launchAngleRad();
+        double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, dist);
+        if (tof <= 0 || tof >= Double.MAX_VALUE) break;
         compensatedAimTarget = predictTargetPos(target, fieldSpeeds, tof);
       }
     }
@@ -793,10 +803,17 @@ public class ShootingCoordinator extends SubsystemBase {
             turret.getMaxAngle(),
             turretConfig);
 
-    // Achievability — strategy always returns valid commands, but flag edge cases
-    currentShotAchievable = true;
+    // Achievability — flag if velocity compensation diverged too far (moving too fast to lead)
+    double staticAngle =
+        Math.atan2(target.getY() - turretY, target.getX() - turretX);
+    double compAngle =
+        Math.atan2(compensatedAimTarget.getY() - turretY, compensatedAimTarget.getX() - turretX);
+    double divergenceDeg = Math.abs(Math.toDegrees(staticAngle - compAngle));
+    if (divergenceDeg > 180) divergenceDeg = 360 - divergenceDeg;
+    currentShotAchievable = divergenceDeg <= velocityCompMaxDivergenceDeg.get();
 
     Logger.recordOutput("SmartLaunch/Status/ActiveStrategy", activeStrategy.getName());
+    Logger.recordOutput("SmartLaunch/VelocityComp/DivergenceDeg", divergenceDeg);
 
     // Target positions now logged centrally in logShotState (SmartLaunch/Distance/)
   }
@@ -843,21 +860,24 @@ public class ShootingCoordinator extends SubsystemBase {
     target = applyTurretTrim(target, turretX, turretY);
     rawTarget = target;
 
-    // Velocity compensation for passes
+    // Velocity compensation for passes: iterative refinement (3 passes, same as hub shots)
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     compensatedAimTarget = target;
 
     if (robotSpeed > 0.1) {
-      double staticDist = Math.hypot(target.getX() - turretX, target.getY() - turretY);
-      ShotCalculator.ShotResult staticShot =
-          peakHeightIn > 0
-              ? fixedHeightPassStrategy.calculateShot(staticDist, peakHeightIn)
-              : fixedHeightPassStrategy.calculateShot(staticDist);
-      double exitVel =
-          fixedHeightPassStrategy.estimateExitVelocity(staticShot.launcherRPM(), staticDist);
-      double launchAngle = staticShot.launchAngleRad();
-      double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, staticDist);
-      if (tof > 0 && tof < Double.MAX_VALUE) {
+      for (int i = 0; i < 3; i++) {
+        double dist =
+            Math.hypot(
+                compensatedAimTarget.getX() - turretX, compensatedAimTarget.getY() - turretY);
+        ShotCalculator.ShotResult iterShot =
+            peakHeightIn > 0
+                ? fixedHeightPassStrategy.calculateShot(dist, peakHeightIn)
+                : fixedHeightPassStrategy.calculateShot(dist);
+        double exitVel =
+            fixedHeightPassStrategy.estimateExitVelocity(iterShot.launcherRPM(), dist);
+        double launchAngle = iterShot.launchAngleRad();
+        double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, dist);
+        if (tof <= 0 || tof >= Double.MAX_VALUE) break;
         compensatedAimTarget = predictTargetPos(target, fieldSpeeds, tof);
       }
     }
@@ -888,7 +908,14 @@ public class ShootingCoordinator extends SubsystemBase {
             turret.getMaxAngle(),
             turretConfig);
 
-    currentShotAchievable = true;
+    // Achievability — flag if velocity compensation diverged too far
+    double staticAngle =
+        Math.atan2(target.getY() - turretY, target.getX() - turretX);
+    double compAngle =
+        Math.atan2(compensatedAimTarget.getY() - turretY, compensatedAimTarget.getX() - turretX);
+    double divergenceDeg = Math.abs(Math.toDegrees(staticAngle - compAngle));
+    if (divergenceDeg > 180) divergenceDeg = 360 - divergenceDeg;
+    currentShotAchievable = divergenceDeg <= velocityCompMaxDivergenceDeg.get();
   }
 
   // ========== Shot State Logging ==========
@@ -1371,6 +1398,11 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Get the current coordinator state. */
   public CoordinatorState getCoordinatorState() {
     return coordinatorState;
+  }
+
+  /** Check if SmartLaunch is currently active. */
+  public boolean isSmartLaunchActive() {
+    return smartLaunchActive;
   }
 
   /**

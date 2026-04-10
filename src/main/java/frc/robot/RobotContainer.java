@@ -351,6 +351,12 @@ public class RobotContainer {
       leds.setTurretEncoderStatusSupplier(turret::getEncoderValidationStatus);
     }
 
+    // Wire shooting coordinator state to LEDs for SmartLaunch status overlay
+    if (shootingCoordinator != null) {
+      leds.setShootingCoordinatorSuppliers(
+          shootingCoordinator::getCoordinatorState, shootingCoordinator::isSmartLaunchActive);
+    }
+
     // Wire climber state to LEDs for segment party when climb is complete
     if (climber != null) {
       leds.setClimberClimbedSupplier(climber::isClimbed);
