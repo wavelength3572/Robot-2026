@@ -38,6 +38,14 @@ public class ClimberIOSpark implements ClimberIO {
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(config.getClimberKp(), 0.0, 0.0);
 
+    // Hardware soft limits — prevent over-travel even if software fails
+    motorConfig
+        .softLimit
+        .forwardSoftLimit((float) config.getClimberExtendPosition())
+        .forwardSoftLimitEnabled(true)
+        .reverseSoftLimit(0.0f)
+        .reverseSoftLimitEnabled(true);
+
     tryUntilOk(
         motor,
         5,
@@ -76,5 +84,10 @@ public class ClimberIOSpark implements ClimberIO {
         pidConfig,
         com.revrobotics.ResetMode.kNoResetSafeParameters,
         com.revrobotics.PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void zeroEncoder() {
+    tryUntilOk(motor, 5, () -> encoder.setPosition(0.0));
   }
 }

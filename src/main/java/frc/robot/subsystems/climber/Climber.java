@@ -286,6 +286,13 @@ public class Climber extends SubsystemBase {
 
   // ===== State queries =====
 
+  /** Zero the encoder. Use in the pit if the robot rebooted with the climber not stowed. */
+  public void zeroEncoder() {
+    io.zeroEncoder();
+    state = ClimberState.STOWED;
+    targetPositionRotations = 0.0;
+  }
+
   /** Force the climber back to stowed state (e.g. at auto init). */
   public void forceStow() {
     targetPositionRotations = 0.0;
