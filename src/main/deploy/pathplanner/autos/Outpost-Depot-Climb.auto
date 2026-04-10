@@ -20,6 +20,6 @@
     }
   },
   "resetOdom": true,
-  "folder": "CompShootPreloadsSotMNoPass",
+  "folder": "CompSprintImmediateArm",
   "choreoAuto": false
 }

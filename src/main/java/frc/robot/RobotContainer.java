@@ -517,20 +517,21 @@ public class RobotContainer {
   /** Returns true for any folder that should receive the comp wrapper. */
   private static boolean isCompFolder(String folder) {
     return "CompShootPreloadsEndofPath".equals(folder)
-        || "CompShootPreloadsAutoShoot".equals(folder)
-        || "CompSprintAutoShoot".equals(folder)
+        || "CompShootPreloadsPassAndShoot".equals(folder)
+        || "CompShootPreloadsNoPass".equals(folder)
+        || "CompShootPreloadsImmediateArm".equals(folder)
         || "CompSprintEndofPath".equals(folder)
-        || "CompSprintStationaryShoot".equals(folder)
-        || "CompSprintSotMNoPass".equals(folder)
-        || "CompShootPreloadsSotMNoPass".equals(folder);
+        || "CompSprintPassAndShoot".equals(folder)
+        || "CompSprintNoPass".equals(folder)
+        || "CompSprintImmediateArm".equals(folder);
   }
 
   /** Folder-based default for start strategy. CompSprint sprints; everything else shoots first. */
   private static AutoWrapperFactory.StartStrategy defaultStartStrategy(String folder) {
-    return ("CompSprintAutoShoot".equals(folder)
-            || "CompSprintEndofPath".equals(folder)
-            || "CompSprintStationaryShoot".equals(folder)
-            || "CompSprintSotMNoPass".equals(folder))
+    return ("CompSprintEndofPath".equals(folder)
+            || "CompSprintPassAndShoot".equals(folder)
+            || "CompSprintNoPass".equals(folder)
+            || "CompSprintImmediateArm".equals(folder))
         ? AutoWrapperFactory.StartStrategy.SPRINT
         : AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS;
   }
@@ -538,12 +539,12 @@ public class RobotContainer {
   /** Folder-based default for path shooting. CompSprint auto-shoots; everything else waits. */
   private static AutoWrapperFactory.PathShootingStrategy defaultPathShootingStrategy(
       String folder) {
-    if ("CompSprintAutoShoot".equals(folder) || "CompShootPreloadsAutoShoot".equals(folder))
-      return AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT;
-    if ("CompSprintStationaryShoot".equals(folder))
-      return AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY;
-    if ("CompSprintSotMNoPass".equals(folder) || "CompShootPreloadsSotMNoPass".equals(folder))
-      return AutoWrapperFactory.PathShootingStrategy.HUB_NO_PASS;
+    if ("CompSprintPassAndShoot".equals(folder) || "CompShootPreloadsPassAndShoot".equals(folder))
+      return AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT;
+    if ("CompSprintNoPass".equals(folder) || "CompShootPreloadsNoPass".equals(folder))
+      return AutoWrapperFactory.PathShootingStrategy.NO_PASS;
+    if ("CompShootPreloadsImmediateArm".equals(folder) || "CompSprintImmediateArm".equals(folder))
+      return AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM;
     return AutoWrapperFactory.PathShootingStrategy.END_OF_PATH;
   }
 
@@ -565,12 +566,11 @@ public class RobotContainer {
     pathShootingChooser.setDefaultOption("—", null);
     pathShootingChooser.addOption(
         "End of Path", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH);
-    pathShootingChooser.addOption("Auto Shoot", AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT);
     pathShootingChooser.addOption(
-        "Auto Tracking, Stationary",
-        AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY);
+        "Pass and Shoot", AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT);
+    pathShootingChooser.addOption("No Pass", AutoWrapperFactory.PathShootingStrategy.NO_PASS);
     pathShootingChooser.addOption(
-        "SotM, No Pass", AutoWrapperFactory.PathShootingStrategy.HUB_NO_PASS);
+        "Immediate Arm", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM);
     SmartDashboard.putData("Auton Path Shooting Strategy", pathShootingChooser);
   }
 
@@ -593,12 +593,11 @@ public class RobotContainer {
     String pathName = "—";
     if (defaultPath == AutoWrapperFactory.PathShootingStrategy.END_OF_PATH)
       pathName = "End of Path";
-    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.AUTO_SHOOT)
-      pathName = "Auto Shoot";
-    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.AUTO_TRACKING_STATIONARY)
-      pathName = "Auto Tracking, Stationary";
-    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.HUB_NO_PASS)
-      pathName = "SotM, No Pass";
+    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT)
+      pathName = "Pass and Shoot";
+    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.NO_PASS) pathName = "No Pass";
+    else if (defaultPath == AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM)
+      pathName = "Immediate Arm";
 
     // Write the desired default into the NT "selected" key so the dashboard + getSelected() update
     var nt = NetworkTableInstance.getDefault();
@@ -824,7 +823,7 @@ public class RobotContainer {
     }
 
     // SmartLaunch: state-machine-driven version (zone-aware, transition-safe).
-    // Automatically stows hood when shooting ends so autos don't need a manual StowHood step.
+    // Automatically stows hood when the button is released (teleop safety).
     {
       Command smartLaunch =
           ShootingCommands.smartLaunchDangerousCommand(
@@ -851,7 +850,7 @@ public class RobotContainer {
     // Automatically re-arms when the robot reaches the neutral zone.
     if (shootingCoordinator != null) {
       NamedCommands.registerCommand(
-          "CeaseFire", Commands.runOnce(() -> shootingCoordinator.requestCeaseFire()));
+          "CeaseFireAndStowHood", Commands.runOnce(() -> shootingCoordinator.requestCeaseFire()));
     }
 
     // RetractIntake: retract intake and stop rollers
@@ -900,22 +899,6 @@ public class RobotContainer {
       NamedCommands.registerCommand("ClimberExtend", Commands.none());
       NamedCommands.registerCommand("ClimberClimb", Commands.none());
       NamedCommands.registerCommand("AutoClimb", Commands.none());
-    }
-
-    // StowHood: drive hood to min angle, unblocks when ≤18° (safe to enter trench).
-    // Commands min angle but doesn't wait for full arrival — 18° clears the structure.
-    // Registered as .asProxy() so the hood subsystem requirement doesn't bubble up to
-    // PathPlannerAuto — otherwise the auto conflicts with SmartLaunch for hood ownership
-    // and the entire auto gets cancelled before the first path even runs.
-    if (hood != null) {
-      NamedCommands.registerCommand(
-          "StowHood",
-          Commands.run(() -> hood.setHoodAngle(hood.getMinAngle()), hood)
-              .until(() -> hood.getCurrentAngle() <= 18.0)
-              .withTimeout(1.5)
-              .asProxy());
-    } else {
-      NamedCommands.registerCommand("StowHood", Commands.none());
     }
   }
 

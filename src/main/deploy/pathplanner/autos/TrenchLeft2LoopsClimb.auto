@@ -20,6 +20,6 @@
     }
   },
   "resetOdom": true,
-  "folder": "CompSprintSotMNoPass",
+  "folder": "CompSprintNoPass",
   "choreoAuto": false
 }

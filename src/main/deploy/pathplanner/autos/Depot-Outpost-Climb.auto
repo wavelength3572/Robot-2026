@@ -7,7 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchLeftDepotClimb"
+            "pathName": "Depot-Outpost-Climb"
           }
         },
         {
@@ -20,6 +20,6 @@
     }
   },
   "resetOdom": true,
-  "folder": "CompSprintPassAndShoot",
+  "folder": "CompSprintImmediateArm",
   "choreoAuto": false
 }
