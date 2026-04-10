@@ -658,18 +658,16 @@ public class ShootingCommands {
       ShootingCoordinator.ArmTrigger armTrigger) {
 
     return Commands.parallel(
-            // Launcher — track shot RPM (idles to 0 while auto collecting)
+            // Launcher — track shot RPM; coasts when idle (0 RPM → stopMotor via kCoast)
             Commands.run(
                 () -> {
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
                   if (shot != null) {
                     double rpm = getEffectiveRPM(shot);
                     double effectiveRPM = coordinator.getEffectiveLauncherRPM(rpm);
-                    launcher.setVelocity(Math.max(effectiveRPM, 1500));
-                    // Shot params logged via AdvantageKit
+                    launcher.setVelocity(effectiveRPM);
                   } else {
-                    // TODO is this right? or do we want to idle at 0?
-                    launcher.setVelocity(1500);
+                    launcher.setVelocity(0);
                   }
                 },
                 launcher),

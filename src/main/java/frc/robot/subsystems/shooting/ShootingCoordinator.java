@@ -1328,21 +1328,25 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
-   * Check if shooting subsystems should idle to conserve power. True in auto when: - In open
-   * neutral/opponent zones (collecting balls), OR - Not yet armed (heading outbound before visiting
-   * neutral — no reason to spin up) NOT true in trenches after armed — when returning through
-   * neutral trench, launcher/turret/motivator should track so they're ready at the alliance trench
-   * boundary. In teleop this always returns false.
+   * Check if shooting subsystems should idle to conserve power. True in auto when:
+   *
+   * <ul>
+   *   <li>Cease-fire is active
+   *   <li>Outbound trip before visiting neutral (zone-gated triggers only, not IMMEDIATE)
+   *   <li>In open neutral/opponent zones when passing is disabled
+   * </ul>
+   *
+   * NOT true in trenches — when returning through neutral trench, subsystems should track so
+   * they're ready at the alliance trench boundary. In teleop this always returns false.
    */
   public boolean isAutoCollecting() {
     if (ceaseFireRequested) return true; // cease-fire forces idle
     if (!DriverStation.isAutonomous()) return false;
     if (cachedAimResult == null) return false;
-    if (armTrigger == ArmTrigger.IMMEDIATE) return false;
-    // Outbound (haven't visited neutral yet) — idle everywhere
-    if (!hasVisitedNeutral) return true;
-    // Returning: in neutral/opponent zones, idle only if passing is disabled.
-    // AUTO_SHOOT (passing enabled) should spin up for pass shots in neutral.
+    // Outbound (haven't visited neutral yet) — idle everywhere.
+    // Only applies to zone-gated triggers; IMMEDIATE is always ready in alliance.
+    if (!hasVisitedNeutral && armTrigger != ArmTrigger.IMMEDIATE) return true;
+    // In neutral/opponent zones, idle if passing is disabled (collecting only).
     boolean inNeutralOrOpponent =
         cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL
             || cachedAimResult.zone() == ZoneDetector.Zone.OPPONENT;
@@ -1564,14 +1568,19 @@ public class ShootingCoordinator extends SubsystemBase {
         cachedAimResult != null ? cachedAimResult.zone() : ZoneDetector.Zone.ALLIANCE_MID;
 
     // Cease-fire locks the state machine in UNARMED until the robot reaches the
-    // neutral zone, then automatically re-arms so the next shooting cycle can begin.
+    // neutral zone. When clearing, respect the arm trigger instead of forcing armed:
+    //   - IMMEDIATE / ON_PASS_ZONE: arm now (we're in neutral, condition is met)
+    //   - ON_ALLIANCE_RETURN: stay unarmed until we reach alliance zone
     if (ceaseFireRequested) {
       if (currentZone == ZoneDetector.Zone.NEUTRAL || currentZone == ZoneDetector.Zone.OPPONENT) {
         ceaseFireRequested = false;
-        armed = true;
-        coordinatorState = CoordinatorState.AIMING;
-        readyTimeoutTimer.restart();
-        readyTimeoutRunning = true;
+        boolean shouldArm = (armTrigger != ArmTrigger.ON_ALLIANCE_RETURN);
+        armed = shouldArm;
+        coordinatorState = shouldArm ? CoordinatorState.AIMING : CoordinatorState.UNARMED;
+        if (shouldArm) {
+          readyTimeoutTimer.restart();
+          readyTimeoutRunning = true;
+        }
         Logger.recordOutput("SmartLaunch/Phase", "CEASE_FIRE_CLEARED");
       } else {
         coordinatorState = CoordinatorState.UNARMED;
