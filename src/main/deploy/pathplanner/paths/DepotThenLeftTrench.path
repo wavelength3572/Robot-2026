@@ -294,7 +294,7 @@
     "rotation": 90.0
   },
   "reversed": false,
-  "folder": "Auto Paths",
+  "folder": "AllianceZonePaths",
   "idealStartingState": {
     "velocity": 0.0,
     "rotation": 180.0

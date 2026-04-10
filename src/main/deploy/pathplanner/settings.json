@@ -3,8 +3,10 @@
   "robotLength": 0.787,
   "holonomicMode": true,
   "pathFolders": [
-    "Auto Paths",
-    "Test Paths"
+    "TrenchRightPaths",
+    "TrenchLeftPaths",
+    "RetiredPaths",
+    "AllianceZonePaths"
   ],
   "autoFolders": [
     "Retired",

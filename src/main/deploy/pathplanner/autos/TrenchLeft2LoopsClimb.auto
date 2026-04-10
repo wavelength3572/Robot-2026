@@ -7,13 +7,19 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Depot2.0"
+            "pathName": "TrenchLeft2LoopsClimb"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "ClimberClimb"
           }
         }
       ]
     }
   },
   "resetOdom": true,
-  "folder": "Retired",
+  "folder": "CompSprintSotMNoPass",
   "choreoAuto": false
 }

@@ -7,6 +7,6 @@
     }
   },
   "resetOdom": true,
-  "folder": "CompSprintAutoShoot",
+  "folder": "CompShootPreloadsSotMNoPass",
   "choreoAuto": false
 }

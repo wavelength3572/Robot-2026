@@ -80,12 +80,12 @@
     },
     {
       "anchor": {
-        "x": 1.0120398853822064,
-        "y": 4.5543646637587285
+        "x": 1.052370506029242,
+        "y": 2.877828928713385
       },
       "prevControl": {
-        "x": 1.0387239684200493,
-        "y": 5.434120688186788
+        "x": 1.079054589067085,
+        "y": 3.757584953141444
       },
       "nextControl": null,
       "isLocked": false,
@@ -141,10 +141,10 @@
   },
   "goalEndState": {
     "velocity": 0.0,
-    "rotation": 90.0
+    "rotation": 76.56344891069412
   },
   "reversed": false,
-  "folder": "Auto Paths",
+  "folder": "AllianceZonePaths",
   "idealStartingState": {
     "velocity": 0.0,
     "rotation": 180.0

@@ -1,0 +1,184 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 3.6166438357500246,
+        "y": 6.290526810250611
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 2.3632669113442235,
+        "y": 6.26431130911042
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 0.55,
+        "y": 6.123858122826673
+      },
+      "prevControl": {
+        "x": 0.55,
+        "y": 6.424043787365935
+      },
+      "nextControl": {
+        "x": 0.55,
+        "y": 5.8257076388011075
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 1.4269123361192364,
+        "y": 5.910577358469871
+      },
+      "prevControl": {
+        "x": 1.406932932353223,
+        "y": 6.190289011194054
+      },
+      "nextControl": {
+        "x": 1.447720215568681,
+        "y": 5.619267046177652
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 0.5529813992425823,
+        "y": 5.6088631064529295
+      },
+      "prevControl": {
+        "x": 0.600193247655113,
+        "y": 5.854364718198091
+      },
+      "nextControl": {
+        "x": 0.5009617006189722,
+        "y": 5.338360673610156
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 2.1083703880885327,
+        "y": 5.047050361317938
+      },
+      "prevControl": {
+        "x": 2.0719565990520055,
+        "y": 5.70770053383779
+      },
+      "nextControl": {
+        "x": 2.122129032074651,
+        "y": 4.797429248998361
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 1.052370506029242,
+        "y": 2.877828928713385
+      },
+      "prevControl": {
+        "x": 1.2396887955900924,
+        "y": 3.7529992163890102
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "ClimbLeft"
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.5,
+      "rotationDegrees": 90.0
+    }
+  ],
+  "constraintZones": [
+    {
+      "name": "Pickup From Outpost Zone",
+      "minWaypointRelativePos": 0.05,
+      "maxWaypointRelativePos": 0.1,
+      "constraints": {
+        "maxVelocity": 0.5,
+        "maxAcceleration": 2.5,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "Shooting Zone #1",
+      "minWaypointRelativePos": 0.1,
+      "maxWaypointRelativePos": 0.45,
+      "constraints": {
+        "maxVelocity": 1.1,
+        "maxAcceleration": 2.5,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "Shooting Zone #2",
+      "minWaypointRelativePos": 2.8,
+      "maxWaypointRelativePos": 5.0,
+      "constraints": {
+        "maxVelocity": 0.67,
+        "maxAcceleration": 1.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [
+    {
+      "fieldPosition": {
+        "x": 4.625,
+        "y": 4.033
+      },
+      "rotationOffset": 180.0,
+      "minWaypointRelativePos": 2.8,
+      "maxWaypointRelativePos": 3.65,
+      "name": "Point Towards Hub Zone #1"
+    },
+    {
+      "fieldPosition": {
+        "x": 4.625,
+        "y": 4.033
+      },
+      "rotationOffset": 180.0,
+      "minWaypointRelativePos": 2.8,
+      "maxWaypointRelativePos": 4.0,
+      "name": "Point Towards Hub Zone #2"
+    }
+  ],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 2.5,
+    "maxAcceleration": 2.5,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 76.56344891069412
+  },
+  "reversed": false,
+  "folder": "AllianceZonePaths",
+  "idealStartingState": {
+    "velocity": 0.0,
+    "rotation": 180.0
+  },
+  "useDefaultConstraints": false
+}
