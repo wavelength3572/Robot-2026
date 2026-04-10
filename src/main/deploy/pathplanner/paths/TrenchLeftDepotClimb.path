@@ -144,12 +144,12 @@
     },
     {
       "anchor": {
-        "x": 1.052370506029242,
-        "y": 2.877828928713385
+        "x": 1.0106749734846971,
+        "y": 4.5648579278498564
       },
       "prevControl": {
-        "x": 1.052370506029242,
-        "y": 3.51441693413251
+        "x": 1.0106749734846971,
+        "y": 5.201445933268982
       },
       "nextControl": null,
       "isLocked": false,
@@ -182,7 +182,7 @@
     {
       "name": "Shoot on the Move Zone",
       "minWaypointRelativePos": 4.229587712206946,
-      "maxWaypointRelativePos": 9.0,
+      "maxWaypointRelativePos": 7.5,
       "constraints": {
         "maxVelocity": 1.2,
         "maxAcceleration": 0.49,
@@ -217,6 +217,19 @@
         "nominalVoltage": 12.0,
         "unlimited": false
       }
+    },
+    {
+      "name": "Climbing Zone",
+      "minWaypointRelativePos": 7.5,
+      "maxWaypointRelativePos": 9.0,
+      "constraints": {
+        "maxVelocity": 0.4,
+        "maxAcceleration": 1.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
     }
   ],
   "pointTowardsZones": [],
@@ -243,7 +256,7 @@
   },
   "goalEndState": {
     "velocity": 0.0,
-    "rotation": 76.56344891069412
+    "rotation": 90.0
   },
   "reversed": false,
   "folder": "TrenchLeftPaths",

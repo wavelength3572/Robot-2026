@@ -176,12 +176,12 @@
     },
     {
       "anchor": {
-        "x": 1.052370506029242,
-        "y": 2.877828928713385
+        "x": 1.0106749734846971,
+        "y": 4.5648579278498564
       },
       "prevControl": {
-        "x": 1.052370506029242,
-        "y": 4.1278289287133845
+        "x": 1.0106749734846971,
+        "y": 5.8148579278498564
       },
       "nextControl": null,
       "isLocked": false,
@@ -294,13 +294,13 @@
   ],
   "eventMarkers": [
     {
-      "name": "CeaseFire",
+      "name": "CeaseFireAndStowHood",
       "waypointRelativePos": 3.779527559055045,
       "endWaypointRelativePos": null,
       "command": {
         "type": "named",
         "data": {
-          "name": "CeaseFire"
+          "name": "CeaseFireAndStowHood"
         }
       }
     },
@@ -326,7 +326,7 @@
   },
   "goalEndState": {
     "velocity": 0.0,
-    "rotation": 76.56344891069412
+    "rotation": 90.0
   },
   "reversed": false,
   "folder": "TrenchLeftPaths",

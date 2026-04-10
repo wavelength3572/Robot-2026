@@ -104,7 +104,7 @@
         "y": 5.000321197363394
       },
       "nextControl": {
-        "x": 5.8272470751444025,
+        "x": 5.827247075144402,
         "y": 5.000321197363394
       },
       "isLocked": false,
@@ -116,7 +116,7 @@
         "y": 5.785446431670416
       },
       "prevControl": {
-        "x": 5.592664463149915,
+        "x": 5.592664463149919,
         "y": 5.785446431670416
       },
       "nextControl": {
@@ -351,13 +351,24 @@
   ],
   "eventMarkers": [
     {
-      "name": "CeaseFire",
+      "name": "CeaseFireAndStowHood",
       "waypointRelativePos": 3.779527559055045,
       "endWaypointRelativePos": null,
       "command": {
         "type": "named",
         "data": {
-          "name": "CeaseFire"
+          "name": "CeaseFireAndStowHood"
+        }
+      }
+    },
+    {
+      "name": "CeaseFireAndStowHood",
+      "waypointRelativePos": 9.75265017667902,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "CeaseFireAndStowHood"
         }
       }
     }
