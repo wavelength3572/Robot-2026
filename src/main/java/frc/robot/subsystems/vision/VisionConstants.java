@@ -144,6 +144,7 @@ public final class VisionConstants {
               0.0,
               Rotation2d.fromDegrees(-21).getRadians(), // Pitch 21° up from horizontal
               Rotation2d.fromDegrees(83).getRadians())); // Yaw: 83° left (7° toward front)
+  // NOTE: Yaw of 120° may be better for climbing visibility
 
   // Right Rear camera (rearward facing) - mounted at rear right
   public static Transform3d mainBotToRightRearCam =
@@ -155,6 +156,7 @@ public final class VisionConstants {
               0.0,
               Rotation2d.fromDegrees(-10).getRadians(), // Pitch 10° up from horizontal
               Rotation2d.fromDegrees(180).getRadians())); // Yaw: facing rearward
+  // NOTE: Yaw of 210° may be better for climbing visibility
 
   private VisionConstants() {}
 }
