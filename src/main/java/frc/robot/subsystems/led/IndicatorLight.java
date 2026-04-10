@@ -12,6 +12,7 @@ import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.subsystems.led.IndicatorLightConstants.LED_EFFECTS;
+import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.util.HubShiftUtil;
 import java.util.Random;
 import java.util.function.BooleanSupplier;
@@ -85,6 +86,10 @@ public class IndicatorLight extends SubsystemBase {
 
   // Climber state supplier — true when the robot has finished climbing (set by RobotContainer)
   private BooleanSupplier climberClimbedSupplier = () -> false;
+
+  // Shooting coordinator supplier — drives edge-LED SmartLaunch status overlay
+  private Supplier<ShootingCoordinator.CoordinatorState> coordinatorStateSupplier = null;
+  private BooleanSupplier smartLaunchActiveSupplier = () -> false;
 
   // Emergency strobe state
   private double strobePhaseStartTime = 0.0;
@@ -251,6 +256,63 @@ public class IndicatorLight extends SubsystemBase {
       case TURRET_ENCODER_ERROR -> doTurretEncoderError();
       default -> {}
     }
+
+    // SmartLaunch status overlay: paint edge LEDs (0-2, 39-41) based on coordinator state.
+    // Runs after the main effect so it overlays whatever the normal lighting chose.
+    applySmartLaunchOverlay();
+  }
+
+  /** Paint edge LEDs with SmartLaunch coordinator state when active. */
+  private void applySmartLaunchOverlay() {
+    if (coordinatorStateSupplier == null || !smartLaunchActiveSupplier.getAsBoolean()) {
+      return;
+    }
+    ShootingCoordinator.CoordinatorState state = coordinatorStateSupplier.get();
+    if (state == ShootingCoordinator.CoordinatorState.INACTIVE) {
+      return;
+    }
+
+    // Pick color based on coordinator state
+    int r, g, b;
+    switch (state) {
+      case FIRING -> {
+        r = 0;
+        g = 255;
+        b = 0;
+      } // green — actively shooting or ready to fire
+      case HELD -> {
+        r = 0;
+        g = 255;
+        b = 0;
+      } // green — release will fire
+      case AIMING, SETTLING, UNARMED -> {
+        r = 255;
+        g = 180;
+        b = 0;
+      } // yellow/amber — acquiring
+      case NO_FIRE_ZONE -> {
+        r = 255;
+        g = 0;
+        b = 0;
+      } // red — zone blocks shooting
+      default -> {
+        return;
+      }
+    }
+
+    // Write edge LEDs: 0-2 (left end) and 39-41 (right end)
+    int len = wlLEDBuffer.getLength();
+    for (int i = 0; i < 3 && i < len; i++) {
+      wlLEDBuffer.setRGB(i, r, g, b);
+    }
+    for (int i = Math.max(0, len - 3); i < len; i++) {
+      wlLEDBuffer.setRGB(i, r, g, b);
+    }
+
+    // Re-flush the modified buffer to hardware
+    wlLEDBuffer.flushToBuffer();
+    wlLED.setData(wlLEDBuffer.getInternalBuffer());
+    Logger.recordOutput("LEDs/SmartLaunchOverlay", state.name());
   }
 
   /**
@@ -264,6 +326,18 @@ public class IndicatorLight extends SubsystemBase {
   /** Set the supplier for climber "climbed" state. When true, LEDs show SEGMENTPARTY. */
   public void setClimberClimbedSupplier(BooleanSupplier supplier) {
     this.climberClimbedSupplier = supplier;
+  }
+
+  /**
+   * Set the shooting coordinator suppliers for SmartLaunch status overlay on edge LEDs. When
+   * SmartLaunch is active, LEDs 0-2 and 39-41 show coordinator state: green = FIRING/ready, yellow
+   * = AIMING/SETTLING, red = NO_FIRE_ZONE.
+   */
+  public void setShootingCoordinatorSuppliers(
+      Supplier<ShootingCoordinator.CoordinatorState> stateSupplier,
+      BooleanSupplier activeSupplier) {
+    this.coordinatorStateSupplier = stateSupplier;
+    this.smartLaunchActiveSupplier = activeSupplier;
   }
 
   // ========== Public setters for LED effects ==========
