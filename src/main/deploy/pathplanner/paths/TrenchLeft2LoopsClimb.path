@@ -295,7 +295,7 @@
   "eventMarkers": [
     {
       "name": "CeaseFireAndStowHood",
-      "waypointRelativePos": 3.779527559055045,
+      "waypointRelativePos": 3.3903262092238573,
       "endWaypointRelativePos": null,
       "command": {
         "type": "named",

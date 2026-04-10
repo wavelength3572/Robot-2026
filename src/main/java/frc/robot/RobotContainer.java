@@ -848,9 +848,11 @@ public class RobotContainer {
     // Use this event marker when the robot needs to stop shooting and duck under the trench
     // mid-auto (e.g., loop autos that cross the bump after firing).
     // Automatically re-arms when the robot reaches the neutral zone.
-    if (shootingCoordinator != null) {
+    if (shootingCoordinator != null && hood != null) {
       NamedCommands.registerCommand(
-          "CeaseFireAndStowHood", Commands.runOnce(() -> shootingCoordinator.requestCeaseFire()));
+          "CeaseFireAndStowHood",
+          Commands.runOnce(() -> shootingCoordinator.requestCeaseFire())
+              .andThen(Commands.waitUntil(hood::atTarget)));
     }
 
     // RetractIntake: retract intake and stop rollers
