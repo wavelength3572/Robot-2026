@@ -67,7 +67,7 @@ canvas{display:block}
 <header>
 <h1><span>Wavelength 3572</span> Strategy Board</h1>
 <div class="hdr-r">
-<label class="btn" id="impBtn">Import .auto / .path files<input type="file" id="fileIn" multiple accept=".auto,.path" style="display:none"></label>
+<label class="btn" id="impBtn">Import files<input type="file" id="fileIn" multiple accept=".auto,.path,.json" style="display:none"></label>
 <button class="btn bw" id="clrBtn">Clear All</button>
 </div>
 </header>
@@ -93,7 +93,7 @@ canvas{display:block}
 <button class="spb" data-speed="2">2x</button>
 </div>
 </div>
-<div class="dov" id="dropOv"><span>Drop .auto / .path files here</span></div>
+<div class="dov" id="dropOv"><span>Drop .auto / .path / settings.json files here</span></div>
 <script>
 // ============ EMBEDDED DATA ============
 const TEAM_DATA = {"paths":{"Depot-Outpost-Climb":{"w":[{"x":3.6166,"y":6.2905,"nc":{"x":2.3633,"y":6.2643}},{"x":0.75,"y":6.2891,"pc":{"x":1.25,"y":6.2891},"nc":{"x":0.25,"y":6.2891}},{"x":1.1333,"y":5.8649,"pc":{"x":1.1333,"y":6.1149},"nc":{"x":1.1333,"y":5.3649}},{"x":0.75,"y":5.4901,"pc":{"x":0.25,"y":5.4901},"nc":{"x":1.1436,"y":5.4901}},{"x":2.0,"y":5.0534,"pc":{"x":2.0,"y":5.6534},"nc":{"x":2.0,"y":4.8034}},{"x":1.964,"y":1.3397,"pc":{"x":1.9583,"y":1.7397},"nc":{"x":1.9738,"y":0.6398}},{"x":0.65,"y":0.7013,"pc":{"x":0.65,"y":0.3013},"nc":{"x":0.65,"y":1.1013}},{"x":1.106,"y":1.22,"pc":{"x":1.106,"y":0.97},"nc":{"x":1.106,"y":1.563}},{"x":1.1105,"y":2.9062,"pc":{"x":1.0946,"y":2.3493}}],"mv":2.5,"ma":3.0,"em":[{"name":"ClimberExtend","pos":7.25,"cmd":"ClimberExtend"}],"cz":[{"name":"Pickup From Outpost Zone","min":0.9,"max":2.978,"maxVel":1.5},{"name":"Preload Shots Zone","min":0.1,"max":0.9,"maxVel":1.1},{"name":"Shooting Zone #1","min":3.0,"max":5.65,"maxVel":1.2},{"name":"Pickup From Outpost","min":5.65,"max":6.7,"maxVel":0.2},{"name":"Climbing Zone","min":6.7,"max":8.0,"maxVel":0.75}],"ptz":[{"name":"Point Towards Hub Zone #1","tx":4.625,"ty":4.033,"min":3.986,"max":5.0}],"rt":[{"pos":3.5,"rot":180.0},{"pos":5.462,"rot":180.0},{"pos":7.08,"rot":180.0},{"pos":7.65,"rot":-90.0}],"end":{"v":0,"r":-90.0},"start":{"v":0.0,"r":180.0}},"DepotClimb":{"w":[{"x":3.6545,"y":6.2952,"nc":{"x":2.6545,"y":6.2952}},{"x":0.5678,"y":6.2586,"pc":{"x":0.2578,"y":6.2586},"nc":{"x":0.9678,"y":6.2586}},{"x":1.4236,"y":5.9295,"pc":{"x":1.4297,"y":6.1794},"nc":{"x":1.4175,"y":5.6795}},{"x":0.5605,"y":5.6588,"pc":{"x":0.8705,"y":5.6588},"nc":{"x":0.2505,"y":5.6588}},{"x":1.5961,"y":5.512,"pc":{"x":1.5961,"y":5.812},"nc":{"x":1.5961,"y":5.212}},{"x":1.0107,"y":4.5649,"pc":{"x":1.0374,"y":5.4446}}],"mv":1.6,"ma":2.5,"em":[{"name":"ClimberExtend","pos":4.332,"cmd":"ClimberExtend"}],"cz":[{"name":"Constraints Zone","min":3.6,"max":5.0,"maxVel":0.195}],"ptz":[],"rt":[{"pos":3.662,"rot":180.0},{"pos":4.443,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0.0,"r":180.0}},"DepotLeftTrenchClimb":{"w":[{"x":3.6206,"y":6.2513,"nc":{"x":2.6206,"y":6.2513}},{"x":0.6,"y":6.2586,"pc":{"x":0.35,"y":6.2586},"nc":{"x":0.85,"y":6.2586}},{"x":1.3327,"y":5.9772,"pc":{"x":1.3388,"y":6.2271},"nc":{"x":1.3266,"y":5.7273}},{"x":0.6,"y":5.6588,"pc":{"x":0.85,"y":5.6588},"nc":{"x":0.35,"y":5.6588}},{"x":1.6752,"y":6.1705,"pc":{"x":1.5403,"y":5.6764},"nc":{"x":2.0343,"y":7.4852}},{"x":3.2173,"y":7.2824,"pc":{"x":2.6569,"y":7.1555},"nc":{"x":3.6984,"y":7.3912}},{"x":6.0751,"y":7.2851,"pc":{"x":5.7409,"y":7.3567},"nc":{"x":6.6129,"y":7.1699}},{"x":6.7265,"y":4.4249,"pc":{"x":7.2015,"y":4.4249},"nc":{"x":6.1265,"y":4.4249}},{"x":5.7697,"y":5.1641,"pc":{"x":6.0286,"y":4.6804},"nc":{"x":5.382,"y":5.8882}},{"x":6.2485,"y":7.193,"pc":{"x":6.2187,"y":5.9534},"nc":{"x":6.257,"y":7.5429}},{"x":2.976,"y":7.3,"pc":{"x":3.4235,"y":7.2722},"nc":{"x":1.504,"y":7.3913}},{"x":1.0107,"y":4.5649,"pc":{"x":1.0107,"y":5.6649}}],"mv":2.75,"ma":3.5,"em":[{"name":"CeaseFireAndStowHood","pos":4.776,"cmd":"CeaseFireAndStowHood"},{"name":"ClimberExtend","pos":10.5,"cmd":"ClimberExtend"}],"cz":[{"name":"Preload SOTM Zone","min":0,"max":0.55,"maxVel":1.2},{"name":"Depot Zone","min":0.55,"max":3.0,"maxVel":1.5},{"name":"Shooting Zone #1","min":3.9,"max":5.2,"maxVel":1.1},{"name":"Shooting Zone #2","min":9.65,"max":10.7,"maxVel":1.1},{"name":"Climbing Zone","min":10.7,"max":11.0,"maxVel":0.5}],"ptz":[{"name":"Point Toward Hub #1","tx":4.62,"ty":4.05,"min":3.9,"max":5.15},{"name":"Point Toward Hub #2","tx":4.62,"ty":4.05,"min":9.701,"max":10.6}],"rt":[{"pos":3.5,"rot":180.0},{"pos":5.3,"rot":90.0},{"pos":5.763,"rot":90.0},{"pos":6.211,"rot":0.0},{"pos":6.771,"rot":-110.0},{"pos":7.211,"rot":170.0},{"pos":7.888,"rot":130.0},{"pos":8.609,"rot":90.0},{"pos":9.6,"rot":90.0},{"pos":10.8,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0.0,"r":180.0}},"LeftTrenchToDepot":{"w":[{"x":4.4818,"y":7.1776,"nc":{"x":3.3985,"y":7.2607}},{"x":1.0857,"y":7.0922,"pc":{"x":1.6,"y":7.7668},"nc":{"x":0.6395,"y":6.507}},{"x":1.2521,"y":5.2351,"pc":{"x":0.6597,"y":5.2351},"nc":{"x":1.7028,"y":5.2351}},{"x":2.6159,"y":5.476,"pc":{"x":2.3659,"y":5.476}}],"mv":2.5,"ma":2.5,"em":[],"cz":[],"ptz":[],"rt":[{"pos":0.693,"rot":-120.0},{"pos":1.638,"rot":-110.0}],"end":{"v":0.0,"r":145.0},"start":{"v":0,"r":90.0}},"Outpost-Depot-Climb":{"w":[{"x":3.609,"y":1.775,"nc":{"x":2.2437,"y":1.5529}},{"x":1.3243,"y":0.7571,"pc":{"x":2.5495,"y":0.9422},"nc":{"x":0.8276,"y":0.682}},{"x":2.0119,"y":2.8008,"pc":{"x":2.0119,"y":2.3008},"nc":{"x":2.0119,"y":3.3008}},{"x":1.9756,"y":5.3636,"pc":{"x":1.9756,"y":4.8636},"nc":{"x":1.9756,"y":5.8636}},{"x":0.5641,"y":5.706,"pc":{"x":0.5641,"y":5.456},"nc":{"x":0.5641,"y":5.956}},{"x":1.3777,"y":5.983,"pc":{"x":1.4295,"y":5.7035},"nc":{"x":1.2865,"y":6.475}},{"x":0.6002,"y":6.4495,"pc":{"x":0.6002,"y":6.1995},"nc":{"x":0.6002,"y":6.6995}},{"x":1.8433,"y":7.2092,"pc":{"x":1.8433,"y":6.2992},"nc":{"x":1.8433,"y":7.6092}},{"x":0.6128,"y":7.245,"pc":{"x":0.6359,"y":7.6999},"nc":{"x":0.6001,"y":6.9953}},{"x":1.4838,"y":5.7882,"pc":{"x":1.4838,"y":7.1382},"nc":{"x":1.4838,"y":5.5382}},{"x":1.0107,"y":4.5649,"pc":{"x":1.198,"y":5.44}}],"mv":2.5,"ma":2.5,"em":[{"name":"ClimberExtend","pos":9.7,"cmd":"ClimberExtend"}],"cz":[{"name":"Pickup From Outpost Zone","min":0.7,"max":1.15,"maxVel":0.4},{"name":"Shooting Zone #1","min":1.0,"max":3.75,"maxVel":1.15},{"name":"Shooting Zone #2","min":7.5,"max":10.0,"maxVel":0.65}],"ptz":[{"name":"Point Towards Hub Zone #1","tx":4.625,"ty":4.033,"min":1.5,"max":3.2},{"name":"Point Towards Hub Zone #2","tx":4.625,"ty":4.033,"min":8.4,"max":8.95}],"rt":[{"pos":1.05,"rot":-170.0},{"pos":3.6,"rot":180.0},{"pos":8.1,"rot":180.0},{"pos":9.7,"rot":90.0}],"end":{"v":0,"r":90.0},"start":{"v":0.0,"r":180.0}},"OutpostRightTrenchClimb":{"w":[{"x":3.6339,"y":1.7626,"nc":{"x":2.6339,"y":1.7626}},{"x":0.6955,"y":0.6728,"pc":{"x":2.6967,"y":0.7373},"nc":{"x":0.4044,"y":0.6634}},{"x":2.3145,"y":0.8208,"pc":{"x":2.0645,"y":0.8208},"nc":{"x":2.5645,"y":0.8208}},{"x":5.6,"y":0.68,"pc":{"x":5.35,"y":0.68},"nc":{"x":5.85,"y":0.68}},{"x":8.4529,"y":1.3291,"pc":{"x":8.2993,"y":1.0438},"nc":{"x":8.5803,"y":1.5656}},{"x":8.3023,"y":3.3303,"pc":{"x":8.5067,"y":3.1258},"nc":{"x":7.9535,"y":3.6791}},{"x":6.1935,"y":3.5024,"pc":{"x":6.4991,"y":3.6553},"nc":{"x":5.096,"y":2.9537}},{"x":6.4409,"y":0.9202,"pc":{"x":6.814,"y":1.2142},"nc":{"x":6.0859,"y":0.6405}},{"x":1.5993,"y":1.0386,"pc":{"x":2.9093,"y":0.7336},"nc":{"x":1.0033,"y":1.1773}},{"x":1.1105,"y":2.9062,"pc":{"x":1.1105,"y":0.9062}}],"mv":2.6,"ma":3.5,"em":[{"name":"CeaseFireAndStowHood","pos":2.308,"cmd":"CeaseFireAndStowHood"},{"name":"ClimberExtend","pos":8.241,"cmd":"ClimberExtend"}],"cz":[{"name":"Preload SOTM Zone","min":0.0,"max":0.9,"maxVel":1.2},{"name":"Outpost Zone","min":0.9,"max":1.2,"maxVel":0.5},{"name":"Shooting Zone #1","min":1.2,"max":2.5,"maxVel":0.9},{"name":"Shooting Zone #2","min":7.65,"max":8.8,"maxVel":1.1},{"name":"Climbing Zone","min":8.8,"max":9.0,"maxVel":0.6}],"ptz":[{"name":"Point Towards Zone","tx":4.605,"ty":4.01,"min":7.714,"max":8.8}],"rt":[{"pos":1.35,"rot":180.0},{"pos":2.345,"rot":-90.0},{"pos":3.213,"rot":-90.0},{"pos":3.808,"rot":110.0},{"pos":6.323,"rot":-120.0},{"pos":7.082,"rot":-90.0},{"pos":7.609,"rot":-90.0},{"pos":8.9,"rot":-90.0}],"end":{"v":0.0,"r":-90.0},"start":{"v":0.0,"r":180.0}},"TrenchLeft2.5Loops":{"w":[{"x":4.5219,"y":7.6614,"nc":{"x":6.1425,"y":7.6848}},{"x":8.0,"y":6.55,"pc":{"x":8.0,"y":7.55},"nc":{"x":8.0,"y":5.55}},{"x":4.6274,"y":5.593,"pc":{"x":5.6274,"y":5.593},"nc":{"x":4.0274,"y":5.593}},{"x":2.5499,"y":6.4659,"pc":{"x":2.5499,"y":5.4659},"nc":{"x":2.5499,"y":7.2159}},{"x":4.0932,"y":7.3453,"pc":{"x":3.5934,"y":7.3324},"nc":{"x":4.5931,"y":7.3581}},{"x":6.4364,"y":6.6527,"pc":{"x":6.4148,"y":7.5509},"nc":{"x":6.4712,"y":5.2076}},{"x":6.0772,"y":5.0003,"pc":{"x":6.3272,"y":5.0003},"nc":{"x":5.8272,"y":5.0003}},{"x":5.3427,"y":5.7854,"pc":{"x":5.5927,"y":5.7854},"nc":{"x":5.0927,"y":5.7854}},{"x":4.6274,"y":5.593,"pc":{"x":4.9398,"y":5.593},"nc":{"x":4.0274,"y":5.593}},{"x":2.5499,"y":6.4659,"pc":{"x":2.5499,"y":5.4659},"nc":{"x":2.5499,"y":7.2159}},{"x":4.097,"y":7.3351,"pc":{"x":3.7256,"y":7.3351},"nc":{"x":4.4683,"y":7.3351}},{"x":7.2909,"y":6.827,"pc":{"x":6.6561,"y":7.5264},"nc":{"x":7.9257,"y":6.1277}},{"x":7.8735,"y":4.8538,"pc":{"x":8.4061,"y":5.7522},"nc":{"x":7.3409,"y":3.9555}},{"x":5.9568,"y":5.4391,"pc":{"x":6.6212,"y":5.0544},"nc":{"x":5.2924,"y":5.8237}},{"x":4.6334,"y":5.6112,"pc":{"x":5.1391,"y":5.6327},"nc":{"x":4.1277,"y":5.5897}},{"x":3.041,"y":5.6327,"pc":{"x":3.7192,"y":5.6327}}],"mv":2.25,"ma":3.25,"em":[{"name":"CeaseFireAndStowHood","pos":3.476,"cmd":"CeaseFireAndStowHood"},{"name":"CeaseFireAndStowHood","pos":9.449,"cmd":"CeaseFireAndStowHood"}],"cz":[{"name":"Sprint Zone","min":0,"max":0.9,"maxVel":3.5},{"name":"Shooting Zone #1","min":2.3,"max":3.7,"maxVel":1.1},{"name":"Shooting Zone #2","min":8.3,"max":9.8,"maxVel":1.1}],"ptz":[{"name":"Point Towards Zone","tx":4.62,"ty":4.03,"min":2.51,"max":3.924},{"name":"Point Towards Zone","tx":4.625,"ty":4.03,"min":8.51,"max":10.0}],"rt":[{"pos":0.581,"rot":-100.0},{"pos":1.755,"rot":135.0},{"pos":4.526,"rot":90.0},{"pos":4.872,"rot":-78.4},{"pos":6.741,"rot":135.0},{"pos":10.524,"rot":90.0},{"pos":11.151,"rot":-110.0},{"pos":13.199,"rot":135.0}],"end":{"v":0.0,"r":135.0},"start":{"v":0.0,"r":-90.0}},"TrenchLeft2LoopsClimb":{"w":[{"x":4.5219,"y":7.6614,"nc":{"x":6.1425,"y":7.6848}},{"x":8.0,"y":6.55,"pc":{"x":8.0,"y":7.55},"nc":{"x":8.0,"y":5.55}},{"x":4.6274,"y":5.593,"pc":{"x":5.6274,"y":5.593},"nc":{"x":4.0274,"y":5.593}},{"x":2.5499,"y":6.4659,"pc":{"x":2.5499,"y":5.4659},"nc":{"x":2.5499,"y":7.2159}},{"x":4.0932,"y":7.3453,"pc":{"x":3.5934,"y":7.3324},"nc":{"x":4.5931,"y":7.3581}},{"x":6.4364,"y":6.6527,"pc":{"x":6.4148,"y":7.5509},"nc":{"x":6.4712,"y":5.2076}},{"x":6.0772,"y":5.0003,"pc":{"x":6.3272,"y":5.0003},"nc":{"x":5.8272,"y":5.0003}},{"x":5.3487,"y":5.6841,"pc":{"x":5.5987,"y":5.6841},"nc":{"x":5.0987,"y":5.6841}},{"x":4.6274,"y":5.593,"pc":{"x":4.9398,"y":5.593},"nc":{"x":4.3149,"y":5.593}},{"x":0.5685,"y":5.9843,"pc":{"x":0.5685,"y":6.2343},"nc":{"x":0.5685,"y":5.7343}},{"x":1.3175,"y":5.777,"pc":{"x":1.3175,"y":6.027},"nc":{"x":1.3175,"y":5.527}},{"x":1.0107,"y":4.5649,"pc":{"x":1.0107,"y":5.8149}}],"mv":2.25,"ma":3.25,"em":[{"name":"CeaseFireAndStowHood","pos":3.39,"cmd":"CeaseFireAndStowHood"},{"name":"ClimberExtend","pos":10.355,"cmd":"ClimberExtend"}],"cz":[{"name":"Sprint Zone","min":0,"max":0.9,"maxVel":3.5},{"name":"Shooting Zone #1","min":2.3,"max":3.7,"maxVel":1.1},{"name":"Shooting Zone #2","min":8.38,"max":10.0,"maxVel":0.75},{"name":"Climbing Zone","min":10.0,"max":11.0,"maxVel":0.5}],"ptz":[{"name":"Point Towards Zone","tx":4.62,"ty":4.03,"min":2.51,"max":3.924}],"rt":[{"pos":0.581,"rot":-100.0},{"pos":1.755,"rot":135.0},{"pos":4.526,"rot":90.0},{"pos":4.872,"rot":-78.4},{"pos":6.741,"rot":135.0},{"pos":8.337,"rot":135.0},{"pos":8.749,"rot":180.0},{"pos":9.881,"rot":180.0},{"pos":10.561,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0.0,"r":-90.0}},"TrenchLeft2ndCycle":{"w":[{"x":4.4818,"y":7.1776,"nc":{"x":5.0974,"y":7.4109}},{"x":6.3243,"y":7.2095,"pc":{"x":6.2371,"y":7.4438},"nc":{"x":6.8752,"y":5.7294}},{"x":6.3243,"y":4.766,"pc":{"x":6.6962,"y":4.8059},"nc":{"x":5.5051,"y":4.6783}},{"x":5.9147,"y":5.9221,"pc":{"x":5.7506,"y":5.7335},"nc":{"x":6.4052,"y":6.4859}},{"x":6.0318,"y":7.3704,"pc":{"x":6.4301,"y":7.2846},"nc":{"x":5.6419,"y":7.4544}},{"x":4.4818,"y":7.1776,"pc":{"x":5.0248,"y":7.3963}}],"mv":2.75,"ma":3.0,"em":[],"cz":[],"ptz":[],"rt":[{"pos":0.623,"rot":90.0},{"pos":1.278,"rot":-90.0},{"pos":1.688,"rot":-110.0},{"pos":2.4,"rot":100.0}],"end":{"v":0,"r":90.0},"start":{"v":0,"r":90.0}},"TrenchLeftAggressive":{"w":[{"x":4.5219,"y":7.6614,"nc":{"x":6.6266,"y":7.3358}},{"x":8.5187,"y":7.1729,"pc":{"x":7.6897,"y":7.8958},"nc":{"x":8.7473,"y":6.9736}},{"x":8.2115,"y":5.6515,"pc":{"x":8.5681,"y":5.7804},"nc":{"x":7.3354,"y":5.3348}},{"x":5.9806,"y":7.3046,"pc":{"x":6.6651,"y":7.1319},"nc":{"x":5.2731,"y":7.4831}},{"x":4.4899,"y":7.164,"pc":{"x":4.8029,"y":7.29}}],"mv":2.5,"ma":3.0,"em":[],"cz":[],"ptz":[],"rt":[{"pos":0.5,"rot":-90.0},{"pos":0.849,"rot":-110.0},{"pos":1.222,"rot":-110.0},{"pos":2.419,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0.0,"r":-90.0}},"TrenchLeftAggressiveEndAtStart":{"w":[{"x":4.5219,"y":7.6614,"nc":{"x":6.6266,"y":7.3358}},{"x":8.5187,"y":7.1729,"pc":{"x":7.7136,"y":7.6255},"nc":{"x":8.7831,"y":7.0243}},{"x":8.2053,"y":5.9435,"pc":{"x":8.5086,"y":6.1709},"nc":{"x":7.6787,"y":5.5485}},{"x":6.3536,"y":7.1949,"pc":{"x":7.7196,"y":6.8946},"nc":{"x":5.688,"y":7.3412}},{"x":4.4818,"y":7.1776,"pc":{"x":4.8614,"y":7.3924}}],"mv":2.5,"ma":3.0,"em":[],"cz":[{"name":"Constraints Zone","min":0,"max":1.332,"maxVel":3.0}],"ptz":[],"rt":[{"pos":0.5,"rot":-90.0},{"pos":0.849,"rot":-110.0},{"pos":1.222,"rot":-110.0},{"pos":2.514,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0.0,"r":-90.0}},"TrenchLeftDepotClimb":{"w":[{"x":4.5219,"y":7.6614,"nc":{"x":5.2699,"y":7.6057}},{"x":8.6065,"y":7.1364,"pc":{"x":8.2919,"y":7.525},"nc":{"x":8.8552,"y":6.8291}},{"x":8.2261,"y":4.6567,"pc":{"x":8.6796,"y":4.6421},"nc":{"x":7.3634,"y":4.6846}},{"x":7.48,"y":7.1876,"pc":{"x":8.0058,"y":6.9068},"nc":{"x":6.7266,"y":7.5899}},{"x":4.6859,"y":7.4582,"pc":{"x":5.1859,"y":7.4582},"nc":{"x":4.1859,"y":7.4582}},{"x":0.7872,"y":7.3265,"pc":{"x":0.5481,"y":7.3995},"nc":{"x":1.2188,"y":7.1949}},{"x":1.3944,"y":6.3537,"pc":{"x":1.5699,"y":6.5658},"nc":{"x":1.0756,"y":5.9685}},{"x":0.6336,"y":6.0026,"pc":{"x":1.1236,"y":6.0166},"nc":{"x":0.3776,"y":5.9953}},{"x":1.38,"y":5.6421,"pc":{"x":1.6791,"y":5.7816},"nc":{"x":1.051,"y":5.4888}},{"x":1.0107,"y":4.5649,"pc":{"x":1.0107,"y":5.2014}}],"mv":2.75,"ma":3.1,"em":[{"name":"ClimberExtend","pos":7.856,"cmd":"ClimberExtend"}],"cz":[{"name":"Shoot on the Move Zone","min":4.23,"max":7.5,"maxVel":1.2},{"name":"Passing Zone","min":1.27,"max":2.46,"maxVel":1.0},{"name":"Sprint Zone","min":0,"max":1.27,"maxVel":3.5},{"name":"Climbing Zone","min":7.5,"max":9.0,"maxVel":0.4}],"ptz":[],"rt":[{"pos":1.626,"rot":-91.0},{"pos":2.286,"rot":90.0},{"pos":3.464,"rot":180.0},{"pos":7.551,"rot":180.0},{"pos":8.237,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0,"r":-90.0}},"TrenchLeftFollow":{"w":[{"x":3.5044,"y":7.1963,"nc":{"x":4.2523,"y":7.1406}},{"x":8.5114,"y":7.129,"pc":{"x":8.1968,"y":7.5177},"nc":{"x":8.7601,"y":6.8218}},{"x":8.2919,"y":4.569,"pc":{"x":8.7454,"y":4.5543},"nc":{"x":7.4292,"y":4.5968}},{"x":7.2752,"y":6.3464,"pc":{"x":7.8711,"y":6.3326},"nc":{"x":6.3243,"y":6.3683}},{"x":6.1342,"y":4.5104,"pc":{"x":6.8638,"y":3.8405},"nc":{"x":4.8834,"y":5.6588}},{"x":5.8708,"y":7.3046,"pc":{"x":7.0914,"y":6.6196},"nc":{"x":5.3816,"y":7.5792}},{"x":4.4228,"y":7.1831,"pc":{"x":5.242,"y":7.3074}}],"mv":2.75,"ma":3.1,"em":[],"cz":[{"name":"Passing Zone","min":1.27,"max":4.21,"maxVel":0.75},{"name":"Follower Zone","min":0,"max":1.27,"maxVel":1.85}],"ptz":[],"rt":[{"pos":1.705,"rot":-110.0},{"pos":2.312,"rot":90.0},{"pos":2.708,"rot":90.0},{"pos":3.251,"rot":-91.0},{"pos":3.556,"rot":-95.0},{"pos":4.071,"rot":110.0},{"pos":4.888,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0.0,"r":90.0}},"TrenchLeftSafe":{"w":[{"x":4.0838,"y":7.6614,"nc":{"x":5.3143,"y":7.3623}},{"x":7.5532,"y":7.0413,"pc":{"x":7.0398,"y":7.501},"nc":{"x":8.49,"y":6.2022}},{"x":7.7136,"y":5.6717,"pc":{"x":8.1769,"y":5.5941},"nc":{"x":6.8489,"y":5.8166}},{"x":6.851,"y":6.9754,"pc":{"x":7.0907,"y":6.7274},"nc":{"x":6.2897,"y":7.5563}},{"x":4.4818,"y":7.1776,"pc":{"x":5.1174,"y":7.2388}}],"mv":2.5,"ma":3.0,"em":[],"cz":[{"name":"Constraints Zone","min":0,"max":1.068,"maxVel":3.0}],"ptz":[],"rt":[{"pos":0.5,"rot":-90.0},{"pos":1.076,"rot":-110.0},{"pos":1.315,"rot":-110.0},{"pos":2.611,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0,"r":-90.0}},"TrenchRight2.5Loops":{"w":[{"x":4.5219,"y":0.3906,"nc":{"x":6.1425,"y":0.3672}},{"x":8.0,"y":1.502,"pc":{"x":8.0,"y":0.502},"nc":{"x":8.0,"y":2.502}},{"x":4.6274,"y":2.459,"pc":{"x":5.6274,"y":2.459},"nc":{"x":4.0274,"y":2.459}},{"x":2.5499,"y":1.5861,"pc":{"x":2.5499,"y":2.5861},"nc":{"x":2.5499,"y":0.8361}},{"x":4.0932,"y":0.7067,"pc":{"x":3.5934,"y":0.7196},"nc":{"x":4.5931,"y":0.6939}},{"x":6.4364,"y":1.3993,"pc":{"x":6.4148,"y":0.5011},"nc":{"x":6.4712,"y":2.8444}},{"x":6.0772,"y":3.0517,"pc":{"x":6.3272,"y":3.0517},"nc":{"x":5.8272,"y":3.0517}},{"x":5.3427,"y":2.2666,"pc":{"x":5.5927,"y":2.2666},"nc":{"x":5.0927,"y":2.2666}},{"x":4.6274,"y":2.459,"pc":{"x":4.9398,"y":2.459},"nc":{"x":4.0274,"y":2.459}},{"x":2.5499,"y":1.5861,"pc":{"x":2.5499,"y":2.5861},"nc":{"x":2.5499,"y":0.8361}},{"x":4.097,"y":0.7169,"pc":{"x":3.7256,"y":0.7169},"nc":{"x":4.4683,"y":0.7169}},{"x":7.2909,"y":1.225,"pc":{"x":6.6561,"y":0.5256},"nc":{"x":7.9257,"y":1.9243}},{"x":7.8735,"y":3.1982,"pc":{"x":8.4061,"y":2.2998},"nc":{"x":7.3409,"y":4.0965}},{"x":5.9568,"y":2.6129,"pc":{"x":6.6212,"y":2.9976},"nc":{"x":5.2924,"y":2.2283}},{"x":4.6334,"y":2.4408,"pc":{"x":5.1391,"y":2.4193},"nc":{"x":4.1277,"y":2.4623}},{"x":3.041,"y":2.4193,"pc":{"x":3.7192,"y":2.4193}}],"mv":2.25,"ma":3.25,"em":[{"name":"CeaseFireAndStowHood","pos":3.476,"cmd":"CeaseFireAndStowHood"},{"name":"CeaseFireAndStowHood","pos":9.449,"cmd":"CeaseFireAndStowHood"}],"cz":[{"name":"Sprint Zone","min":0,"max":0.9,"maxVel":3.5},{"name":"Shooting Zone #1","min":2.3,"max":3.7,"maxVel":1.1},{"name":"Shooting Zone #2","min":8.3,"max":9.8,"maxVel":1.1}],"ptz":[{"name":"Point Towards Zone","tx":4.62,"ty":4.03,"min":2.51,"max":3.924},{"name":"Point Towards Zone","tx":4.625,"ty":4.03,"min":8.51,"max":10.0}],"rt":[{"pos":0.581,"rot":100.0},{"pos":1.755,"rot":-135.0},{"pos":4.526,"rot":-90.0},{"pos":4.872,"rot":78.4},{"pos":6.741,"rot":-135.0},{"pos":10.524,"rot":-90.0},{"pos":11.151,"rot":110.0},{"pos":13.199,"rot":-135.0}],"end":{"v":0.0,"r":-135.0},"start":{"v":0.0,"r":90.0}},"TrenchRight2LoopsClimb":{"w":[{"x":4.5219,"y":0.3906,"nc":{"x":6.1425,"y":0.3672}},{"x":8.0,"y":1.502,"pc":{"x":8.0,"y":0.502},"nc":{"x":8.0,"y":2.502}},{"x":4.6274,"y":2.459,"pc":{"x":5.6274,"y":2.459},"nc":{"x":4.0274,"y":2.459}},{"x":2.5499,"y":1.5861,"pc":{"x":2.5499,"y":2.5861},"nc":{"x":2.5499,"y":0.8361}},{"x":4.0932,"y":0.7067,"pc":{"x":3.5934,"y":0.7196},"nc":{"x":4.5931,"y":0.6939}},{"x":6.4364,"y":1.3993,"pc":{"x":6.4148,"y":0.5011},"nc":{"x":6.4712,"y":2.8444}},{"x":6.0772,"y":3.0517,"pc":{"x":6.3272,"y":3.0517},"nc":{"x":5.8272,"y":3.0517}},{"x":5.3487,"y":2.3679,"pc":{"x":5.5987,"y":2.3679},"nc":{"x":5.0987,"y":2.3679}},{"x":4.6274,"y":2.459,"pc":{"x":4.9398,"y":2.459},"nc":{"x":4.3149,"y":2.459}},{"x":2.2802,"y":2.4566,"pc":{"x":2.5302,"y":2.4566},"nc":{"x":2.0302,"y":2.4566}},{"x":1.1105,"y":2.9062,"pc":{"x":1.1105,"y":1.6562}}],"mv":2.25,"ma":3.25,"em":[{"name":"CeaseFireAndStowHood","pos":3.39,"cmd":"CeaseFireAndStowHood"},{"name":"ClimberExtend","pos":9.7,"cmd":"ClimberExtend"}],"cz":[{"name":"Sprint Zone","min":0,"max":0.9,"maxVel":3.5},{"name":"Shooting Zone #1","min":2.3,"max":3.7,"maxVel":1.1},{"name":"Shooting Zone #2","min":8.38,"max":9.5,"maxVel":0.75},{"name":"Climbing Zone","min":9.5,"max":10.0,"maxVel":0.5}],"ptz":[{"name":"Point Towards Zone","tx":4.62,"ty":4.03,"min":2.51,"max":3.924}],"rt":[{"pos":0.581,"rot":100.0},{"pos":1.755,"rot":-135.0},{"pos":4.526,"rot":-90.0},{"pos":4.872,"rot":78.4},{"pos":6.741,"rot":-135.0},{"pos":8.337,"rot":-135.0},{"pos":9.8,"rot":-90.0}],"end":{"v":0.0,"r":-90.0},"start":{"v":0.0,"r":90.0}},"TrenchRight2ndCycle":{"w":[{"x":3.9905,"y":0.8733,"nc":{"x":5.1293,"y":0.7665}},{"x":6.968,"y":1.6212,"pc":{"x":6.7077,"y":0.5452},"nc":{"x":7.0382,"y":1.9113}},{"x":6.2904,"y":2.9934,"pc":{"x":6.7904,"y":2.9934},"nc":{"x":5.7904,"y":2.9934}},{"x":5.747,"y":2.2171,"pc":{"x":5.742,"y":2.6123},"nc":{"x":5.7543,"y":1.6393}},{"x":6.1415,"y":0.7874,"pc":{"x":6.3705,"y":1.0164},"nc":{"x":5.7472,"y":0.3932}},{"x":3.9905,"y":0.8733,"pc":{"x":4.546,"y":0.8841}}],"mv":2.6,"ma":3.6,"em":[{"name":"","pos":0,"cmd":""}],"cz":[],"ptz":[],"rt":[{"pos":0.486,"rot":-90.0},{"pos":0.953,"rot":80.0},{"pos":1.491,"rot":100.0},{"pos":2.733,"rot":-90.0}],"end":{"v":0,"r":-90.0},"start":{"v":0,"r":-90.0}},"TrenchRightAggressive":{"w":[{"x":4.5219,"y":0.3906,"nc":{"x":5.5638,"y":0.5429}},{"x":8.665,"y":1.1458,"pc":{"x":8.665,"y":0.2785},"nc":{"x":8.665,"y":1.965}},{"x":8.1603,"y":2.6599,"pc":{"x":8.6978,"y":2.6374},"nc":{"x":6.5567,"y":2.727}},{"x":6.3902,"y":0.78,"pc":{"x":7.095,"y":1.0363},"nc":{"x":5.7513,"y":0.5477}},{"x":3.9905,"y":0.8733,"pc":{"x":4.7507,"y":0.632}}],"mv":2.5,"ma":3.0,"em":[],"cz":[{"name":"Constraints Zone","min":0.034,"max":0.825,"maxVel":2.8}],"ptz":[],"rt":[{"pos":0.849,"rot":110.0},{"pos":1.307,"rot":110.0},{"pos":2.402,"rot":-90.0}],"end":{"v":0,"r":-90.0},"start":{"v":0.0,"r":90.0}},"TrenchRightBulldogOne":{"w":[{"x":4.4738,"y":0.3997,"nc":{"x":5.3141,"y":0.4911}},{"x":6.9231,"y":0.8733,"pc":{"x":6.1957,"y":0.7508},"nc":{"x":7.6619,"y":0.9976}},{"x":7.192,"y":2.5578,"pc":{"x":7.6916,"y":2.5776},"nc":{"x":6.6924,"y":2.538}},{"x":6.1686,"y":1.0573,"pc":{"x":6.3162,"y":1.2591},"nc":{"x":5.7656,"y":0.5067}},{"x":3.9905,"y":0.8733,"pc":{"x":5.6733,"y":0.6484}}],"mv":2.5,"ma":3.0,"em":[],"cz":[],"ptz":[],"rt":[{"pos":0.5,"rot":90.0},{"pos":1.076,"rot":110.0},{"pos":1.327,"rot":110.0},{"pos":2.544,"rot":-90.0}],"end":{"v":0.0,"r":-90.0},"start":{"v":0,"r":90.0}},"TrenchRightBulldogTwo":{"w":[{"x":3.9905,"y":0.8733,"nc":{"x":4.6201,"y":0.5752}},{"x":6.968,"y":1.6212,"pc":{"x":6.8071,"y":0.3997},"nc":{"x":7.0333,"y":2.1169}},{"x":6.2645,"y":2.877,"pc":{"x":6.7645,"y":2.877},"nc":{"x":5.7645,"y":2.877}},{"x":5.8246,"y":2.1654,"pc":{"x":5.8505,"y":2.5923},"nc":{"x":5.7896,"y":1.5885}},{"x":6.1415,"y":0.7874,"pc":{"x":6.3463,"y":1.2847},"nc":{"x":6.0463,"y":0.5562}},{"x":3.9905,"y":0.8733,"pc":{"x":4.4057,"y":0.6018}}],"mv":2.5,"ma":3.5,"em":[{"name":"","pos":0,"cmd":""}],"cz":[],"ptz":[],"rt":[{"pos":0.486,"rot":-90.0},{"pos":0.953,"rot":80.0},{"pos":1.491,"rot":100.0},{"pos":2.733,"rot":-90.0}],"end":{"v":0,"r":-90.0},"start":{"v":0,"r":-90.0}},"TrenchRightFollow":{"w":[{"x":3.4967,"y":0.8747,"nc":{"x":4.3403,"y":0.6628}},{"x":8.6504,"y":0.9775,"pc":{"x":8.1433,"y":0.6858},"nc":{"x":9.1017,"y":1.2371}},{"x":8.2993,"y":3.5522,"pc":{"x":8.5391,"y":3.6228},"nc":{"x":7.8025,"y":3.406}},{"x":7.2606,"y":1.6944,"pc":{"x":7.4975,"y":1.5975},"nc":{"x":6.7728,"y":1.8937}},{"x":6.3536,"y":3.6473,"pc":{"x":6.6968,"y":3.6658},"nc":{"x":5.9328,"y":3.6247}},{"x":5.6368,"y":2.5282,"pc":{"x":5.4796,"y":2.8343},"nc":{"x":5.7816,"y":2.2462}},{"x":5.9367,"y":0.7581,"pc":{"x":6.805,"y":1.2491},"nc":{"x":5.5402,"y":0.5339}},{"x":3.8888,"y":0.8516,"pc":{"x":4.2359,"y":0.7059}}],"mv":2.5,"ma":3.0,"em":[],"cz":[{"name":"Passing Zone","min":1.27,"max":5.15,"maxVel":1.0},{"name":"Follower Zone","min":0,"max":1.27,"maxVel":1.5}],"ptz":[],"rt":[{"pos":0.423,"rot":-90.0},{"pos":0.976,"rot":110.0},{"pos":1.682,"rot":110.0},{"pos":2.271,"rot":-110.0},{"pos":2.626,"rot":-110.0},{"pos":3.237,"rot":95.0},{"pos":3.688,"rot":95.0},{"pos":4.303,"rot":-130.0},{"pos":5.75,"rot":-90.0}],"end":{"v":0.0,"r":-90.0},"start":{"v":0.0,"r":-90.0}},"TrenchRightSafe":{"w":[{"x":4.4738,"y":0.3997,"nc":{"x":5.3141,"y":0.4911}},{"x":7.4288,"y":0.8459,"pc":{"x":6.7015,"y":0.7234},"nc":{"x":8.1676,"y":0.9702}},{"x":7.4215,"y":2.4551,"pc":{"x":7.9211,"y":2.4749},"nc":{"x":6.9219,"y":2.4353}},{"x":6.5877,"y":0.9995,"pc":{"x":6.7353,"y":1.2012},"nc":{"x":6.1847,"y":0.4488}},{"x":3.9905,"y":0.8733,"pc":{"x":5.6733,"y":0.6484}}],"mv":2.5,"ma":3.0,"em":[],"cz":[],"ptz":[],"rt":[{"pos":0.5,"rot":90.0},{"pos":1.076,"rot":110.0},{"pos":1.327,"rot":110.0},{"pos":2.544,"rot":-90.0}],"end":{"v":0.0,"r":-90.0},"start":{"v":0,"r":90.0}},"TrenchRightSnowBlowSafe":{"w":[{"x":4.4738,"y":0.3997,"nc":{"x":5.5178,"y":0.3591}},{"x":7.4932,"y":0.7971,"pc":{"x":6.092,"y":0.4341},"nc":{"x":8.2192,"y":0.9852}},{"x":7.6602,"y":3.2074,"pc":{"x":8.2353,"y":3.2035},"nc":{"x":5.257,"y":3.2234}},{"x":6.8419,"y":0.5629,"pc":{"x":7.539,"y":0.5525},"nc":{"x":6.3414,"y":0.5704}},{"x":0.6691,"y":0.5629,"pc":{"x":2.0585,"y":0.5629}}],"mv":2.5,"ma":3.0,"em":[],"cz":[{"name":"Constraints Zone","min":3.415,"max":4.0,"maxVel":0.49},{"name":"Constraints Zone","min":1.385,"max":2.516,"maxVel":1.0}],"ptz":[],"rt":[{"pos":0.5,"rot":90.0},{"pos":0.534,"rot":90.0},{"pos":0.935,"rot":110.0},{"pos":1.612,"rot":110.0},{"pos":2.415,"rot":-90.0},{"pos":2.91,"rot":180.0}],"end":{"v":0,"r":180.0},"start":{"v":0,"r":90.0}},"TrenchRightSnowblowClimb":{"w":[{"x":4.4738,"y":0.3997,"nc":{"x":5.6733,"y":0.4801}},{"x":8.1091,"y":0.7581,"pc":{"x":7.6912,"y":0.3219},"nc":{"x":8.8282,"y":1.5089}},{"x":8.2261,"y":3.3328,"pc":{"x":8.8775,"y":3.3328},"nc":{"x":5.3024,"y":3.3328}},{"x":6.0794,"y":0.5673,"pc":{"x":6.9339,"y":0.5673},"nc":{"x":3.0794,"y":0.5673}},{"x":1.5,"y":0.952,"pc":{"x":1.8447,"y":0.6627},"nc":{"x":1.117,"y":1.2734}},{"x":1.1105,"y":2.9062,"pc":{"x":0.9912,"y":1.7208}}],"mv":2.5,"ma":3.0,"em":[{"name":"ClimberExtend","pos":4.421,"cmd":"ClimberExtend"}],"cz":[{"name":"SoTM","min":3.4,"max":5.0,"maxVel":0.5},{"name":"Passing Zone","min":1.326,"max":2.332,"maxVel":0.75},{"name":"Sprint Zone","min":0,"max":1.249,"maxVel":3.5}],"ptz":[{"name":"Point Towards Zone","tx":4.62,"ty":4.01,"min":3.9,"max":4.691}],"rt":[{"pos":0.5,"rot":90.0},{"pos":1.076,"rot":100.0},{"pos":1.428,"rot":110.0},{"pos":2.209,"rot":-115.0},{"pos":2.933,"rot":180.0},{"pos":3.323,"rot":180.0},{"pos":4.794,"rot":-90.0}],"end":{"v":0.0,"r":-90.0},"start":{"v":0,"r":90.0}}},"autos":{"Depot-Outpost-Climb":{"folder":"AllianceZone","paths":["Depot-Outpost-Climb"],"cmds":["ClimberClimb"],"waits":[]},"DepotClimb":{"folder":"AllianceZone","paths":["DepotClimb"],"cmds":["ClimberClimb"],"waits":[]},"DepotLeftTrenchClimb":{"folder":"AllianceZone","paths":["DepotLeftTrenchClimb"],"cmds":["ClimberClimb"],"waits":[]},"Outpost-Depot-Climb":{"folder":"AllianceZone","paths":["Outpost-Depot-Climb"],"cmds":["ClimberClimb"],"waits":[]},"OutpostRightTrenchClimb":{"folder":"AllianceZone","paths":["OutpostRightTrenchClimb"],"cmds":["ClimberClimb"],"waits":[]},"TrenchLeft1CycleDepot":{"folder":"TrenchLeft","paths":["TrenchLeftSafe","LeftTrenchToDepot"],"cmds":["Agitate"],"waits":[5.0]},"TrenchLeft2.5Loops":{"folder":"TrenchLeft","paths":["TrenchLeft2.5Loops"],"cmds":[],"waits":[]},"TrenchLeft2CyclesAggressive":{"folder":"TrenchLeft","paths":["TrenchLeftAggressiveEndAtStart","TrenchLeft2ndCycle"],"cmds":["Agitate","CeaseFireAndStowHood"],"waits":[6.25]},"TrenchLeft2CyclesSafe":{"folder":"TrenchLeft","paths":["TrenchLeftSafe","TrenchLeft2ndCycle"],"cmds":["Agitate","CeaseFireAndStowHood"],"waits":[6.25]},"TrenchLeft2LoopsClimb":{"folder":"TrenchLeft","paths":["TrenchLeft2LoopsClimb"],"cmds":["ClimberClimb"],"waits":[]},"TrenchLeftAggressive":{"folder":"Retired","paths":["TrenchLeftAggressive"],"cmds":[],"waits":[]},"TrenchLeftFollow":{"folder":"TrenchLeft","paths":["TrenchLeftFollow"],"cmds":[],"waits":[]},"TrenchLeftSafe":{"folder":"Retired","paths":["TrenchLeftSafe"],"cmds":[],"waits":[]},"TrenchLeftSnowblowClimb":{"folder":"TrenchLeft","paths":["TrenchLeftDepotClimb"],"cmds":["ClimberClimb"],"waits":[]},"TrenchRight2.5Loops":{"folder":"TrenchRight","paths":["TrenchRight2.5Loops"],"cmds":[],"waits":[]},"TrenchRight2CyclesAggressive":{"folder":"TrenchRight","paths":["TrenchRightAggressive","TrenchRight2ndCycle"],"cmds":["Agitate","CeaseFireAndStowHood"],"waits":[5.5]},"TrenchRight2CyclesBulldogs":{"folder":"TrenchRight","paths":["TrenchRightBulldogOne","TrenchRightBulldogTwo"],"cmds":["Agitate"],"waits":[5.5]},"TrenchRight2CyclesSafe":{"folder":"TrenchRight","paths":["TrenchRightSafe","TrenchRight2ndCycle"],"cmds":["Agitate","CeaseFireAndStowHood"],"waits":[5.5]},"TrenchRight2LoopsClimb":{"folder":"TrenchRight","paths":["TrenchRight2LoopsClimb"],"cmds":["ClimberClimb"],"waits":[]},"TrenchRightAggressive":{"folder":"Retired","paths":["TrenchRightAggressive"],"cmds":[],"waits":[]},"TrenchRightFollow":{"folder":"TrenchRight","paths":["TrenchRightFollow"],"cmds":[],"waits":[]},"TrenchRightSafe":{"folder":"Retired","paths":["TrenchRightSafe"],"cmds":[],"waits":[]},"TrenchRightSnowblowClimb":{"folder":"TrenchRight","paths":["TrenchRightSnowblowClimb"],"cmds":["ClimberClimb"],"waits":[]}}};
@@ -116,14 +116,14 @@ _img.src = FIELD_IMG_URL;
 // Team 103-inspired 10-color palette (high contrast on field image)
 const COLORS = ['#2979FF','#FF1744','#00E676','#FFEA00','#D500F9','#00E5FF','#FF4081','#76FF03','#FF9100','#7C4DFF'];
 const IMPORT_COLORS = ['#1DE9B6','#FF6E40','#B388FF','#FFD740','#69F0AE'];
-// Robot config from PathPlanner settings.json
+// Robot config from PathPlanner settings.json - exact feature format
 const ROBOT = {
-  w: 0.978, h: 0.787, // bumper width/length in meters
+  w: 0.978, h: 0.787, // bumper width (left-right) / length (front-back) in meters
   modules: [{x:0.232,y:0.327},{x:0.232,y:-0.327},{x:-0.232,y:0.327},{x:-0.232,y:-0.327}],
   features: [
-    {type:'circle',cx:-0.083,cy:0.18415,r:0.075,label:'Turret'},
-    {type:'rect',cx:0.451,cy:0.0,w:0.7874,h:0.305,label:'Intake'},
-    {type:'rect',cx:-0.35,cy:-0.048,w:0.05,h:0.05,label:'Climber'}
+    {name:'Turret', type:'circle', cx:-0.083, cy:0.18415, radius:0.075, strokeWidth:0.01, filled:false},
+    {name:'Intake', type:'rounded_rect', cx:0.451, cy:0.0, width:0.7874, length:0.305, borderRadius:0.015, strokeWidth:0.02, filled:false},
+    {name:'Climber', type:'rounded_rect', cx:-0.35, cy:-0.048, width:0.05, length:0.05, borderRadius:0.0, strokeWidth:0.02, filled:false}
   ]
 };
 const MARKER_ICONS = {
@@ -377,11 +377,12 @@ function draw() {
 
       // Start marker - robot bumper outline at starting pose
       const startRot = pd.start ? pd.start.r : 0;
-      drawRobotBumper(wp[0].x, wp[0].y, startRot, color, ghostAlpha * 0.5);
+      const impCfg = importedAutos[autoName] ? importedRobotConfigs['imported'] : null;
+      drawRobotBumper(wp[0].x, wp[0].y, startRot, color, ghostAlpha * 0.5, impCfg);
 
       // End marker - robot bumper outline at ending pose (dimmer)
       const endRot = pd.end ? pd.end.r : 0;
-      drawRobotBumper(wp[wp.length-1].x, wp[wp.length-1].y, endRot, color, ghostAlpha * 0.3);
+      drawRobotBumper(wp[wp.length-1].x, wp[wp.length-1].y, endRot, color, ghostAlpha * 0.3, impCfg);
 
       // Event markers
       for (const em of (pd.em || [])) {
@@ -478,60 +479,90 @@ function drawPathSegmentRange(wp, minPos, maxPos, color, width) {
 }
 
 
-// Draw a proper robot bumper outline with swerve modules and features
-function drawRobotBumper(fx, fy, rotDeg, color, alpha) {
-  const [cx,cy] = fieldToCanvas(fx, fy);
+// Draw robot exactly like PathPlanner: bumper outline, front dot, swerve modules, features
+// robotCfg: optional override config (for imported teams with their own settings.json)
+function drawRobotBumper(fx, fy, rotDeg, color, alpha, robotCfg) {
+  const bot = robotCfg || ROBOT;
+  const [canvX, canvY] = fieldToCanvas(fx, fy);
   const rad = (-rotDeg + 90) * Math.PI / 180;
-  const bw = ROBOT.w / 2 * camScale; // half-width in canvas px
-  const bh = ROBOT.h / 2 * camScale; // half-height in canvas px
-  const cornerR = Math.min(bw, bh) * 0.2;
+  const halfW = bot.w / 2 * camScale;
+  const halfL = bot.h / 2 * camScale;
+  const bumperR = Math.min(halfW, halfL) * 0.15; // bumper corner radius
+
   ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(-rad + Math.PI/2);
+  ctx.translate(canvX, canvY);
+  ctx.rotate(-rad + Math.PI / 2);
   ctx.globalAlpha = alpha;
-  // Bumper fill
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.roundRect(-bw, -bh, bw*2, bh*2, cornerR);
-  ctx.fill();
-  // Bumper outline
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 2 * devicePixelRatio;
-  ctx.beginPath();
-  ctx.roundRect(-bw, -bh, bw*2, bh*2, cornerR);
-  ctx.stroke();
-  // Front indicator dot (like PathPlanner)
-  const dotR = Math.max(3, bw * 0.15);
-  ctx.beginPath();
-  ctx.arc(0, -bh + dotR + 2*devicePixelRatio, dotR, 0, Math.PI*2);
-  ctx.fillStyle = '#fff';
-  ctx.fill();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5 * devicePixelRatio;
-  ctx.stroke();
-  // Swerve modules
-  const modW = bw * 0.25, modH = bh * 0.35;
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  for (const m of ROBOT.modules) {
-    const mx = m.y * camScale; // PathPlanner: +y = left, canvas: +x = right
-    const my = -m.x * camScale; // PathPlanner: +x = front, canvas: -y = up
-    ctx.fillRect(mx - modW/2, my - modH/2, modW, modH);
-  }
-  // Robot features (turret, intake, climber)
-  for (const f of ROBOT.features) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 1 * devicePixelRatio;
-    const fcx = f.cy * camScale;
+
+  // 1. Robot features first (drawn under bumper outline)
+  for (const f of (bot.features || [])) {
+    const sw = Math.max(1, f.strokeWidth * camScale);
+    ctx.lineWidth = sw;
+    // PathPlanner coords: +x = forward, +y = left
+    // Our rotated canvas: +y = forward (up before rotation), -x = left
+    // So: canvas_x = feature.y * scale, canvas_y = -feature.x * scale
+    const fcx = -f.cy * camScale;
     const fcy = -f.cx * camScale;
+
     if (f.type === 'circle') {
+      const r = f.radius * camScale;
       ctx.beginPath();
-      ctx.arc(fcx, fcy, f.r * camScale, 0, Math.PI*2);
+      ctx.arc(fcx, fcy, r, 0, Math.PI * 2);
+      if (f.filled) {
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha * 0.3;
+        ctx.fill();
+        ctx.globalAlpha = alpha;
+      }
+      ctx.strokeStyle = color;
       ctx.stroke();
-    } else if (f.type === 'rect') {
-      const fw = f.h * camScale, fh = f.w * camScale;
-      ctx.strokeRect(fcx - fw/2, fcy - fh/2, fw, fh);
+    } else if (f.type === 'rounded_rect') {
+      // width = left-right extent, length = front-back extent in PP coords
+      const rw = f.width * camScale;  // maps to canvas vertical (front-back)
+      const rl = f.length * camScale; // maps to canvas horizontal (left-right)
+      const br = f.borderRadius * camScale;
+      ctx.beginPath();
+      ctx.roundRect(fcx - rl / 2, fcy - rw / 2, rl, rw, br);
+      if (f.filled) {
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha * 0.3;
+        ctx.fill();
+        ctx.globalAlpha = alpha;
+      }
+      ctx.strokeStyle = color;
+      ctx.stroke();
     }
   }
+
+  // 2. Swerve modules as small filled rounded rects
+  const modW = 0.04 * camScale;  // module width ~4cm
+  const modL = 0.06 * camScale;  // module length ~6cm
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  for (const m of (bot.modules || [])) {
+    const mx = -m.y * camScale;
+    const my = -m.x * camScale;
+    ctx.beginPath();
+    ctx.roundRect(mx - modW / 2, my - modL / 2, modW, modL, 1);
+    ctx.fill();
+  }
+
+  // 3. Bumper outline (on top of features)
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2 * devicePixelRatio;
+  ctx.beginPath();
+  ctx.roundRect(-halfW, -halfL, halfW * 2, halfL * 2, bumperR);
+  ctx.stroke();
+
+  // 4. Front indicator dot (PathPlanner style - at front center of bumper)
+  const dotR = Math.max(3, halfW * 0.12);
+  ctx.beginPath();
+  ctx.arc(0, -halfL + dotR + 1 * devicePixelRatio, dotR, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1 * devicePixelRatio;
+  ctx.stroke();
+
   ctx.globalAlpha = 1;
   ctx.restore();
 }
@@ -554,14 +585,15 @@ function drawAnimationDots() {
         const pd = allPaths[pathName] || importedPaths[pathName];
         const p = posAtTime(ad, localT);
         const rot = pd ? getRotationAtPos(pd, p.pos) : 0;
-        robotPositions.push({x:p.x, y:p.y, rot, color, autoName, pathName, pd, pos:p.pos});
+        const rCfg = importedAutos[autoName] ? importedRobotConfigs['imported'] : null;
+        robotPositions.push({x:p.x, y:p.y, rot, color, autoName, pathName, pd, pos:p.pos, robotCfg:rCfg});
       }
       elapsed += pathDur;
     }
   }
   // Draw robots with proper bumper outlines
   for (const rp of robotPositions) {
-    drawRobotBumper(rp.x, rp.y, rp.rot, rp.color, 0.85);
+    drawRobotBumper(rp.x, rp.y, rp.rot, rp.color, 0.85, rp.robotCfg);
     // Flash event markers when robot is near
     if (rp.pd) {
       for (const em of (rp.pd.em || [])) {
@@ -579,23 +611,18 @@ function drawAnimationDots() {
       }
     }
   }
-  // Collision detection using oriented bounding boxes with robot features
-  // The intake extends 0.845m from center (0.451 center + 0.7874/2 width)
-  // so the real robot footprint is much larger than just bumpers
+  // Simple bounding circle collision detection
+  const collisionR = Math.max(ROBOT.w, ROBOT.h) * 0.6;
   for (let i = 0; i < robotPositions.length; i++) {
     for (let j = i + 1; j < robotPositions.length; j++) {
       const a = robotPositions[i], b = robotPositions[j];
-      // Get all corners of both robots INCLUDING features (intake, etc.)
-      const cornersA = getRobotCorners(a.x, a.y, a.rot);
-      const cornersB = getRobotCorners(b.x, b.y, b.rot);
-      if (obbCollision(cornersA, cornersB)) {
-        // Draw collision warning at midpoint
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (dist < collisionR) {
         const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
         const [cx,cy] = fieldToCanvas(midX, midY);
-        const warnR = Math.max(ROBOT.w, ROBOT.h) * 0.5 * camScale;
+        const warnR = collisionR * 0.5 * camScale;
         const pulse = 0.6 + 0.3 * Math.sin(Date.now() / 150);
         ctx.globalAlpha = pulse;
-        // Red collision circle
         ctx.beginPath();
         ctx.arc(cx, cy, warnR, 0, Math.PI*2);
         ctx.fillStyle = 'rgba(255,23,68,0.25)';
@@ -603,14 +630,11 @@ function drawAnimationDots() {
         ctx.strokeStyle = '#FF1744';
         ctx.lineWidth = 3 * devicePixelRatio;
         ctx.stroke();
-        // Warning X
         ctx.beginPath();
         const xr = warnR * 0.45;
-        ctx.moveTo(cx - xr, cy - xr); ctx.lineTo(cx + xr, cy + xr);
-        ctx.moveTo(cx + xr, cy - xr); ctx.lineTo(cx - xr, cy + xr);
-        ctx.lineWidth = 3 * devicePixelRatio;
+        ctx.moveTo(cx-xr, cy-xr); ctx.lineTo(cx+xr, cy+xr);
+        ctx.moveTo(cx+xr, cy-xr); ctx.lineTo(cx-xr, cy+xr);
         ctx.stroke();
-        // "COLLISION" label
         ctx.fillStyle = '#FF1744';
         ctx.font = `bold ${10*devicePixelRatio}px sans-serif`;
         ctx.textAlign = 'center';
@@ -619,68 +643,6 @@ function drawAnimationDots() {
       }
     }
   }
-}
-
-// Get the 4 corners of the robot's full footprint (bumpers + features)
-// in field coordinates, accounting for rotation
-function getRobotCorners(fx, fy, rotDeg) {
-  const rad = rotDeg * Math.PI / 180;
-  // Compute bounding box that includes bumpers AND all features
-  // Bumper: half-extents are w/2 and h/2 from center
-  let minX = -ROBOT.w / 2, maxX = ROBOT.w / 2;
-  let minY = -ROBOT.h / 2, maxY = ROBOT.h / 2;
-  // Expand to include each feature's bounding box
-  for (const f of ROBOT.features) {
-    if (f.type === 'circle') {
-      minX = Math.min(minX, f.cx - f.r);
-      maxX = Math.max(maxX, f.cx + f.r);
-      minY = Math.min(minY, f.cy - f.r);
-      maxY = Math.max(maxY, f.cy + f.r);
-    } else if (f.type === 'rect') {
-      minX = Math.min(minX, f.cx - f.w / 2);
-      maxX = Math.max(maxX, f.cx + f.w / 2);
-      minY = Math.min(minY, f.cy - f.h / 2);
-      maxY = Math.max(maxY, f.cy + f.h / 2);
-    }
-  }
-  // 4 corners of the expanded bounding box, rotated around center
-  const corners = [
-    {x: minX, y: minY}, {x: maxX, y: minY},
-    {x: maxX, y: maxY}, {x: minX, y: maxY}
-  ];
-  return corners.map(c => ({
-    x: fx + c.x * Math.cos(rad) - c.y * Math.sin(rad),
-    y: fy + c.x * Math.sin(rad) + c.y * Math.cos(rad)
-  }));
-}
-
-// Separating Axis Theorem (SAT) for oriented bounding box collision
-function obbCollision(cornersA, cornersB) {
-  const polygons = [cornersA, cornersB];
-  for (const poly of polygons) {
-    for (let i = 0; i < poly.length; i++) {
-      const j = (i + 1) % poly.length;
-      // Edge normal (perpendicular)
-      const nx = -(poly[j].y - poly[i].y);
-      const ny = poly[j].x - poly[i].x;
-      // Project both polygons onto this axis
-      let minA = Infinity, maxA = -Infinity;
-      let minB = Infinity, maxB = -Infinity;
-      for (const p of cornersA) {
-        const proj = p.x * nx + p.y * ny;
-        minA = Math.min(minA, proj);
-        maxA = Math.max(maxA, proj);
-      }
-      for (const p of cornersB) {
-        const proj = p.x * nx + p.y * ny;
-        minB = Math.min(minB, proj);
-        maxB = Math.max(maxB, proj);
-      }
-      // If there's a gap on any axis, no collision
-      if (maxA < minB || maxB < minA) return false;
-    }
-  }
-  return true;
 }
 
 // ============ UI: CATALOG ============
@@ -961,15 +923,46 @@ document.addEventListener('drop', (e) => {
 document.getElementById('impBtn').onclick = () => document.getElementById('fileIn').click();
 document.getElementById('fileIn').onchange = (e) => handleFiles(e.target.files);
 
+// Imported team robot configs (keyed by team label or 'imported')
+let importedRobotConfigs = {};
+
+function parseSettingsJson(data) {
+  const cfg = {
+    w: data.robotWidth || 0.9, h: data.robotLength || 0.8,
+    modules: [
+      {x: data.flModuleX||0, y: data.flModuleY||0},
+      {x: data.frModuleX||0, y: data.frModuleY||0},
+      {x: data.blModuleX||0, y: data.blModuleY||0},
+      {x: data.brModuleX||0, y: data.brModuleY||0}
+    ],
+    features: (data.robotFeatures || []).map(raw => {
+      const f = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      const d = f.data || {};
+      if (f.type === 'circle') {
+        return {name:f.name||'',type:'circle',cx:d.center?.x||0,cy:d.center?.y||0,
+          radius:d.radius||0,strokeWidth:d.strokeWidth||0.01,filled:!!d.filled};
+      } else {
+        return {name:f.name||'',type:'rounded_rect',cx:d.center?.x||0,cy:d.center?.y||0,
+          width:d.size?.width||0,length:d.size?.length||0,
+          borderRadius:d.borderRadius||0,strokeWidth:d.strokeWidth||0.02,filled:!!d.filled};
+      }
+    }),
+    maxVel: data.defaultMaxVel || 2.5,
+    maxAccel: data.defaultMaxAccel || 2.5
+  };
+  return cfg;
+}
+
 function handleFiles(files) {
   const autoFiles = [];
   const pathFiles = [];
+  const settingsFiles = [];
   for (const f of files) {
     if (f.name.endsWith('.auto')) autoFiles.push(f);
     else if (f.name.endsWith('.path')) pathFiles.push(f);
+    else if (f.name === 'settings.json' || (f.name.endsWith('.json') && !f.name.endsWith('.auto') && !f.name.endsWith('.path'))) settingsFiles.push(f);
   }
-  let loaded = 0;
-  const total = autoFiles.length + pathFiles.length;
+  const total = autoFiles.length + pathFiles.length + settingsFiles.length;
   if (total === 0) return;
 
   // Load paths first, then autos
@@ -1031,7 +1024,25 @@ function handleFiles(files) {
     reader.readAsText(f);
   });
 
-  Promise.all([...pathFiles, ...autoFiles].map(loadFile)).then(() => {
+  // Load settings.json files
+  const loadSettings = (f) => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (data.robotWidth && data.robotLength) {
+          importedRobotConfigs['imported'] = parseSettingsJson(data);
+          console.log('Loaded robot config:', importedRobotConfigs['imported']);
+        }
+      } catch(e) { console.warn('Failed to parse settings', f.name, e); }
+      resolve();
+    };
+    reader.readAsText(f);
+  });
+
+  // Load settings first, then paths, then autos
+  Promise.all(settingsFiles.map(loadSettings)).then(() =>
+  Promise.all([...pathFiles, ...autoFiles].map(loadFile))).then(() => {
     pathSamples = {};
     buildCatalog();
     // Auto-activate imported autos
