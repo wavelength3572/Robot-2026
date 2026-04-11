@@ -61,6 +61,36 @@ canvas{display:block}
 .dov.vis{display:flex}
 .dov span{background:#1e3a5f;color:#93c5fd;padding:20px 40px;border-radius:12px;font-size:20px;font-weight:600}
 .mtt{position:absolute;background:#1f2937;border:1px solid #374151;border-radius:6px;padding:6px 10px;font-size:11px;pointer-events:none;display:none;z-index:50;white-space:nowrap}
+/* Match Setup */
+.match-panel{padding:8px 10px;border-bottom:1px solid #1e3a5f;font-size:12px}
+.match-panel summary{cursor:pointer;color:#60a5fa;font-weight:600;font-size:13px;padding:4px 0}
+.match-panel summary:hover{color:#93c5fd}
+.mp-row{display:flex;gap:6px;margin:4px 0;align-items:center}
+.mp-row label{color:#6b7280;min-width:50px;font-size:11px}
+.mp-in{background:#1f2937;border:1px solid #374151;color:#e0e0e0;padding:3px 6px;border-radius:4px;font-size:12px;flex:1;min-width:0}
+.mp-in:focus{border-color:#2563eb;outline:none}
+.mp-btn{background:#1e3a5f;color:#93c5fd;border:1px solid #2563eb;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px}
+.mp-btn:hover{background:#2563eb;color:#fff}
+.mp-btn.red{border-color:#dc2626;color:#fca5a5;background:#450a0a}.mp-btn.red:hover{background:#dc2626;color:#fff}
+.mp-btn.blue{border-color:#2563eb;color:#93c5fd;background:#172554}.mp-btn.blue:hover{background:#2563eb;color:#fff}
+.alliance-row{display:flex;align-items:center;gap:5px;padding:3px 4px;border-radius:4px;margin:2px 0;font-size:12px}
+.alliance-row.red-r{background:rgba(220,38,38,0.12);border-left:3px solid #dc2626}
+.alliance-row.blue-r{background:rgba(37,99,235,0.12);border-left:3px solid #2563eb}
+.alliance-row .tm-num{font-weight:700;min-width:42px}
+.alliance-row .tm-name{flex:1;color:#9ca3af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.alliance-row .tm-epa{color:#fbbf24;font-weight:600;font-size:11px;min-width:36px;text-align:right}
+.alliance-row .ds-label{color:#6b7280;font-size:10px;min-width:22px}
+.winprob{text-align:center;padding:4px;font-size:11px;margin:4px 0;border-radius:4px;background:#1f2937}
+.winprob .wp-bar{height:6px;border-radius:3px;background:#374151;margin:4px 0;overflow:hidden;display:flex}
+.winprob .wp-red{background:#dc2626;height:100%}
+.winprob .wp-blue{background:#2563eb;height:100%}
+/* Draw tool */
+.draw-bar{display:flex;gap:6px;align-items:center;padding:0 8px}
+.draw-btn{background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer}
+.draw-btn:hover{border-color:#60a5fa;color:#60a5fa}
+.draw-btn.act{background:#172554;border-color:#2563eb;color:#60a5fa}
+.draw-color{width:18px;height:18px;border-radius:50%;cursor:pointer;border:2px solid transparent}
+.draw-color.sel{border-color:#fff}
 </style>
 </head>
 <body>
@@ -73,7 +103,40 @@ canvas{display:block}
 </header>
 <div class="main">
 <div class="sb">
-<div class="sb-h">Autonomous Routines</div>
+<div class="match-panel">
+<details id="matchDetails">
+<summary>Match Setup</summary>
+<div class="mp-row"><label>TBA Key</label><input class="mp-in" id="tbaKey" placeholder="Your TBA API key" type="password"></div>
+<div class="mp-row"><label>Event</label><input class="mp-in" id="eventKey" placeholder="e.g. 2026miket" style="flex:1.5"><label style="min-width:30px">Match</label><input class="mp-in" id="matchNum" placeholder="#" style="max-width:50px"><button class="mp-btn" id="fetchMatch">Fetch</button></div>
+<div style="text-align:center;color:#4b5563;font-size:10px;margin:2px 0">- or enter teams manually -</div>
+<div id="allianceDisplay">
+<div style="display:flex;gap:4px;margin-bottom:2px">
+<div style="flex:1">
+<div style="color:#dc2626;font-weight:700;font-size:11px;margin-bottom:2px">RED ALLIANCE</div>
+<div class="mp-row"><input class="mp-in" id="red1" placeholder="Team #" style="max-width:60px"><span id="red1info" class="tm-name" style="font-size:10px;color:#6b7280"></span></div>
+<div class="mp-row"><input class="mp-in" id="red2" placeholder="Team #" style="max-width:60px"><span id="red2info" style="font-size:10px;color:#6b7280"></span></div>
+<div class="mp-row"><input class="mp-in" id="red3" placeholder="Team #" style="max-width:60px"><span id="red3info" style="font-size:10px;color:#6b7280"></span></div>
+</div>
+<div style="flex:1">
+<div style="color:#2563eb;font-weight:700;font-size:11px;margin-bottom:2px">BLUE ALLIANCE</div>
+<div class="mp-row"><input class="mp-in" id="blue1" placeholder="Team #" style="max-width:60px"><span id="blue1info" style="font-size:10px;color:#6b7280"></span></div>
+<div class="mp-row"><input class="mp-in" id="blue2" placeholder="Team #" style="max-width:60px"><span id="blue2info" style="font-size:10px;color:#6b7280"></span></div>
+<div class="mp-row"><input class="mp-in" id="blue3" placeholder="Team #" style="max-width:60px"><span id="blue3info" style="font-size:10px;color:#6b7280"></span></div>
+</div>
+</div>
+<div class="mp-row"><button class="mp-btn" id="lookupTeams" style="flex:1">Lookup EPA Stats</button></div>
+<div class="winprob" id="winProb" style="display:none"></div>
+</div>
+</details>
+</div>
+<div class="sb-h" style="display:flex;justify-content:space-between;align-items:center">
+<span>Autonomous Routines</span>
+<div class="draw-bar">
+<button class="draw-btn" id="drawBtn" title="Draw a path on the field">Draw</button>
+<button class="draw-btn" id="undoDrawBtn" title="Undo last point">Undo</button>
+<button class="draw-btn" id="finishDrawBtn" title="Finish drawn path">Done</button>
+</div>
+</div>
 <div class="sb-s" id="catalog"></div>
 </div>
 <div class="ca" id="canvasArea">
@@ -457,6 +520,9 @@ function draw() {
     drawAnimationDots();
   }
 
+  // Draw in-progress freehand path
+  drawInProgressPath();
+
   ctx.restore();
 }
 
@@ -480,8 +546,8 @@ function drawPathSegmentRange(wp, minPos, maxPos, color, width) {
 
 
 // Draw robot exactly like PathPlanner: bumper outline, front dot, swerve modules, features
-// robotCfg: optional override config (for imported teams with their own settings.json)
-function drawRobotBumper(fx, fy, rotDeg, color, alpha, robotCfg) {
+// robotCfg: optional override config; teamLabel: optional team number string
+function drawRobotBumper(fx, fy, rotDeg, color, alpha, robotCfg, teamLabel) {
   const bot = robotCfg || ROBOT;
   const [canvX, canvY] = fieldToCanvas(fx, fy);
   const rad = (-rotDeg + 90) * Math.PI / 180;
@@ -563,6 +629,17 @@ function drawRobotBumper(fx, fy, rotDeg, color, alpha, robotCfg) {
   ctx.lineWidth = 1 * devicePixelRatio;
   ctx.stroke();
 
+  // 5. Team number label (centered on robot)
+  if (teamLabel) {
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    ctx.lineWidth = 3 * devicePixelRatio;
+    ctx.font = `bold ${Math.max(10, halfW * 0.55)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.strokeText(teamLabel, 0, halfL * 0.25);
+    ctx.fillText(teamLabel, 0, halfL * 0.25);
+  }
+
   ctx.globalAlpha = 1;
   ctx.restore();
 }
@@ -586,14 +663,16 @@ function drawAnimationDots() {
         const p = posAtTime(ad, localT);
         const rot = pd ? getRotationAtPos(pd, p.pos) : 0;
         const rCfg = importedAutos[autoName] ? importedRobotConfigs['imported'] : null;
-        robotPositions.push({x:p.x, y:p.y, rot, color, autoName, pathName, pd, pos:p.pos, robotCfg:rCfg});
+        const tLabel = getTeamLabel(autoName);
+        const allianceClr = getAllianceColor(autoName);
+        robotPositions.push({x:p.x, y:p.y, rot, color: allianceClr || color, autoName, pathName, pd, pos:p.pos, robotCfg:rCfg, teamLabel:tLabel});
       }
       elapsed += pathDur;
     }
   }
   // Draw robots with proper bumper outlines
   for (const rp of robotPositions) {
-    drawRobotBumper(rp.x, rp.y, rp.rot, rp.color, 0.85, rp.robotCfg);
+    drawRobotBumper(rp.x, rp.y, rp.rot, rp.color, 0.85, rp.robotCfg, rp.teamLabel);
     // Flash event markers when robot is near
     if (rp.pd) {
       for (const em of (rp.pd.em || [])) {
@@ -1057,7 +1136,245 @@ function handleFiles(files) {
   });
 }
 
+// ============ MATCH SETUP & API INTEGRATION ============
+let matchTeams = {}; // {red1:{num,name,epa,winrate}, red2, red3, blue1, blue2, blue3}
+let winProbability = null;
+
+// Restore TBA key from localStorage
+const savedTbaKey = localStorage.getItem('tba_key');
+if (savedTbaKey) document.getElementById('tbaKey').value = savedTbaKey;
+document.getElementById('tbaKey').onchange = (e) => localStorage.setItem('tba_key', e.target.value);
+
+// Fetch match from TBA
+document.getElementById('fetchMatch').onclick = async () => {
+  const key = document.getElementById('tbaKey').value.trim();
+  const event = document.getElementById('eventKey').value.trim();
+  const num = document.getElementById('matchNum').value.trim();
+  if (!key || !event || !num) return alert('Enter TBA key, event key, and match number');
+  const matchKey = `${event}_qm${num}`;
+  try {
+    const r = await fetch(`https://www.thebluealliance.com/api/v3/match/${matchKey}/simple`, {headers:{'X-TBA-Auth-Key':key}});
+    if (!r.ok) throw new Error(`TBA error: ${r.status}`);
+    const m = await r.json();
+    const red = (m.alliances?.red?.team_keys || []).map(k => k.replace('frc',''));
+    const blue = (m.alliances?.blue?.team_keys || []).map(k => k.replace('frc',''));
+    for (let i = 0; i < 3; i++) {
+      document.getElementById(`red${i+1}`).value = red[i] || '';
+      document.getElementById(`blue${i+1}`).value = blue[i] || '';
+    }
+    await lookupAllTeams();
+  } catch(e) { alert('Failed to fetch match: ' + e.message); }
+};
+
+// Lookup all 6 teams via Statbotics
+document.getElementById('lookupTeams').onclick = lookupAllTeams;
+
+async function lookupAllTeams() {
+  const slots = ['red1','red2','red3','blue1','blue2','blue3'];
+  matchTeams = {};
+  const wp = document.getElementById('winProb');
+  let redEpa = 0, blueEpa = 0, redCount = 0, blueCount = 0;
+  for (const slot of slots) {
+    const num = document.getElementById(slot).value.trim();
+    if (!num) continue;
+    try {
+      const r = await fetch(`https://api.statbotics.io/v3/team/${num}`);
+      if (!r.ok) continue;
+      const d = await r.json();
+      const info = {
+        num: parseInt(num),
+        name: d.name || '',
+        epa: d.norm_epa?.current || 0,
+        winrate: d.winrate || 0,
+        record: `${d.wins||0}-${d.losses||0}`
+      };
+      matchTeams[slot] = info;
+      const infoEl = document.getElementById(slot + 'info');
+      if (infoEl) infoEl.textContent = `${info.name} | EPA: ${info.epa} | ${info.record}`;
+      if (slot.startsWith('red')) { redEpa += info.epa; redCount++; }
+      else { blueEpa += info.epa; blueCount++; }
+    } catch(e) { console.warn('Statbotics lookup failed for', num); }
+  }
+  // Compute win probability from EPA difference (logistic model)
+  if (redCount > 0 && blueCount > 0) {
+    const redAvg = redEpa / redCount, blueAvg = blueEpa / blueCount;
+    const diff = redAvg - blueAvg;
+    const redProb = 1 / (1 + Math.exp(-diff / 50)); // logistic scale
+    winProbability = {red: redProb, blue: 1 - redProb, redEpa: redAvg, blueEpa: blueAvg};
+    wp.style.display = 'block';
+    wp.innerHTML = `
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:#dc2626;font-weight:700">RED ${(redProb*100).toFixed(0)}%</span>
+        <span style="color:#6b7280">Win Probability (EPA)</span>
+        <span style="color:#2563eb;font-weight:700">${((1-redProb)*100).toFixed(0)}% BLUE</span>
+      </div>
+      <div class="wp-bar"><div class="wp-red" style="width:${redProb*100}%"></div><div class="wp-blue" style="width:${(1-redProb)*100}%"></div></div>
+      <div style="display:flex;justify-content:space-between;color:#6b7280;font-size:10px">
+        <span>Avg EPA: ${redAvg.toFixed(0)}</span><span>Avg EPA: ${blueAvg.toFixed(0)}</span>
+      </div>`;
+  }
+  draw();
+}
+
+// Get alliance color for an auto (checks if its team is assigned to red/blue)
+function getAllianceColor(autoName) {
+  // Check if this auto is assigned to a team in the match
+  for (const [slot, info] of Object.entries(matchTeams)) {
+    if (drawnPathTeams[autoName] === info.num) {
+      return slot.startsWith('red') ? '#dc2626' : '#2563eb';
+    }
+  }
+  return null; // not assigned to an alliance
+}
+
+// ============ FREEHAND DRAWING TOOL ============
+let drawMode = false;
+let drawPoints = []; // current path being drawn [{x,y}, ...]
+let drawnPaths = {}; // name -> {w:[waypoints], mv, ...} (same format as imported paths)
+let drawnAutos = {}; // name -> {folder:'Drawn', paths:[name], cmds:[], waits:[]}
+let drawnPathTeams = {}; // autoName -> teamNumber
+let drawCounter = 0;
+let drawColorPick = '#f59e0b'; // default yellow for drawn
+
+document.getElementById('drawBtn').onclick = () => {
+  drawMode = !drawMode;
+  document.getElementById('drawBtn').classList.toggle('act', drawMode);
+  if (drawMode) {
+    drawPoints = [];
+    canvas.style.cursor = 'crosshair';
+    // Prompt for team number and label
+    const team = prompt('Team number for this path (or leave blank):');
+    const label = prompt('Label this path (e.g. "3572 Left Trench" or "Opponent Right"):') || `Drawn #${drawCounter+1}`;
+    drawPoints._label = label;
+    drawPoints._team = team ? parseInt(team) : null;
+    // Pick color based on alliance
+    if (drawPoints._team) {
+      for (const [slot, info] of Object.entries(matchTeams)) {
+        if (info.num === drawPoints._team) {
+          drawColorPick = slot.startsWith('red') ? '#dc2626' : '#2563eb';
+          break;
+        }
+      }
+    }
+  } else {
+    canvas.style.cursor = 'default';
+  }
+};
+
+document.getElementById('undoDrawBtn').onclick = () => {
+  if (drawPoints.length > 0) { drawPoints.pop(); draw(); }
+};
+
+document.getElementById('finishDrawBtn').onclick = () => {
+  if (drawPoints.length < 2) return;
+  finishDrawnPath();
+};
+
+function finishDrawnPath() {
+  const label = drawPoints._label || `Drawn #${drawCounter+1}`;
+  const team = drawPoints._team;
+  drawCounter++;
+  const pathName = `drawn_${drawCounter}`;
+  // Convert click points to PathPlanner-like waypoints with auto-generated control points
+  const wp = drawPoints.map((p, i, arr) => {
+    const entry = {x: p.x, y: p.y};
+    if (i < arr.length - 1) {
+      const next = arr[i+1];
+      const dx = (next.x - p.x) * 0.33, dy = (next.y - p.y) * 0.33;
+      entry.nc = {x: p.x + dx, y: p.y + dy};
+    }
+    if (i > 0) {
+      const prev = arr[i-1];
+      const dx = (p.x - prev.x) * 0.33, dy = (p.y - prev.y) * 0.33;
+      entry.pc = {x: p.x - dx, y: p.y - dy};
+    }
+    return entry;
+  });
+  drawnPaths[pathName] = {w: wp, mv: 2.0, ma: 2.5, em: [], cz: [], ptz: [], rt: [],
+    end: {v:0, r:0}, start: {v:0, r:0}};
+  allPaths[pathName] = drawnPaths[pathName];
+  const autoName = label;
+  drawnAutos[autoName] = {folder: 'Drawn', paths: [pathName], cmds: [], waits: []};
+  allAutos[autoName] = drawnAutos[autoName];
+  if (team) drawnPathTeams[autoName] = team;
+  assignColor(autoName, false);
+  // Override color to alliance color if team is in match
+  const ac = getAllianceColor(autoName);
+  if (ac) colorMap[autoName] = ac;
+  activeAutos.add(autoName);
+  drawMode = false;
+  drawPoints = [];
+  document.getElementById('drawBtn').classList.remove('act');
+  canvas.style.cursor = 'default';
+  pathSamples = {};
+  buildCatalog();
+  updateTotalTime();
+  updateUI();
+  draw();
+}
+
+// Handle clicks on canvas for drawing
+canvas.addEventListener('click', (e) => {
+  if (!drawMode) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * devicePixelRatio;
+  const my = (e.clientY - rect.top) * devicePixelRatio;
+  // Convert canvas pixel back to field coordinates
+  const fx = (mx - camX) / camScale - PP_MARGIN;
+  const fy = FIELD_H + PP_MARGIN - (my - camY) / camScale;
+  drawPoints.push({x: fx, y: fy});
+  draw();
+});
+
+// Draw the in-progress path
+function drawInProgressPath() {
+  if (!drawMode || drawPoints.length === 0) return;
+  ctx.beginPath();
+  ctx.strokeStyle = drawColorPick;
+  ctx.lineWidth = 3 * devicePixelRatio;
+  ctx.setLineDash([6, 4]);
+  const [sx, sy] = fieldToCanvas(drawPoints[0].x, drawPoints[0].y);
+  ctx.moveTo(sx, sy);
+  for (let i = 1; i < drawPoints.length; i++) {
+    const [px, py] = fieldToCanvas(drawPoints[i].x, drawPoints[i].y);
+    ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // Draw dots at each waypoint
+  for (const p of drawPoints) {
+    const [px, py] = fieldToCanvas(p.x, p.y);
+    ctx.beginPath();
+    ctx.arc(px, py, 5 * devicePixelRatio, 0, Math.PI * 2);
+    ctx.fillStyle = drawColorPick;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5 * devicePixelRatio;
+    ctx.stroke();
+  }
+  // Label
+  if (drawPoints._label) {
+    const last = drawPoints[drawPoints.length - 1];
+    const [lx, ly] = fieldToCanvas(last.x, last.y);
+    ctx.fillStyle = drawColorPick;
+    ctx.font = `bold ${10*devicePixelRatio}px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(drawPoints._label, lx + 10*devicePixelRatio, ly);
+  }
+}
+
+// ============ TEAM NUMBER LABELS ON ROBOTS ============
+function getTeamLabel(autoName) {
+  // Check drawn paths first
+  if (drawnPathTeams[autoName]) return drawnPathTeams[autoName].toString();
+  // Check if it's a team auto (our team = 3572)
+  if (allAutos[autoName] && !importedAutos[autoName] && !drawnAutos[autoName]) return '3572';
+  return '';
+}
+
 // ============ INIT ============
+// Add "Drawn" folder to catalog labels
+FOLDER_LABELS['Drawn'] = {label:'Drawn Paths', tags:[['Drawn','t-imp']]};
 buildCatalog();
 resize();
 </script>
