@@ -113,8 +113,19 @@ const _img = new Image();
 _img.crossOrigin = 'anonymous';
 _img.onload = () => { fieldImg = _img; fieldImgLoaded = true; draw(); };
 _img.src = FIELD_IMG_URL;
-const COLORS = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1'];
-const IMPORT_COLORS = ['#2dd4bf','#fb923c','#a78bfa','#fbbf24','#4ade80'];
+// Team 103-inspired 10-color palette (high contrast on field image)
+const COLORS = ['#2979FF','#FF1744','#00E676','#FFEA00','#D500F9','#00E5FF','#FF4081','#76FF03','#FF9100','#7C4DFF'];
+const IMPORT_COLORS = ['#1DE9B6','#FF6E40','#B388FF','#FFD740','#69F0AE'];
+// Robot config from PathPlanner settings.json
+const ROBOT = {
+  w: 0.978, h: 0.787, // bumper width/length in meters
+  modules: [{x:0.232,y:0.327},{x:0.232,y:-0.327},{x:-0.232,y:0.327},{x:-0.232,y:-0.327}],
+  features: [
+    {type:'circle',cx:-0.083,cy:0.18415,r:0.075,label:'Turret'},
+    {type:'rect',cx:0.451,cy:0.0,w:0.7874,h:0.305,label:'Intake'},
+    {type:'rect',cx:-0.35,cy:-0.048,w:0.05,h:0.05,label:'Climber'}
+  ]
+};
 const MARKER_ICONS = {
   ClimberExtend:'\u2b06',ClimberClimb:'\u2b06',CeaseFire:'\u26d4',Agitate:'\u2940',
   StowHood:'\u2b07',SmartLaunch:'\u2b50',holdFire:'\u23f8',releaseFire:'\u25b6',
@@ -305,13 +316,14 @@ function draw() {
   ctx.clearRect(0, 0, w, h);
   ctx.save();
 
-  // Draw PathPlanner field image
+  // Draw PathPlanner field image (dimmed so paths pop)
   if (fieldImgLoaded && fieldImg) {
     const totalW = (FIELD_W + 2 * PP_MARGIN) * camScale;
     const totalH = (FIELD_H + 2 * PP_MARGIN) * camScale;
+    ctx.globalAlpha = 0.7;
     ctx.drawImage(fieldImg, camX, camY, totalW, totalH);
+    ctx.globalAlpha = 1;
   } else {
-    // Fallback: dark rectangle while image loads
     const [fx0,fy0] = fieldToCanvas(0, 0);
     const [fx1,fy1] = fieldToCanvas(FIELD_W, FIELD_H);
     ctx.fillStyle = '#1a2332';
@@ -319,16 +331,18 @@ function draw() {
     ctx.fillStyle = '#4b5563';
     ctx.font = `${14*devicePixelRatio}px sans-serif`;
     ctx.textAlign = 'center';
-    const [cx,cy] = fieldToCanvas(FIELD_W/2, FIELD_H/2);
-    ctx.fillText('Loading field image...', cx, cy);
+    const [cxf,cyf] = fieldToCanvas(FIELD_W/2, FIELD_H/2);
+    ctx.fillText('Loading field image...', cxf, cyf);
   }
 
-  // Draw each active auto
+  // Draw each active auto (ghost-style: first = full opacity, rest = 81% like Team 103)
   const activeList = [...activeAutos];
-  for (const autoName of activeList) {
+  for (let ai = 0; ai < activeList.length; ai++) {
+    const autoName = activeList[ai];
     const auto = allAutos[autoName] || importedAutos[autoName];
     if (!auto) continue;
     const color = colorMap[autoName] || '#888';
+    const ghostAlpha = ai === 0 ? 0.9 : 0.65; // first auto brighter, ghosts dimmer
 
     for (let pi = 0; pi < auto.paths.length; pi++) {
       const pathName = auto.paths[pi];
@@ -347,7 +361,7 @@ function draw() {
       ctx.strokeStyle = color;
       ctx.lineWidth = 3 * devicePixelRatio;
       ctx.setLineDash(auto.folder === 'Retired' ? [8,6] : []);
-      ctx.globalAlpha = auto.folder === 'Retired' ? 0.4 : 0.85;
+      ctx.globalAlpha = auto.folder === 'Retired' ? 0.3 : ghostAlpha;
       const [sx, sy] = fieldToCanvas(wp[0].x, wp[0].y);
       ctx.moveTo(sx, sy);
       for (let s = 0; s < wp.length - 1; s++) {
@@ -361,18 +375,13 @@ function draw() {
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
 
-      // Start marker (circle with heading arrow)
+      // Start marker - robot bumper outline at starting pose
       const startRot = pd.start ? pd.start.r : 0;
-      drawRobotMarker(wp[0].x, wp[0].y, startRot, color, true);
+      drawRobotBumper(wp[0].x, wp[0].y, startRot, color, ghostAlpha * 0.5);
 
-      // End marker (square)
+      // End marker - robot bumper outline at ending pose (dimmer)
       const endRot = pd.end ? pd.end.r : 0;
-      const [ex2,ey2] = fieldToCanvas(wp[wp.length-1].x, wp[wp.length-1].y);
-      const es = 6 * devicePixelRatio;
-      ctx.fillStyle = color;
-      ctx.globalAlpha = 0.7;
-      ctx.fillRect(ex2-es, ey2-es, es*2, es*2);
-      ctx.globalAlpha = 1;
+      drawRobotBumper(wp[wp.length-1].x, wp[wp.length-1].y, endRot, color, ghostAlpha * 0.3);
 
       // Event markers
       for (const em of (pd.em || [])) {
@@ -468,49 +477,76 @@ function drawPathSegmentRange(wp, minPos, maxPos, color, width) {
   ctx.stroke();
 }
 
-function drawRobotMarker(fx, fy, rotDeg, color, isStart) {
+
+// Draw a proper robot bumper outline with swerve modules and features
+function drawRobotBumper(fx, fy, rotDeg, color, alpha) {
   const [cx,cy] = fieldToCanvas(fx, fy);
-  const r = 7 * devicePixelRatio;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI*2);
+  const rad = (-rotDeg + 90) * Math.PI / 180;
+  const bw = ROBOT.w / 2 * camScale; // half-width in canvas px
+  const bh = ROBOT.h / 2 * camScale; // half-height in canvas px
+  const cornerR = Math.min(bw, bh) * 0.2;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-rad + Math.PI/2);
+  ctx.globalAlpha = alpha;
+  // Bumper fill
   ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(-bw, -bh, bw*2, bh*2, cornerR);
   ctx.fill();
+  // Bumper outline
   ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2 * devicePixelRatio;
+  ctx.beginPath();
+  ctx.roundRect(-bw, -bh, bw*2, bh*2, cornerR);
+  ctx.stroke();
+  // Front indicator dot (like PathPlanner)
+  const dotR = Math.max(3, bw * 0.15);
+  ctx.beginPath();
+  ctx.arc(0, -bh + dotR + 2*devicePixelRatio, dotR, 0, Math.PI*2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.strokeStyle = color;
   ctx.lineWidth = 1.5 * devicePixelRatio;
   ctx.stroke();
-  // Heading arrow
-  const rad = (-rotDeg + 90) * Math.PI / 180;
-  const arLen = 14 * devicePixelRatio;
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(cx + Math.cos(rad)*arLen, cy - Math.sin(rad)*arLen);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2.5 * devicePixelRatio;
-  ctx.stroke();
-  // Arrowhead
-  const aSize = 5 * devicePixelRatio;
-  const tipX = cx + Math.cos(rad)*arLen, tipY = cy - Math.sin(rad)*arLen;
-  ctx.beginPath();
-  ctx.moveTo(tipX, tipY);
-  ctx.lineTo(tipX - Math.cos(rad-0.5)*aSize, tipY + Math.sin(rad-0.5)*aSize);
-  ctx.lineTo(tipX - Math.cos(rad+0.5)*aSize, tipY + Math.sin(rad+0.5)*aSize);
-  ctx.closePath();
-  ctx.fillStyle = color;
-  ctx.fill();
+  // Swerve modules
+  const modW = bw * 0.25, modH = bh * 0.35;
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  for (const m of ROBOT.modules) {
+    const mx = m.y * camScale; // PathPlanner: +y = left, canvas: +x = right
+    const my = -m.x * camScale; // PathPlanner: +x = front, canvas: -y = up
+    ctx.fillRect(mx - modW/2, my - modH/2, modW, modH);
+  }
+  // Robot features (turret, intake, climber)
+  for (const f of ROBOT.features) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1 * devicePixelRatio;
+    const fcx = f.cy * camScale;
+    const fcy = -f.cx * camScale;
+    if (f.type === 'circle') {
+      ctx.beginPath();
+      ctx.arc(fcx, fcy, f.r * camScale, 0, Math.PI*2);
+      ctx.stroke();
+    } else if (f.type === 'rect') {
+      const fw = f.h * camScale, fh = f.w * camScale;
+      ctx.strokeRect(fcx - fw/2, fcy - fh/2, fw, fh);
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 function drawAnimationDots() {
+  // Collect all robot positions at current time for collision detection
+  const robotPositions = [];
   for (const autoName of activeAutos) {
     const auto = allAutos[autoName] || importedAutos[autoName];
     if (!auto) continue;
     const color = colorMap[autoName] || '#888';
     let elapsed = 0;
     for (const pathName of auto.paths) {
-      const key = pathName;
-      if (!pathSamples[key]) {
-        pathSamples[key] = buildAnimData(pathName);
-      }
-      const ad = pathSamples[key];
+      if (!pathSamples[pathName]) pathSamples[pathName] = buildAnimData(pathName);
+      const ad = pathSamples[pathName];
       if (!ad || ad.length === 0) continue;
       const pathDur = ad[ad.length-1].time;
       const localT = animTime - elapsed;
@@ -518,45 +554,56 @@ function drawAnimationDots() {
         const pd = allPaths[pathName] || importedPaths[pathName];
         const p = posAtTime(ad, localT);
         const rot = pd ? getRotationAtPos(pd, p.pos) : 0;
-        const [cx,cy] = fieldToCanvas(p.x, p.y);
-        // Robot body
-        const rad = (-rot + 90) * Math.PI / 180;
-        const bw = 10 * devicePixelRatio, bh = 12 * devicePixelRatio;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(-rad + Math.PI/2);
-        ctx.fillStyle = color;
-        ctx.globalAlpha = 0.9;
-        ctx.fillRect(-bw, -bh, bw*2, bh*2);
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2 * devicePixelRatio;
-        ctx.strokeRect(-bw, -bh, bw*2, bh*2);
-        // Front indicator
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(-bw*0.4, -bh, bw*0.8, 3*devicePixelRatio);
-        ctx.globalAlpha = 1;
-        ctx.restore();
-        // Check if near an event marker - flash it
-        if (pd) {
-          for (const em of (pd.em || [])) {
-            if (Math.abs(p.pos - em.pos) < 0.15) {
-              const ept = pointAtWaypointPos(pd.w, em.pos);
-              const [mx,my] = fieldToCanvas(ept.x, ept.y);
-              ctx.beginPath();
-              ctx.arc(mx, my, 16*devicePixelRatio, 0, Math.PI*2);
-              ctx.fillStyle = color;
-              ctx.globalAlpha = 0.3 + 0.3 * Math.sin(Date.now() / 100);
-              ctx.fill();
-              ctx.globalAlpha = 1;
-            }
-          }
-        }
+        robotPositions.push({x:p.x, y:p.y, rot, color, autoName, pathName, pd, pos:p.pos});
       }
       elapsed += pathDur;
-      // Add wait times between paths
-      const autoData = allAutos[autoName] || importedAutos[autoName];
-      if (autoData && autoData.waits) {
-        // Simple: distribute waits between paths
+    }
+  }
+  // Draw robots with proper bumper outlines
+  for (const rp of robotPositions) {
+    drawRobotBumper(rp.x, rp.y, rp.rot, rp.color, 0.85);
+    // Flash event markers when robot is near
+    if (rp.pd) {
+      for (const em of (rp.pd.em || [])) {
+        if (!em.name && !em.cmd) continue;
+        if (Math.abs(rp.pos - em.pos) < 0.15) {
+          const ept = pointAtWaypointPos(rp.pd.w, em.pos);
+          const [mx,my] = fieldToCanvas(ept.x, ept.y);
+          ctx.beginPath();
+          ctx.arc(mx, my, 18*devicePixelRatio, 0, Math.PI*2);
+          ctx.fillStyle = rp.color;
+          ctx.globalAlpha = 0.3 + 0.3 * Math.sin(Date.now() / 100);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+  }
+  // Collision detection between all robot pairs
+  const collisionRadius = Math.max(ROBOT.w, ROBOT.h) * 0.6; // bounding circle
+  for (let i = 0; i < robotPositions.length; i++) {
+    for (let j = i + 1; j < robotPositions.length; j++) {
+      const a = robotPositions[i], b = robotPositions[j];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (dist < collisionRadius) {
+        // Draw collision warning
+        const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
+        const [cx,cy] = fieldToCanvas(midX, midY);
+        const warnR = collisionRadius * camScale * 0.7;
+        ctx.beginPath();
+        ctx.arc(cx, cy, warnR, 0, Math.PI*2);
+        ctx.strokeStyle = '#FF1744';
+        ctx.lineWidth = 3 * devicePixelRatio;
+        ctx.globalAlpha = 0.6 + 0.3 * Math.sin(Date.now() / 150);
+        ctx.stroke();
+        // Warning X
+        ctx.beginPath();
+        const xr = warnR * 0.5;
+        ctx.moveTo(cx - xr, cy - xr); ctx.lineTo(cx + xr, cy + xr);
+        ctx.moveTo(cx + xr, cy - xr); ctx.lineTo(cx - xr, cy + xr);
+        ctx.lineWidth = 2.5 * devicePixelRatio;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
       }
     }
   }
