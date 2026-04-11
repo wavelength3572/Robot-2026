@@ -230,15 +230,7 @@ function resize() {
   canvas.height = area.clientHeight * devicePixelRatio;
   canvas.style.width = area.clientWidth + 'px';
   canvas.style.height = area.clientHeight + 'px';
-  // Fit the full image (field + margins) into the canvas
-  const totalW = FIELD_W + 2 * PP_MARGIN;
-  const totalH = FIELD_H + 2 * PP_MARGIN;
-  const scaleX = canvas.width / totalW;
-  const scaleY = canvas.height / totalH;
-  camScale = Math.min(scaleX, scaleY);
-  // Center the image in the canvas
-  camX = (canvas.width - totalW * camScale) / 2;
-  camY = (canvas.height - totalH * camScale) / 2;
+  fitToScreen();
   draw();
 }
 window.addEventListener('resize', resize);
@@ -909,19 +901,45 @@ document.getElementById('clrBtn').onclick = () => {
 };
 
 // ============ PAN & ZOOM ============
+// Store the initial fit scale so we can reset to it
+let fitScale = 1, fitX = 0, fitY = 0;
+
+function fitToScreen() {
+  const totalW = FIELD_W + 2 * PP_MARGIN;
+  const totalH = FIELD_H + 2 * PP_MARGIN;
+  const scaleX = canvas.width / totalW;
+  const scaleY = canvas.height / totalH;
+  camScale = Math.min(scaleX, scaleY);
+  camX = (canvas.width - totalW * camScale) / 2;
+  camY = (canvas.height - totalH * camScale) / 2;
+  fitScale = camScale;
+  fitX = camX;
+  fitY = camY;
+}
+
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
   const rect = canvas.getBoundingClientRect();
   const mx = (e.clientX - rect.left) * devicePixelRatio;
   const my = (e.clientY - rect.top) * devicePixelRatio;
-  const factor = e.deltaY > 0 ? 0.9 : 1.1;
+  // Gentler zoom: 3% per tick instead of 10%
+  const factor = e.deltaY > 0 ? 0.97 : 1.03;
   const newScale = camScale * factor;
-  // Zoom toward mouse
+  // Clamp: don't zoom out past 50% of fit, don't zoom in past 8x
+  if (newScale < fitScale * 0.5 || newScale > fitScale * 8) return;
+  // Zoom toward mouse cursor
   camX = mx - (mx - camX) * factor;
   camY = my - (my - camY) * factor;
   camScale = newScale;
   draw();
 }, {passive: false});
+
+// Double-click to reset view
+canvas.addEventListener('dblclick', (e) => {
+  if (drawMode) return; // don't reset while drawing
+  fitToScreen();
+  draw();
+});
 
 canvas.addEventListener('mousedown', (e) => {
   if (e.button === 0) {
