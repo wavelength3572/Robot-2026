@@ -530,9 +530,11 @@ public class RobotContainer {
           Map.entry("TrenchLeftFollow", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
           Map.entry("TrenchLeft1CycleDepot", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("TrenchLeft2.5Loops", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchRight2.5Loops", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("TrenchLeft2CyclesAggressive", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("TrenchLeft2CyclesSafe", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("TrenchLeft2LoopsClimb", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchRight2LoopsClimb", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("TrenchLeftSnowblowClimb", AutoWrapperFactory.StartStrategy.SPRINT),
           // TrenchRight autos
           Map.entry("TrenchRightFollow", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
@@ -560,10 +562,12 @@ public class RobotContainer {
               Map.entry("TrenchLeftFollow", AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
               Map.entry("TrenchLeft1CycleDepot", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry("TrenchLeft2.5Loops", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry("TrenchRight2.5Loops", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry(
                   "TrenchLeft2CyclesAggressive", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry("TrenchLeft2CyclesSafe", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry("TrenchLeft2LoopsClimb", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry("TrenchRight2LoopsClimb", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry(
                   "TrenchLeftSnowblowClimb",
                   AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
