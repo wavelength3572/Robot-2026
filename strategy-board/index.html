@@ -579,34 +579,108 @@ function drawAnimationDots() {
       }
     }
   }
-  // Collision detection between all robot pairs
-  const collisionRadius = Math.max(ROBOT.w, ROBOT.h) * 0.6; // bounding circle
+  // Collision detection using oriented bounding boxes with robot features
+  // The intake extends 0.845m from center (0.451 center + 0.7874/2 width)
+  // so the real robot footprint is much larger than just bumpers
   for (let i = 0; i < robotPositions.length; i++) {
     for (let j = i + 1; j < robotPositions.length; j++) {
       const a = robotPositions[i], b = robotPositions[j];
-      const dist = Math.hypot(a.x - b.x, a.y - b.y);
-      if (dist < collisionRadius) {
-        // Draw collision warning
+      // Get all corners of both robots INCLUDING features (intake, etc.)
+      const cornersA = getRobotCorners(a.x, a.y, a.rot);
+      const cornersB = getRobotCorners(b.x, b.y, b.rot);
+      if (obbCollision(cornersA, cornersB)) {
+        // Draw collision warning at midpoint
         const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
         const [cx,cy] = fieldToCanvas(midX, midY);
-        const warnR = collisionRadius * camScale * 0.7;
+        const warnR = Math.max(ROBOT.w, ROBOT.h) * 0.5 * camScale;
+        const pulse = 0.6 + 0.3 * Math.sin(Date.now() / 150);
+        ctx.globalAlpha = pulse;
+        // Red collision circle
         ctx.beginPath();
         ctx.arc(cx, cy, warnR, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(255,23,68,0.25)';
+        ctx.fill();
         ctx.strokeStyle = '#FF1744';
         ctx.lineWidth = 3 * devicePixelRatio;
-        ctx.globalAlpha = 0.6 + 0.3 * Math.sin(Date.now() / 150);
         ctx.stroke();
         // Warning X
         ctx.beginPath();
-        const xr = warnR * 0.5;
+        const xr = warnR * 0.45;
         ctx.moveTo(cx - xr, cy - xr); ctx.lineTo(cx + xr, cy + xr);
         ctx.moveTo(cx + xr, cy - xr); ctx.lineTo(cx - xr, cy + xr);
-        ctx.lineWidth = 2.5 * devicePixelRatio;
+        ctx.lineWidth = 3 * devicePixelRatio;
         ctx.stroke();
+        // "COLLISION" label
+        ctx.fillStyle = '#FF1744';
+        ctx.font = `bold ${10*devicePixelRatio}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('COLLISION', cx, cy + warnR + 14*devicePixelRatio);
         ctx.globalAlpha = 1;
       }
     }
   }
+}
+
+// Get the 4 corners of the robot's full footprint (bumpers + features)
+// in field coordinates, accounting for rotation
+function getRobotCorners(fx, fy, rotDeg) {
+  const rad = rotDeg * Math.PI / 180;
+  // Compute bounding box that includes bumpers AND all features
+  // Bumper: half-extents are w/2 and h/2 from center
+  let minX = -ROBOT.w / 2, maxX = ROBOT.w / 2;
+  let minY = -ROBOT.h / 2, maxY = ROBOT.h / 2;
+  // Expand to include each feature's bounding box
+  for (const f of ROBOT.features) {
+    if (f.type === 'circle') {
+      minX = Math.min(minX, f.cx - f.r);
+      maxX = Math.max(maxX, f.cx + f.r);
+      minY = Math.min(minY, f.cy - f.r);
+      maxY = Math.max(maxY, f.cy + f.r);
+    } else if (f.type === 'rect') {
+      minX = Math.min(minX, f.cx - f.w / 2);
+      maxX = Math.max(maxX, f.cx + f.w / 2);
+      minY = Math.min(minY, f.cy - f.h / 2);
+      maxY = Math.max(maxY, f.cy + f.h / 2);
+    }
+  }
+  // 4 corners of the expanded bounding box, rotated around center
+  const corners = [
+    {x: minX, y: minY}, {x: maxX, y: minY},
+    {x: maxX, y: maxY}, {x: minX, y: maxY}
+  ];
+  return corners.map(c => ({
+    x: fx + c.x * Math.cos(rad) - c.y * Math.sin(rad),
+    y: fy + c.x * Math.sin(rad) + c.y * Math.cos(rad)
+  }));
+}
+
+// Separating Axis Theorem (SAT) for oriented bounding box collision
+function obbCollision(cornersA, cornersB) {
+  const polygons = [cornersA, cornersB];
+  for (const poly of polygons) {
+    for (let i = 0; i < poly.length; i++) {
+      const j = (i + 1) % poly.length;
+      // Edge normal (perpendicular)
+      const nx = -(poly[j].y - poly[i].y);
+      const ny = poly[j].x - poly[i].x;
+      // Project both polygons onto this axis
+      let minA = Infinity, maxA = -Infinity;
+      let minB = Infinity, maxB = -Infinity;
+      for (const p of cornersA) {
+        const proj = p.x * nx + p.y * ny;
+        minA = Math.min(minA, proj);
+        maxA = Math.max(maxA, proj);
+      }
+      for (const p of cornersB) {
+        const proj = p.x * nx + p.y * ny;
+        minB = Math.min(minB, proj);
+        maxB = Math.max(maxB, proj);
+      }
+      // If there's a gap on any axis, no collision
+      if (maxA < minB || maxB < minA) return false;
+    }
+  }
+  return true;
 }
 
 // ============ UI: CATALOG ============
