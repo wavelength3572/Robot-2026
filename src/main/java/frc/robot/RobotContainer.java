@@ -494,10 +494,6 @@ public class RobotContainer {
     String rawName = displayToAutoName.getOrDefault(displayName, displayName);
     edu.wpi.first.math.geometry.Pose2d startingPose = resolveStartingPose(rawName);
 
-    if (!hasStrategyDefaults(rawName)) {
-      return selectedAuto; // Test autos and unknown autos run bare
-    }
-
     // Read strategies directly — choosers always have concrete values
     AutoWrapperFactory.StartStrategy startStrategy = startStrategyChooser.getSelected();
     AutoWrapperFactory.PathShootingStrategy pathStrategy = pathShootingChooser.getSelected();
@@ -1051,9 +1047,8 @@ public class RobotContainer {
   }
 
   /**
-   * Build the auto chooser for the given mode. In competition mode, only autos with known strategy
-   * defaults (excluding Retired) are included. In practice mode, all PathPlanner autos are
-   * included.
+   * Build the auto chooser for the given mode. In competition mode, all autos except those in the
+   * Retired folder are included. In practice mode, all PathPlanner autos are included.
    */
   private LoggedDashboardChooser<Command> buildAutoChooserForMode(boolean competitionMode) {
     displayToAutoName = new HashMap<>();
@@ -1062,7 +1057,7 @@ public class RobotContainer {
       SendableChooser<Command> sendable = new SendableChooser<>();
       sendable.setDefaultOption("None", Commands.none());
       autoFolderMap.entrySet().stream()
-          .filter(e -> hasStrategyDefaults(e.getKey()) && !"Retired".equals(e.getValue()))
+          .filter(e -> !"Retired".equals(e.getValue()))
           .sorted(Map.Entry.comparingByKey())
           .forEachOrdered(
               entry -> {
