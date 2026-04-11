@@ -20,6 +20,6 @@
     }
   },
   "resetOdom": true,
-  "folder": "CompSprintPassAndShoot",
+  "folder": "TrenchLeft",
   "choreoAuto": false
 }

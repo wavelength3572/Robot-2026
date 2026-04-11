@@ -9,15 +9,10 @@
     "AllianceZonePaths"
   ],
   "autoFolders": [
+    "TrenchRight",
+    "TrenchLeft",
     "Retired",
-    "CompShootPreloadsPassAndShoot",
-    "CompShootPreloadsNoPass",
-    "CompShootPreloadsImmediateArm",
-    "CompSprintPassAndShoot",
-    "CompSprintNoPass",
-    "CompSprintImmediateArm",
-    "CompShootPreloadsEndofPath",
-    "CompSprintEndofPath"
+    "AllianceZone"
   ],
   "defaultMaxVel": 2.5,
   "defaultMaxAccel": 2.5,

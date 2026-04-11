@@ -468,7 +468,7 @@ public class RobotContainer {
 
   // Comp autos get the full shooting wrap (fuel, auto-shoot, intake, launcher
   // spin-up).
-  // Maps auto name → folder name (e.g. "Comp", "CompSprint", "Test Maneuvers").
+  // Maps auto name → folder name (e.g. "TrenchLeft", "Depot", "Retired").
   // Built dynamically at startup by scanning PathPlanner .auto files.
   private final Map<String, String> autoFolderMap = loadAutoFolderMap();
 
@@ -490,20 +490,19 @@ public class RobotContainer {
     String displayName = autoChooser.getSendableChooser().getSelected();
     if (displayName == null) return selectedAuto;
 
-    // Resolve display name → raw auto name for PathPlanner and folder lookup
+    // Resolve display name → raw auto name for PathPlanner lookup
     String rawName = displayToAutoName.getOrDefault(displayName, displayName);
-    String folder = autoFolderMap.getOrDefault(rawName, "");
     edu.wpi.first.math.geometry.Pose2d startingPose = resolveStartingPose(rawName);
 
-    if (!isCompFolder(folder)) {
-      return selectedAuto; // Test autos and unknown folders run bare
+    if (!hasStrategyDefaults(rawName)) {
+      return selectedAuto; // Test autos and unknown autos run bare
     }
 
     // Read strategies directly — choosers always have concrete values
     AutoWrapperFactory.StartStrategy startStrategy = startStrategyChooser.getSelected();
     AutoWrapperFactory.PathShootingStrategy pathStrategy = pathShootingChooser.getSelected();
-    if (startStrategy == null) startStrategy = defaultStartStrategy(folder);
-    if (pathStrategy == null) pathStrategy = defaultPathShootingStrategy(folder);
+    if (startStrategy == null) startStrategy = defaultStartStrategy(rawName);
+    if (pathStrategy == null) pathStrategy = defaultPathShootingStrategy(rawName);
 
     return AutoWrapperFactory.compWrapped(
         selectedAuto,
@@ -520,38 +519,97 @@ public class RobotContainer {
         spindexer);
   }
 
-  /** Returns true for any folder that should receive the comp wrapper. */
-  private static boolean isCompFolder(String folder) {
-    return "CompShootPreloadsEndofPath".equals(folder)
-        || "CompShootPreloadsPassAndShoot".equals(folder)
-        || "CompShootPreloadsNoPass".equals(folder)
-        || "CompShootPreloadsImmediateArm".equals(folder)
-        || "CompSprintEndofPath".equals(folder)
-        || "CompSprintPassAndShoot".equals(folder)
-        || "CompSprintNoPass".equals(folder)
-        || "CompSprintImmediateArm".equals(folder);
+  /**
+   * Per-auto strategy defaults. Each auto maps to its (StartStrategy, PathShootingStrategy) pair.
+   * Autos not in this map run bare (no comp wrapper). Folders are now purely organizational (by
+   * start location), so defaults live here instead.
+   */
+  private static final Map<String, AutoWrapperFactory.StartStrategy> AUTO_START_DEFAULTS =
+      Map.ofEntries(
+          // TrenchLeft autos
+          Map.entry("TrenchLeftFollow", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
+          Map.entry("TrenchLeft1CycleDepot", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchLeft2.5Loops", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchLeft2CyclesAggressive", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchLeft2CyclesSafe", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchLeft2LoopsClimb", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchLeftSnowblowClimb", AutoWrapperFactory.StartStrategy.SPRINT),
+          // TrenchRight autos
+          Map.entry("TrenchRightFollow", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
+          Map.entry("TrenchRight2CyclesAggressive", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchRight2CyclesBulldogs", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchRight2CyclesSafe", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchRightSnowblowClimb", AutoWrapperFactory.StartStrategy.SPRINT),
+          // Depot autos
+          Map.entry("DepotClimb", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
+          Map.entry("DepotLeftTrenchClimb", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("Depot-Outpost-Climb", AutoWrapperFactory.StartStrategy.SPRINT),
+          // Outpost autos
+          Map.entry("Outpost-Depot-Climb", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("OutpostRightTrenchClimb", AutoWrapperFactory.StartStrategy.SPRINT),
+          // Retired autos (wrapped so they work if switched to practice mode at the field)
+          Map.entry("TrenchLeftAggressive", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchLeftSafe", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchRightAggressive", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("TrenchRightSafe", AutoWrapperFactory.StartStrategy.SPRINT));
+
+  private static final Map<String, AutoWrapperFactory.PathShootingStrategy>
+      AUTO_PATH_SHOOTING_DEFAULTS =
+          Map.ofEntries(
+              // TrenchLeft autos
+              Map.entry("TrenchLeftFollow", AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
+              Map.entry("TrenchLeft1CycleDepot", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry("TrenchLeft2.5Loops", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry(
+                  "TrenchLeft2CyclesAggressive", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry("TrenchLeft2CyclesSafe", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry("TrenchLeft2LoopsClimb", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry(
+                  "TrenchLeftSnowblowClimb",
+                  AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
+              // TrenchRight autos
+              Map.entry(
+                  "TrenchRightFollow", AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
+              Map.entry(
+                  "TrenchRight2CyclesAggressive", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry(
+                  "TrenchRight2CyclesBulldogs", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry("TrenchRight2CyclesSafe", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry(
+                  "TrenchRightSnowblowClimb",
+                  AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
+              // Depot autos
+              Map.entry("DepotClimb", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
+              Map.entry(
+                  "DepotLeftTrenchClimb", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
+              Map.entry(
+                  "Depot-Outpost-Climb", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
+              // Outpost autos
+              Map.entry(
+                  "Outpost-Depot-Climb", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
+              Map.entry(
+                  "OutpostRightTrenchClimb", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
+              // Retired autos
+              Map.entry("TrenchLeftAggressive", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry("TrenchLeftSafe", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry("TrenchRightAggressive", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+              Map.entry("TrenchRightSafe", AutoWrapperFactory.PathShootingStrategy.NO_PASS));
+
+  /** Returns true if the auto has known strategy defaults and should receive the comp wrapper. */
+  private static boolean hasStrategyDefaults(String autoName) {
+    return AUTO_START_DEFAULTS.containsKey(autoName);
   }
 
-  /** Folder-based default for start strategy. CompSprint sprints; everything else shoots first. */
-  private static AutoWrapperFactory.StartStrategy defaultStartStrategy(String folder) {
-    return ("CompSprintEndofPath".equals(folder)
-            || "CompSprintPassAndShoot".equals(folder)
-            || "CompSprintNoPass".equals(folder)
-            || "CompSprintImmediateArm".equals(folder))
-        ? AutoWrapperFactory.StartStrategy.SPRINT
-        : AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS;
+  /** Name-based default for start strategy. */
+  private static AutoWrapperFactory.StartStrategy defaultStartStrategy(String autoName) {
+    return AUTO_START_DEFAULTS.getOrDefault(autoName, AutoWrapperFactory.StartStrategy.SPRINT);
   }
 
-  /** Folder-based default for path shooting. CompSprint auto-shoots; everything else waits. */
+  /** Name-based default for path shooting strategy. */
   private static AutoWrapperFactory.PathShootingStrategy defaultPathShootingStrategy(
-      String folder) {
-    if ("CompSprintPassAndShoot".equals(folder) || "CompShootPreloadsPassAndShoot".equals(folder))
-      return AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT;
-    if ("CompSprintNoPass".equals(folder) || "CompShootPreloadsNoPass".equals(folder))
-      return AutoWrapperFactory.PathShootingStrategy.NO_PASS;
-    if ("CompShootPreloadsImmediateArm".equals(folder) || "CompSprintImmediateArm".equals(folder))
-      return AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM;
-    return AutoWrapperFactory.PathShootingStrategy.END_OF_PATH;
+      String autoName) {
+    return AUTO_PATH_SHOOTING_DEFAULTS.getOrDefault(
+        autoName, AutoWrapperFactory.PathShootingStrategy.NO_PASS);
   }
 
   /**
@@ -581,14 +639,18 @@ public class RobotContainer {
   }
 
   /**
-   * Reset the strategy chooser selections to the folder-appropriate defaults. The chooser widgets
+   * Reset the strategy chooser selections to the auto-appropriate defaults. The chooser widgets
    * stay alive on the dashboard — only the selected value changes.
    */
-  private void resetStrategySelections(String folder) {
+  private void resetStrategySelections(String autoName) {
     AutoWrapperFactory.StartStrategy defaultStart =
-        (folder != null) ? defaultStartStrategy(folder) : null;
+        (autoName != null && AUTO_START_DEFAULTS.containsKey(autoName))
+            ? defaultStartStrategy(autoName)
+            : null;
     AutoWrapperFactory.PathShootingStrategy defaultPath =
-        (folder != null) ? defaultPathShootingStrategy(folder) : null;
+        (autoName != null && AUTO_PATH_SHOOTING_DEFAULTS.containsKey(autoName))
+            ? defaultPathShootingStrategy(autoName)
+            : null;
 
     // Determine the option name strings to select
     String startName = "—";
@@ -945,10 +1007,9 @@ public class RobotContainer {
       // Resolve display name → raw auto name for PathPlanner
       String rawAutoName = displayToAutoName.getOrDefault(selectedDisplayName, selectedDisplayName);
 
-      // Rebuild strategy choosers with this auto's folder defaults
+      // Rebuild strategy choosers with this auto's defaults
       if (autoChanged) {
-        String folder = autoFolderMap.getOrDefault(rawAutoName, "");
-        resetStrategySelections(folder);
+        resetStrategySelections(rawAutoName);
       }
 
       try {
@@ -986,9 +1047,9 @@ public class RobotContainer {
   }
 
   /**
-   * Build the auto chooser for the given mode. In competition mode, only Comp and CompSprint autos
-   * are included. In practice mode, all PathPlanner autos and SysId routines are included. Display
-   * names are prefixed with a short bracket tag indicating wrapper type.
+   * Build the auto chooser for the given mode. In competition mode, only autos with known strategy
+   * defaults (excluding Retired) are included. In practice mode, all PathPlanner autos are
+   * included.
    */
   private LoggedDashboardChooser<Command> buildAutoChooserForMode(boolean competitionMode) {
     displayToAutoName = new HashMap<>();
@@ -997,20 +1058,17 @@ public class RobotContainer {
       SendableChooser<Command> sendable = new SendableChooser<>();
       sendable.setDefaultOption("None", Commands.none());
       autoFolderMap.entrySet().stream()
-          .filter(e -> isCompFolder(e.getValue()))
+          .filter(e -> hasStrategyDefaults(e.getKey()) && !"Retired".equals(e.getValue()))
           .sorted(Map.Entry.comparingByKey())
           .forEachOrdered(
               entry -> {
                 String rawName = entry.getKey();
-                String folder = entry.getValue();
-                String prefix = folderToPrefix(folder);
-                String displayName = prefix + rawName;
-                displayToAutoName.put(displayName, rawName);
-                sendable.addOption(displayName, new PathPlannerAuto(rawName));
+                displayToAutoName.put(rawName, rawName);
+                sendable.addOption(rawName, new PathPlannerAuto(rawName));
               });
       return new LoggedDashboardChooser<>("Auto Choices", sendable);
     } else {
-      // Practice mode: include all autos with prefixes, plus SysId utilities
+      // Practice mode: include all autos (retired included and properly wrapped)
       SendableChooser<Command> sendable = new SendableChooser<>();
       sendable.setDefaultOption("None", Commands.none());
       autoFolderMap.entrySet().stream()
@@ -1018,11 +1076,8 @@ public class RobotContainer {
           .forEachOrdered(
               entry -> {
                 String rawName = entry.getKey();
-                String folder = entry.getValue();
-                String prefix = folderToPrefix(folder);
-                String displayName = prefix + rawName;
-                displayToAutoName.put(displayName, rawName);
-                sendable.addOption(displayName, new PathPlannerAuto(rawName));
+                displayToAutoName.put(rawName, rawName);
+                sendable.addOption(rawName, new PathPlannerAuto(rawName));
               });
 
       LoggedDashboardChooser<Command> chooser =
@@ -1070,15 +1125,10 @@ public class RobotContainer {
     }
   }
 
-  /** Map a PathPlanner folder name to a short display prefix for the auto chooser dropdown. */
-  private static String folderToPrefix(String folder) {
-    return "";
-  }
-
   /**
-   * Scan PathPlanner auto files and return a map of auto name → folder name. The folder determines
-   * which wrapper is applied: "Comp" → compShotWrapped, "CompSprint" → compSprintWrapped, etc.
-   * Autos without a folder field map to "".
+   * Scan PathPlanner auto files and return a map of auto name → folder name. Folders are
+   * organizational (by start location: TrenchLeft, TrenchRight, Depot, Outpost, Retired). Strategy
+   * defaults are determined per-auto, not per-folder. Autos without a folder map to "".
    */
   private static Map<String, String> loadAutoFolderMap() {
     Map<String, String> map = new HashMap<>();

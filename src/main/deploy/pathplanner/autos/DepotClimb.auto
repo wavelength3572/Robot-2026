@@ -20,6 +20,6 @@
     }
   },
   "resetOdom": true,
-  "folder": "CompShootPreloadsImmediateArm",
+  "folder": "AllianceZone",
   "choreoAuto": false
 }

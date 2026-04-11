@@ -45,6 +45,6 @@
     }
   },
   "resetOdom": true,
-  "folder": "CompSprintNoPass",
+  "folder": "TrenchLeft",
   "choreoAuto": false
 }
