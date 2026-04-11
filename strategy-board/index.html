@@ -925,8 +925,8 @@ canvas.addEventListener('wheel', (e) => {
   // Gentler zoom: 3% per tick instead of 10%
   const factor = e.deltaY > 0 ? 0.97 : 1.03;
   const newScale = camScale * factor;
-  // Clamp: don't zoom out past 50% of fit, don't zoom in past 8x
-  if (newScale < fitScale * 0.5 || newScale > fitScale * 8) return;
+  // Clamp: never zoom out past the default fit, zoom in up to 8x
+  if (newScale < fitScale || newScale > fitScale * 8) return;
   // Zoom toward mouse cursor
   camX = mx - (mx - camX) * factor;
   camY = my - (my - camY) * factor;
