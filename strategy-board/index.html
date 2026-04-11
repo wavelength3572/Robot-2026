@@ -564,9 +564,9 @@ function drawRobotBumper(fx, fy, rotDeg, color, alpha, robotCfg, teamLabel) {
   for (const f of (bot.features || [])) {
     const sw = Math.max(1, f.strokeWidth * camScale);
     ctx.lineWidth = sw;
-    // PathPlanner coords: +x = forward, +y = left
-    // Our rotated canvas: +y = forward (up before rotation), -x = left
-    // So: canvas_x = feature.y * scale, canvas_y = -feature.x * scale
+    // PathPlanner coords: +x = forward (front of robot), +y = left
+    // In our rotated canvas: -y = forward (up), x = left-right
+    // So: canvas_x = -feature.y * scale (left-right), canvas_y = -feature.x * scale (front-back)
     const fcx = -f.cy * camScale;
     const fcy = -f.cx * camScale;
 
@@ -583,12 +583,13 @@ function drawRobotBumper(fx, fy, rotDeg, color, alpha, robotCfg, teamLabel) {
       ctx.strokeStyle = color;
       ctx.stroke();
     } else if (f.type === 'rounded_rect') {
-      // width = left-right extent, length = front-back extent in PP coords
-      const rw = f.width * camScale;  // maps to canvas vertical (front-back)
-      const rl = f.length * camScale; // maps to canvas horizontal (left-right)
+      // PP width = left-right → canvas x-axis
+      // PP length = front-back → canvas y-axis
+      const rw = f.width * camScale;   // left-right extent (canvas x)
+      const rl = f.length * camScale;  // front-back extent (canvas y)
       const br = f.borderRadius * camScale;
       ctx.beginPath();
-      ctx.roundRect(fcx - rl / 2, fcy - rw / 2, rl, rw, br);
+      ctx.roundRect(fcx - rw / 2, fcy - rl / 2, rw, rl, br);
       if (f.filled) {
         ctx.fillStyle = color;
         ctx.globalAlpha = alpha * 0.3;
