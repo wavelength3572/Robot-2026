@@ -132,9 +132,7 @@ canvas{display:block}
 <div class="sb-h" style="display:flex;justify-content:space-between;align-items:center">
 <span>Autonomous Routines</span>
 <div class="draw-bar">
-<button class="draw-btn" id="drawBtn" title="Draw a path on the field">Draw</button>
-<button class="draw-btn" id="undoDrawBtn" title="Undo last point">Undo</button>
-<button class="draw-btn" id="finishDrawBtn" title="Finish drawn path">Done</button>
+<button class="draw-btn" id="drawBtn" title="Click to enter draw mode, then hold left-click and drag to sketch a path">Draw</button>
 </div>
 </div>
 <div class="sb-s" id="catalog"></div>
@@ -216,7 +214,6 @@ let playing = false, animTime = 0, animSpeed = 1, totalTime = 15;
 let lastFrame = 0;
 // Canvas transform
 let camX = 0, camY = 0, camScale = 1;
-let dragging = false, dragStartX = 0, dragStartY = 0, dragCamX = 0, dragCamY = 0;
 // Precomputed path samples for animation
 let pathSamples = {};
 
@@ -900,10 +897,7 @@ document.getElementById('clrBtn').onclick = () => {
   draw();
 };
 
-// ============ PAN & ZOOM ============
-// Store the initial fit scale so we can reset to it
-let fitScale = 1, fitX = 0, fitY = 0;
-
+// ============ VIEW ============
 function fitToScreen() {
   const totalW = FIELD_W + 2 * PP_MARGIN;
   const totalH = FIELD_H + 2 * PP_MARGIN;
@@ -912,59 +906,11 @@ function fitToScreen() {
   camScale = Math.min(scaleX, scaleY);
   camX = (canvas.width - totalW * camScale) / 2;
   camY = (canvas.height - totalH * camScale) / 2;
-  fitScale = camScale;
-  fitX = camX;
-  fitY = camY;
 }
-
-canvas.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
-  const mx = (e.clientX - rect.left) * devicePixelRatio;
-  const my = (e.clientY - rect.top) * devicePixelRatio;
-  // Gentler zoom: 3% per tick instead of 10%
-  const factor = e.deltaY > 0 ? 0.97 : 1.03;
-  const newScale = camScale * factor;
-  // Clamp: never zoom out past the default fit, zoom in up to 8x
-  if (newScale < fitScale || newScale > fitScale * 8) return;
-  // Zoom toward mouse cursor
-  camX = mx - (mx - camX) * factor;
-  camY = my - (my - camY) * factor;
-  camScale = newScale;
-  draw();
-}, {passive: false});
-
-// Double-click to reset view
-canvas.addEventListener('dblclick', (e) => {
-  if (drawMode) return; // don't reset while drawing
-  fitToScreen();
-  draw();
-});
-
-canvas.addEventListener('mousedown', (e) => {
-  if (e.button === 0) {
-    dragging = true;
-    dragStartX = e.clientX * devicePixelRatio;
-    dragStartY = e.clientY * devicePixelRatio;
-    dragCamX = camX; dragCamY = camY;
-    canvas.style.cursor = 'grabbing';
-  }
-});
-window.addEventListener('mousemove', (e) => {
-  if (dragging) {
-    camX = dragCamX + (e.clientX * devicePixelRatio - dragStartX);
-    camY = dragCamY + (e.clientY * devicePixelRatio - dragStartY);
-    draw();
-  }
-});
-window.addEventListener('mouseup', () => {
-  dragging = false;
-  canvas.style.cursor = 'default';
-});
 
 // ============ HOVER TOOLTIPS ============
 canvas.addEventListener('mousemove', (e) => {
-  if (dragging) return;
+  if (drawActive) return;
   const rect = canvas.getBoundingClientRect();
   const mx = (e.clientX - rect.left) * devicePixelRatio;
   const my = (e.clientY - rect.top) * devicePixelRatio;
@@ -1246,30 +1192,31 @@ function getAllianceColor(autoName) {
   return null; // not assigned to an alliance
 }
 
-// ============ FREEHAND DRAWING TOOL ============
+// ============ PENCIL DRAWING TOOL ============
+// Hold left-click and drag to sketch a path. Release to finish.
 let drawMode = false;
-let drawPoints = []; // current path being drawn [{x,y}, ...]
-let drawnPaths = {}; // name -> {w:[waypoints], mv, ...} (same format as imported paths)
-let drawnAutos = {}; // name -> {folder:'Drawn', paths:[name], cmds:[], waits:[]}
-let drawnPathTeams = {}; // autoName -> teamNumber
+let drawActive = false; // true while mouse is held down drawing
+let drawRawPoints = []; // raw mouse samples during drag
+let drawnPaths = {};
+let drawnAutos = {};
+let drawnPathTeams = {};
 let drawCounter = 0;
-let drawColorPick = '#f59e0b'; // default yellow for drawn
+let drawColorPick = '#f59e0b';
+let drawLabel = '';
+let drawTeam = null;
 
 document.getElementById('drawBtn').onclick = () => {
   drawMode = !drawMode;
   document.getElementById('drawBtn').classList.toggle('act', drawMode);
   if (drawMode) {
-    drawPoints = [];
     canvas.style.cursor = 'crosshair';
-    // Prompt for team number and label
     const team = prompt('Team number for this path (or leave blank):');
-    const label = prompt('Label this path (e.g. "3572 Left Trench" or "Opponent Right"):') || `Drawn #${drawCounter+1}`;
-    drawPoints._label = label;
-    drawPoints._team = team ? parseInt(team) : null;
-    // Pick color based on alliance
-    if (drawPoints._team) {
+    drawLabel = prompt('Label (e.g. "4188 Left Side"):') || `Drawn #${drawCounter+1}`;
+    drawTeam = team ? parseInt(team) : null;
+    drawColorPick = '#f59e0b';
+    if (drawTeam) {
       for (const [slot, info] of Object.entries(matchTeams)) {
-        if (info.num === drawPoints._team) {
+        if (info.num === drawTeam) {
           drawColorPick = slot.startsWith('red') ? '#dc2626' : '#2563eb';
           break;
         }
@@ -1277,54 +1224,93 @@ document.getElementById('drawBtn').onclick = () => {
     }
   } else {
     canvas.style.cursor = 'default';
+    drawRawPoints = [];
   }
 };
 
-document.getElementById('undoDrawBtn').onclick = () => {
-  if (drawPoints.length > 0) { drawPoints.pop(); draw(); }
-};
+// Convert mouse event to field coords
+function mouseToField(e) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * devicePixelRatio;
+  const my = (e.clientY - rect.top) * devicePixelRatio;
+  return {
+    x: (mx - camX) / camScale - PP_MARGIN,
+    y: FIELD_H + PP_MARGIN - (my - camY) / camScale
+  };
+}
 
-document.getElementById('finishDrawBtn').onclick = () => {
-  if (drawPoints.length < 2) return;
-  finishDrawnPath();
-};
+canvas.addEventListener('mousedown', (e) => {
+  if (!drawMode || e.button !== 0) return;
+  e.preventDefault();
+  drawActive = true;
+  drawRawPoints = [mouseToField(e)];
+});
 
-function finishDrawnPath() {
-  const label = drawPoints._label || `Drawn #${drawCounter+1}`;
-  const team = drawPoints._team;
+canvas.addEventListener('mousemove', (e) => {
+  if (!drawActive) return;
+  const pt = mouseToField(e);
+  // Only add point if moved enough (avoid thousands of points)
+  const last = drawRawPoints[drawRawPoints.length - 1];
+  if (Math.hypot(pt.x - last.x, pt.y - last.y) > 0.05) {
+    drawRawPoints.push(pt);
+    draw();
+  }
+});
+
+canvas.addEventListener('mouseup', (e) => {
+  if (!drawActive) return;
+  drawActive = false;
+  if (drawRawPoints.length < 3) { drawRawPoints = []; draw(); return; }
+  // Simplify: downsample raw points to ~15-25 waypoints for smooth Bezier
+  const simplified = simplifyPath(drawRawPoints, Math.max(5, Math.min(25, Math.floor(drawRawPoints.length / 3))));
+  finishDrawnPath(simplified);
+});
+
+// Downsample path to N evenly-spaced points
+function simplifyPath(pts, n) {
+  if (pts.length <= n) return pts;
+  const result = [pts[0]];
+  const step = (pts.length - 1) / (n - 1);
+  for (let i = 1; i < n - 1; i++) {
+    result.push(pts[Math.round(i * step)]);
+  }
+  result.push(pts[pts.length - 1]);
+  return result;
+}
+
+function finishDrawnPath(points) {
   drawCounter++;
   const pathName = `drawn_${drawCounter}`;
-  // Convert click points to PathPlanner-like waypoints with auto-generated control points
-  const wp = drawPoints.map((p, i, arr) => {
+  // Generate smooth Bezier control points from simplified points
+  const wp = points.map((p, i, arr) => {
     const entry = {x: p.x, y: p.y};
     if (i < arr.length - 1) {
-      const next = arr[i+1];
+      const next = arr[i + 1];
       const dx = (next.x - p.x) * 0.33, dy = (next.y - p.y) * 0.33;
       entry.nc = {x: p.x + dx, y: p.y + dy};
     }
     if (i > 0) {
-      const prev = arr[i-1];
+      const prev = arr[i - 1];
       const dx = (p.x - prev.x) * 0.33, dy = (p.y - prev.y) * 0.33;
       entry.pc = {x: p.x - dx, y: p.y - dy};
     }
     return entry;
   });
-  drawnPaths[pathName] = {w: wp, mv: 2.0, ma: 2.5, em: [], cz: [], ptz: [], rt: [],
-    end: {v:0, r:0}, start: {v:0, r:0}};
+  drawnPaths[pathName] = {w:wp, mv:2.0, ma:2.5, em:[], cz:[], ptz:[], rt:[],
+    end:{v:0,r:0}, start:{v:0,r:0}};
   allPaths[pathName] = drawnPaths[pathName];
-  const autoName = label;
-  drawnAutos[autoName] = {folder: 'Drawn', paths: [pathName], cmds: [], waits: []};
+  const autoName = drawLabel || `Drawn #${drawCounter}`;
+  drawnAutos[autoName] = {folder:'Drawn', paths:[pathName], cmds:[], waits:[]};
   allAutos[autoName] = drawnAutos[autoName];
-  if (team) drawnPathTeams[autoName] = team;
+  if (drawTeam) drawnPathTeams[autoName] = drawTeam;
   assignColor(autoName, false);
-  // Override color to alliance color if team is in match
   const ac = getAllianceColor(autoName);
   if (ac) colorMap[autoName] = ac;
   activeAutos.add(autoName);
-  drawMode = false;
-  drawPoints = [];
-  document.getElementById('drawBtn').classList.remove('act');
-  canvas.style.cursor = 'default';
+  // Stay in draw mode so you can sketch more paths
+  drawRawPoints = [];
+  drawCounter;
+  drawLabel = `Drawn #${drawCounter + 1}`;
   pathSamples = {};
   buildCatalog();
   updateTotalTime();
@@ -1332,54 +1318,26 @@ function finishDrawnPath() {
   draw();
 }
 
-// Handle clicks on canvas for drawing
-canvas.addEventListener('click', (e) => {
-  if (!drawMode) return;
-  const rect = canvas.getBoundingClientRect();
-  const mx = (e.clientX - rect.left) * devicePixelRatio;
-  const my = (e.clientY - rect.top) * devicePixelRatio;
-  // Convert canvas pixel back to field coordinates
-  const fx = (mx - camX) / camScale - PP_MARGIN;
-  const fy = FIELD_H + PP_MARGIN - (my - camY) / camScale;
-  drawPoints.push({x: fx, y: fy});
-  draw();
-});
-
-// Draw the in-progress path
+// Draw the live pencil stroke
 function drawInProgressPath() {
-  if (!drawMode || drawPoints.length === 0) return;
+  if (!drawActive || drawRawPoints.length < 2) return;
   ctx.beginPath();
   ctx.strokeStyle = drawColorPick;
   ctx.lineWidth = 3 * devicePixelRatio;
-  ctx.setLineDash([6, 4]);
-  const [sx, sy] = fieldToCanvas(drawPoints[0].x, drawPoints[0].y);
+  ctx.globalAlpha = 0.8;
+  const [sx, sy] = fieldToCanvas(drawRawPoints[0].x, drawRawPoints[0].y);
   ctx.moveTo(sx, sy);
-  for (let i = 1; i < drawPoints.length; i++) {
-    const [px, py] = fieldToCanvas(drawPoints[i].x, drawPoints[i].y);
+  for (let i = 1; i < drawRawPoints.length; i++) {
+    const [px, py] = fieldToCanvas(drawRawPoints[i].x, drawRawPoints[i].y);
     ctx.lineTo(px, py);
   }
   ctx.stroke();
-  ctx.setLineDash([]);
-  // Draw dots at each waypoint
-  for (const p of drawPoints) {
-    const [px, py] = fieldToCanvas(p.x, p.y);
-    ctx.beginPath();
-    ctx.arc(px, py, 5 * devicePixelRatio, 0, Math.PI * 2);
-    ctx.fillStyle = drawColorPick;
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1.5 * devicePixelRatio;
-    ctx.stroke();
-  }
-  // Label
-  if (drawPoints._label) {
-    const last = drawPoints[drawPoints.length - 1];
-    const [lx, ly] = fieldToCanvas(last.x, last.y);
-    ctx.fillStyle = drawColorPick;
-    ctx.font = `bold ${10*devicePixelRatio}px sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.fillText(drawPoints._label, lx + 10*devicePixelRatio, ly);
-  }
+  ctx.globalAlpha = 1;
+  // Start dot
+  ctx.beginPath();
+  ctx.arc(sx, sy, 5 * devicePixelRatio, 0, Math.PI * 2);
+  ctx.fillStyle = drawColorPick;
+  ctx.fill();
 }
 
 // ============ TEAM NUMBER LABELS ON ROBOTS ============
