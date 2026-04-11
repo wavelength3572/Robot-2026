@@ -113,7 +113,7 @@ public class ShootingCoordinator extends SubsystemBase {
   // Max angular divergence (deg) between static and velocity-compensated aim points.
   // If exceeded, the shot is flagged as not achievable (too fast to compensate).
   private static final LoggedTunableNumber velocityCompMaxDivergenceDeg =
-      new LoggedTunableNumber("Shots/VelocityComp/MaxDivergenceDeg", 10.0);
+      new LoggedTunableNumber("Shots/VelocityComp/MaxDivergenceDeg", 20.0);
 
   // ========== Coordinator-computed fields (derived from strategy + geometry) ==========
   // These are computed after the strategy returns and exposed via getters.
@@ -121,6 +121,7 @@ public class ShootingCoordinator extends SubsystemBase {
   private Translation3d compensatedAimTarget = null;
   private double currentExitVelocityMps = 0.0;
   private boolean currentShotAchievable = true;
+  private double currentDivergenceDeg = 0.0;
 
   // Visualizer (created during initialize)
   private ShotVisualizer visualizer = null;
@@ -854,12 +855,12 @@ public class ShootingCoordinator extends SubsystemBase {
             turretConfig);
 
     // Achievability — flag if velocity compensation diverged too far (moving too fast to lead)
-    double staticAngle =
-        Math.atan2(target.getY() - turretY, target.getX() - turretX);
+    double staticAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
     double compAngle =
         Math.atan2(compensatedAimTarget.getY() - turretY, compensatedAimTarget.getX() - turretX);
     double divergenceDeg = Math.abs(Math.toDegrees(staticAngle - compAngle));
     if (divergenceDeg > 180) divergenceDeg = 360 - divergenceDeg;
+    currentDivergenceDeg = divergenceDeg;
     currentShotAchievable = divergenceDeg <= velocityCompMaxDivergenceDeg.get();
 
     Logger.recordOutput("SmartLaunch/Status/ActiveStrategy", activeStrategy.getName());
@@ -923,8 +924,7 @@ public class ShootingCoordinator extends SubsystemBase {
             peakHeightIn > 0
                 ? fixedHeightPassStrategy.calculateShot(dist, peakHeightIn)
                 : fixedHeightPassStrategy.calculateShot(dist);
-        double exitVel =
-            fixedHeightPassStrategy.estimateExitVelocity(iterShot.launcherRPM(), dist);
+        double exitVel = fixedHeightPassStrategy.estimateExitVelocity(iterShot.launcherRPM(), dist);
         double launchAngle = iterShot.launchAngleRad();
         double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, dist);
         if (tof <= 0 || tof >= Double.MAX_VALUE) break;
@@ -959,12 +959,12 @@ public class ShootingCoordinator extends SubsystemBase {
             turretConfig);
 
     // Achievability — flag if velocity compensation diverged too far
-    double staticAngle =
-        Math.atan2(target.getY() - turretY, target.getX() - turretX);
+    double staticAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
     double compAngle =
         Math.atan2(compensatedAimTarget.getY() - turretY, compensatedAimTarget.getX() - turretX);
     double divergenceDeg = Math.abs(Math.toDegrees(staticAngle - compAngle));
     if (divergenceDeg > 180) divergenceDeg = 360 - divergenceDeg;
+    currentDivergenceDeg = divergenceDeg;
     currentShotAchievable = divergenceDeg <= velocityCompMaxDivergenceDeg.get();
   }
 
@@ -1278,6 +1278,7 @@ public class ShootingCoordinator extends SubsystemBase {
     currentTurretAngleDeg = targetTurretAngleDeg;
     currentExitVelocityMps = 0.0;
     currentShotAchievable = true;
+    currentDivergenceDeg = 0.0;
     compensatedAimTarget = null;
 
     // Update the ShotCalculator's target RPM for consistency
@@ -1670,7 +1671,8 @@ public class ShootingCoordinator extends SubsystemBase {
     boolean motivatorReady = false;
     boolean turretReady = false;
     boolean hoodReady = false;
-    boolean shotAchievable = false;
+    boolean shotExists = false;
+    boolean velCompOk = false;
     boolean speedOk = false;
     boolean allReady = false;
 
@@ -1740,7 +1742,8 @@ public class ShootingCoordinator extends SubsystemBase {
       motivatorReady = motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
       turretReady = turret.getState() == Turret.TurretState.READY;
       hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
-      shotAchievable = currentShot != null && currentShotAchievable;
+      shotExists = currentShot != null;
+      velCompOk = currentShotAchievable;
       boolean turretNotFlipping = turret.getState() != Turret.TurretState.FLIPPING;
       speedOk = isRobotSlowEnoughForCurrentZone();
       allReady =
@@ -1749,7 +1752,8 @@ public class ShootingCoordinator extends SubsystemBase {
               && motivatorReady
               && turretReady
               && hoodReady
-              && shotAchievable
+              && shotExists
+              && velCompOk
               && speedOk;
 
       // --- Timeout: force FIRING if stuck in AIMING too long ---
@@ -1860,7 +1864,13 @@ public class ShootingCoordinator extends SubsystemBase {
       if (!motivatorReady) blocking.append("motivator ");
       if (!turretReady) blocking.append("turret ");
       if (!hoodReady) blocking.append("hood ");
-      if (!shotAchievable) blocking.append("shot ");
+      if (!shotExists) blocking.append("no_shot ");
+      if (!velCompOk) {
+        blocking.append(
+            String.format(
+                "velcomp(%.1f/%.0fdeg) ",
+                currentDivergenceDeg, velocityCompMaxDivergenceDeg.get()));
+      }
       if (!speedOk) blocking.append("speed ");
       loggedBlocking = blocking.length() > 0 ? blocking.toString().trim() : "none";
     }
