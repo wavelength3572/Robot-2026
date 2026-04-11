@@ -3,6 +3,7 @@ package frc.robot.subsystems.shooting;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -817,8 +818,10 @@ public class ShootingCoordinator extends SubsystemBase {
     // Uses horizontal TOF (stable, no divergence at steep angles).
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     compensatedAimTarget = target;
+    double hubContractionRate = -1.0;
 
     if (robotSpeed > 0.1) {
+      double prevCorrectionDist = 0.0;
       for (int i = 0; i < 3; i++) {
         double dist =
             Math.hypot(
@@ -828,7 +831,16 @@ public class ShootingCoordinator extends SubsystemBase {
         double launchAngle = iterShot.launchAngleRad();
         double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, dist);
         if (tof <= 0 || tof >= Double.MAX_VALUE) break;
+        Translation2d prevAim =
+            new Translation2d(compensatedAimTarget.getX(), compensatedAimTarget.getY());
         compensatedAimTarget = predictTargetPos(target, fieldSpeeds, tof);
+        double correctionDist =
+            prevAim.getDistance(
+                new Translation2d(compensatedAimTarget.getX(), compensatedAimTarget.getY()));
+        if (i > 0 && prevCorrectionDist > 0.001) {
+          hubContractionRate = correctionDist / prevCorrectionDist;
+        }
+        prevCorrectionDist = correctionDist;
       }
     }
 
@@ -865,6 +877,7 @@ public class ShootingCoordinator extends SubsystemBase {
 
     Logger.recordOutput("SmartLaunch/Status/ActiveStrategy", activeStrategy.getName());
     Logger.recordOutput("SmartLaunch/VelocityComp/DivergenceDeg", divergenceDeg);
+    Logger.recordOutput("SmartLaunch/VelocityComp/ContractionRate", hubContractionRate);
 
     // Target positions now logged centrally in logShotState (SmartLaunch/Distance/)
   }
@@ -914,8 +927,10 @@ public class ShootingCoordinator extends SubsystemBase {
     // Velocity compensation for passes: iterative refinement (3 passes, same as hub shots)
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     compensatedAimTarget = target;
+    double passContractionRate = -1.0;
 
     if (robotSpeed > 0.1) {
+      double prevCorrectionDist = 0.0;
       for (int i = 0; i < 3; i++) {
         double dist =
             Math.hypot(
@@ -928,7 +943,16 @@ public class ShootingCoordinator extends SubsystemBase {
         double launchAngle = iterShot.launchAngleRad();
         double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, dist);
         if (tof <= 0 || tof >= Double.MAX_VALUE) break;
+        Translation2d prevAim =
+            new Translation2d(compensatedAimTarget.getX(), compensatedAimTarget.getY());
         compensatedAimTarget = predictTargetPos(target, fieldSpeeds, tof);
+        double correctionDist =
+            prevAim.getDistance(
+                new Translation2d(compensatedAimTarget.getX(), compensatedAimTarget.getY()));
+        if (i > 0 && prevCorrectionDist > 0.001) {
+          passContractionRate = correctionDist / prevCorrectionDist;
+        }
+        prevCorrectionDist = correctionDist;
       }
     }
 
@@ -966,6 +990,7 @@ public class ShootingCoordinator extends SubsystemBase {
     if (divergenceDeg > 180) divergenceDeg = 360 - divergenceDeg;
     currentDivergenceDeg = divergenceDeg;
     currentShotAchievable = divergenceDeg <= velocityCompMaxDivergenceDeg.get();
+    Logger.recordOutput("SmartLaunch/VelocityComp/PassContractionRate", passContractionRate);
   }
 
   /**
