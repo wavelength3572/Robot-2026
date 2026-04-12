@@ -62,7 +62,7 @@ canvas{display:block}
 .pb:hover{background:#3b82f6}
 .scr{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;background:#374151;outline:none}
 .scr::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#60a5fa;cursor:pointer}
-.td{font-size:14px;color:#9ca3af;font-variant-numeric:tabular-nums;min-width:80px;text-align:center}
+.td{font-size:14px;color:#9ca3af;font-variant-numeric:tabular-nums;min-width:130px;text-align:center}
 .sbs{display:flex;gap:3px}
 .spb{background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:3px 7px;border-radius:4px;font-size:13px;cursor:pointer}
 .spb.act{background:#2563eb;color:#fff;border-color:#2563eb}
@@ -115,21 +115,21 @@ canvas{display:block}
 <!-- Red Alliance -->
 <div class="sec">
 <div class="sec-h red">Red Alliance</div>
-<div class="ds"><span class="ds-label">DS1</span><input class="ds-team" id="r1t" placeholder="Team"><select class="ds-auto" id="r1a"><option value="">—</option></select><input type="number" class="ds-delay" id="r1d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
+<div class="ds"><span class="ds-label">DS1</span><input class="ds-team" id="r1t" placeholder="Team"><select class="ds-auto" id="r1a"><option value="">—</option></select><span style="color:#6b7280;font-size:12px">Delay</span><input type="number" class="ds-delay" id="r1d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
 <div class="ds-info" id="r1i"></div>
-<div class="ds"><span class="ds-label">DS2</span><input class="ds-team" id="r2t" placeholder="Team"><select class="ds-auto" id="r2a"><option value="">—</option></select><input type="number" class="ds-delay" id="r2d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
+<div class="ds"><span class="ds-label">DS2</span><input class="ds-team" id="r2t" placeholder="Team"><select class="ds-auto" id="r2a"><option value="">—</option></select><span style="color:#6b7280;font-size:12px">Delay</span><input type="number" class="ds-delay" id="r2d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
 <div class="ds-info" id="r2i"></div>
-<div class="ds"><span class="ds-label">DS3</span><input class="ds-team" id="r3t" placeholder="Team"><select class="ds-auto" id="r3a"><option value="">—</option></select><input type="number" class="ds-delay" id="r3d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
+<div class="ds"><span class="ds-label">DS3</span><input class="ds-team" id="r3t" placeholder="Team"><select class="ds-auto" id="r3a"><option value="">—</option></select><span style="color:#6b7280;font-size:12px">Delay</span><input type="number" class="ds-delay" id="r3d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
 <div class="ds-info" id="r3i"></div>
 </div>
 <!-- Blue Alliance -->
 <div class="sec">
 <div class="sec-h blue">Blue Alliance</div>
-<div class="ds"><span class="ds-label">DS1</span><input class="ds-team" id="b1t" placeholder="Team"><select class="ds-auto" id="b1a"><option value="">—</option></select><input type="number" class="ds-delay" id="b1d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
+<div class="ds"><span class="ds-label">DS1</span><input class="ds-team" id="b1t" placeholder="Team"><select class="ds-auto" id="b1a"><option value="">—</option></select><span style="color:#6b7280;font-size:12px">Delay</span><input type="number" class="ds-delay" id="b1d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
 <div class="ds-info" id="b1i"></div>
-<div class="ds"><span class="ds-label">DS2</span><input class="ds-team" id="b2t" placeholder="Team"><select class="ds-auto" id="b2a"><option value="">—</option></select><input type="number" class="ds-delay" id="b2d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
+<div class="ds"><span class="ds-label">DS2</span><input class="ds-team" id="b2t" placeholder="Team"><select class="ds-auto" id="b2a"><option value="">—</option></select><span style="color:#6b7280;font-size:12px">Delay</span><input type="number" class="ds-delay" id="b2d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
 <div class="ds-info" id="b2i"></div>
-<div class="ds"><span class="ds-label">DS3</span><input class="ds-team" id="b3t" placeholder="Team"><select class="ds-auto" id="b3a"><option value="">—</option></select><input type="number" class="ds-delay" id="b3d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
+<div class="ds"><span class="ds-label">DS3</span><input class="ds-team" id="b3t" placeholder="Team"><select class="ds-auto" id="b3a"><option value="">—</option></select><span style="color:#6b7280;font-size:12px">Delay</span><input type="number" class="ds-delay" id="b3d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
 <div class="ds-info" id="b3i"></div>
 </div>
 <!-- Win Probability -->
@@ -152,7 +152,7 @@ canvas{display:block}
 <div class="ctrls">
 <button class="pb" id="playBtn" title="Play/Pause">&#9654;</button>
 <input type="range" class="scr" id="scrubber" min="0" max="1000" value="0">
-<div class="td" id="timeDisp">0.0s / 15.0s</div>
+<div class="td" id="timeDisp">0.00s / 20.00s</div>
 <div class="sbs">
 <button class="spb" data-speed="0.25">0.25x</button>
 <button class="spb" data-speed="0.5">0.5x</button>
@@ -217,7 +217,7 @@ const SLOTS = ['r1','r2','r3','b1','b2','b3'];
 let slotData = {}; // slot -> {teamNum, autoName, color}
 SLOTS.forEach(s => slotData[s] = {teamNum:'',autoName:'',color: s[0]==='r' ? '#dc2626' : '#2563eb'});
 
-let playing=false, animTime=0, animSpeed=1, totalTime=15, lastFrame=0;
+let playing=false, animTime=0, animSpeed=1, totalTime=20, lastFrame=0;
 let pathSamples = {};
 let drawMode=false, drawActive=false, drawStrokes=[];
 let camX=0, camY=0, camScale=1;
@@ -543,8 +543,8 @@ function updateTotalTime(){
     for(const pn of auto.paths){const k=sd.teamNum+'_'+pn;if(!pathSamples[k])pathSamples[k]=buildAnimData(pn);
       const ad=pathSamples[k];if(ad&&ad.length)t+=ad[ad.length-1].time;}
     for(const w of(auto.waits||[]))t+=w; totalTime=Math.max(totalTime,t);}
-  if(totalTime<1)totalTime=15;
-  document.getElementById('timeDisp').textContent=`0.0s / ${totalTime.toFixed(1)}s`;
+  totalTime=Math.max(totalTime,20); // 2026 auto period is 20s
+  document.getElementById('timeDisp').textContent=`0.00s / ${totalTime.toFixed(2)}s`;
 }
 
 // ============ TBA FETCH ============
@@ -649,9 +649,10 @@ function selectMatch(key,teamNum){
   const blue=(m.alliances?.blue?.team_keys||[]).map(k=>k.replace('frc',''));
   ['r1','r2','r3'].forEach((s,i)=>{document.getElementById(s+'t').value=red[i]||'';updateSlot(s);});
   ['b1','b2','b3'].forEach((s,i)=>{document.getElementById(s+'t').value=blue[i]||'';updateSlot(s);});
-  for(const s of SLOTS)lookupEpa(s);
-  // Restore saved auto selections/delays/drawings for this match
+  // Restore saved state first, THEN lookup EPAs (which won't clobber dropdowns)
   autoRestoreMatchState();
+  // EPA lookups are async - they update info text but won't rebuild dropdowns now
+  Promise.all(SLOTS.map(s=>lookupEpa(s))).then(()=>autoRestoreMatchState());
 }
 
 // ============ STATBOTICS EPA ============
@@ -849,7 +850,7 @@ function animate(ts){
   if(playing){if(lastFrame===0)lastFrame=ts;const dt=(ts-lastFrame)/1000*animSpeed;animTime+=dt;
     if(animTime>totalTime)animTime=0;lastFrame=ts;
     document.getElementById('scrubber').value=(animTime/totalTime)*1000;
-    document.getElementById('timeDisp').textContent=`${animTime.toFixed(1)}s / ${totalTime.toFixed(1)}s`;draw();}
+    document.getElementById('timeDisp').textContent=`${animTime.toFixed(2)}s / ${totalTime.toFixed(2)}s`;draw();}
   requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
@@ -857,7 +858,7 @@ requestAnimationFrame(animate);
 document.getElementById('playBtn').onclick=()=>{playing=!playing;lastFrame=0;
   document.getElementById('playBtn').innerHTML=playing?'&#9646;&#9646;':'&#9654;';};
 document.getElementById('scrubber').oninput=e=>{animTime=(e.target.value/1000)*totalTime;
-  document.getElementById('timeDisp').textContent=`${animTime.toFixed(1)}s / ${totalTime.toFixed(1)}s`;draw();};
+  document.getElementById('timeDisp').textContent=`${animTime.toFixed(2)}s / ${totalTime.toFixed(2)}s`;draw();};
 document.querySelectorAll('.spb').forEach(b=>{b.onclick=()=>{document.querySelectorAll('.spb').forEach(x=>x.classList.remove('act'));b.classList.add('act');animSpeed=parseFloat(b.dataset.speed);};});
 
 // ============ SCREENSHOT ============
