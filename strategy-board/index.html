@@ -308,9 +308,12 @@ function getRotAtPos(pd,pos){
 function drawRobotBumper(fx,fy,rotDeg,color,alpha,bot,label){
   bot=bot||DEFAULT_ROBOT;
   const[cx,cy]=fieldToCanvas(fx,fy);
-  const rad=(-rotDeg+90)*Math.PI/180;
+  // PathPlanner: 0=facing +X (right), positive=CCW. Canvas: Y is flipped.
+  // Robot front is drawn at -Y in local frame. We need -Y to point in heading direction.
+  // heading on canvas = -rotDeg (Y flip). Rotate so -Y aligns: add -90 deg.
+  const canvasRad=(-rotDeg-90)*Math.PI/180;
   const hw=bot.w/2*camScale, hl=bot.h/2*camScale, cr=Math.min(hw,hl)*0.15;
-  ctx.save(); ctx.translate(cx,cy); ctx.rotate(-rad+Math.PI/2); ctx.globalAlpha=alpha;
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(canvasRad); ctx.globalAlpha=alpha;
   // Features
   for(const f of(bot.features||[])){
     const sw=Math.max(1,f.strokeWidth*camScale); ctx.lineWidth=sw;
@@ -382,7 +385,7 @@ function draw(){
       // Rotation arrows
       for(const rt of(pd.rt||[])){
         const pt=ptAtPos(wp,rt.pos);const[rx,ry]=fieldToCanvas(pt.x,pt.y);
-        const ra=(-rt.rot+90)*Math.PI/180;const al=7*devicePixelRatio;
+        const ra=(-rt.rot)*Math.PI/180;const al=7*devicePixelRatio;
         ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(rx+Math.cos(ra)*al,ry-Math.sin(ra)*al);
         ctx.strokeStyle=color;ctx.globalAlpha=0.3;ctx.lineWidth=1.5*devicePixelRatio;ctx.stroke();ctx.globalAlpha=1;
       }
@@ -425,7 +428,8 @@ function drawAnimRobots(){
     const sd=slotData[slot];if(!sd.teamNum||!sd.autoName)continue;
     const team=teams[sd.teamNum];if(!team)continue;
     const auto=team.autos[sd.autoName];if(!auto)continue;
-    let elapsed=0;
+    // ShootPreloads wrapper adds ~2.5s delay before path starts
+    let elapsed=getWrapperDelay(auto);
     for(const pName of auto.paths){
       const key=sd.teamNum+'_'+pName;
       if(!pathSamples[key])pathSamples[key]=buildAnimData(pName,sd.teamNum);
@@ -493,11 +497,19 @@ function updateLegend(){
   for(const s of SLOTS){const sd=slotData[s];if(!sd.teamNum||!sd.autoName)continue;
     leg.innerHTML+=`<div class="li"><div class="ld" style="background:${sd.color}"></div>${sd.teamNum}: ${sd.autoName}</div>`;}
 }
+// Wrapper delay: ShootPreloads folders add ~2.5s for initial smart launch before path
+function getWrapperDelay(auto){
+  const f=auto.folder||'';
+  if(f.startsWith('CompShootPreloads')||f==='AllianceZone')return 2.5;
+  return 0;
+}
+
 function updateTotalTime(){
   totalTime=0;
   for(const s of SLOTS){const sd=slotData[s];if(!sd.teamNum||!sd.autoName)continue;
     const team=teams[sd.teamNum];if(!team)continue;const auto=team.autos[sd.autoName];if(!auto)continue;
-    let t=0;for(const pn of auto.paths){const k=sd.teamNum+'_'+pn;if(!pathSamples[k])pathSamples[k]=buildAnimData(pn);
+    let t=getWrapperDelay(auto);
+    for(const pn of auto.paths){const k=sd.teamNum+'_'+pn;if(!pathSamples[k])pathSamples[k]=buildAnimData(pn);
       const ad=pathSamples[k];if(ad&&ad.length)t+=ad[ad.length-1].time;}
     for(const w of(auto.waits||[]))t+=w; totalTime=Math.max(totalTime,t);}
   if(totalTime<1)totalTime=15;
