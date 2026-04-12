@@ -434,34 +434,36 @@ function drawAnimRobots(){
     const sd=slotData[slot];if(!sd.teamNum||!sd.autoName)continue;
     const team=teams[sd.teamNum];if(!team)continue;
     const auto=team.autos[sd.autoName];if(!auto)continue;
-    // ShootPreloads wrapper adds ~2.5s delay before path starts
     let elapsed=getSlotDelay(slot);
-    let lastPos=null; // track last known position to persist robot on field
-    for(const pName of auto.paths){
+    let lastPos=null;
+    const pathList=auto.paths, waitList=auto.waits||[];
+    for(let pi=0;pi<pathList.length;pi++){
+      const pName=pathList[pi];
       const key=sd.teamNum+'_'+pName;
       if(!pathSamples[key])pathSamples[key]=buildAnimData(pName,sd.teamNum);
       const ad=pathSamples[key];if(!ad||!ad.length)continue;
       const dur=ad[ad.length-1].time,lt=animTime-elapsed;
+      const pd=team.paths[pName];
+      const isRed=slot[0]==='r';
       if(lt>=0&&lt<=dur){
-        const pd=team.paths[pName];const p=posAtTime(ad,lt);
-        const isRed=slot[0]==='r';
+        const p=posAtTime(ad,lt);
         let rot=pd?getRotAtPos(pd,p.pos):0;
         let rx=p.x,ry=p.y;
         if(isRed){const fp=flipPt(p.x,p.y);rx=fp.x;ry=fp.y;rot=flipRot(rot);}
         robots.push({x:rx,y:ry,rot,color:sd.color,teamNum:sd.teamNum,bot:team.settings,pd,pos:p.pos,isRed});
-        lastPos=null; // actively animating, don't need lastPos
+        lastPos=null;
       } else if(lt>dur){
-        // Path finished - remember final position
-        const pd=team.paths[pName];const p=posAtTime(ad,dur);
-        const isRed=slot[0]==='r';
-        let rot=pd?getRotAtPos(pd,p.pos):0;
+        // Path finished - use goalEndState rotation
+        const p=posAtTime(ad,dur);
+        let rot=pd&&pd.end?pd.end.r:(pd?getRotAtPos(pd,p.pos):0);
         let rx=p.x,ry=p.y;
         if(isRed){const fp=flipPt(p.x,p.y);rx=fp.x;ry=fp.y;rot=flipRot(rot);}
         lastPos={x:rx,y:ry,rot,color:sd.color,teamNum:sd.teamNum,bot:team.settings,isRed};
       }
       elapsed+=dur;
+      // Add wait time between paths (from auto command tree)
+      if(pi<waitList.length)elapsed+=waitList[pi];
     }
-    // If all paths finished, show robot at final position
     if(lastPos&&animTime>0)robots.push(lastPos);
   }
   // Draw robots
