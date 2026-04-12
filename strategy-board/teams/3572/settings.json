@@ -1,0 +1,46 @@
+{
+  "robotWidth": 0.978,
+  "robotLength": 0.787,
+  "holonomicMode": true,
+  "pathFolders": [
+    "TrenchRightPaths",
+    "TrenchLeftPaths",
+    "RetiredPaths",
+    "AllianceZonePaths"
+  ],
+  "autoFolders": [
+    "TrenchRight",
+    "TrenchLeft",
+    "Retired",
+    "AllianceZone"
+  ],
+  "defaultMaxVel": 2.5,
+  "defaultMaxAccel": 2.5,
+  "defaultMaxAngVel": 540.0,
+  "defaultMaxAngAccel": 720.0,
+  "defaultNominalVoltage": 12.0,
+  "robotMass": 60.3278,
+  "robotMOI": 6.883,
+  "robotTrackwidth": 0.654,
+  "driveWheelRadius": 0.05037,
+  "driveGearing": 6.746,
+  "maxDriveSpeed": 4.216,
+  "driveMotorType": "NEO",
+  "driveCurrentLimit": 45.0,
+  "wheelCOF": 1.2,
+  "flModuleX": 0.232,
+  "flModuleY": 0.327,
+  "frModuleX": 0.232,
+  "frModuleY": -0.327,
+  "blModuleX": -0.232,
+  "blModuleY": 0.327,
+  "brModuleX": -0.232,
+  "brModuleY": -0.327,
+  "bumperOffsetX": 0.0,
+  "bumperOffsetY": 0.0,
+  "robotFeatures": [
+    "{\"name\":\"Turret\",\"type\":\"circle\",\"data\":{\"center\":{\"x\":-0.083,\"y\":0.18415},\"radius\":0.075,\"strokeWidth\":0.01,\"filled\":false}}",
+    "{\"name\":\"Intake\",\"type\":\"rounded_rect\",\"data\":{\"center\":{\"x\":0.451,\"y\":0.0},\"size\":{\"width\":0.7874,\"length\":0.305},\"borderRadius\":0.015,\"strokeWidth\":0.02,\"filled\":false}}",
+    "{\"name\":\"Climber\",\"type\":\"rounded_rect\",\"data\":{\"center\":{\"x\":-0.35,\"y\":-0.048},\"size\":{\"width\":0.05,\"length\":0.05},\"borderRadius\":0.0,\"strokeWidth\":0.02,\"filled\":false}}"
+  ]
+}
