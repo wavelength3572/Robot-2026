@@ -315,9 +315,8 @@ function drawRobotBumper(fx,fy,rotDeg,color,alpha,bot,label){
   // Rotate so local -Y (front of robot) points in heading direction on canvas
   // Canvas: +X=right, +Y=down. Heading: 0=right, 90=up (canvas -Y)
   const canvasRad=(90-rotDeg)*Math.PI/180;
-  // PathPlanner swaps w/h when drawing: robotWidth is front-to-back, robotLength is left-to-right
-  // In our local frame: X = left-right = robotLength(h), Y = front-back = robotWidth(w)
-  const hw=bot.h/2*camScale, hl=bot.w/2*camScale, cr=Math.min(hw,hl)*0.15;
+  // hw = left-right half (robotWidth), hl = front-back half (robotLength)
+  const hw=bot.w/2*camScale, hl=bot.h/2*camScale, cr=Math.min(hw,hl)*0.15;
   ctx.save(); ctx.translate(cx,cy); ctx.rotate(canvasRad); ctx.globalAlpha=alpha;
   // Features
   for(const f of(bot.features||[])){
