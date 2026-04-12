@@ -79,6 +79,8 @@ public class Climber extends SubsystemBase {
   private static final LoggedTunableNumber climbTimeoutSec =
       new LoggedTunableNumber(
           "Climber/climbTimeoutSec", Constants.getRobotConfig().getClimberClimbTimeoutSec());
+  private static final LoggedTunableNumber climbArbFFVolts =
+      new LoggedTunableNumber("Climber/climbArbFFVolts", 0.0);
 
   private boolean lastClimbSucceeded = false;
 
@@ -205,6 +207,9 @@ public class Climber extends SubsystemBase {
           io.stop();
           state = ClimberState.CLIMBED;
           lastClimbSucceeded = true;
+        } else {
+          // Re-send setpoint with arbFF each cycle so the extra voltage stays applied
+          io.setPosition(targetPositionRotations, climbArbFFVolts.get());
         }
         break;
 
@@ -224,6 +229,8 @@ public class Climber extends SubsystemBase {
 
     Logger.recordOutput("Climber/State", state.name());
     Logger.recordOutput("Climber/TargetPosition", targetPositionRotations);
+    Logger.recordOutput(
+        "Climber/ActiveArbFFVolts", state == ClimberState.CLIMBING ? climbArbFFVolts.get() : 0.0);
     Logger.recordOutput("Climber/LastClimbSucceeded", lastClimbSucceeded);
     Logger.recordOutput("Climber/PitchDeg", pitchSupplier.getAsDouble());
     Logger.recordOutput("Climber/RollDeg", rollSupplier.getAsDouble());
@@ -274,14 +281,24 @@ public class Climber extends SubsystemBase {
     }
   }
 
-  /** Climb action. From EXTENDED, retracts to climb position. No-op otherwise. */
+  /** Climb action. From EXTENDED, retracts to climb position with extra pull-down voltage. */
   public void climb() {
     lastClimbSucceeded = false;
     if (state == ClimberState.EXTENDED) {
       targetPositionRotations = climbPosition.get();
-      io.setPosition(targetPositionRotations);
+      io.setPosition(targetPositionRotations, climbArbFFVolts.get());
       state = ClimberState.CLIMBING;
     }
+  }
+
+  /** Run the motor at raw voltage (for pit mode). Bypasses state machine. */
+  public void setVoltage(double volts) {
+    io.setVoltage(volts);
+  }
+
+  /** Enable or disable soft limits (disable for pit recovery). */
+  public void setSoftLimitsEnabled(boolean enabled) {
+    io.setSoftLimitsEnabled(enabled);
   }
 
   // ===== State queries =====
@@ -291,6 +308,13 @@ public class Climber extends SubsystemBase {
     io.zeroEncoder();
     state = ClimberState.STOWED;
     targetPositionRotations = 0.0;
+  }
+
+  /** Set encoder to extended position. Use in pit if code deployed while climber was extended. */
+  public void setEncoderAtExtended() {
+    io.setEncoderPosition(extendPosition.get());
+    state = ClimberState.EXTENDED;
+    targetPositionRotations = extendPosition.get();
   }
 
   /** Force the climber back to stowed state (e.g. at auto init). */

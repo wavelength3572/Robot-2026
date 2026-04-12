@@ -3,6 +3,7 @@ package frc.robot.subsystems.climber;
 import static frc.robot.util.SparkUtil.*;
 
 import com.revrobotics.RelativeEncoder;
+import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.FeedbackSensor;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkClosedLoopController;
@@ -72,6 +73,31 @@ public class ClimberIOSpark implements ClimberIO {
   }
 
   @Override
+  public void setPosition(double motorRotations, double arbFFVolts) {
+    controller.setSetpoint(
+        motorRotations,
+        ControlType.kPosition,
+        ClosedLoopSlot.kSlot0,
+        arbFFVolts,
+        SparkClosedLoopController.ArbFFUnits.kVoltage);
+  }
+
+  @Override
+  public void setVoltage(double volts) {
+    motor.setVoltage(volts);
+  }
+
+  @Override
+  public void setSoftLimitsEnabled(boolean enabled) {
+    var config = new SparkMaxConfig();
+    config.softLimit.forwardSoftLimitEnabled(enabled).reverseSoftLimitEnabled(enabled);
+    motor.configure(
+        config,
+        com.revrobotics.ResetMode.kNoResetSafeParameters,
+        com.revrobotics.PersistMode.kNoPersistParameters);
+  }
+
+  @Override
   public void stop() {
     motor.setVoltage(0.0);
   }
@@ -89,5 +115,10 @@ public class ClimberIOSpark implements ClimberIO {
   @Override
   public void zeroEncoder() {
     tryUntilOk(motor, 5, () -> encoder.setPosition(0.0));
+  }
+
+  @Override
+  public void setEncoderPosition(double rotations) {
+    tryUntilOk(motor, 5, () -> encoder.setPosition(rotations));
   }
 }

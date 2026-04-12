@@ -150,6 +150,44 @@ public class ButtonsAndDashboardBindings {
           "Sim/ClimberStow", Commands.runOnce(climber::stow).withName("Climber Stow"));
       SmartDashboard.putData(
           "Sim/ClimberClimb", Commands.runOnce(climber::climb).withName("Climber Climb"));
+
+      // Pit mode: raw voltage buttons to manually retract/extend climber, then zero encoder
+      var pitRetractVolts = new LoggedTunableNumber("Pit/Climber/RetractVolts", -1.0);
+      var pitExtendVolts = new LoggedTunableNumber("Pit/Climber/ExtendVolts", 1.0);
+      SmartDashboard.putData(
+          "Pit/Climber/RawVoltageRetract",
+          Commands.startEnd(
+                  () -> {
+                    climber.setSoftLimitsEnabled(false);
+                    climber.setVoltage(pitRetractVolts.get());
+                  },
+                  () -> {
+                    climber.setVoltage(0.0);
+                    climber.setSoftLimitsEnabled(true);
+                  })
+              .withName("Pit Raw Voltage Retract"));
+      SmartDashboard.putData(
+          "Pit/Climber/RawVoltageExtend",
+          Commands.startEnd(
+                  () -> {
+                    climber.setSoftLimitsEnabled(false);
+                    climber.setVoltage(pitExtendVolts.get());
+                  },
+                  () -> {
+                    climber.setVoltage(0.0);
+                    climber.setSoftLimitsEnabled(true);
+                  })
+              .withName("Pit Raw Voltage Extend"));
+      SmartDashboard.putData(
+          "Pit/Climber/ZeroEncoder",
+          Commands.runOnce(climber::zeroEncoder)
+              .ignoringDisable(true)
+              .withName("Pit Climber Zero"));
+      SmartDashboard.putData(
+          "Pit/Climber/SetEncoderAtExtended",
+          Commands.runOnce(climber::setEncoderAtExtended)
+              .ignoringDisable(true)
+              .withName("Pit Set Encoder At Extended"));
     }
 
     // Launcher RPM trim buttons (mirrors button box axis knob positions)
@@ -656,22 +694,16 @@ public class ButtonsAndDashboardBindings {
               .withName("Toggle AutoUnclog"));
     }
 
-    // Turret aim trim — nudge aim CCW/CW by 0.5 deg per press, max +/- 3 deg
-    oi.getButtonBox1Button7()
-        .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimLeft()).ignoringDisable(true));
-    oi.getButtonBox1Button10()
-        .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimRight()).ignoringDisable(true));
-
     // Climber controls — no subsystem requirement to avoid canceling driver auto-align
-    // B9 tap: extend (from STOWED or CLIMBED, no-op if already extended)
-    // B9 hold 2s: stow (from EXTENDED only, deliberate action)
-    // B2-1: climb (from EXTENDED only)
+    // B7: extend (from STOWED or CLIMBED, no-op if already extended)
+    // B7 hold 2s: stow (from EXTENDED only, deliberate action)
+    // B10: climb (from EXTENDED only)
     if (climber != null) {
-      oi.getButtonBox1Button9().onTrue(Commands.runOnce(climber::extend));
-      oi.getButtonBox1Button9()
+      oi.getButtonBox1Button7().onTrue(Commands.runOnce(climber::extend));
+      oi.getButtonBox1Button7()
           .debounce(Constants.getRobotConfig().getClimberStowHoldTimeSec())
           .onTrue(Commands.runOnce(climber::stow));
-      oi.getButtonBox2Button1().onTrue(Commands.runOnce(climber::climb));
+      oi.getButtonBox1Button10().onTrue(Commands.runOnce(climber::climb));
     }
   }
 }

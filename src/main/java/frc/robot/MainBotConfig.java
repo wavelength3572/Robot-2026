@@ -214,12 +214,12 @@ public class MainBotConfig implements RobotConfig {
   private static final int climberMotorCanId = 30;
   private static final double climberGearRatio = 25.0; // NEO 25:1
   private static final double climberDrumDiameterInches = 0.75;
-  private static final double climberExtendPosition = 77.0; // Motor rotations to extend (arm up)
+  private static final double climberExtendPosition = 80.0; // Motor rotations to extend (arm up)
   private static final double climberClimbPosition =
-      35.0; // Motor rotations when climbed (off ground)
-  private static final double climberKp = 0.1;
+      25.0; // Motor rotations when climbed (off ground)
+  private static final double climberKp = 0.5;
   private static final int climberCurrentLimit = 40;
-  private static final double climberPositionTolerance = 2.0; // Motor rotations
+  private static final double climberPositionTolerance = 0.5; // Motor rotations
   private static final double climberExtendTimeoutSec = 5.0;
   private static final double climberClimbTimeoutSec = 5.0;
   private static final double climberStowHoldTimeSec = 2.0; // Hold B9 this long to stow
