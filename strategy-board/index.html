@@ -242,7 +242,8 @@ function fieldToCanvas(fx,fy){
 }
 // Flip a blue-origin point to red-origin (mirror across field center)
 function flipPt(x,y){return{x:FIELD_W-x,y:FIELD_H-y};}
-function flipRot(deg){let r=180-deg;while(r>180)r-=360;while(r<-180)r+=360;return r;}
+// kRotational flip: rotation - 180 (NOT 180 - rotation)
+function flipRot(deg){let r=deg-180;while(r>180)r-=360;while(r<-180)r+=360;return r;}
 function flipWaypoints(wp){return wp.map(w=>{
   const f={x:FIELD_W-w.x,y:FIELD_H-w.y};
   if(w.nc)f.nc={x:FIELD_W-w.nc.x,y:FIELD_H-w.nc.y};
