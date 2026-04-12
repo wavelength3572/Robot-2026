@@ -150,6 +150,7 @@ canvas{display:block}
 </div>
 </div>
 <div class="ctrls">
+<button class="pb" id="restartBtn" title="Restart" style="font-size:12px">&#9724;</button>
 <button class="pb" id="playBtn" title="Play/Pause">&#9654;</button>
 <input type="range" class="scr" id="scrubber" min="0" max="1000" value="0">
 <div class="td" id="timeDisp">0.00s / 20.00s</div>
@@ -474,17 +475,23 @@ function drawAnimRobots(){
 // ============ STATION SLOT WIRING ============
 function updateSlot(slot){
   const teamEl=document.getElementById(slot+'t'), autoEl=document.getElementById(slot+'a'), infoEl=document.getElementById(slot+'i');
-  const num=teamEl.value.trim(); slotData[slot].teamNum=num; slotData[slot].autoName='';
+  const num=teamEl.value.trim(); slotData[slot].teamNum=num;
+  // Remember current selection before rebuilding dropdown
+  const prevAuto=autoEl.value||slotData[slot].autoName||'';
   // Populate auto dropdown
   autoEl.innerHTML='<option value="">—</option>';
   if(num&&teams[num]){
     const autos=Object.keys(teams[num].autos).sort();
     for(const a of autos){autoEl.innerHTML+=`<option value="${a}">${a}</option>`;}
+    // Restore previous selection if it still exists in the new list
+    if(prevAuto&&autos.includes(prevAuto)){autoEl.value=prevAuto;slotData[slot].autoName=prevAuto;}
+    else{slotData[slot].autoName='';}
     const t=teams[num];
     infoEl.textContent=t.name+(t.epa?` | EPA: ${t.epa}`:'')+(t.autoEpa!=null?` | Auto: ${t.autoEpa.toFixed(1)}`:'')+(t.record?` | ${t.record}`:'');
   }else if(num){
+    slotData[slot].autoName='';
     infoEl.textContent='Team not loaded';
-  }else{infoEl.textContent='';}
+  }else{slotData[slot].autoName='';infoEl.textContent='';}
   updateLegend();draw();
 }
 function onAutoSelect(slot){
@@ -855,6 +862,9 @@ function animate(ts){
 }
 requestAnimationFrame(animate);
 
+document.getElementById('restartBtn').onclick=()=>{animTime=0;lastFrame=0;
+  document.getElementById('scrubber').value=0;
+  document.getElementById('timeDisp').textContent=`0.00s / ${totalTime.toFixed(2)}s`;draw();};
 document.getElementById('playBtn').onclick=()=>{playing=!playing;lastFrame=0;
   document.getElementById('playBtn').innerHTML=playing?'&#9646;&#9646;':'&#9654;';};
 document.getElementById('scrubber').oninput=e=>{animTime=(e.target.value/1000)*totalTime;
