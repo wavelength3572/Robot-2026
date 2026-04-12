@@ -490,13 +490,42 @@ function updateSlot(slot){
 function onAutoSelect(slot){
   slotData[slot].autoName=document.getElementById(slot+'a').value;
   pathSamples={};updateTotalTime();updateLegend();draw();
+  autoSaveMatchState();
 }
 // Wire all slots
 SLOTS.forEach(s=>{
-  document.getElementById(s+'t').onchange=()=>{updateSlot(s);lookupEpa(s);};
+  document.getElementById(s+'t').onchange=()=>{updateSlot(s);lookupEpa(s);autoSaveMatchState();};
   document.getElementById(s+'a').onchange=()=>onAutoSelect(s);
-  document.getElementById(s+'d').onchange=()=>{updateTotalTime();draw();};
+  document.getElementById(s+'d').onchange=()=>{updateTotalTime();draw();autoSaveMatchState();};
 });
+
+// ============ AUTO-SAVE/RESTORE PER MATCH ============
+function getMatchStateKey(){return selectedMatchKey?'bb_match_'+selectedMatchKey:'bb_match_last';}
+
+function autoSaveMatchState(){
+  const state={};
+  SLOTS.forEach(s=>{state[s]={auto:document.getElementById(s+'a').value,delay:parseFloat(document.getElementById(s+'d').value)||0};});
+  state.strokes=drawStrokes;
+  try{localStorage.setItem(getMatchStateKey(),JSON.stringify(state));}catch(e){}
+  // Also save which match is selected
+  try{localStorage.setItem('bb_selectedMatch',selectedMatchKey);localStorage.setItem('bb_currentEvent',currentEvent);}catch(e){}
+}
+
+function autoRestoreMatchState(){
+  try{
+    const saved=localStorage.getItem(getMatchStateKey());
+    if(!saved)return;
+    const state=JSON.parse(saved);
+    SLOTS.forEach(s=>{
+      if(state[s]){
+        if(state[s].auto){document.getElementById(s+'a').value=state[s].auto;onAutoSelect(s);}
+        if(state[s].delay!=null)document.getElementById(s+'d').value=state[s].delay;
+      }
+    });
+    if(state.strokes)drawStrokes=state.strokes;
+    pathSamples={};updateTotalTime();updateLegend();draw();
+  }catch(e){}
+}
 
 function updateLegend(){
   const leg=document.getElementById('legend');leg.innerHTML='';
@@ -608,16 +637,21 @@ function renderMatchList(teamNum){
 }
 
 function selectMatch(key,teamNum){
+  // Save current match state before switching
+  autoSaveMatchState();
   selectedMatchKey=key;
   const m=allMatches.find(x=>x.key===key);
   if(!m)return;
   // Highlight selected
   document.querySelectorAll('.ml-item').forEach(el=>el.classList.toggle('sel',el.dataset.key===key));
+  // Fill teams from TBA
   const red=(m.alliances?.red?.team_keys||[]).map(k=>k.replace('frc',''));
   const blue=(m.alliances?.blue?.team_keys||[]).map(k=>k.replace('frc',''));
   ['r1','r2','r3'].forEach((s,i)=>{document.getElementById(s+'t').value=red[i]||'';updateSlot(s);});
   ['b1','b2','b3'].forEach((s,i)=>{document.getElementById(s+'t').value=blue[i]||'';updateSlot(s);});
   for(const s of SLOTS)lookupEpa(s);
+  // Restore saved auto selections/delays/drawings for this match
+  autoRestoreMatchState();
 }
 
 // ============ STATBOTICS EPA ============
@@ -788,7 +822,7 @@ canvas.addEventListener('mousemove',e=>{if(!drawActive)return;
   const[fx,fy]=canvasToField(e.offsetX*devicePixelRatio,e.offsetY*devicePixelRatio);
   const last=drawPts[drawPts.length-1];if(Math.hypot(fx-last.x,fy-last.y)>0.05){drawPts.push({x:fx,y:fy});draw();}});
 canvas.addEventListener('mouseup',()=>{if(!drawActive)return;drawActive=false;
-  if(drawPts.length>2)drawStrokes.push({pts:[...drawPts],color:'#f59e0b'});drawPts=[];draw();});
+  if(drawPts.length>2){drawStrokes.push({pts:[...drawPts],color:'#f59e0b'});autoSaveMatchState();}drawPts=[];draw();});
 
 document.getElementById('clrBtn').onclick=()=>{
   drawStrokes=[];SLOTS.forEach(s=>{slotData[s].autoName='';document.getElementById(s+'a').value='';});
@@ -894,12 +928,20 @@ canvas.addEventListener('touchmove',e=>{
 },{passive:false});
 canvas.addEventListener('touchend',e=>{
   if(!drawActive)return;e.preventDefault();drawActive=false;
-  if(drawPts.length>2)drawStrokes.push({pts:[...drawPts],color:'#f59e0b'});drawPts=[];draw();
+  if(drawPts.length>2){drawStrokes.push({pts:[...drawPts],color:'#f59e0b'});autoSaveMatchState();}drawPts=[];draw();
 },{passive:false});
 
 // ============ INIT ============
 updateRoster();
 resize();
+// Restore last session state
+try{
+  const lastMatch=localStorage.getItem('bb_selectedMatch');
+  const lastEvent=localStorage.getItem('bb_currentEvent');
+  if(lastEvent)currentEvent=lastEvent;
+  if(lastMatch)selectedMatchKey=lastMatch;
+  autoRestoreMatchState();
+}catch(e){}
 </script>
 </body>
 </html>
