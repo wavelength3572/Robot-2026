@@ -150,7 +150,7 @@ canvas{display:block}
 </div>
 </div>
 <div class="ctrls">
-<button class="pb" id="restartBtn" title="Restart" style="font-size:12px">&#9724;</button>
+<button class="pb" id="restartBtn" title="Restart" style="font-size:12px">&#8634;</button>
 <button class="pb" id="playBtn" title="Play/Pause">&#9654;</button>
 <input type="range" class="scr" id="scrubber" min="0" max="1000" value="0">
 <div class="td" id="timeDisp">0.00s / 20.00s</div>
@@ -436,6 +436,7 @@ function drawAnimRobots(){
     const auto=team.autos[sd.autoName];if(!auto)continue;
     // ShootPreloads wrapper adds ~2.5s delay before path starts
     let elapsed=getSlotDelay(slot);
+    let lastPos=null; // track last known position to persist robot on field
     for(const pName of auto.paths){
       const key=sd.teamNum+'_'+pName;
       if(!pathSamples[key])pathSamples[key]=buildAnimData(pName,sd.teamNum);
@@ -448,9 +449,20 @@ function drawAnimRobots(){
         let rx=p.x,ry=p.y;
         if(isRed){const fp=flipPt(p.x,p.y);rx=fp.x;ry=fp.y;rot=flipRot(rot);}
         robots.push({x:rx,y:ry,rot,color:sd.color,teamNum:sd.teamNum,bot:team.settings,pd,pos:p.pos,isRed});
+        lastPos=null; // actively animating, don't need lastPos
+      } else if(lt>dur){
+        // Path finished - remember final position
+        const pd=team.paths[pName];const p=posAtTime(ad,dur);
+        const isRed=slot[0]==='r';
+        let rot=pd?getRotAtPos(pd,p.pos):0;
+        let rx=p.x,ry=p.y;
+        if(isRed){const fp=flipPt(p.x,p.y);rx=fp.x;ry=fp.y;rot=flipRot(rot);}
+        lastPos={x:rx,y:ry,rot,color:sd.color,teamNum:sd.teamNum,bot:team.settings,isRed};
       }
       elapsed+=dur;
     }
+    // If all paths finished, show robot at final position
+    if(lastPos&&animTime>0)robots.push(lastPos);
   }
   // Draw robots
   for(const r of robots){
@@ -668,7 +680,7 @@ async function lookupEpa(slot){
   try{
     const r=await fetch(`https://api.statbotics.io/v3/team/${num}`);if(!r.ok)return;
     const d=await r.json();
-    if(!teams[num])teams[num]={name:d.name||'',settings:DEFAULT_ROBOT,autos:{},paths:{},epa:null,record:'',autoEpa:null};
+    if(!teams[num]){teams[num]={name:d.name||'',settings:DEFAULT_ROBOT,autos:{},paths:{},epa:null,record:'',autoEpa:null};addDefaultsToTeam(teams[num]);}
     teams[num].name=d.name||teams[num].name; teams[num].epa=d.norm_epa?.current||0;
     teams[num].record=`${d.wins||0}-${d.losses||0}`;
     // Try event-specific stats for auto EPA breakdown
@@ -761,7 +773,7 @@ function handleFolderFiles(fileList){
 }
 
 async function importFilesForTeam(teamNum,files){
-  if(!teams[teamNum])teams[teamNum]={name:'',settings:{...DEFAULT_ROBOT},autos:{},paths:{},epa:null,record:''};
+  if(!teams[teamNum]){teams[teamNum]={name:'',settings:{...DEFAULT_ROBOT},autos:{},paths:{},epa:null,record:''};addDefaultsToTeam(teams[teamNum]);}
   const t=teams[teamNum];
   for(const f of files){
     try{
@@ -941,6 +953,37 @@ canvas.addEventListener('touchend',e=>{
   if(!drawActive)return;e.preventDefault();drawActive=false;
   if(drawPts.length>2){drawStrokes.push({pts:[...drawPts],color:'#f59e0b'});autoSaveMatchState();}drawPts=[];draw();
 },{passive:false});
+
+// ============ DEFAULT STARTING POSITIONS ============
+// Preset "autos" that just place the robot at common starting spots
+// These are available for any team that doesn't have PathPlanner files
+const DEFAULT_STARTS = {
+  'Start: Left Trench':    {folder:'Presets', paths:['_start_lt'],  cmds:[], waits:[]},
+  'Start: Right Trench':   {folder:'Presets', paths:['_start_rt'],  cmds:[], waits:[]},
+  'Start: Left Bump':      {folder:'Presets', paths:['_start_lb'],  cmds:[], waits:[]},
+  'Start: Right Bump':     {folder:'Presets', paths:['_start_rb'],  cmds:[], waits:[]},
+  'Start: Alliance Zone':  {folder:'Presets', paths:['_start_az'],  cmds:[], waits:[]},
+};
+// Minimal path data - just a start point so the robot appears on field
+const DEFAULT_PATHS = {
+  '_start_lt': {w:[{x:4.5,y:7.66},{x:4.5,y:7.56}], mv:0.5, ma:1, em:[], cz:[], ptz:[], rt:[], start:{v:0,r:-90}, end:{v:0,r:-90}},
+  '_start_rt': {w:[{x:4.5,y:0.39},{x:4.5,y:0.49}], mv:0.5, ma:1, em:[], cz:[], ptz:[], rt:[], start:{v:0,r:90},  end:{v:0,r:90}},
+  '_start_lb': {w:[{x:3.5,y:7.20},{x:3.5,y:7.10}], mv:0.5, ma:1, em:[], cz:[], ptz:[], rt:[], start:{v:0,r:90},  end:{v:0,r:90}},
+  '_start_rb': {w:[{x:3.5,y:0.87},{x:3.5,y:0.97}], mv:0.5, ma:1, em:[], cz:[], ptz:[], rt:[], start:{v:0,r:-90}, end:{v:0,r:-90}},
+  '_start_az': {w:[{x:3.6,y:6.29},{x:3.5,y:6.29}], mv:0.5, ma:1, em:[], cz:[], ptz:[], rt:[], start:{v:0,r:180}, end:{v:0,r:180}},
+};
+
+// Inject defaults into every team (including ones loaded later)
+function addDefaultsToTeam(team){
+  for(const[name,auto] of Object.entries(DEFAULT_STARTS)){
+    if(!team.autos[name])team.autos[name]=auto;
+  }
+  for(const[name,path] of Object.entries(DEFAULT_PATHS)){
+    if(!team.paths[name])team.paths[name]=path;
+  }
+}
+// Add to existing teams
+for(const t of Object.values(teams))addDefaultsToTeam(t);
 
 // ============ INIT ============
 updateRoster();
