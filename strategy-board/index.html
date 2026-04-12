@@ -75,6 +75,9 @@ canvas{display:block}
 <h1>Bread Board<span class="tag">Let's get on the same wavelength!</span></h1>
 <div class="hdr-r">
 <label class="btn">Import Team Folder<input type="file" id="fileIn" multiple webkitdirectory style="display:none"><input type="file" id="fileInFlat" multiple accept=".auto,.path,.json" style="display:none"></label>
+<button class="btn" id="screenshotBtn">Screenshot</button>
+<button class="btn" id="saveBtn">Save</button>
+<label class="btn">Load<input type="file" id="loadIn" accept=".json" style="display:none"></label>
 <button class="btn btn-draw" id="drawBtn">Draw</button>
 <button class="btn btn-r" id="clrBtn">Clear</button>
 </div>
@@ -445,7 +448,7 @@ function updateSlot(slot){
     const autos=Object.keys(teams[num].autos).sort();
     for(const a of autos){autoEl.innerHTML+=`<option value="${a}">${a}</option>`;}
     const t=teams[num];
-    infoEl.textContent=t.name+(t.epa?` | EPA: ${t.epa}`:'')+(t.record?` | ${t.record}`:'');
+    infoEl.textContent=t.name+(t.epa?` | EPA: ${t.epa}`:'')+(t.autoEpa!=null?` | Auto: ${t.autoEpa.toFixed(1)}`:'')+(t.record?` | ${t.record}`:'');
   }else if(num){
     infoEl.textContent='Team not loaded';
   }else{infoEl.textContent='';}
@@ -542,9 +545,21 @@ async function lookupEpa(slot){
   try{
     const r=await fetch(`https://api.statbotics.io/v3/team/${num}`);if(!r.ok)return;
     const d=await r.json();
-    if(!teams[num])teams[num]={name:d.name||'',settings:DEFAULT_ROBOT,autos:{},paths:{},epa:null,record:''};
+    if(!teams[num])teams[num]={name:d.name||'',settings:DEFAULT_ROBOT,autos:{},paths:{},epa:null,record:'',autoEpa:null};
     teams[num].name=d.name||teams[num].name; teams[num].epa=d.norm_epa?.current||0;
     teams[num].record=`${d.wins||0}-${d.losses||0}`;
+    // Try event-specific stats for auto EPA breakdown
+    const ev=document.getElementById('eventKey').value.trim();
+    if(ev){
+      try{
+        const r2=await fetch(`https://api.statbotics.io/v3/team_event/${num}/${ev}`);
+        if(r2.ok){
+          const d2=await r2.json();
+          teams[num].autoEpa=d2.epa?.auto_points||d2.epa?.breakdown?.auto_points||null;
+          if(d2.record)teams[num].record=`${d2.record.wins||0}-${d2.record.losses||0}-${d2.record.ties||0}`;
+        }
+      }catch(e2){}
+    }
     updateSlot(slot);updateRoster();computeWinProb();
   }catch(e){}
 }
@@ -729,6 +744,76 @@ document.getElementById('playBtn').onclick=()=>{playing=!playing;lastFrame=0;
 document.getElementById('scrubber').oninput=e=>{animTime=(e.target.value/1000)*totalTime;
   document.getElementById('timeDisp').textContent=`${animTime.toFixed(1)}s / ${totalTime.toFixed(1)}s`;draw();};
 document.querySelectorAll('.spb').forEach(b=>{b.onclick=()=>{document.querySelectorAll('.spb').forEach(x=>x.classList.remove('act'));b.classList.add('act');animSpeed=parseFloat(b.dataset.speed);};});
+
+// ============ SCREENSHOT ============
+document.getElementById('screenshotBtn').onclick=()=>{
+  draw(); // ensure canvas is current
+  const link=document.createElement('a');
+  const ev=document.getElementById('eventKey').value.trim();
+  const mk=document.getElementById('matchPicker').value;
+  const name=mk?`breadboard-${mk}.png`:(ev?`breadboard-${ev}.png`:'breadboard.png');
+  link.download=name;link.href=canvas.toDataURL('image/png');link.click();
+};
+
+// ============ SAVE/LOAD CONFIG ============
+document.getElementById('saveBtn').onclick=()=>{
+  const config={
+    event:document.getElementById('eventKey').value,
+    matchKey:document.getElementById('matchPicker').value,
+    slots:{},
+    strokes:drawStrokes
+  };
+  SLOTS.forEach(s=>{config.slots[s]={team:slotData[s].teamNum,auto:slotData[s].autoName};});
+  const blob=new Blob([JSON.stringify(config,null,2)],{type:'application/json'});
+  const link=document.createElement('a');
+  const ev=config.event||'match';
+  link.download=`breadboard-${ev}-config.json`;link.href=URL.createObjectURL(blob);link.click();
+  URL.revokeObjectURL(link.href);
+};
+document.querySelector('#loadIn').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const config=JSON.parse(await f.text());
+    if(config.event)document.getElementById('eventKey').value=config.event;
+    if(config.strokes)drawStrokes=config.strokes;
+    if(config.slots){
+      SLOTS.forEach(s=>{
+        if(config.slots[s]){
+          document.getElementById(s+'t').value=config.slots[s].team||'';
+          updateSlot(s);
+          if(config.slots[s].auto){
+            document.getElementById(s+'a').value=config.slots[s].auto;
+            onAutoSelect(s);
+          }
+        }
+      });
+    }
+    pathSamples={};updateTotalTime();updateLegend();draw();
+  }catch(err){alert('Failed to load config: '+err.message);}
+  e.target.value='';
+};
+
+// ============ TOUCH SUPPORT ============
+function touchToField(touch){
+  const rect=canvas.getBoundingClientRect();
+  const cx=(touch.clientX-rect.left)*devicePixelRatio;
+  const cy=(touch.clientY-rect.top)*devicePixelRatio;
+  return canvasToField(cx,cy);
+}
+canvas.addEventListener('touchstart',e=>{
+  if(!drawMode)return;e.preventDefault();
+  drawActive=true;const[fx,fy]=touchToField(e.touches[0]);drawPts=[{x:fx,y:fy}];
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  if(!drawActive)return;e.preventDefault();
+  const[fx,fy]=touchToField(e.touches[0]);
+  const last=drawPts[drawPts.length-1];
+  if(Math.hypot(fx-last.x,fy-last.y)>0.05){drawPts.push({x:fx,y:fy});draw();}
+},{passive:false});
+canvas.addEventListener('touchend',e=>{
+  if(!drawActive)return;e.preventDefault();drawActive=false;
+  if(drawPts.length>2)drawStrokes.push({pts:[...drawPts],color:'#f59e0b'});drawPts=[];draw();
+},{passive:false});
 
 // ============ INIT ============
 updateRoster();
