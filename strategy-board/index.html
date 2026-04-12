@@ -11,7 +11,7 @@ header{background:#111827;border-bottom:1px solid #1e3a5f;padding:8px 16px;displ
 header h1{font-size:18px;color:#f59e0b}
 header h1 .tag{color:#6b7280;font-size:13px;font-weight:400;font-style:italic;margin-left:8px}
 .hdr-r{display:flex;gap:8px;align-items:center}
-.btn{background:#1e3a5f;color:#93c5fd;border:1px solid #2563eb;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;transition:all .15s}
+.btn{background:#1e3a5f;color:#93c5fd;border:1px solid #2563eb;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:15px;transition:all .15s}
 .btn:hover{background:#2563eb;color:#fff}
 .btn-r{border-color:#dc2626;color:#fca5a5}.btn-r:hover{background:#dc2626;color:#fff}
 .btn-draw{border-color:#f59e0b;color:#fbbf24}.btn-draw:hover{background:#f59e0b;color:#000}
@@ -23,51 +23,60 @@ header h1 .tag{color:#6b7280;font-size:13px;font-weight:400;font-style:italic;ma
 .sb-scroll::-webkit-scrollbar{width:5px}
 .sb-scroll::-webkit-scrollbar-thumb{background:#374151;border-radius:3px}
 .sec{border-bottom:1px solid #1e3a5f}
-.sec-h{padding:8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;background:#0d1117}
+.sec-h{padding:8px 10px;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;background:#0d1117}
 .sec-h.red{color:#dc2626;background:#1a0505}.sec-h.blue{color:#2563eb;background:#05081a}
 /* Station slots */
-.ds{padding:4px 10px;display:flex;align-items:center;gap:6px;font-size:12px}
-.ds-label{color:#6b7280;font-weight:700;min-width:28px;font-size:11px}
-.ds-team{background:#1f2937;border:1px solid #374151;color:#e0e0e0;padding:3px 6px;border-radius:4px;font-size:12px;width:58px;text-align:center}
+.ds{padding:4px 10px;display:flex;align-items:center;gap:6px;font-size:15px}
+.ds-label{color:#6b7280;font-weight:700;min-width:28px;font-size:14px}
+.ds-team{background:#1f2937;border:1px solid #374151;color:#e0e0e0;padding:3px 6px;border-radius:4px;font-size:15px;width:58px;text-align:center}
 .ds-team:focus{border-color:#2563eb;outline:none}
-.ds-auto{background:#1f2937;border:1px solid #374151;color:#e0e0e0;padding:3px 4px;border-radius:4px;font-size:11px;flex:1;min-width:0}
-.ds-info{font-size:9px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;padding:0 10px 4px 44px}
+.ds-auto{background:#1f2937;border:1px solid #374151;color:#e0e0e0;padding:3px 4px;border-radius:4px;font-size:14px;flex:1;min-width:0}
+.ds-info{font-size:12px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;padding:0 10px 4px 44px}
 /* TBA row */
 .tba-row{padding:6px 10px;display:flex;gap:4px;align-items:center}
-.tba-in{background:#1f2937;border:1px solid #374151;color:#e0e0e0;padding:3px 6px;border-radius:4px;font-size:11px;min-width:0}
+.tba-in{background:#1f2937;border:1px solid #374151;color:#e0e0e0;padding:3px 6px;border-radius:4px;font-size:14px;min-width:0}
 .tba-in:focus{border-color:#2563eb;outline:none}
 /* Win probability */
-.wp{padding:4px 10px;font-size:11px}
+.wp{padding:4px 10px;font-size:14px}
 .wp-bar{height:5px;border-radius:3px;background:#374151;display:flex;overflow:hidden;margin:3px 0}
 .wp-r{background:#dc2626;height:100%}.wp-b{background:#2563eb;height:100%}
-.wp-labels{display:flex;justify-content:space-between;font-size:10px}
+.wp-labels{display:flex;justify-content:space-between;font-size:13px}
 /* Team roster */
-.team-item{padding:5px 10px;display:flex;align-items:center;gap:8px;font-size:12px;cursor:default}
+.team-item{padding:5px 10px;display:flex;align-items:center;gap:8px;font-size:15px;cursor:default}
 .team-item:hover{background:#1f2937}
-.team-num{font-weight:700;min-width:40px}.team-ct{color:#6b7280;font-size:11px}
-.team-name{color:#9ca3af;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.team-num{font-weight:700;min-width:40px}.team-ct{color:#6b7280;font-size:14px}
+.team-name{color:#9ca3af;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
 /* Canvas */
 .ca{flex:1;position:relative;overflow:hidden}
 canvas{display:block}
-.leg{position:absolute;top:8px;right:8px;background:rgba(17,24,39,.9);border:1px solid #1e3a5f;border-radius:6px;padding:6px 10px;font-size:11px;max-height:200px;overflow-y:auto}
+.leg{position:absolute;top:8px;right:8px;background:rgba(17,24,39,.9);border:1px solid #1e3a5f;border-radius:6px;padding:6px 10px;font-size:14px;max-height:200px;overflow-y:auto}
 .leg:empty{display:none}
 .li{display:flex;align-items:center;gap:6px;padding:1px 0}
 .ld{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.mtt{position:absolute;background:#1f2937;border:1px solid #374151;border-radius:6px;padding:6px 10px;font-size:11px;pointer-events:none;display:none;z-index:50;white-space:nowrap}
+.mtt{position:absolute;background:#1f2937;border:1px solid #374151;border-radius:6px;padding:6px 10px;font-size:14px;pointer-events:none;display:none;z-index:50;white-space:nowrap}
 /* Controls */
 .ctrls{background:#111827;border-top:1px solid #1e3a5f;padding:6px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
 .pb{width:32px;height:32px;border-radius:50%;background:#2563eb;border:none;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .pb:hover{background:#3b82f6}
 .scr{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;background:#374151;outline:none}
 .scr::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#60a5fa;cursor:pointer}
-.td{font-size:11px;color:#9ca3af;font-variant-numeric:tabular-nums;min-width:80px;text-align:center}
+.td{font-size:14px;color:#9ca3af;font-variant-numeric:tabular-nums;min-width:80px;text-align:center}
 .sbs{display:flex;gap:3px}
-.spb{background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:3px 7px;border-radius:4px;font-size:10px;cursor:pointer}
+.spb{background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:3px 7px;border-radius:4px;font-size:13px;cursor:pointer}
 .spb.act{background:#2563eb;color:#fff;border-color:#2563eb}
 /* Drop overlay */
 .dov{position:fixed;inset:0;background:rgba(37,99,235,.15);border:3px dashed #2563eb;z-index:100;display:none;align-items:center;justify-content:center;pointer-events:none}
 .dov.vis{display:flex}
 .dov span{background:#1e3a5f;color:#93c5fd;padding:20px 40px;border-radius:12px;font-size:18px;font-weight:600}
+.match-list{max-height:200px;overflow-y:auto;border:1px solid #1e3a5f;border-radius:4px;margin:0 10px 6px}
+.match-list::-webkit-scrollbar{width:5px}
+.match-list::-webkit-scrollbar-thumb{background:#374151;border-radius:3px}
+.ml-item{padding:6px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid #1f2937}
+.ml-item:hover{background:#1f2937}
+.ml-item.sel{background:#172554;border-left:3px solid #60a5fa}
+.ml-item.done{opacity:0.5}
+.ml-label{font-weight:600}
+.ml-teams{font-size:12px;color:#9ca3af;margin-top:2px}
 </style>
 </head>
 <body>
@@ -93,13 +102,12 @@ canvas{display:block}
 </div>
 <div class="tba-row">
 <input class="tba-in" id="teamNumInput" placeholder="Team #" value="3572" style="width:70px">
-<button class="btn" id="loadEventsBtn" style="padding:3px 8px;font-size:11px">Load</button>
+<button class="btn" id="loadEventsBtn" style="padding:3px 8px;font-size:14px">Load</button>
 </div>
 <div class="tba-row">
 <select class="ds-auto" id="eventPicker" style="flex:1"><option value="">— Select event —</option></select>
 </div>
-<div class="tba-row">
-<select class="ds-auto" id="matchPicker" style="flex:1"><option value="">— Select match —</option></select>
+<div class="match-list" id="matchList"><div style="padding:8px;color:#6b7280;text-align:center">Load events to see matches</div>
 </div>
 </div>
 <!-- Red Alliance -->
@@ -230,6 +238,15 @@ window.addEventListener('resize',resize);
 function fieldToCanvas(fx,fy){
   return[(fx+PP_MARGIN)*camScale+camX, camY+(FIELD_H+PP_MARGIN-fy)*camScale];
 }
+// Flip a blue-origin point to red-origin (mirror across field center)
+function flipPt(x,y){return{x:FIELD_W-x,y:FIELD_H-y};}
+function flipRot(deg){let r=180-deg;while(r>180)r-=360;while(r<-180)r+=360;return r;}
+function flipWaypoints(wp){return wp.map(w=>{
+  const f={x:FIELD_W-w.x,y:FIELD_H-w.y};
+  if(w.nc)f.nc={x:FIELD_W-w.nc.x,y:FIELD_H-w.nc.y};
+  if(w.pc)f.pc={x:FIELD_W-w.pc.x,y:FIELD_H-w.pc.y};
+  return f;
+});}
 function canvasToField(cx,cy){
   return[(cx-camX)/camScale-PP_MARGIN, FIELD_H+PP_MARGIN-(cy-camY)/camScale];
 }
@@ -332,9 +349,10 @@ function draw(){
     const team=teams[sd.teamNum]; if(!team)continue;
     const auto=team.autos[sd.autoName]; if(!auto)continue;
     const color=sd.color;
+    const isRed=slot[0]==='r';
     for(const pName of auto.paths){
       const pd=team.paths[pName]; if(!pd||!pd.w||pd.w.length<2)continue;
-      const wp=pd.w;
+      const wp=isRed?flipWaypoints(pd.w):pd.w;
       // Constraint zones
       for(const cz of(pd.cz||[])){
         const zc=ZONE_COLORS[cz.name]||'rgba(156,163,175,0.15)';
@@ -348,7 +366,8 @@ function draw(){
         ctx.bezierCurveTo(c1x,c1y,c2x,c2y,ex,ey);}
       ctx.stroke();ctx.globalAlpha=1;
       // Start/end bumpers
-      const sr=pd.start?pd.start.r:0, er=pd.end?pd.end.r:0;
+      const sr=isRed?flipRot(pd.start?pd.start.r:0):(pd.start?pd.start.r:0);
+      const er=isRed?flipRot(pd.end?pd.end.r:0):(pd.end?pd.end.r:0);
       drawRobotBumper(wp[0].x,wp[0].y,sr,color,0.4,team.settings,sd.teamNum);
       drawRobotBumper(wp[wp.length-1].x,wp[wp.length-1].y,er,color,0.25,team.settings);
       // Event markers
@@ -414,8 +433,11 @@ function drawAnimRobots(){
       const dur=ad[ad.length-1].time,lt=animTime-elapsed;
       if(lt>=0&&lt<=dur){
         const pd=team.paths[pName];const p=posAtTime(ad,lt);
-        const rot=pd?getRotAtPos(pd,p.pos):0;
-        robots.push({x:p.x,y:p.y,rot,color:sd.color,teamNum:sd.teamNum,bot:team.settings,pd,pos:p.pos});
+        const isRed=slot[0]==='r';
+        let rot=pd?getRotAtPos(pd,p.pos):0;
+        let rx=p.x,ry=p.y;
+        if(isRed){const fp=flipPt(p.x,p.y);rx=fp.x;ry=fp.y;rot=flipRot(rot);}
+        robots.push({x:rx,y:ry,rot,color:sd.color,teamNum:sd.teamNum,bot:team.settings,pd,pos:p.pos,isRed});
       }
       elapsed+=dur;
     }
@@ -425,7 +447,7 @@ function drawAnimRobots(){
     drawRobotBumper(r.x,r.y,r.rot,r.color,0.85,r.bot,r.teamNum);
     // Flash event markers
     if(r.pd)for(const em of(r.pd.em||[])){
-      if(Math.abs(r.pos-em.pos)<0.15){const ept=ptAtPos(r.pd.w,em.pos);const[mx,my]=fieldToCanvas(ept.x,ept.y);
+      if(Math.abs(r.pos-em.pos)<0.15){let ept=ptAtPos(r.pd.w,em.pos);if(r.isRed)ept=flipPt(ept.x,ept.y);const[mx,my]=fieldToCanvas(ept.x,ept.y);
         ctx.beginPath();ctx.arc(mx,my,16*devicePixelRatio,0,Math.PI*2);ctx.fillStyle=r.color;
         ctx.globalAlpha=0.3+0.3*Math.sin(Date.now()/100);ctx.fill();ctx.globalAlpha=1;}}
   }
@@ -499,7 +521,7 @@ document.getElementById('loadEventsBtn').onclick=async()=>{
   localStorage.setItem('tba_team',teamNum);
   const evPicker=document.getElementById('eventPicker');
   evPicker.innerHTML='<option value="">Loading events...</option>';
-  document.getElementById('matchPicker').innerHTML='<option value="">— Select match —</option>';
+  document.getElementById('matchList').innerHTML='<div style="padding:8px;color:#6b7280;text-align:center">Select an event</div>';
   try{
     const r=await fetch(`https://www.thebluealliance.com/api/v3/team/frc${teamNum}/events/2026/simple`,{headers:{'X-TBA-Auth-Key':key}});
     if(!r.ok)throw new Error('TBA: '+r.status);
@@ -519,8 +541,8 @@ document.getElementById('eventPicker').onchange=async()=>{
   if(!currentEvent)return;
   const key=document.getElementById('tbaKey').value.trim();
   const teamNum=document.getElementById('teamNumInput').value.trim();
-  const picker=document.getElementById('matchPicker');
-  picker.innerHTML='<option value="">Loading matches...</option>';
+  const list=document.getElementById('matchList');
+  list.innerHTML='<div style="padding:8px;color:#6b7280;text-align:center">Loading matches...</div>';
   try{
     const r=await fetch(`https://www.thebluealliance.com/api/v3/team/frc${teamNum}/event/${currentEvent}/matches/simple`,{headers:{'X-TBA-Auth-Key':key}});
     if(!r.ok)throw new Error('TBA: '+r.status);
@@ -532,15 +554,8 @@ document.getElementById('eventPicker').onchange=async()=>{
       if(a.set_number!==b.set_number)return a.set_number-b.set_number;
       return a.match_number-b.match_number;
     });
-    picker.innerHTML='<option value="">— Select match —</option>';
-    for(const m of allMatches){
-      const label=matchLabel(m);
-      const red=(m.alliances?.red?.team_keys||[]).map(k=>k.replace('frc',''));
-      const blue=(m.alliances?.blue?.team_keys||[]).map(k=>k.replace('frc',''));
-      const alliance=red.includes(teamNum)?'Red':'Blue';
-      picker.innerHTML+=`<option value="${m.key}">${label} (${alliance}: ${red.join(', ')} vs ${blue.join(', ')})</option>`;
-    }
-  }catch(e){picker.innerHTML='<option value="">Failed</option>';}
+    renderMatchList(teamNum);
+  }catch(e){list.innerHTML='<div style="padding:8px;color:#fca5a5;text-align:center">Failed to load matches</div>';}
 };
 
 function matchLabel(m){
@@ -551,17 +566,45 @@ function matchLabel(m){
   return m.key;
 }
 
-// Step 3: Pick match -> fills stations
-document.getElementById('matchPicker').onchange=()=>{
-  const mk=document.getElementById('matchPicker').value;
-  const m=allMatches.find(x=>x.key===mk);
+let selectedMatchKey='';
+
+function renderMatchList(teamNum){
+  const list=document.getElementById('matchList');
+  list.innerHTML='';
+  if(!allMatches.length){list.innerHTML='<div style="padding:8px;color:#6b7280;text-align:center">No matches found</div>';return;}
+  for(const m of allMatches){
+    const red=(m.alliances?.red?.team_keys||[]).map(k=>k.replace('frc',''));
+    const blue=(m.alliances?.blue?.team_keys||[]).map(k=>k.replace('frc',''));
+    const isRed=red.includes(teamNum);
+    const played=m.alliances?.red?.score>=0&&m.alliances?.blue?.score>=0;
+    const score=played?`${m.alliances.red.score}-${m.alliances.blue.score}`:'';
+    const el=document.createElement('div');
+    el.className='ml-item'+(m.key===selectedMatchKey?' sel':'')+(played?' done':'');
+    el.dataset.key=m.key;
+    el.innerHTML=`<div>
+      <div class="ml-label">${matchLabel(m)}${score?' <span style="color:#6b7280">('+score+')</span>':' <span style="color:#22c55e">Upcoming</span>'}</div>
+      <div class="ml-teams"><span style="color:${isRed?'#fca5a5':'#93c5fd'};font-weight:600">${isRed?'Red':'Blue'}</span>: ${isRed?red.join(', '):blue.join(', ')} vs ${isRed?blue.join(', '):red.join(', ')}</div>
+    </div>`;
+    el.onclick=()=>selectMatch(m.key,teamNum);
+    list.appendChild(el);
+  }
+  // Scroll to first upcoming match
+  const upcoming=list.querySelector('.ml-item:not(.done)');
+  if(upcoming)upcoming.scrollIntoView({block:'nearest'});
+}
+
+function selectMatch(key,teamNum){
+  selectedMatchKey=key;
+  const m=allMatches.find(x=>x.key===key);
   if(!m)return;
+  // Highlight selected
+  document.querySelectorAll('.ml-item').forEach(el=>el.classList.toggle('sel',el.dataset.key===key));
   const red=(m.alliances?.red?.team_keys||[]).map(k=>k.replace('frc',''));
   const blue=(m.alliances?.blue?.team_keys||[]).map(k=>k.replace('frc',''));
   ['r1','r2','r3'].forEach((s,i)=>{document.getElementById(s+'t').value=red[i]||'';updateSlot(s);});
   ['b1','b2','b3'].forEach((s,i)=>{document.getElementById(s+'t').value=blue[i]||'';updateSlot(s);});
   for(const s of SLOTS)lookupEpa(s);
-};
+}
 
 // ============ STATBOTICS EPA ============
 async function lookupEpa(slot){
@@ -774,7 +817,7 @@ document.getElementById('screenshotBtn').onclick=()=>{
   draw(); // ensure canvas is current
   const link=document.createElement('a');
   const ev=currentEvent;
-  const mk=document.getElementById('matchPicker').value;
+  const mk=selectedMatchKey;
   const name=mk?`breadboard-${mk}.png`:(ev?`breadboard-${ev}.png`:'breadboard.png');
   link.download=name;link.href=canvas.toDataURL('image/png');link.click();
 };
@@ -783,7 +826,7 @@ document.getElementById('screenshotBtn').onclick=()=>{
 document.getElementById('saveBtn').onclick=()=>{
   const config={
     event:currentEvent,
-    matchKey:document.getElementById('matchPicker').value,
+    matchKey:selectedMatchKey,
     slots:{},
     strokes:drawStrokes
   };
