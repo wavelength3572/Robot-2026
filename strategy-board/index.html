@@ -92,12 +92,14 @@ canvas{display:block}
 <input class="tba-in" id="tbaKey" placeholder="TBA Key" type="password" style="flex:1">
 </div>
 <div class="tba-row">
-<input class="tba-in" id="teamNumInput" placeholder="Team # (3572)" value="3572" style="width:70px">
-<input class="tba-in" id="eventKey" placeholder="Event (2026miket)" style="flex:1">
-<button class="btn" id="fetchBtn" style="padding:3px 8px;font-size:11px">Load</button>
+<input class="tba-in" id="teamNumInput" placeholder="Team #" value="3572" style="width:70px">
+<button class="btn" id="loadEventsBtn" style="padding:3px 8px;font-size:11px">Load</button>
 </div>
 <div class="tba-row">
-<select class="ds-auto" id="matchPicker" style="flex:1"><option value="">— Select a match —</option></select>
+<select class="ds-auto" id="eventPicker" style="flex:1"><option value="">— Select event —</option></select>
+</div>
+<div class="tba-row">
+<select class="ds-auto" id="matchPicker" style="flex:1"><option value="">— Select match —</option></select>
 </div>
 </div>
 <!-- Red Alliance -->
@@ -483,32 +485,54 @@ function updateTotalTime(){
 // ============ TBA FETCH ============
 const savedKey=localStorage.getItem('tba_key');if(savedKey)document.getElementById('tbaKey').value=savedKey;
 document.getElementById('tbaKey').onchange=e=>localStorage.setItem('tba_key',e.target.value);
-const savedEvent=localStorage.getItem('tba_event');if(savedEvent)document.getElementById('eventKey').value=savedEvent;
-document.getElementById('eventKey').onchange=e=>localStorage.setItem('tba_event',e.target.value);
+const savedTeamNum=localStorage.getItem('tba_team');if(savedTeamNum)document.getElementById('teamNumInput').value=savedTeamNum;
+document.getElementById('teamNumInput').onchange=e=>localStorage.setItem('tba_team',e.target.value);
 
-let allMatches=[]; // cached match list from TBA
+let allEvents=[], allMatches=[], currentEvent='';
 
-// Load all matches for team at event
-document.getElementById('fetchBtn').onclick=async()=>{
+// Step 1: Enter team # + TBA key, hit Load -> populates event dropdown
+document.getElementById('loadEventsBtn').onclick=async()=>{
   const key=document.getElementById('tbaKey').value.trim();
   const teamNum=document.getElementById('teamNumInput').value.trim();
-  const ev=document.getElementById('eventKey').value.trim();
-  if(!key||!ev||!teamNum)return alert('Enter TBA key, team #, and event key');
-  const picker=document.getElementById('matchPicker');
-  picker.innerHTML='<option value="">Loading...</option>';
+  if(!key||!teamNum)return alert('Enter TBA key and team number');
+  localStorage.setItem('tba_key',key);
+  localStorage.setItem('tba_team',teamNum);
+  const evPicker=document.getElementById('eventPicker');
+  evPicker.innerHTML='<option value="">Loading events...</option>';
+  document.getElementById('matchPicker').innerHTML='<option value="">— Select match —</option>';
   try{
-    const r=await fetch(`https://www.thebluealliance.com/api/v3/team/frc${teamNum}/event/${ev}/matches/simple`,{headers:{'X-TBA-Auth-Key':key}});
+    const r=await fetch(`https://www.thebluealliance.com/api/v3/team/frc${teamNum}/events/2026/simple`,{headers:{'X-TBA-Auth-Key':key}});
+    if(!r.ok)throw new Error('TBA: '+r.status);
+    allEvents=await r.json();
+    allEvents.sort((a,b)=>(a.start_date||'').localeCompare(b.start_date||''));
+    evPicker.innerHTML='<option value="">— Select event —</option>';
+    for(const ev of allEvents){
+      const dates=ev.start_date?` (${ev.start_date})`:'';
+      evPicker.innerHTML+=`<option value="${ev.key}">${ev.name}${dates}</option>`;
+    }
+  }catch(e){evPicker.innerHTML='<option value="">Failed to load</option>';alert('Failed: '+e.message);}
+};
+
+// Step 2: Pick event -> populates match dropdown
+document.getElementById('eventPicker').onchange=async()=>{
+  currentEvent=document.getElementById('eventPicker').value;
+  if(!currentEvent)return;
+  const key=document.getElementById('tbaKey').value.trim();
+  const teamNum=document.getElementById('teamNumInput').value.trim();
+  const picker=document.getElementById('matchPicker');
+  picker.innerHTML='<option value="">Loading matches...</option>';
+  try{
+    const r=await fetch(`https://www.thebluealliance.com/api/v3/team/frc${teamNum}/event/${currentEvent}/matches/simple`,{headers:{'X-TBA-Auth-Key':key}});
     if(!r.ok)throw new Error('TBA: '+r.status);
     allMatches=await r.json();
-    // Sort by match number (quals first, then playoffs)
     allMatches.sort((a,b)=>{
-      const typeOrder={qm:0,sf:1,f:2};
-      const aType=a.comp_level||'qm',bType=b.comp_level||'qm';
-      if(aType!==bType)return(typeOrder[aType]||0)-(typeOrder[bType]||0);
+      const ord={qm:0,sf:1,f:2};
+      const at=a.comp_level||'qm',bt=b.comp_level||'qm';
+      if(at!==bt)return(ord[at]||0)-(ord[bt]||0);
       if(a.set_number!==b.set_number)return a.set_number-b.set_number;
       return a.match_number-b.match_number;
     });
-    picker.innerHTML='<option value="">— Select a match —</option>';
+    picker.innerHTML='<option value="">— Select match —</option>';
     for(const m of allMatches){
       const label=matchLabel(m);
       const red=(m.alliances?.red?.team_keys||[]).map(k=>k.replace('frc',''));
@@ -516,7 +540,7 @@ document.getElementById('fetchBtn').onclick=async()=>{
       const alliance=red.includes(teamNum)?'Red':'Blue';
       picker.innerHTML+=`<option value="${m.key}">${label} (${alliance}: ${red.join(', ')} vs ${blue.join(', ')})</option>`;
     }
-  }catch(e){picker.innerHTML='<option value="">Fetch failed</option>';alert('Failed: '+e.message);}
+  }catch(e){picker.innerHTML='<option value="">Failed</option>';}
 };
 
 function matchLabel(m){
@@ -527,10 +551,10 @@ function matchLabel(m){
   return m.key;
 }
 
-// When a match is selected from dropdown, populate stations
+// Step 3: Pick match -> fills stations
 document.getElementById('matchPicker').onchange=()=>{
-  const key=document.getElementById('matchPicker').value;
-  const m=allMatches.find(x=>x.key===key);
+  const mk=document.getElementById('matchPicker').value;
+  const m=allMatches.find(x=>x.key===mk);
   if(!m)return;
   const red=(m.alliances?.red?.team_keys||[]).map(k=>k.replace('frc',''));
   const blue=(m.alliances?.blue?.team_keys||[]).map(k=>k.replace('frc',''));
@@ -549,7 +573,7 @@ async function lookupEpa(slot){
     teams[num].name=d.name||teams[num].name; teams[num].epa=d.norm_epa?.current||0;
     teams[num].record=`${d.wins||0}-${d.losses||0}`;
     // Try event-specific stats for auto EPA breakdown
-    const ev=document.getElementById('eventKey').value.trim();
+    const ev=currentEvent;
     if(ev){
       try{
         const r2=await fetch(`https://api.statbotics.io/v3/team_event/${num}/${ev}`);
@@ -749,7 +773,7 @@ document.querySelectorAll('.spb').forEach(b=>{b.onclick=()=>{document.querySelec
 document.getElementById('screenshotBtn').onclick=()=>{
   draw(); // ensure canvas is current
   const link=document.createElement('a');
-  const ev=document.getElementById('eventKey').value.trim();
+  const ev=currentEvent;
   const mk=document.getElementById('matchPicker').value;
   const name=mk?`breadboard-${mk}.png`:(ev?`breadboard-${ev}.png`:'breadboard.png');
   link.download=name;link.href=canvas.toDataURL('image/png');link.click();
@@ -758,7 +782,7 @@ document.getElementById('screenshotBtn').onclick=()=>{
 // ============ SAVE/LOAD CONFIG ============
 document.getElementById('saveBtn').onclick=()=>{
   const config={
-    event:document.getElementById('eventKey').value,
+    event:currentEvent,
     matchKey:document.getElementById('matchPicker').value,
     slots:{},
     strokes:drawStrokes
@@ -774,7 +798,7 @@ document.querySelector('#loadIn').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
   try{
     const config=JSON.parse(await f.text());
-    if(config.event)document.getElementById('eventKey').value=config.event;
+    if(config.event)currentEvent=config.event;
     if(config.strokes)drawStrokes=config.strokes;
     if(config.slots){
       SLOTS.forEach(s=>{
