@@ -133,6 +133,12 @@ public class RGBWBuffer {
    * order on the wire, so we map: wire byte at position v*3+0 = green channel, v*3+1 = red channel,
    * v*3+2 = blue channel.
    */
+  /** Copy all pixel data from another RGBWBuffer into this one. Buffers must be the same size. */
+  public void copyFrom(RGBWBuffer other) {
+    System.arraycopy(other.rawBytes, 0, this.rawBytes, 0, this.rawBytes.length);
+    System.arraycopy(other.logicalColors, 0, this.logicalColors, 0, this.numLEDs);
+  }
+
   public void flushToBuffer() {
     int virtualCount = internalBuffer.getLength();
     for (int v = 0; v < virtualCount; v++) {

@@ -1733,12 +1733,34 @@ public class ShootingCoordinator extends SubsystemBase {
       previousAimMode = currentAimMode;
     } else if (feedingSuppressedSupplier.getAsBoolean()) {
       // --- Operator suppression check ---
-      if (coordinatorState == CoordinatorState.FIRING
-          || coordinatorState == CoordinatorState.HELD) {
-        if (coordinatorState != CoordinatorState.HELD) {
-          stateReason = "operator suppressed";
-        }
+      if (coordinatorState == CoordinatorState.FIRING) {
         coordinatorState = CoordinatorState.HELD;
+        stateReason = "operator suppressed";
+      } else if (coordinatorState == CoordinatorState.AIMING
+          || coordinatorState == CoordinatorState.SETTLING) {
+        // Hold pressed before ready — check readiness so we transition to HELD once ready
+        launcherReady = launcher != null && launcher.isReady();
+        motivatorReady =
+            motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
+        turretReady = turret.getState() == Turret.TurretState.READY;
+        hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
+        shotExists = currentShot != null;
+        velCompOk = currentShotAchievable;
+        speedOk = isRobotSlowEnoughForCurrentZone();
+        boolean turretNotFlipping = turret.getState() != Turret.TurretState.FLIPPING;
+        allReady =
+            armed
+                && launcherReady
+                && motivatorReady
+                && turretReady
+                && hoodReady
+                && shotExists
+                && velCompOk
+                && speedOk;
+        if (allReady && (coordinatorState == CoordinatorState.AIMING || turretNotFlipping)) {
+          coordinatorState = CoordinatorState.HELD;
+          stateReason = "all ready, held";
+        }
       }
       readyTimeoutRunning = false;
       previousAimMode = currentAimMode;
@@ -1790,24 +1812,39 @@ public class ShootingCoordinator extends SubsystemBase {
           && readyTimeoutTimer.hasElapsed(readyTimeoutSec.get())
           && coordinatorState == CoordinatorState.AIMING
           && isFiringAllowedInCurrentZone()) {
-        coordinatorState = CoordinatorState.FIRING;
+        if (feedingSuppressedSupplier.getAsBoolean()) {
+          coordinatorState = CoordinatorState.HELD;
+          stateReason = "timeout, held";
+        } else {
+          coordinatorState = CoordinatorState.FIRING;
+          stateReason = "timeout forced";
+        }
         readyTimeoutRunning = false;
         timeoutForced = true;
-        stateReason = "timeout forced";
       }
 
       if (!timeoutForced) {
         switch (coordinatorState) {
           case AIMING -> {
             if (allReady) {
-              coordinatorState = CoordinatorState.FIRING;
-              stateReason = "all ready";
+              if (feedingSuppressedSupplier.getAsBoolean()) {
+                coordinatorState = CoordinatorState.HELD;
+                stateReason = "all ready, held";
+              } else {
+                coordinatorState = CoordinatorState.FIRING;
+                stateReason = "all ready";
+              }
             }
           }
           case SETTLING -> {
             if (allReady && turretNotFlipping) {
-              coordinatorState = CoordinatorState.FIRING;
-              stateReason = "settled, all ready";
+              if (feedingSuppressedSupplier.getAsBoolean()) {
+                coordinatorState = CoordinatorState.HELD;
+                stateReason = "settled, held";
+              } else {
+                coordinatorState = CoordinatorState.FIRING;
+                stateReason = "settled, all ready";
+              }
             }
           }
           case HELD -> {

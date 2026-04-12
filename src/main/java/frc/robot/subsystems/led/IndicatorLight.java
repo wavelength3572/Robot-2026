@@ -91,6 +91,10 @@ public class IndicatorLight extends SubsystemBase {
   private Supplier<ShootingCoordinator.CoordinatorState> coordinatorStateSupplier = null;
   private BooleanSupplier smartLaunchActiveSupplier = () -> false;
 
+  // The buffer most recently chosen by the current effect — written to hardware once at end of
+  // periodic() so overlays (like SmartLaunch edge LEDs) don't cause a double-flush flicker.
+  private RGBWBuffer pendingBuffer = null;
+
   // Emergency strobe state
   private double strobePhaseStartTime = 0.0;
   private int strobePhase = 0; // 0=strobe, 1=converge, 2=flash
@@ -196,15 +200,11 @@ public class IndicatorLight extends SubsystemBase {
     if (encoderStatus == TurretEncoderStatus.ERROR) {
       LED_State = LED_EFFECTS.TURRET_ENCODER_ERROR;
       doTurretEncoderError();
-      return;
     } else if (encoderStatus == TurretEncoderStatus.WARNING) {
       LED_State = LED_EFFECTS.TURRET_ENCODER_WARNING;
       doTurretEncoderWarning();
-      return;
-    }
-
-    // Disabled: blue ombre in pit mode, RSL otherwise
-    if (DriverStation.isDisabled()) {
+    } else if (DriverStation.isDisabled()) {
+      // Disabled: blue ombre in pit mode, RSL otherwise
       if (mode == LightMode.PIT || Constants.currentMode == Constants.Mode.PIT) {
         LED_State = LED_EFFECTS.BLUEOMBRE;
         doBlueOmbre();
@@ -212,54 +212,53 @@ public class IndicatorLight extends SubsystemBase {
         LED_State = LED_EFFECTS.RSL;
         doRsl();
       }
-      return;
-    }
-
-    if (mode == LightMode.OFF) {
+    } else if (mode == LightMode.OFF) {
       LED_State = LED_EFFECTS.BLACK;
       setActiveBuffer(wlBlackLEDBuffer);
-      return;
-    }
+    } else {
+      // MATCH mode: normal auto-lighting logic
+      currentColor_GOAL = updateLightingGoal();
 
-    // MATCH mode: normal auto-lighting logic
-    currentColor_GOAL = updateLightingGoal();
-
-    if (LED_State != LED_EFFECTS.BLINK) {
-      LED_State = currentColor_GOAL;
-    }
-    Logger.recordOutput("LEDs/State", LED_State.name());
-    switch (LED_State) {
-      case RED -> setActiveBuffer(wlRedLEDBuffer);
-      case YELLOW -> setActiveBuffer(wlYellowLEDBuffer);
-      case GREEN -> setActiveBuffer(wlGreenLEDBuffer);
-      case ORANGE -> setActiveBuffer(wlOrangeLEDBuffer);
-      case PURPLE -> setActiveBuffer(wlPurpleLEDBuffer);
-      case BLUE -> setActiveBuffer(wlBlueLEDBuffer);
-      case BLACK -> setActiveBuffer(wlBlackLEDBuffer);
-      case WHITE -> setActiveBuffer(wlWhiteLEDBuffer);
-      case BLINK_RED -> doBlinkRed();
-      case RAINBOW -> doRainbow();
-      case BLUEOMBRE -> doBlueOmbre();
-      case REDOMBRE -> doRedOmbre();
-      case BLINK -> doBlink();
-      case COUNTDOWN_BLINK -> doCountdownBlink();
-      case BLINK_PURPLE -> blinkPurple();
-      case PARTY -> doParty();
-      case RSL -> doRsl();
-      case SEGMENTPARTY -> doSegmentParty();
-      case EXPLOSION -> doExplosionEffect();
-      case POLKADOT -> doPokadot();
-      case SEARCH_LIGHT -> doSearchlightSingleEffect();
-      case DYNAMIC_BLINK -> dynamicBlink();
-      case GREEN_RED_WARNING -> doGreenRedWarning();
-      case TURRET_ENCODER_WARNING -> doTurretEncoderWarning();
-      case TURRET_ENCODER_ERROR -> doTurretEncoderError();
-      default -> {}
+      if (LED_State != LED_EFFECTS.BLINK) {
+        LED_State = currentColor_GOAL;
+      }
+      Logger.recordOutput("LEDs/State", LED_State.name());
+      switch (LED_State) {
+        case RED -> setActiveBuffer(wlRedLEDBuffer);
+        case YELLOW -> setActiveBuffer(wlYellowLEDBuffer);
+        case GREEN -> setActiveBuffer(wlGreenLEDBuffer);
+        case ORANGE -> setActiveBuffer(wlOrangeLEDBuffer);
+        case PURPLE -> setActiveBuffer(wlPurpleLEDBuffer);
+        case BLUE -> setActiveBuffer(wlBlueLEDBuffer);
+        case BLACK -> setActiveBuffer(wlBlackLEDBuffer);
+        case WHITE -> setActiveBuffer(wlWhiteLEDBuffer);
+        case BLINK_RED -> doBlinkRed();
+        case RAINBOW -> doRainbow();
+        case BLUEOMBRE -> doBlueOmbre();
+        case REDOMBRE -> doRedOmbre();
+        case BLINK -> doBlink();
+        case COUNTDOWN_BLINK -> doCountdownBlink();
+        case BLINK_PURPLE -> blinkPurple();
+        case PARTY -> doParty();
+        case RSL -> doRsl();
+        case SEGMENTPARTY -> doSegmentParty();
+        case EXPLOSION -> doExplosionEffect();
+        case POLKADOT -> doPokadot();
+        case SEARCH_LIGHT -> doSearchlightSingleEffect();
+        case DYNAMIC_BLINK -> dynamicBlink();
+        case GREEN_RED_WARNING -> doGreenRedWarning();
+        case TURRET_ENCODER_WARNING -> doTurretEncoderWarning();
+        case TURRET_ENCODER_ERROR -> doTurretEncoderError();
+        default -> {}
+      }
     }
 
     // SmartLaunch status overlay: paint edge LEDs (0-2, 39-41) based on coordinator state.
     // Runs after the main effect so it overlays whatever the normal lighting chose.
     applySmartLaunchOverlay();
+
+    // Single flush to hardware — after all effects and overlays have written into pendingBuffer.
+    flushToHardware();
   }
 
   /** Paint edge LEDs with SmartLaunch coordinator state when active. */
@@ -283,8 +282,8 @@ public class IndicatorLight extends SubsystemBase {
       case HELD -> {
         r = 0;
         g = 255;
-        b = 0;
-      } // green — release will fire
+        b = 255;
+      } // cyan — ready, holding fire (release to shoot)
       case AIMING, SETTLING, UNARMED -> {
         r = 255;
         g = 180;
@@ -300,18 +299,24 @@ public class IndicatorLight extends SubsystemBase {
       }
     }
 
-    // Write edge LEDs: 0-2 (left end) and 39-41 (right end)
-    int len = wlLEDBuffer.getLength();
-    for (int i = 0; i < 3 && i < len; i++) {
-      wlLEDBuffer.setRGB(i, r, g, b);
-    }
-    for (int i = Math.max(0, len - 3); i < len; i++) {
-      wlLEDBuffer.setRGB(i, r, g, b);
+    if (pendingBuffer == null) return;
+
+    // If the pending buffer is a shared pre-built buffer (solid color), copy it into wlLEDBuffer
+    // so we don't permanently corrupt the shared buffer with overlay pixels.
+    if (pendingBuffer != wlLEDBuffer) {
+      wlLEDBuffer.copyFrom(pendingBuffer);
+      pendingBuffer = wlLEDBuffer;
     }
 
-    // Re-flush the modified buffer to hardware
-    wlLEDBuffer.flushToBuffer();
-    wlLED.setData(wlLEDBuffer.getInternalBuffer());
+    // Write edge LEDs: 0-2 (left end) and 39-41 (right end)
+    int len = pendingBuffer.getLength();
+    for (int i = 0; i < 3 && i < len; i++) {
+      pendingBuffer.setRGB(i, r, g, b);
+    }
+    for (int i = Math.max(0, len - 3); i < len; i++) {
+      pendingBuffer.setRGB(i, r, g, b);
+    }
+
     Logger.recordOutput("LEDs/SmartLaunchOverlay", state.name());
   }
 
@@ -331,7 +336,7 @@ public class IndicatorLight extends SubsystemBase {
   /**
    * Set the shooting coordinator suppliers for SmartLaunch status overlay on edge LEDs. When
    * SmartLaunch is active, LEDs 0-2 and 39-41 show coordinator state: green = FIRING/ready, yellow
-   * = AIMING/SETTLING, red = NO_FIRE_ZONE.
+   * = AIMING/SETTLING, cyan = HELD (ready, release to fire), red = NO_FIRE_ZONE.
    */
   public void setShootingCoordinatorSuppliers(
       Supplier<ShootingCoordinator.CoordinatorState> stateSupplier,
@@ -974,14 +979,20 @@ public class IndicatorLight extends SubsystemBase {
   }
 
   private void setActiveBuffer(RGBWBuffer buffer) {
-    buffer.flushToBuffer();
-    wlLED.setData(buffer.getInternalBuffer());
+    pendingBuffer = buffer;
+  }
+
+  /** Flush the pending buffer to hardware once, after all overlays have been applied. */
+  private void flushToHardware() {
+    if (pendingBuffer == null) return;
+    pendingBuffer.flushToBuffer();
+    wlLED.setData(pendingBuffer.getInternalBuffer());
 
     // Sim-only: publish LED colors as hex strings for Elastic Multi Color View widget
     if (Constants.currentMode == Constants.Mode.SIM) {
-      String[] colors = new String[buffer.getLength()];
-      for (int i = 0; i < buffer.getLength(); i++) {
-        colors[i] = buffer.getLED(i).toHexString();
+      String[] colors = new String[pendingBuffer.getLength()];
+      for (int i = 0; i < pendingBuffer.getLength(); i++) {
+        colors[i] = pendingBuffer.getLED(i).toHexString();
       }
       SmartDashboard.putStringArray("Sim/LED Strip", colors);
     }
