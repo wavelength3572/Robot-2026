@@ -791,14 +791,14 @@ public class ShootingCommands {
                           fireSimBallIfReady(coordinator, launcher);
                         }
                       } else if (coordinator.isAutoCollecting()) {
-                        // Motivator is stopped during auto collecting — safe to reciprocate
-                        launcher.setFeedingActive(false);
-                        spindexer.reciprocate();
-                      } else {
-                        // Motivator is reversing or spinning up — don't reciprocate
-                        // to avoid jostling a ball into the motivator prematurely
+                        // Motivator is stopped during auto collecting — no feeding needed
                         launcher.setFeedingActive(false);
                         spindexer.stopSpindexer();
+                      } else {
+                        // Motivator is reversing or spinning up — slowly back-spin
+                        // the spindexer to settle fuel away from the launcher interface
+                        launcher.setFeedingActive(false);
+                        spindexer.setSpindexerVelocity(-150);
                       }
                     },
                     spindexer)

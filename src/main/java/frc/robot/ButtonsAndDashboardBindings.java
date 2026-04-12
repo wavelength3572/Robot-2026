@@ -531,13 +531,13 @@ public class ButtonsAndDashboardBindings {
                   },
                   intake::stopRollers,
                   intake));
-      if (spindexer != null) {
-        // Only reciprocate spindexer when smart launch (Button 12) is NOT held,
-        // otherwise Button 4 steals the spindexer subsystem and cancels smart launch.
-        oi.getButtonBox1Button4()
-            .and(oi.getButtonBox1Button12().negate())
-            .whileTrue(spindexer.reciprocateCommand());
-      }
+      // if (spindexer != null) {
+      //   // Only reciprocate spindexer when smart launch (Button 12) is NOT held,
+      //   // otherwise Button 4 steals the spindexer subsystem and cancels smart launch.
+      //   oi.getButtonBox1Button4()
+      //       .and(oi.getButtonBox1Button12().negate())
+      //       .whileTrue(spindexer.reciprocateCommand());
+      // }
 
       // Button 3: Retract and run rollers while held; on release, stop rollers but stay retracted
       oi.getButtonBox1Button3()
