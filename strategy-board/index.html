@@ -31,6 +31,8 @@ header h1 .tag{color:#6b7280;font-size:13px;font-weight:400;font-style:italic;ma
 .ds-team{background:#1f2937;border:1px solid #374151;color:#e0e0e0;padding:3px 6px;border-radius:4px;font-size:15px;width:58px;text-align:center}
 .ds-team:focus{border-color:#2563eb;outline:none}
 .ds-auto{background:#1f2937;border:1px solid #374151;color:#e0e0e0;padding:3px 4px;border-radius:4px;font-size:14px;flex:1;min-width:0}
+.ds-delay{background:#1f2937;border:1px solid #374151;color:#fbbf24;padding:3px 2px;border-radius:4px;font-size:13px;width:40px;text-align:center}
+.ds-delay:focus{border-color:#f59e0b;outline:none}
 .ds-info{font-size:12px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;padding:0 10px 4px 44px}
 /* TBA row */
 .tba-row{padding:6px 10px;display:flex;gap:4px;align-items:center}
@@ -113,21 +115,21 @@ canvas{display:block}
 <!-- Red Alliance -->
 <div class="sec">
 <div class="sec-h red">Red Alliance</div>
-<div class="ds"><span class="ds-label">DS1</span><input class="ds-team" id="r1t" placeholder="Team"><select class="ds-auto" id="r1a"><option value="">—</option></select></div>
+<div class="ds"><span class="ds-label">DS1</span><input class="ds-team" id="r1t" placeholder="Team"><select class="ds-auto" id="r1a"><option value="">—</option></select><input type="number" class="ds-delay" id="r1d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
 <div class="ds-info" id="r1i"></div>
-<div class="ds"><span class="ds-label">DS2</span><input class="ds-team" id="r2t" placeholder="Team"><select class="ds-auto" id="r2a"><option value="">—</option></select></div>
+<div class="ds"><span class="ds-label">DS2</span><input class="ds-team" id="r2t" placeholder="Team"><select class="ds-auto" id="r2a"><option value="">—</option></select><input type="number" class="ds-delay" id="r2d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
 <div class="ds-info" id="r2i"></div>
-<div class="ds"><span class="ds-label">DS3</span><input class="ds-team" id="r3t" placeholder="Team"><select class="ds-auto" id="r3a"><option value="">—</option></select></div>
+<div class="ds"><span class="ds-label">DS3</span><input class="ds-team" id="r3t" placeholder="Team"><select class="ds-auto" id="r3a"><option value="">—</option></select><input type="number" class="ds-delay" id="r3d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
 <div class="ds-info" id="r3i"></div>
 </div>
 <!-- Blue Alliance -->
 <div class="sec">
 <div class="sec-h blue">Blue Alliance</div>
-<div class="ds"><span class="ds-label">DS1</span><input class="ds-team" id="b1t" placeholder="Team"><select class="ds-auto" id="b1a"><option value="">—</option></select></div>
+<div class="ds"><span class="ds-label">DS1</span><input class="ds-team" id="b1t" placeholder="Team"><select class="ds-auto" id="b1a"><option value="">—</option></select><input type="number" class="ds-delay" id="b1d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
 <div class="ds-info" id="b1i"></div>
-<div class="ds"><span class="ds-label">DS2</span><input class="ds-team" id="b2t" placeholder="Team"><select class="ds-auto" id="b2a"><option value="">—</option></select></div>
+<div class="ds"><span class="ds-label">DS2</span><input class="ds-team" id="b2t" placeholder="Team"><select class="ds-auto" id="b2a"><option value="">—</option></select><input type="number" class="ds-delay" id="b2d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
 <div class="ds-info" id="b2i"></div>
-<div class="ds"><span class="ds-label">DS3</span><input class="ds-team" id="b3t" placeholder="Team"><select class="ds-auto" id="b3a"><option value="">—</option></select></div>
+<div class="ds"><span class="ds-label">DS3</span><input class="ds-team" id="b3t" placeholder="Team"><select class="ds-auto" id="b3a"><option value="">—</option></select><input type="number" class="ds-delay" id="b3d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
 <div class="ds-info" id="b3i"></div>
 </div>
 <!-- Win Probability -->
@@ -429,7 +431,7 @@ function drawAnimRobots(){
     const team=teams[sd.teamNum];if(!team)continue;
     const auto=team.autos[sd.autoName];if(!auto)continue;
     // ShootPreloads wrapper adds ~2.5s delay before path starts
-    let elapsed=getWrapperDelay(auto);
+    let elapsed=getSlotDelay(slot);
     for(const pName of auto.paths){
       const key=sd.teamNum+'_'+pName;
       if(!pathSamples[key])pathSamples[key]=buildAnimData(pName,sd.teamNum);
@@ -490,6 +492,7 @@ function onAutoSelect(slot){
 SLOTS.forEach(s=>{
   document.getElementById(s+'t').onchange=()=>{updateSlot(s);lookupEpa(s);};
   document.getElementById(s+'a').onchange=()=>onAutoSelect(s);
+  document.getElementById(s+'d').onchange=()=>{updateTotalTime();draw();};
 });
 
 function updateLegend(){
@@ -497,18 +500,14 @@ function updateLegend(){
   for(const s of SLOTS){const sd=slotData[s];if(!sd.teamNum||!sd.autoName)continue;
     leg.innerHTML+=`<div class="li"><div class="ld" style="background:${sd.color}"></div>${sd.teamNum}: ${sd.autoName}</div>`;}
 }
-// Wrapper delay: ShootPreloads folders add ~2.5s for initial smart launch before path
-function getWrapperDelay(auto){
-  const f=auto.folder||'';
-  if(f.startsWith('CompShootPreloads')||f==='AllianceZone')return 2.5;
-  return 0;
-}
+// Per-station delay from the delay input
+function getSlotDelay(slot){return parseFloat(document.getElementById(slot+'d')?.value||0)||0;}
 
 function updateTotalTime(){
   totalTime=0;
   for(const s of SLOTS){const sd=slotData[s];if(!sd.teamNum||!sd.autoName)continue;
     const team=teams[sd.teamNum];if(!team)continue;const auto=team.autos[sd.autoName];if(!auto)continue;
-    let t=getWrapperDelay(auto);
+    let t=getSlotDelay(s);
     for(const pn of auto.paths){const k=sd.teamNum+'_'+pn;if(!pathSamples[k])pathSamples[k]=buildAnimData(pn);
       const ad=pathSamples[k];if(ad&&ad.length)t+=ad[ad.length-1].time;}
     for(const w of(auto.waits||[]))t+=w; totalTime=Math.max(totalTime,t);}
@@ -842,7 +841,7 @@ document.getElementById('saveBtn').onclick=()=>{
     slots:{},
     strokes:drawStrokes
   };
-  SLOTS.forEach(s=>{config.slots[s]={team:slotData[s].teamNum,auto:slotData[s].autoName};});
+  SLOTS.forEach(s=>{config.slots[s]={team:slotData[s].teamNum,auto:slotData[s].autoName,delay:getSlotDelay(s)};});
   const blob=new Blob([JSON.stringify(config,null,2)],{type:'application/json'});
   const link=document.createElement('a');
   const ev=config.event||'match';
@@ -859,6 +858,7 @@ document.querySelector('#loadIn').onchange=async e=>{
       SLOTS.forEach(s=>{
         if(config.slots[s]){
           document.getElementById(s+'t').value=config.slots[s].team||'';
+          if(config.slots[s].delay!=null)document.getElementById(s+'d').value=config.slots[s].delay;
           updateSlot(s);
           if(config.slots[s].auto){
             document.getElementById(s+'a').value=config.slots[s].auto;
