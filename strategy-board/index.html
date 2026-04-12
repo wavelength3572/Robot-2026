@@ -972,14 +972,18 @@ const DEFAULT_PATHS = {
   '_def_rt':  {w:[{x:4.5,y:0.5},{x:4.5,y:0.5}],   mv:0.1, ma:1, em:[], cz:[], ptz:[], rt:[], start:{v:0,r:0}, end:{v:0,r:0}},
 };
 
-// Inject defaults into every team (including ones loaded later)
+// Only add defaults to teams with no real autos
 function addDefaultsToTeam(team){
-  for(const[name,auto] of Object.entries(DEFAULT_STARTS)){
-    if(!team.autos[name])team.autos[name]=auto;
+  // Count real autos (not defaults)
+  const realAutos=Object.keys(team.autos).filter(n=>!n.startsWith('Default: ')).length;
+  if(realAutos>0){
+    // Has real autos - remove any defaults that might have been added
+    for(const name of Object.keys(DEFAULT_STARTS))delete team.autos[name];
+    for(const name of Object.keys(DEFAULT_PATHS))delete team.paths[name];
+    return;
   }
-  for(const[name,path] of Object.entries(DEFAULT_PATHS)){
-    if(!team.paths[name])team.paths[name]=path;
-  }
+  for(const[name,auto] of Object.entries(DEFAULT_STARTS))team.autos[name]=auto;
+  for(const[name,path] of Object.entries(DEFAULT_PATHS))team.paths[name]=path;
 }
 // Add to existing teams
 for(const t of Object.values(teams))addDefaultsToTeam(t);
