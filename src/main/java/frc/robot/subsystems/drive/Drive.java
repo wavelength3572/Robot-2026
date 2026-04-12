@@ -55,7 +55,6 @@ public class Drive extends SubsystemBase {
   private final GyroIO gyroIO;
   private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
   private final Module[] modules = new Module[4]; // FL, FR, BL, BR
-  private final Turret turret;
   private final SysIdRoutine sysId;
   private final Alert gyroDisconnectedAlert =
       new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
@@ -88,7 +87,6 @@ public class Drive extends SubsystemBase {
       ModuleIO brModuleIO,
       Turret turret) {
     this.gyroIO = gyroIO;
-    this.turret = turret;
     modules[0] = new Module(flModuleIO, 0);
     modules[1] = new Module(frModuleIO, 1);
     modules[2] = new Module(blModuleIO, 2);
@@ -114,11 +112,11 @@ public class Drive extends SubsystemBase {
     Pathfinding.setPathfinder(new LocalADStarAK());
     PathPlannerLogging.setLogActivePathCallback(
         (activePath) -> {
-          Logger.recordOutput("Odometry/Trajectory", activePath.toArray(new Pose2d[0]));
+          Logger.recordOutput("Visualizations/Trajectory", activePath.toArray(new Pose2d[0]));
         });
     PathPlannerLogging.setLogTargetPoseCallback(
         (targetPose) -> {
-          Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
+          Logger.recordOutput("Visualizations/TrajectorySetpoint", targetPose);
         });
 
     // Configure SysId
@@ -182,43 +180,17 @@ public class Drive extends SubsystemBase {
       poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, odometryPositions);
     }
 
-    // Update turret to aim based on zone: shoot in alliance zone, pass otherwise.
-    // Project robot position forward by phase delay to compensate for control latency.
-    // TODO: Re-enable turret aiming after turret bringup is complete
-    // if (turret != null) {
-    //   Pose2d currentPose = getPose();
-    //   Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
-    //
-    //   // Project pose forward using Twist2d to account for phase delay.
-    //   // This compensates for the time between computing the aim angle and the ball leaving.
-    //   ChassisSpeeds speeds = getChassisSpeeds();
-    //   Twist2d twist =
-    //       new Twist2d(
-    //           speeds.vxMetersPerSecond * AIM_PHASE_DELAY_SECONDS,
-    //           speeds.vyMetersPerSecond * AIM_PHASE_DELAY_SECONDS,
-    //           speeds.omegaRadiansPerSecond * AIM_PHASE_DELAY_SECONDS);
-    //   Pose2d projectedPose = currentPose.exp(twist);
-    //
-    //   TurretAimingHelper.AimResult aimResult =
-    //       TurretAimingHelper.getAimTarget(projectedPose.getX(), projectedPose.getY(), alliance);
-    //
-    //   // Log aiming data for AdvantageScope (zone-based target selection)
-    //   Logger.recordOutput("Turret/Aim/Mode", aimResult.mode().toString());
-    //   Logger.recordOutput(
-    //       "Turret/Aim/Target",
-    //       new Pose2d(aimResult.target(), new edu.wpi.first.math.geometry.Rotation2d()));
-    //   Logger.recordOutput("Turret/Aim/ProjectedPose", projectedPose);
-    //
-    //   turret.aimAtFieldPosition(
-    //       projectedPose.getX(),
-    //       projectedPose.getY(),
-    //       projectedPose.getRotation().getDegrees(),
-    //       aimResult.target().getX(),
-    //       aimResult.target().getY());
-    // }
+    // Log robot speed for easy access in AdvantageScope
+    ChassisSpeeds measuredSpeeds = getChassisSpeeds();
+    Logger.recordOutput(
+        "Drive/RobotSpeedMps",
+        Math.hypot(measuredSpeeds.vxMetersPerSecond, measuredSpeeds.vyMetersPerSecond));
 
     // Update gyro alert
-    gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
+    gyroDisconnectedAlert.set(
+        !gyroInputs.connected
+            && Constants.currentMode != Mode.SIM
+            && Constants.currentMode != Mode.PIT);
   }
 
   /**
@@ -255,6 +227,12 @@ public class Drive extends SubsystemBase {
   /** Stops the drive. */
   public void stop() {
     runVelocity(ZERO_SPEEDS);
+  }
+
+  public void setDriveMotorCurrentLimits(double currentLimit) {
+    for (var module : modules) {
+      module.setDriveMotorCurrentLimits(currentLimit);
+    }
   }
 
   /**
@@ -341,7 +319,7 @@ public class Drive extends SubsystemBase {
   }
 
   /** Returns the current odometry pose. */
-  @AutoLogOutput(key = "Odometry/Robot")
+  @AutoLogOutput(key = "Visualizations/Robot")
   public Pose2d getPose() {
     return poseEstimator.getEstimatedPosition();
   }
@@ -349,6 +327,16 @@ public class Drive extends SubsystemBase {
   /** Returns the current odometry rotation. */
   public Rotation2d getRotation() {
     return getPose().getRotation();
+  }
+
+  /** Returns the current gyro pitch in degrees (positive = nose up). */
+  public double getPitchDeg() {
+    return gyroInputs.pitchDeg;
+  }
+
+  /** Returns the current gyro roll in degrees (positive = right side down). */
+  public double getRollDeg() {
+    return gyroInputs.rollDeg;
   }
 
   /**

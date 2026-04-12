@@ -1,0 +1,85 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 2.1931,
+        "y": 1.8884333333333334
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 1.9441265289557474,
+        "y": 1.8658012606006655
+      },
+      "isLocked": false,
+      "linkedName": "shoot pos outpost"
+    },
+    {
+      "anchor": {
+        "x": 2.193,
+        "y": 1.888
+      },
+      "prevControl": {
+        "x": 2.4382438725360402,
+        "y": 1.9365329061928747
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "post shimmy outpost"
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.2,
+      "rotationDegrees": -45.0
+    },
+    {
+      "waypointRelativePos": 0.4,
+      "rotationDegrees": 90.0
+    },
+    {
+      "waypointRelativePos": 0.6,
+      "rotationDegrees": -90.0
+    },
+    {
+      "waypointRelativePos": 0.8,
+      "rotationDegrees": 90.0
+    }
+  ],
+  "constraintZones": [
+    {
+      "name": "Constraints Zone",
+      "minWaypointRelativePos": 0,
+      "maxWaypointRelativePos": 1.0,
+      "constraints": {
+        "maxVelocity": 3.0,
+        "maxAcceleration": 3.0,
+        "maxAngularVelocity": 1440.0,
+        "maxAngularAcceleration": 1440.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 3.0,
+    "maxAcceleration": 3.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0.0,
+    "rotation": 37.0
+  },
+  "reversed": false,
+  "folder": null,
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": 42.33405116192552
+  },
+  "useDefaultConstraints": true
+}

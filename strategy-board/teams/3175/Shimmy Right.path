@@ -1,0 +1,85 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 2.747,
+        "y": 1.739
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 3.06217673209005,
+        "y": 1.6367868199941797
+      },
+      "isLocked": false,
+      "linkedName": "Right Bump Shoot Spot"
+    },
+    {
+      "anchor": {
+        "x": 2.747,
+        "y": 1.739
+      },
+      "prevControl": {
+        "x": 1.8256130663984562,
+        "y": 2.037067754164035
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "Right Bump Shoot Spot"
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.2,
+      "rotationDegrees": -45.0
+    },
+    {
+      "waypointRelativePos": 0.4,
+      "rotationDegrees": 90.0
+    },
+    {
+      "waypointRelativePos": 0.6,
+      "rotationDegrees": -90.0
+    },
+    {
+      "waypointRelativePos": 0.8,
+      "rotationDegrees": 90.0
+    }
+  ],
+  "constraintZones": [
+    {
+      "name": "Constraints Zone",
+      "minWaypointRelativePos": 0,
+      "maxWaypointRelativePos": 1.0,
+      "constraints": {
+        "maxVelocity": 3.0,
+        "maxAcceleration": 3.0,
+        "maxAngularVelocity": 1440.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 3.0,
+    "maxAcceleration": 3.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 51.14662565964662
+  },
+  "reversed": false,
+  "folder": null,
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": 51.14662565964662
+  },
+  "useDefaultConstraints": true
+}

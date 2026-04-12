@@ -1,0 +1,134 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 3.0169044222539223,
+        "y": 7.586661911554922
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 7.637209302325582,
+        "y": 7.872307692307693
+      },
+      "isLocked": false,
+      "linkedName": "Left Bank"
+    },
+    {
+      "anchor": {
+        "x": 5.966918687589158,
+        "y": 4.49432239657632
+      },
+      "prevControl": {
+        "x": 5.9043779777930325,
+        "y": 6.577353920670445
+      },
+      "nextControl": {
+        "x": 6.010230431965894,
+        "y": 3.0517463657900814
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 7.4425044722719145,
+        "y": 4.8706082289803225
+      },
+      "prevControl": {
+        "x": 7.418148480761286,
+        "y": 3.8354785897785857
+      },
+      "nextControl": {
+        "x": 7.52013642662284,
+        "y": 8.16996628889473
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 3.8729159212880147,
+        "y": 7.466672629695886
+      },
+      "prevControl": {
+        "x": 7.669660107334526,
+        "y": 7.417996422182468
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": null
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 1.0,
+      "rotationDegrees": -90.0
+    },
+    {
+      "waypointRelativePos": 1.65,
+      "rotationDegrees": 25.0
+    },
+    {
+      "waypointRelativePos": 2.1,
+      "rotationDegrees": 100.0
+    },
+    {
+      "waypointRelativePos": 2.4,
+      "rotationDegrees": 165.0
+    },
+    {
+      "waypointRelativePos": 2.6,
+      "rotationDegrees": 180.0
+    }
+  ],
+  "constraintZones": [
+    {
+      "name": "slow to pickup",
+      "minWaypointRelativePos": 0.5,
+      "maxWaypointRelativePos": 1.3,
+      "constraints": {
+        "maxVelocity": 2.5,
+        "maxAcceleration": 7.5,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "slow otw back",
+      "minWaypointRelativePos": 2.5,
+      "maxWaypointRelativePos": 3.0,
+      "constraints": {
+        "maxVelocity": 3.0,
+        "maxAcceleration": 7.5,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 3.5,
+    "maxAcceleration": 7.5,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 180.0
+  },
+  "reversed": false,
+  "folder": "Left Sweep (and mirrored)",
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": -90.0
+  },
+  "useDefaultConstraints": true
+}

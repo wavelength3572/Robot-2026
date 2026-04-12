@@ -46,10 +46,10 @@ public class LauncherIOSim implements LauncherIO {
   // Tunable timing parameters - set these based on real robot observations
   // Prefixed with Sim to clearly indicate these only affect simulation
   private static final LoggedTunableNumber spinupTimeSeconds =
-      new LoggedTunableNumber("Sim/Launcher/SimSpinupTime", 1.5);
+      new LoggedTunableNumber("Sim/Launcher/SimSpinupTime", 0.75);
 
   private static final LoggedTunableNumber recoveryTimeSeconds =
-      new LoggedTunableNumber("Sim/Launcher/SimRecoveryTime", 0.19);
+      new LoggedTunableNumber("Sim/Launcher/SimRecoveryTime", 0.15);
 
   // Optional variation for more realistic testing (set to 0 to disable)
   private static final LoggedTunableNumber spinupTimeVariation =
@@ -94,12 +94,11 @@ public class LauncherIOSim implements LauncherIO {
     inputs.leaderAppliedVolts = appliedVolts;
     inputs.followerAppliedVolts = appliedVolts;
     inputs.leaderCurrentAmps = Math.abs(currentWheelRPM) * 0.01;
-    inputs.leaderPdhCurrentAmps = Math.abs(currentWheelRPM) * 0.01;
     inputs.followerCurrentAmps = Math.abs(currentWheelRPM) * 0.01;
-    inputs.followerPdhCurrentAmps = Math.abs(currentWheelRPM) * 0.01;
     inputs.leaderTempCelsius = 25.0;
     inputs.followerTempCelsius = 25.0;
     inputs.targetVelocityRPM = targetWheelRPM;
+    inputs.leaderTargetRPM = targetWheelRPM / gearRatio;
     inputs.atSetpoint = Math.abs(currentWheelRPM - targetWheelRPM) < velocityToleranceRPM;
   }
 
@@ -128,7 +127,7 @@ public class LauncherIOSim implements LauncherIO {
   }
 
   @Override
-  public void setVelocity(double velocityRPM) {
+  public void setVelocity(double velocityRPM, boolean recoveryActive, double recoveryArbFF) {
     voltageMode = false;
     double newTarget = Math.abs(velocityRPM);
 
@@ -137,12 +136,6 @@ public class LauncherIOSim implements LauncherIO {
       startTransition(newTarget, false);
     }
     targetWheelRPM = newTarget;
-  }
-
-  @Override
-  public void setVelocityWithBoost(double velocityRPM, double boostVolts, boolean recoveryActive) {
-    // Sim doesn't need boost - delegate to normal setVelocity
-    setVelocity(velocityRPM);
   }
 
   @Override
@@ -176,9 +169,9 @@ public class LauncherIOSim implements LauncherIO {
 
   @Override
   public void notifyBallFired() {
-    // Start recovery transition - RPM drops briefly then recovers
-    // The drop amount is internal (just enough for visual feedback)
-    double visualRpmDrop = targetWheelRPM * 0.3; // 30% drop for visual effect
+    // Start recovery transition - RPM drops then recovers
+    // Real flywheel drops ~200 RPM per shot (~7% at 3000 RPM)
+    double visualRpmDrop = targetWheelRPM * 0.07;
     currentWheelRPM = Math.max(0, currentWheelRPM - visualRpmDrop);
 
     // Start recovery transition back to target

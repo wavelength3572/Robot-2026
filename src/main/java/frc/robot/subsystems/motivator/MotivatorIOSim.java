@@ -29,9 +29,11 @@ public class MotivatorIOSim implements MotivatorIO {
   private double motivatorCurrentRPM = 0.0;
   private boolean motivatorVelocityMode = false;
 
-  // Velocity tolerance for atSetpoint (set by subsystem via
-  // setVelocityTolerances)
-  private double motivatorToleranceRPM = 100.0;
+  // Velocity tolerances for atSetpoint with hysteresis (set by subsystem via
+  // setVelocityTolerance)
+  private double motivatorEnterToleranceRPM = 100.0;
+  private double motivatorExitToleranceRPM = 500.0;
+  private boolean wasAtSetpoint = false;
 
   public MotivatorIOSim() {
     // Motivator motor 1: 1 NEO Vortex motor
@@ -43,14 +45,11 @@ public class MotivatorIOSim implements MotivatorIO {
 
   @Override
   public void updateInputs(MotorInputs motor1Inputs) {
-    // Update motivator 1 simulation
-    if (motivatorVelocityMode) {
-      motivatorCurrentRPM += (motivatorTargetRPM - motivatorCurrentRPM) * SIM_RESPONSE_RATE;
-    } else {
-      motivator1Sim.setInputVoltage(motivatorDutyCycle * 12.0);
-      motivator1Sim.update(0.02);
-      motivatorCurrentRPM = motivator1Sim.getAngularVelocityRPM();
-    }
+    // Update motivator 1 simulation — simple first-order response for both modes.
+    // Voltage mode targets an RPM proportional to duty cycle (scaled by a nominal max RPM).
+    double effectiveTarget =
+        motivatorVelocityMode ? motivatorTargetRPM : motivatorDutyCycle * 6000.0;
+    motivatorCurrentRPM += (effectiveTarget - motivatorCurrentRPM) * SIM_RESPONSE_RATE;
 
     // Motivator 1 data
     motor1Inputs.connected = true;
@@ -61,9 +60,19 @@ public class MotivatorIOSim implements MotivatorIO {
     motor1Inputs.currentAmps = Math.abs(motivatorCurrentRPM) * 0.005;
     motor1Inputs.tempCelsius = 25.0;
     motor1Inputs.targetRPM = motivatorTargetRPM;
-    motor1Inputs.atSetpoint =
-        motivatorVelocityMode
-            && Math.abs(motivatorCurrentRPM - motivatorTargetRPM) < motivatorToleranceRPM;
+    double error = Math.abs(motivatorCurrentRPM - motivatorTargetRPM);
+    double threshold = wasAtSetpoint ? motivatorExitToleranceRPM : motivatorEnterToleranceRPM;
+    wasAtSetpoint = motivatorVelocityMode && error < threshold;
+    motor1Inputs.atSetpoint = wasAtSetpoint;
+  }
+
+  // ========== Voltage Control ==========
+
+  @Override
+  public void setMotivatorVoltage(double volts) {
+    motivatorVelocityMode = false;
+    motivatorTargetRPM = 0.0;
+    motivatorDutyCycle = volts / 12.0;
   }
 
   // ========== Velocity Control ==========
@@ -85,7 +94,8 @@ public class MotivatorIOSim implements MotivatorIO {
   }
 
   @Override
-  public void setVelocityTolerance(double motivatorToleranceRPM) {
-    this.motivatorToleranceRPM = motivatorToleranceRPM;
+  public void setVelocityTolerance(double enterToleranceRPM, double exitToleranceRPM) {
+    this.motivatorEnterToleranceRPM = enterToleranceRPM;
+    this.motivatorExitToleranceRPM = exitToleranceRPM;
   }
 }

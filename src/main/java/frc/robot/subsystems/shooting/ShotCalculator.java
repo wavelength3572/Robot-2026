@@ -1,50 +1,27 @@
 package frc.robot.subsystems.shooting;
 
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import frc.robot.subsystems.hood.TrajectoryOptimizer;
-import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 
 /**
- * Utility class for all shot-related calculations. Converts robot pose + target into shot
- * parameters (exit velocity, launch angle, hood angle, turret angle). Also provides launcher
- * RPM↔velocity conversions and projectile physics utilities.
+ * Shared utility class for shot-related calculations. Contains physical constants, the parabola
+ * solver, turret geometry helpers, and time-of-flight computation.
+ *
+ * <p>Strategy-specific concerns (efficiency, hood angle offsets, RPM↔velocity conversion) live in
+ * each {@link ShotStrategy} implementation, not here.
  */
 public final class ShotCalculator {
 
-  // ========== Physical Constants ==========
-  private static final double GRAVITY = 9.81; // m/s^2
+  // ========== Physical Constants (package-private for strategy access) ==========
+  static final double GRAVITY = 9.81; // m/s^2
 
   // Two-roller launcher model:
   // - Main wheel: 3" diameter (1.5" radius)
   // - Hood rollers: 2" diameter, surface speed is 1/1.41 of main wheel (chained together)
-  // Ball exit velocity ≈ average of both surface speeds × slip efficiency
-  private static final double MAIN_WHEEL_RADIUS_METERS = 0.0381; // 3" diameter = 1.5" radius
-  private static final double HOOD_SURFACE_SPEED_RATIO = 1.0 / 1.41; // hood rolls slower
+  static final double MAIN_WHEEL_RADIUS_METERS = 0.0381; // 3" diameter = 1.5" radius
+  static final double HOOD_SURFACE_SPEED_RATIO = 1.0 / 1.41; // hood rolls slower
 
-  // Distance-dependent slip/compression efficiency, derived from LUT calibration data.
-  // Formula: efficiency = A*d^2 + B*d + C, where d = distance to target in meters.
-  // Peaks ~0.785 at mid-range, drops at close range (steep angle) and long range (flat/high slip).
-  // Recalculate these coefficients when updating ShotTableConstants baseline data.
-  private static final double EFFICIENCY_A = -0.0232;
-  private static final double EFFICIENCY_B = 0.1311;
-  private static final double EFFICIENCY_C = 0.5929;
-  private static final double EFFICIENCY_MIN = 0.50; // floor to prevent nonsense at extreme range
-  private static final double EFFICIENCY_MAX = 0.85; // ceiling
-
-  // Velocity limits for safety
-  private static final double MIN_EXIT_VELOCITY = 3.0; // m/s
-  private static final double MAX_EXIT_VELOCITY = 15.0; // m/s
-
-  // Velocity compensation multipliers for shoot-while-moving (0.0 = no compensation, 1.0 = full)
-  private static final LoggedTunableNumber velocityCompX =
-      new LoggedTunableNumber("Shots/VelocityComp/X", 1.0);
-  private static final LoggedTunableNumber velocityCompY =
-      new LoggedTunableNumber("Shots/VelocityComp/Y", 1.0);
+  // Motivator wheel: 3" diameter (same as main wheel)
+  static final double MOTIVATOR_WHEEL_RADIUS_METERS = 0.0381;
 
   // ========== Launcher RPM Tracking ==========
   // currentLauncherRPM = what the launcher is actually doing right now
@@ -55,31 +32,33 @@ public final class ShotCalculator {
   /** Turret geometry config (immutable, set once at startup). */
   public record TurretConfig(double heightMeters, double xOffset, double yOffset) {}
 
-  /** Result of a shot calculation. */
+  /** Result of a shot calculation — the 4 mechanical commands. */
   public record ShotResult(
-      double exitVelocityMps,
-      double launcherRPM, // pre-computed RPM (uses launch efficiency)
-      double launchAngleRad,
-      double hoodAngleDeg,
-      double turretAngleDeg, // robot-relative
-      Translation3d aimTarget, // velocity-compensated
-      boolean achievable,
-      double motivatorRPM, // 0.0 = no LUT data, use fallback tunable
-      double spindexerRPM) { // 0.0 = no LUT data, use fallback tunable
+      double launcherRPM, double hoodAngleDeg, double motivatorRPM, double spindexerRPM) {
+
+    /** Derived launch angle from hood angle: theta = 90° - hoodAngle. */
+    public double launchAngleRad() {
+      return Math.toRadians(90.0 - hoodAngleDeg);
+    }
 
     /** Get the launch angle converted to degrees. */
     public double getLaunchAngleDegrees() {
-      return Math.toDegrees(launchAngleRad);
+      return 90.0 - hoodAngleDeg;
     }
   }
 
   private ShotCalculator() {} // Static utility class
 
-  // ========== Launcher RPM Methods ==========
+  // ========== Launcher RPM Tracking ==========
 
   /** Set the current launcher wheel RPM (called by Launcher periodic). */
   public static void setLauncherRPM(double rpm) {
     currentLauncherRPM = rpm;
+  }
+
+  /** Get the current launcher wheel RPM. */
+  public static double getLauncherRPM() {
+    return currentLauncherRPM;
   }
 
   /** Set the target launcher wheel RPM (called when commanding a new velocity). */
@@ -87,122 +66,12 @@ public final class ShotCalculator {
     targetLauncherRPM = rpm;
   }
 
-  /** Get the current launcher RPM. */
-  public static double getCurrentLauncherRPM() {
-    return currentLauncherRPM;
-  }
-
-  /** Get the target launcher RPM. */
+  /** Get the target launcher wheel RPM. */
   public static double getTargetLauncherRPM() {
     return targetLauncherRPM;
   }
 
-  /**
-   * Get the distance-dependent launch efficiency.
-   *
-   * @param distanceMeters Horizontal distance to target
-   * @return Efficiency factor (clamped to safe range)
-   */
-  public static double getEfficiency(double distanceMeters) {
-    double eff =
-        EFFICIENCY_A * distanceMeters * distanceMeters
-            + EFFICIENCY_B * distanceMeters
-            + EFFICIENCY_C;
-    return Math.max(EFFICIENCY_MIN, Math.min(EFFICIENCY_MAX, eff));
-  }
-
-  /** Get efficiency at a default mid-range distance (for call sites without distance context). */
-  public static double getEfficiency() {
-    return getEfficiency(3.0);
-  }
-
-  /**
-   * Calculate ball exit velocity from a given wheel RPM using the two-roller model.
-   *
-   * <p>Exit velocity = average of main wheel and hood roller surface speeds × distance-dependent
-   * efficiency.
-   *
-   * @param rpm Launcher wheel RPM
-   * @param distanceMeters Horizontal distance to target (for efficiency curve)
-   */
-  public static double calculateExitVelocityFromRPM(double rpm, double distanceMeters) {
-    double mainSurfaceVelocity = (rpm * 2.0 * Math.PI * MAIN_WHEEL_RADIUS_METERS) / 60.0;
-    double hoodSurfaceVelocity = mainSurfaceVelocity * HOOD_SURFACE_SPEED_RATIO;
-    double averageSurfaceVelocity = (mainSurfaceVelocity + hoodSurfaceVelocity) / 2.0;
-    return averageSurfaceVelocity * getEfficiency(distanceMeters);
-  }
-
-  /** Overload using default mid-range efficiency (for call sites without distance context). */
-  public static double calculateExitVelocityFromRPM(double rpm) {
-    return calculateExitVelocityFromRPM(rpm, 3.0);
-  }
-
-  /** Calculate ball exit velocity from current launcher RPM. */
-  public static double calculateExitVelocityFromRPM() {
-    return calculateExitVelocityFromRPM(currentLauncherRPM);
-  }
-
-  /** Calculate ball exit velocity from target (setpoint) launcher RPM. */
-  public static double calculateSetpointExitVelocity() {
-    return calculateExitVelocityFromRPM(targetLauncherRPM);
-  }
-
-  /**
-   * Get what RPM would be needed to achieve a target exit velocity at a given distance.
-   *
-   * @param targetExitVelocity Desired exit velocity in m/s
-   * @param distanceMeters Horizontal distance to target (for efficiency curve)
-   * @return Required wheel RPM
-   */
-  public static double calculateRPMForVelocity(double targetExitVelocity, double distanceMeters) {
-    double averageSurfaceVelocity = targetExitVelocity / getEfficiency(distanceMeters);
-    // Reverse the two-roller average: avg = main × (1 + hoodRatio) / 2
-    double mainSurfaceVelocity = averageSurfaceVelocity * 2.0 / (1.0 + HOOD_SURFACE_SPEED_RATIO);
-    return (mainSurfaceVelocity * 60.0) / (2.0 * Math.PI * MAIN_WHEEL_RADIUS_METERS);
-  }
-
-  /** Overload using default mid-range efficiency. */
-  public static double calculateRPMForVelocity(double targetExitVelocity) {
-    return calculateRPMForVelocity(targetExitVelocity, 3.0);
-  }
-
   // ========== Physics Utilities ==========
-
-  /**
-   * Get the horizontal distance from robot to target.
-   *
-   * @param robot Current robot pose
-   * @param target Target position (3D)
-   * @return Distance in meters
-   */
-  public static double getDistanceToTarget(Pose2d robot, Translation3d target) {
-    return robot.getTranslation().getDistance(target.toTranslation2d());
-  }
-
-  /**
-   * Calculate the optimal launch angle to hit a target given a fixed exit velocity.
-   *
-   * @param robot Current robot pose
-   * @param velocity Exit velocity in m/s
-   * @param target Target position (3D)
-   * @param turretHeightMeters Height of the turret above ground in meters
-   * @return Launch angle in radians (from horizontal)
-   */
-  public static double calculateAngleFromVelocity(
-      Pose2d robot, double velocity, Translation3d target, double turretHeightMeters) {
-    double xDist = getDistanceToTarget(robot, target);
-    double yDist = target.getZ() - turretHeightMeters;
-
-    double v2 = velocity * velocity;
-    double v4 = v2 * v2;
-    double discriminant = v4 - GRAVITY * (GRAVITY * xDist * xDist + 2 * yDist * v2);
-
-    if (discriminant < 0) {
-      return Math.PI / 4; // 45 degrees fallback
-    }
-
-    return Math.atan((v2 + Math.sqrt(discriminant)) / (GRAVITY * xDist));
-  }
 
   /**
    * Calculate time of flight for a projectile.
@@ -219,47 +88,7 @@ public final class ShotCalculator {
     return distance / horizontalVelocity;
   }
 
-  /**
-   * Calculate the azimuth angle (turret rotation) to point at a target.
-   *
-   * @param robot Current robot pose
-   * @param target Target position (3D)
-   * @return Azimuth angle in radians (relative to robot heading, 0-2π)
-   */
-  public static double calculateAzimuthAngle(Pose2d robot, Translation3d target) {
-    Translation2d direction = target.toTranslation2d().minus(robot.getTranslation());
-    double fieldAngle = direction.getAngle().getRadians();
-    double robotAngle = robot.getRotation().getRadians();
-    return MathUtil.inputModulus(fieldAngle - robotAngle, 0, 2 * Math.PI);
-  }
-
-  /**
-   * Predict where the target will be after a given time, accounting for robot motion.
-   *
-   * @param target Current target position
-   * @param fieldSpeeds Field-relative robot speeds
-   * @param timeOfFlight Expected time of flight in seconds
-   * @return Predicted target position (accounting for robot movement)
-   */
-  public static Translation3d predictTargetPos(
-      Translation3d target, ChassisSpeeds fieldSpeeds, double timeOfFlight) {
-    double predictedX =
-        target.getX() - fieldSpeeds.vxMetersPerSecond * timeOfFlight * velocityCompX.get();
-    double predictedY =
-        target.getY() - fieldSpeeds.vyMetersPerSecond * timeOfFlight * velocityCompY.get();
-    return new Translation3d(predictedX, predictedY, target.getZ());
-  }
-
   // ========== Field Position Helpers ==========
-
-  /**
-   * Pass through a velocity-compensated aim target. The smart launch speed gates already prevent
-   * shooting at speeds where the offset would be unreasonable, so no clamping is needed.
-   */
-  public static Translation3d clampAimOffset(
-      Translation3d aimTarget, Translation3d originalTarget) {
-    return aimTarget;
-  }
 
   /**
    * Calculate the turret's field position from robot pose, accounting for turret offset.
@@ -293,24 +122,16 @@ public final class ShotCalculator {
       double effectiveMinDeg,
       double effectiveMaxDeg,
       TurretConfig config) {
-    // Get current turret angle
     double currentAngle = currentTurretAngleDeg;
 
-    // Normalize robotOmega to -180 to +180 range
-    // This code actually probably doesn't do anything
-    // Since our robot omega is always -180 to +180
     double robotOmegaNormalized = robotHeadingDeg % 360;
     if (robotOmegaNormalized > 180) {
       robotOmegaNormalized -= 360;
     } else if (robotOmegaNormalized <= -180) {
       robotOmegaNormalized += 360;
     }
-    // Convert robot heading to radians for rotation calculations
     double robotOmegaRad = Math.toRadians(robotHeadingDeg);
 
-    // Calculate turret's actual position on the field
-    // The turret offset is in robot-relative coordinates, so we need to rotate it
-    // to field coordinates based on the robot's heading
     double turretFieldX =
         robotX
             + (config.xOffset() * Math.cos(robotOmegaRad)
@@ -321,33 +142,19 @@ public final class ShotCalculator {
             + (config.xOffset() * Math.sin(robotOmegaRad)
                 + config.yOffset() * Math.cos(robotOmegaRad));
 
-    // Calculate vector from turret position to target
     double deltaX = targetX - turretFieldX;
     double deltaY = targetY - turretFieldY;
 
-    // Calculate absolute angle to target from field coordinates
     double absoluteAngle = Math.toDegrees(Math.atan2(deltaY, deltaX));
-
-    // Calculate relative (desired) angle (turret angle relative to robot heading)
     double relativeAngle = absoluteAngle - robotHeadingDeg;
 
-    // Log calculation values
-    Logger.recordOutput("Turret/RobotOmegaNormalized", robotOmegaNormalized);
-    Logger.recordOutput("Turret/AbsoluteAngle", absoluteAngle);
-    Logger.recordOutput("Turret/RelativeAngle", relativeAngle);
-
-    // Find the equivalent angle closest to current position
-    // Check desiredAngle and its ±360° versions
     double[] candidates = {relativeAngle, relativeAngle + 360.0, relativeAngle - 360.0};
 
-    double bestOutsideAngle =
-        relativeAngle; // doesn't matter what we set this to, it's just for initalization
-    double smallestMove = 1000000.0; // Set this high do first viable candidate becomes the best.
+    double bestOutsideAngle = relativeAngle;
+    double smallestMove = 1000000.0;
 
     for (double candidate : candidates) {
-      // Check if this candidate is within physical limits
       if (candidate >= effectiveMinDeg && candidate <= effectiveMaxDeg) {
-
         double moveDistance = Math.abs(candidate - currentAngle);
         if (moveDistance < smallestMove) {
           smallestMove = moveDistance;
@@ -356,250 +163,144 @@ public final class ShotCalculator {
       }
     }
 
-    // If bestAngle is still out of range, clamp to nearest limit
-    // This should actually never come into play since one of the candidates
-    // should always work and be within range.
     if (bestOutsideAngle < effectiveMinDeg) {
       bestOutsideAngle = effectiveMinDeg;
     } else if (bestOutsideAngle > effectiveMaxDeg) {
       bestOutsideAngle = effectiveMaxDeg;
     }
 
-    Logger.recordOutput("Turret/bestOutsideAngle", bestOutsideAngle);
+    Logger.recordOutput("Turret/FlipCalc/CommandedAngleDeg", bestOutsideAngle);
+    double marginToMin = bestOutsideAngle - effectiveMinDeg;
+    double marginToMax = effectiveMaxDeg - bestOutsideAngle;
+    Logger.recordOutput("Turret/FlipCalc/FlipMarginDeg", Math.min(marginToMin, marginToMax));
 
     return bestOutsideAngle;
   }
 
-  // ========== Shot Calculations ==========
+  // ========== Fixed-Height Parabola Solver ==========
 
   /**
-   * Calculate shot parameters for the hub (uses TrajectoryOptimizer for optimal RPM/angle).
-   * Includes velocity compensation for robot movement.
+   * Result from the fixed-height parabola solver. Contains the raw physics output (launch angle,
+   * exit velocity) and whether the hood was clamped to a mechanical limit.
    */
-  public static ShotResult calculateHubShot(
-      Pose2d robotPose,
-      ChassisSpeeds fieldSpeeds,
-      Translation3d hubTarget,
-      TurretConfig config,
-      double currentTurretAngleDeg,
-      double effectiveMinDeg,
-      double effectiveMaxDeg,
-      double hoodMinAngleDeg,
-      double hoodMaxAngleDeg) {
-
-    double robotHeadingRad = robotPose.getRotation().getRadians();
-    double[] turretFieldPos =
-        getTurretFieldPosition(robotPose.getX(), robotPose.getY(), robotHeadingRad, config);
-    double turretX = turretFieldPos[0];
-    double turretY = turretFieldPos[1];
-    Translation3d turretPos = new Translation3d(turretX, turretY, config.heightMeters());
-
-    // Velocity compensation: adjust aim point to counteract robot movement during flight.
-    // Only apply when the initial shot is achievable — if the optimizer fails (returns
-    // exitVelocityMps=0), the ToF calculation produces Double.MAX_VALUE and predictTargetPos
-    // generates infinity coordinates, causing the turret to snap to a garbage angle.
-    Translation3d aimTarget = hubTarget;
-    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-    if (robotSpeed > 0.1) {
-      TrajectoryOptimizer.OptimalShot initialShot =
-          TrajectoryOptimizer.calculateOptimalShot(
-              turretPos, hubTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
-
-      if (initialShot.achievable) {
-        double distanceToTarget =
-            Math.sqrt(
-                Math.pow(hubTarget.getX() - turretX, 2) + Math.pow(hubTarget.getY() - turretY, 2));
-        double tof =
-            calculateTimeOfFlight(
-                initialShot.exitVelocityMps,
-                Math.toRadians(initialShot.launchAngleDeg),
-                distanceToTarget);
-
-        for (int i = 0; i < 3; i++) {
-          Translation3d candidate =
-              clampAimOffset(predictTargetPos(hubTarget, fieldSpeeds, tof), hubTarget);
-          double aimDistance =
-              Math.sqrt(
-                  Math.pow(candidate.getX() - turretX, 2)
-                      + Math.pow(candidate.getY() - turretY, 2));
-          TrajectoryOptimizer.OptimalShot refinedShot =
-              TrajectoryOptimizer.calculateOptimalShot(
-                  turretPos, candidate, hoodMinAngleDeg, hoodMaxAngleDeg);
-          if (!refinedShot.achievable) {
-            // Refinement diverged — keep last successful aimTarget
-            break;
-          }
-          aimTarget = candidate;
-          tof =
-              calculateTimeOfFlight(
-                  refinedShot.exitVelocityMps,
-                  Math.toRadians(refinedShot.launchAngleDeg),
-                  aimDistance);
-        }
-      }
-    }
-
-    TrajectoryOptimizer.OptimalShot optimalShot =
-        TrajectoryOptimizer.calculateOptimalShot(
-            turretPos, aimTarget, hoodMinAngleDeg, hoodMaxAngleDeg);
-
-    double turretAngleDeg =
-        calculateOutsideTurretAngle(
-            robotPose.getX(),
-            robotPose.getY(),
-            robotPose.getRotation().getDegrees(),
-            aimTarget.getX(),
-            aimTarget.getY(),
-            currentTurretAngleDeg,
-            effectiveMinDeg,
-            effectiveMaxDeg,
-            config);
-
-    return new ShotResult(
-        optimalShot.exitVelocityMps,
-        optimalShot.rpm,
-        Math.toRadians(optimalShot.launchAngleDeg),
-        optimalShot.hoodAngleDeg,
-        turretAngleDeg,
-        aimTarget,
-        optimalShot.achievable,
-        0.0,
-        0.0);
-  }
-
-  /**
-   * Calculate shot parameters for a pass to a ground-level target. Uses simple projectile physics
-   * with a fixed launch angle instead of the hub-specific TrajectoryOptimizer.
-   */
-  public static ShotResult calculatePassShot(
-      Pose2d robotPose,
-      ChassisSpeeds fieldSpeeds,
-      Translation3d passTarget,
-      TurretConfig config,
+  public record FixedHeightResult(
       double launchAngleDeg,
-      double currentTurretAngleDeg,
-      double effectiveMinDeg,
-      double effectiveMaxDeg) {
+      double exitVelocityMps,
+      boolean clamped,
+      boolean clampedLow,
+      double actualPeakHeightM,
+      double vertexXM,
+      boolean achievable,
+      String failureReason) {
 
-    double robotHeadingRad = robotPose.getRotation().getRadians();
-    double[] turretFieldPos =
-        getTurretFieldPosition(robotPose.getX(), robotPose.getY(), robotHeadingRad, config);
-    double turretX = turretFieldPos[0];
-    double turretY = turretFieldPos[1];
-
-    double launchAngleRad = Math.toRadians(launchAngleDeg);
-    double h = config.heightMeters() - passTarget.getZ();
-    double horizontalDist =
-        Math.sqrt(
-            Math.pow(passTarget.getX() - turretX, 2) + Math.pow(passTarget.getY() - turretY, 2));
-
-    // Solve for velocity: v^2 = g*D^2 / (2*cos^2(theta) * (D*tan(theta) + h))
-    double cosTheta = Math.cos(launchAngleRad);
-    double tanTheta = Math.tan(launchAngleRad);
-    double denominator = 2.0 * cosTheta * cosTheta * (horizontalDist * tanTheta + h);
-
-    double exitVelocity;
-    if (denominator > 0) {
-      exitVelocity = Math.sqrt(GRAVITY * horizontalDist * horizontalDist / denominator);
-    } else {
-      exitVelocity = 10.0; // fallback
+    static FixedHeightResult failure(String reason) {
+      return new FixedHeightResult(0, 0, false, false, 0, 0, false, reason);
     }
-
-    // Velocity compensation for robot movement
-    Translation3d aimTarget = passTarget;
-    double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-    if (robotSpeed > 0.1) {
-      double tof = calculateTimeOfFlight(exitVelocity, launchAngleRad, horizontalDist);
-      for (int i = 0; i < 3; i++) {
-        aimTarget = clampAimOffset(predictTargetPos(passTarget, fieldSpeeds, tof), passTarget);
-        double aimDist =
-            Math.sqrt(
-                Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));
-        double aimH = config.heightMeters() - aimTarget.getZ();
-        double aimDenom = 2.0 * cosTheta * cosTheta * (aimDist * tanTheta + aimH);
-        if (aimDenom > 0) {
-          exitVelocity = Math.sqrt(GRAVITY * aimDist * aimDist / aimDenom);
-        }
-        tof = calculateTimeOfFlight(exitVelocity, launchAngleRad, aimDist);
-      }
-    }
-
-    double turretAngleDeg =
-        calculateOutsideTurretAngle(
-            robotPose.getX(),
-            robotPose.getY(),
-            robotPose.getRotation().getDegrees(),
-            aimTarget.getX(),
-            aimTarget.getY(),
-            currentTurretAngleDeg,
-            effectiveMinDeg,
-            effectiveMaxDeg,
-            config);
-
-    double finalDist =
-        Math.sqrt(
-            Math.pow(aimTarget.getX() - turretX, 2) + Math.pow(aimTarget.getY() - turretY, 2));
-
-    return new ShotResult(
-        exitVelocity,
-        calculateRPMForVelocity(exitVelocity, finalDist),
-        launchAngleRad,
-        90.0 - launchAngleDeg, // convert launch angle to hood angle
-        turretAngleDeg,
-        aimTarget,
-        true,
-        0.0,
-        0.0);
   }
 
   /**
-   * Calculate shot parameters for test mode using manual RPM, hood angle, and turret angle.
-   * Projects a target 5m in the aim direction for trajectory visualization.
+   * Solve a fixed-height parabola trajectory. Given a launch height, fixed peak height, and a
+   * pass-through point (horizontal distance + height), computes the unique launch angle and exit
+   * velocity. If the required hood angle exceeds mechanical limits, clamps the hood and re-solves
+   * for velocity to still hit the pass-through point.
+   *
+   * <p>Uses vertex form: y = a(x - h)² + k, where (h, k) is the peak.
+   *
+   * @param h0 Launch height (turret height) in meters
+   * @param k Peak height in meters (must be > h0 and > y_p)
+   * @param y_p Pass-through point height in meters
+   * @param x_p Pass-through point horizontal distance from turret in meters
+   * @param hoodMinAngleDeg Mechanical hood minimum angle
+   * @param hoodMaxAngleDeg Mechanical hood maximum angle
+   * @return Solver result with launch angle, velocity, and clamping info
    */
-  public static ShotResult calculateManualShot(
-      Pose2d robotPose,
-      TurretConfig config,
-      double launcherRPM,
-      double hoodAngleDeg,
-      double turretAngleDeg) {
+  public static FixedHeightResult solveFixedHeightParabola(
+      double h0, double k, double y_p, double x_p, double hoodMinAngleDeg, double hoodMaxAngleDeg) {
 
-    double exitVelocity = calculateExitVelocityFromRPM(launcherRPM);
-    double launchAngleRad = Math.toRadians(90.0 - hoodAngleDeg);
-    double robotHeadingRad = robotPose.getRotation().getRadians();
+    if (k <= h0) {
+      return FixedHeightResult.failure(
+          String.format("peak %.1fin <= turret height %.1fin", k / 0.0254, h0 / 0.0254));
+    }
+    if (k <= y_p) {
+      return FixedHeightResult.failure(
+          String.format("peak %.1fin <= pass-through height %.1fin", k / 0.0254, y_p / 0.0254));
+    }
+    if (x_p <= 0) {
+      return FixedHeightResult.failure(String.format("pass-through dist %.2fm <= 0", x_p));
+    }
 
-    double[] turretFieldPos =
-        getTurretFieldPosition(robotPose.getX(), robotPose.getY(), robotHeadingRad, config);
-    double turretX = turretFieldPos[0];
-    double turretY = turretFieldPos[1];
+    double r = Math.sqrt((y_p - k) / (h0 - k));
+    double h = x_p / (1.0 + r);
+    double a = (h0 - k) / (h * h);
 
-    // Calculate field-relative turret aim direction using TARGET angle
-    double turretAimRad = robotHeadingRad + Math.toRadians(turretAngleDeg);
+    double tanTheta = -2.0 * a * h;
+    double theta = Math.atan(tanTheta);
+    double thetaDeg = Math.toDegrees(theta);
 
-    // Project target 5 meters in aim direction at appropriate height
-    double targetDistance = 5.0;
-    double targetX = turretX + targetDistance * Math.cos(turretAimRad);
-    double targetY = turretY + targetDistance * Math.sin(turretAimRad);
+    double hoodAngleDeg = 90.0 - thetaDeg;
+    boolean clamped = false;
+    boolean clampedLow = false;
+    double velocity;
+    double cosTheta;
+    double actualPeakM = k;
 
-    // Calculate target height based on trajectory
-    double timeOfFlight = calculateTimeOfFlight(exitVelocity, launchAngleRad, targetDistance);
-    double verticalVelocity = exitVelocity * Math.sin(launchAngleRad);
-    double targetZ =
-        config.heightMeters()
-            + verticalVelocity * timeOfFlight
-            - 0.5 * GRAVITY * timeOfFlight * timeOfFlight;
-    targetZ = Math.max(0, targetZ);
+    if (hoodAngleDeg < hoodMinAngleDeg) {
+      clamped = true;
+      clampedLow = true;
+      hoodAngleDeg = hoodMinAngleDeg;
+      thetaDeg = 90.0 - hoodAngleDeg;
+      theta = Math.toRadians(thetaDeg);
+      cosTheta = Math.cos(theta);
+      double sinTheta = Math.sin(theta);
+      double tanTh = Math.tan(theta);
 
-    Translation3d target = new Translation3d(targetX, targetY, targetZ);
+      double denom = 2.0 * cosTheta * cosTheta * (h0 + x_p * tanTh - y_p);
+      if (denom <= 0) {
+        return FixedHeightResult.failure(
+            String.format("clamped hood %.0f°: unreachable (denom=%.3f)", hoodAngleDeg, denom));
+      }
+      velocity = Math.sqrt(GRAVITY * x_p * x_p / denom);
+      double vy0 = velocity * sinTheta;
+      actualPeakM = h0 + (vy0 * vy0) / (2.0 * GRAVITY);
 
-    return new ShotResult(
-        exitVelocity,
-        calculateRPMForVelocity(exitVelocity),
-        launchAngleRad,
-        hoodAngleDeg,
-        turretAngleDeg,
-        target,
-        true,
-        0.0,
-        0.0);
+    } else if (hoodAngleDeg > hoodMaxAngleDeg) {
+      clamped = true;
+      clampedLow = false;
+      hoodAngleDeg = hoodMaxAngleDeg;
+      thetaDeg = 90.0 - hoodAngleDeg;
+      theta = Math.toRadians(thetaDeg);
+      cosTheta = Math.cos(theta);
+      double sinTheta = Math.sin(theta);
+      double tanTh = Math.tan(theta);
+
+      double denom = 2.0 * cosTheta * cosTheta * (h0 + x_p * tanTh - y_p);
+      if (denom <= 0) {
+        return FixedHeightResult.failure(
+            String.format("clamped hood %.0f°: unreachable (denom=%.3f)", hoodAngleDeg, denom));
+      }
+      velocity = Math.sqrt(GRAVITY * x_p * x_p / denom);
+      double vy0 = velocity * sinTheta;
+      actualPeakM = h0 + (vy0 * vy0) / (2.0 * GRAVITY);
+
+    } else {
+      cosTheta = Math.cos(theta);
+      double vSquared = -GRAVITY / (2.0 * a * cosTheta * cosTheta);
+      if (vSquared <= 0) {
+        return FixedHeightResult.failure(
+            String.format("invalid velocity (v^2=%.3f) at angle=%.1f°", vSquared, thetaDeg));
+      }
+      velocity = Math.sqrt(vSquared);
+    }
+
+    return new FixedHeightResult(
+        thetaDeg, velocity, clamped, clampedLow, actualPeakM, h, true, null);
+  }
+
+  /**
+   * Calculate shot parameters for test mode using manual RPM, hood angle, and turret angle. Returns
+   * a ShotResult with the given RPM and hood angle; motivator/spindexer default to 0 (test mode).
+   */
+  public static ShotResult calculateManualShot(double launcherRPM, double hoodAngleDeg) {
+    return new ShotResult(launcherRPM, hoodAngleDeg, 0, 0);
   }
 }
