@@ -183,7 +183,7 @@ public class MainBotConfig implements RobotConfig {
   private static final int intakeDeployMotorCanId = 45;
   private static final int intakeRollerMotorCanId = 46;
   private static final double intakeDeployGearRatio = 25.0;
-  private static final double intakeRollerGearRatio = 2.625;
+  private static final double intakeRollerGearRatio = 2.0;
   private static final boolean intakeDeployMotorInverted = false;
   private static final boolean intakeRollerMotorInverted = true;
   // 100A is safe for short bursts (agitation UP phase is capped at 0.4s by timeout).
@@ -205,10 +205,10 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeDeployMaxVelocity = 80.0; // RPM output shaft
   private static final double intakeDeployMaxAcceleration = 80.0; // RPM/s output shaft
 
-  private static final double intakeRollerKp = 0.00005;
+  private static final double intakeRollerKp = 0.0;
   private static final double intakeRollerKi = 0.0;
-  private static final double intakeRollerKd = 0.000001;
-  private static final double intakeRollerKff = 0.004644;
+  private static final double intakeRollerKd = 0.0;
+  private static final double intakeRollerKff = 0.00417;
 
   // ========== Climber Configuration ==========
   private static final int climberMotorCanId = 30;
@@ -388,7 +388,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double tuningSpindexerVelocity = 1000.0;
   private static final double tuningHoodAngle = 15.0;
   private static final double tuningTurretOutsideAngle = 0.0;
-  private static final double tuningIntakeDeployedVelocity = 2000.0;
+  private static final double tuningIntakeDeployedVelocity = 2275.0;
   private static final double tuningIntakeRetractRollerVelocity = 1000.0;
 
   // ========== Drive Tuning ==========
