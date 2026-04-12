@@ -312,7 +312,9 @@ function drawRobotBumper(fx,fy,rotDeg,color,alpha,bot,label){
   const[cx,cy]=fieldToCanvas(fx,fy);
   // PathPlanner: 0=facing +X (right), positive=CCW. Canvas: Y is flipped.
   // Robot front is drawn at -Y in local frame. We need -Y to point in heading direction.
-  const canvasRad=(-rotDeg-90)*Math.PI/180;
+  // Rotate so local -Y (front of robot) points in heading direction on canvas
+  // Canvas: +X=right, +Y=down. Heading: 0=right, 90=up (canvas -Y)
+  const canvasRad=(90-rotDeg)*Math.PI/180;
   // PathPlanner swaps w/h when drawing: robotWidth is front-to-back, robotLength is left-to-right
   // In our local frame: X = left-right = robotLength(h), Y = front-back = robotWidth(w)
   const hw=bot.h/2*camScale, hl=bot.w/2*camScale, cr=Math.min(hw,hl)*0.15;
@@ -388,7 +390,7 @@ function draw(){
       // Rotation arrows
       for(const rt of(pd.rt||[])){
         const pt=ptAtPos(wp,rt.pos);const[rx,ry]=fieldToCanvas(pt.x,pt.y);
-        const ra=(-rt.rot)*Math.PI/180;const al=7*devicePixelRatio;
+        const ra=(rt.rot)*Math.PI/180;const al=7*devicePixelRatio;
         ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(rx+Math.cos(ra)*al,ry-Math.sin(ra)*al);
         ctx.strokeStyle=color;ctx.globalAlpha=0.3;ctx.lineWidth=1.5*devicePixelRatio;ctx.stroke();ctx.globalAlpha=1;
       }
