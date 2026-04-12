@@ -89,9 +89,12 @@ canvas{display:block}
 <input class="tba-in" id="tbaKey" placeholder="TBA Key" type="password" style="flex:1">
 </div>
 <div class="tba-row">
-<input class="tba-in" id="eventKey" placeholder="Event (2026miket)" style="flex:1.5">
-<input class="tba-in" id="matchNum" placeholder="Match #" style="width:50px">
-<button class="btn" id="fetchBtn" style="padding:3px 8px;font-size:11px">Fetch</button>
+<input class="tba-in" id="teamNumInput" placeholder="Team # (3572)" value="3572" style="width:70px">
+<input class="tba-in" id="eventKey" placeholder="Event (2026miket)" style="flex:1">
+<button class="btn" id="fetchBtn" style="padding:3px 8px;font-size:11px">Load</button>
+</div>
+<div class="tba-row">
+<select class="ds-auto" id="matchPicker" style="flex:1"><option value="">— Select a match —</option></select>
 </div>
 </div>
 <!-- Red Alliance -->
@@ -477,21 +480,60 @@ function updateTotalTime(){
 // ============ TBA FETCH ============
 const savedKey=localStorage.getItem('tba_key');if(savedKey)document.getElementById('tbaKey').value=savedKey;
 document.getElementById('tbaKey').onchange=e=>localStorage.setItem('tba_key',e.target.value);
+const savedEvent=localStorage.getItem('tba_event');if(savedEvent)document.getElementById('eventKey').value=savedEvent;
+document.getElementById('eventKey').onchange=e=>localStorage.setItem('tba_event',e.target.value);
 
+let allMatches=[]; // cached match list from TBA
+
+// Load all matches for team at event
 document.getElementById('fetchBtn').onclick=async()=>{
-  const key=document.getElementById('tbaKey').value.trim(),ev=document.getElementById('eventKey').value.trim(),mn=document.getElementById('matchNum').value.trim();
-  if(!key||!ev||!mn)return alert('Enter TBA key, event, and match #');
+  const key=document.getElementById('tbaKey').value.trim();
+  const teamNum=document.getElementById('teamNumInput').value.trim();
+  const ev=document.getElementById('eventKey').value.trim();
+  if(!key||!ev||!teamNum)return alert('Enter TBA key, team #, and event key');
+  const picker=document.getElementById('matchPicker');
+  picker.innerHTML='<option value="">Loading...</option>';
   try{
-    const r=await fetch(`https://www.thebluealliance.com/api/v3/match/${ev}_qm${mn}/simple`,{headers:{'X-TBA-Auth-Key':key}});
+    const r=await fetch(`https://www.thebluealliance.com/api/v3/team/frc${teamNum}/event/${ev}/matches/simple`,{headers:{'X-TBA-Auth-Key':key}});
     if(!r.ok)throw new Error('TBA: '+r.status);
-    const m=await r.json();
-    const red=(m.alliances?.red?.team_keys||[]).map(k=>k.replace('frc',''));
-    const blue=(m.alliances?.blue?.team_keys||[]).map(k=>k.replace('frc',''));
-    ['r1','r2','r3'].forEach((s,i)=>{document.getElementById(s+'t').value=red[i]||'';updateSlot(s);});
-    ['b1','b2','b3'].forEach((s,i)=>{document.getElementById(s+'t').value=blue[i]||'';updateSlot(s);});
-    // Lookup EPAs for all
-    for(const s of SLOTS)lookupEpa(s);
-  }catch(e){alert('Fetch failed: '+e.message);}
+    allMatches=await r.json();
+    // Sort by match number (quals first, then playoffs)
+    allMatches.sort((a,b)=>{
+      const typeOrder={qm:0,sf:1,f:2};
+      const aType=a.comp_level||'qm',bType=b.comp_level||'qm';
+      if(aType!==bType)return(typeOrder[aType]||0)-(typeOrder[bType]||0);
+      if(a.set_number!==b.set_number)return a.set_number-b.set_number;
+      return a.match_number-b.match_number;
+    });
+    picker.innerHTML='<option value="">— Select a match —</option>';
+    for(const m of allMatches){
+      const label=matchLabel(m);
+      const red=(m.alliances?.red?.team_keys||[]).map(k=>k.replace('frc',''));
+      const blue=(m.alliances?.blue?.team_keys||[]).map(k=>k.replace('frc',''));
+      const alliance=red.includes(teamNum)?'Red':'Blue';
+      picker.innerHTML+=`<option value="${m.key}">${label} (${alliance}: ${red.join(', ')} vs ${blue.join(', ')})</option>`;
+    }
+  }catch(e){picker.innerHTML='<option value="">Fetch failed</option>';alert('Failed: '+e.message);}
+};
+
+function matchLabel(m){
+  const lvl=m.comp_level||'qm';
+  if(lvl==='qm')return`Qual ${m.match_number}`;
+  if(lvl==='sf')return`SF${m.set_number}-${m.match_number}`;
+  if(lvl==='f')return`Final ${m.match_number}`;
+  return m.key;
+}
+
+// When a match is selected from dropdown, populate stations
+document.getElementById('matchPicker').onchange=()=>{
+  const key=document.getElementById('matchPicker').value;
+  const m=allMatches.find(x=>x.key===key);
+  if(!m)return;
+  const red=(m.alliances?.red?.team_keys||[]).map(k=>k.replace('frc',''));
+  const blue=(m.alliances?.blue?.team_keys||[]).map(k=>k.replace('frc',''));
+  ['r1','r2','r3'].forEach((s,i)=>{document.getElementById(s+'t').value=red[i]||'';updateSlot(s);});
+  ['b1','b2','b3'].forEach((s,i)=>{document.getElementById(s+'t').value=blue[i]||'';updateSlot(s);});
+  for(const s of SLOTS)lookupEpa(s);
 };
 
 // ============ STATBOTICS EPA ============
