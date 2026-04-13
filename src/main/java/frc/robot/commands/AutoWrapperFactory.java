@@ -117,32 +117,23 @@ public class AutoWrapperFactory {
     //
     // For END_OF_PATH: SmartLaunch2 only runs after the path completes.
     if (pathStrategy != PathShootingStrategy.END_OF_PATH) {
-      // Path runs as a sequence step, SmartLaunch2 wraps the whole thing in parallel.
-      // When the path ends, the sequence moves to a "wait forever" that keeps SmartLaunch2
-      // alive until auto ends (the overall auto timeout or disable kills everything).
-      Command pathThenWait =
-          Commands.sequence(
-              pathWithIntake,
-              // Agitate intake after path to shake loose stuck balls while still shooting
-              intake != null
-                  ? intake
-                      .agitateCommand(
-                          () -> Constants.getRobotConfig().getTuningIntakeDeployedVelocity(),
-                          () -> false)
-                      .asProxy()
-                  : Commands.idle());
+      // Path and SmartLaunch2 run in parallel. SmartLaunch2 keeps the parallel group alive
+      // after the path finishes, continuing to shoot until auto ends.
+      // Agitation is handled by AutoAgitate zone event markers in the paths themselves.
       steps.add(
           Commands.parallel(
-              pathThenWait,
+              pathWithIntake,
               ShootingCommands.smartLaunchDangerousCommand(
                       launcher, coordinator, motivator, turret, hood, spindexer, trigger)
                   .asProxy()));
     } else {
-      // END_OF_PATH: run path first, then shoot
+      // END_OF_PATH: run path first, then shoot until auto ends
       steps.add(pathWithIntake);
       steps.add(
-          postPathSmartLaunchWithAgitation(
-              launcher, coordinator, motivator, turret, hood, spindexer, intake));
+          ShootingCommands.smartLaunchDangerousCommand(
+                  launcher, coordinator, motivator, turret, hood, spindexer)
+              .withTimeout(10.0)
+              .asProxy());
     }
 
     return Commands.sequence(steps.toArray(Command[]::new))
@@ -203,28 +194,6 @@ public class AutoWrapperFactory {
 
   private static Command runPath(Command selectedAuto) {
     return selectedAuto.asProxy();
-  }
-
-  private static Command postPathSmartLaunchWithAgitation(
-      Launcher launcher,
-      ShootingCoordinator coordinator,
-      Motivator motivator,
-      Turret turret,
-      Hood hood,
-      Spindexer spindexer,
-      Intake intake) {
-    Command smartLaunch =
-        ShootingCommands.smartLaunchDangerousCommand(
-                launcher, coordinator, motivator, turret, hood, spindexer)
-            .withTimeout(10.0)
-            .asProxy();
-    if (intake != null) {
-      smartLaunch =
-          smartLaunch.alongWith(
-              intake.agitateCommand(
-                  () -> Constants.getRobotConfig().getTuningIntakeDeployedVelocity(), () -> false));
-    }
-    return smartLaunch;
   }
 
   private static void teardown(Launcher launcher, Motivator motivator, Intake intake) {

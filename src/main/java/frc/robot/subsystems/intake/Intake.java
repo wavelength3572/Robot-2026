@@ -1041,6 +1041,50 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber agitationKickDurationSec =
       new LoggedTunableNumber("Tuning/Intake/Agitation/KickDurationSec", 0.12);
 
+  private static final LoggedTunableNumber autoAgitateSettleSec =
+      new LoggedTunableNumber("Tuning/Intake/Agitation/AutoSettleSec", 0.3);
+
+  /**
+   * Repeating kick agitation for autonomous zone markers. No dwell timer — kicks immediately and
+   * repeats until the command is cancelled (zone exit). Gated on climber state so agitation stops
+   * during climbing/climbed.
+   *
+   * @param climbingOrClimbed supplier that returns true when the climber is actively climbing or
+   *     has climbed — agitation is suppressed in those states
+   */
+  public Command autoAgitateCommand(BooleanSupplier climbingOrClimbed) {
+    Timer kickTimer = new Timer();
+    return Commands.sequence(
+            // Kick: brief retract burst
+            Commands.runOnce(
+                () -> {
+                  io.setDeployBrakeMode(true);
+                  io.setDeployDutyCycle(agitationKickDutyCycle.get());
+                  deployState = DeployState.AGITATING;
+                  kickTimer.restart();
+                }),
+            Commands.waitUntil(() -> kickTimer.hasElapsed(agitationKickDurationSec.get())),
+            // Redeploy: send arm back to extended position
+            Commands.runOnce(
+                () -> {
+                  restoreNormalDeployConfig();
+                  deploy();
+                }),
+            // Settle: wait for arm to return before next kick
+            Commands.waitSeconds(autoAgitateSettleSec.get()))
+        .repeatedly()
+        .onlyWhile(
+            () ->
+                !climbingOrClimbed.getAsBoolean()
+                    && SmartDashboard.getBoolean("Intake/AgitationEnabled", false))
+        .finallyDo(
+            () -> {
+              restoreNormalDeployConfig();
+              deploy();
+            })
+        .withName("Intake: AutoAgitate");
+  }
+
   public Command unclogAgitateCommand() {
     Timer kickTimer = new Timer();
     return Commands.runOnce(
