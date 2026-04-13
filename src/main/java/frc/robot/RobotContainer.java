@@ -116,7 +116,8 @@ public class RobotContainer {
         hood = config.hasHood() ? new Hood(new HoodIOSparkMax()) : null;
         motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkFlex()) : null;
         spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSparkMax()) : null;
-        climber = config.hasClimber() ? new Climber(new ClimberIOSpark()) : null;
+        // TODO: Climber hardware is busted — using sim IO until repaired
+        climber = config.hasClimber() ? new Climber(new ClimberIOSim()) : null;
 
         drive =
             config.hasDrive()
@@ -875,7 +876,15 @@ public class RobotContainer {
 
     // Agitate: shake loose stuck balls (used between cycles in multi-path autos)
     if (intake != null) {
-      NamedCommands.registerCommand("Agitate", intake.agitateCommand(() -> 2000.0, () -> false));
+      NamedCommands.registerCommand(
+          "Agitate",
+          intake.agitateCommand(
+              () -> Constants.getRobotConfig().getTuningIntakeDeployedVelocity(), () -> false));
+    }
+
+    // PreClimbFlush: jostle + reverse rollers + stow (used before climb in auto)
+    if (intake != null) {
+      NamedCommands.registerCommand("PreClimbFlush", intake.preClimbFlushCommand());
     }
 
     // RunIntake: deploy intake and start rollers (used by Depot auto)

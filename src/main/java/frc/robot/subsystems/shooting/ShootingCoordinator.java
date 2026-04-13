@@ -1377,7 +1377,15 @@ public class ShootingCoordinator extends SubsystemBase {
    * flywheel spinning.
    */
   public boolean shouldIdleLauncher() {
-    return feedingSuppressedSupplier.getAsBoolean() && !isInAllianceZone();
+    // Only idle when suppressed, outside alliance zone, AND the coordinator isn't actively
+    // tracking a shot. Without the state check, holding fire in a pass zone idles the launcher
+    // so it never reaches ready and the HELD state (cyan LEDs) is unreachable.
+    boolean activelyTracking =
+        coordinatorState == CoordinatorState.AIMING
+            || coordinatorState == CoordinatorState.SETTLING
+            || coordinatorState == CoordinatorState.FIRING
+            || coordinatorState == CoordinatorState.HELD;
+    return feedingSuppressedSupplier.getAsBoolean() && !isInAllianceZone() && !activelyTracking;
   }
 
   /**

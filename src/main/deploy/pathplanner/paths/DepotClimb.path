@@ -16,48 +16,16 @@
     },
     {
       "anchor": {
-        "x": 0.5678145161303272,
-        "y": 6.258612903227338
+        "x": 0.5821128491110883,
+        "y": 5.977922417862938
       },
       "prevControl": {
-        "x": 0.2578145161303272,
-        "y": 6.258612903227338
+        "x": 0.2721128491110883,
+        "y": 5.977922417862938
       },
       "nextControl": {
-        "x": 0.9678145161303272,
-        "y": 6.258612903227338
-      },
-      "isLocked": false,
-      "linkedName": null
-    },
-    {
-      "anchor": {
-        "x": 1.4236129032271014,
-        "y": 5.929459677420887
-      },
-      "prevControl": {
-        "x": 1.4297086513407786,
-        "y": 6.17938535008165
-      },
-      "nextControl": {
-        "x": 1.4175171551134242,
-        "y": 5.679534004760124
-      },
-      "isLocked": false,
-      "linkedName": null
-    },
-    {
-      "anchor": {
-        "x": 0.5605000000012952,
-        "y": 5.658822580646692
-      },
-      "prevControl": {
-        "x": 0.8705000000012951,
-        "y": 5.658822580646692
-      },
-      "nextControl": {
-        "x": 0.2505000000012952,
-        "y": 5.658822580646692
+        "x": 0.9821128491110882,
+        "y": 5.977922417862938
       },
       "isLocked": false,
       "linkedName": null
@@ -94,19 +62,32 @@
   ],
   "rotationTargets": [
     {
-      "waypointRelativePos": 3.6622276029055483,
+      "waypointRelativePos": 1.95,
       "rotationDegrees": 180.0
     },
     {
-      "waypointRelativePos": 4.443099273607764,
+      "waypointRelativePos": 2.443099273607764,
       "rotationDegrees": 90.0
     }
   ],
   "constraintZones": [
     {
-      "name": "Constraints Zone",
-      "minWaypointRelativePos": 3.6,
-      "maxWaypointRelativePos": 5.0,
+      "name": "Depot Zone",
+      "minWaypointRelativePos": 0.5910447761194029,
+      "maxWaypointRelativePos": 1.1462686567164189,
+      "constraints": {
+        "maxVelocity": 0.5,
+        "maxAcceleration": 2.5,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "Climbing Zone",
+      "minWaypointRelativePos": 1.15,
+      "maxWaypointRelativePos": 3.0,
       "constraints": {
         "maxVelocity": 0.195,
         "maxAcceleration": 1.0,
@@ -121,12 +102,23 @@
   "eventMarkers": [
     {
       "name": "ClimberExtend",
-      "waypointRelativePos": 4.332155477031796,
+      "waypointRelativePos": 2.3321554770317956,
       "endWaypointRelativePos": null,
       "command": {
         "type": "named",
         "data": {
           "name": "ClimberExtend"
+        }
+      }
+    },
+    {
+      "name": "PreClimbFlush",
+      "waypointRelativePos": 2.7457627118644075,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "PreClimbFlush"
         }
       }
     }

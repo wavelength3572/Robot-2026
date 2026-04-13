@@ -299,8 +299,8 @@ public class MainBotConfig implements RobotConfig {
   private static final double zoneCornerDist = 5.1;
 
   // ========== Fixed Height Shot Strategy ==========
-  private static final double fixedHeightPeakHeightIn = 96.0;
-  private static final double fixedHeightPassThroughHeightIn = 78.0;
+  private static final double fixedHeightPeakHeightIn = 86.0;
+  private static final double fixedHeightPassThroughHeightIn = 74.0;
   private static final double fixedHeightHorizontalOffsetIn = 8.0;
   private static final double fixedHeightMinRPM = 1500.0;
   private static final double fixedHeightMaxRPM = 4000.0;
@@ -330,7 +330,7 @@ public class MainBotConfig implements RobotConfig {
 
   // ========== Shooting Coordinator — Smart Launch ==========
   private static final double smartLaunchReadyTimeoutSec = 3.0;
-  private static final double shootOnTheMoveSpeedMps = 1.25;
+  private static final double shootOnTheMoveSpeedMps = 3.0;
   private static final double passSpeedMps = 3.0;
   private static final double autoPassSpeedMps = 1.1;
   private static final double passMaxRPM = 4000.0;

@@ -230,7 +230,7 @@ public class Intake extends SubsystemBase {
   public static final double ROLLER_EJECT_SPEED = -0.6;
   public static final double ROLLER_HOLD_SPEED = 0.1;
   public static final double ROLLER_INTAKE_RPM_RETRACTED = 0.0;
-  public static final double ROLLER_INTAKE_RPM_DEPLOYED = 2000.0;
+  public static final double ROLLER_INTAKE_RPM_DEPLOYED = 2275.0;
   public static final double ROLLER_EJECT_RPM = -1000.0;
 
   // Pending roller velocity — set when deploy is commanded, applied once position threshold is met
@@ -866,6 +866,204 @@ public class Intake extends SubsystemBase {
               }
             })
         .withName("Intake: Agitate");
+  }
+
+  private static final LoggedTunableNumber retractStowTimeoutSec =
+      new LoggedTunableNumber("Tuning/Intake/Retract/StowTimeoutSec", 1.5);
+
+  // Tracks whether the button was still held after the burst completed.
+  // Set by the whileTrue command, read by the onFalse follow-up.
+  private boolean retractCommittedToFull = false;
+
+  /**
+   * Burst-then-retract command (bind to whileTrue). Always starts with an immediate voltage burst
+   * kick. If the button is still held after the burst, commits to a full retract with rollers.
+   *
+   * <p><b>Tap:</b> burst fires, button released during/after burst → onFalse redeploys.
+   *
+   * <p><b>Hold:</b> burst fires, then full retract with rollers → on release, stops rollers. If
+   * retract didn't complete, onFalse redeploys.
+   *
+   * @param rollerRPM Supplier for roller velocity during held retract
+   */
+  public Command retractWhileHeldCommand(java.util.function.DoubleSupplier rollerRPM) {
+    Timer kickTimer = new Timer();
+
+    return Commands.runOnce(
+            () -> {
+              retractCommittedToFull = false;
+              // Immediate voltage burst
+              io.setDeployBrakeMode(true);
+              io.setDeployDutyCycle(agitationKickDutyCycle.get());
+              deployState = DeployState.AGITATING;
+              kickTimer.restart();
+            })
+        // Wait for burst to finish
+        .andThen(Commands.waitUntil(() -> kickTimer.hasElapsed(agitationKickDurationSec.get())))
+        // Burst done, still held — commit to full retract
+        .andThen(
+            Commands.runOnce(
+                () -> {
+                  retractCommittedToFull = true;
+                  retract();
+                  setRollerVelocity(rollerRPM.getAsDouble());
+                }))
+        .andThen(Commands.idle()) // Stay until button released
+        .finallyDo(
+            () -> {
+              if (retractCommittedToFull) {
+                stopRollers();
+              }
+            })
+        .withName("Intake: RetractWhileHeld");
+  }
+
+  /**
+   * Follow-up command for retract button release (bind to onFalse). If it was a tap (released
+   * during/after burst), redeploys. If it was a hold (full retract), checks if retract completed —
+   * if not, redeploys so the arm isn't left jammed.
+   */
+  public Command retractReleaseFollowUpCommand() {
+    return Commands.runOnce(
+            () -> {
+              if (!retractCommittedToFull) {
+                // Tap — redeploy after burst
+                restoreNormalDeployConfig();
+                deployState = DeployState.DEPLOYING;
+                io.setDeployBrakeMode(true);
+                applyDeployMotionConfig();
+                deployCommanded = true;
+                movingFirstCycle = true;
+                io.setDeployPosition(deployExtendedPos.get());
+              } else if (!retractAtTarget()) {
+                // Hold but retract didn't complete — redeploy so we're not jammed
+                deployState = DeployState.DEPLOYING;
+                io.setDeployBrakeMode(true);
+                applyDeployMotionConfig();
+                deployCommanded = true;
+                movingFirstCycle = true;
+                io.setDeployPosition(deployExtendedPos.get());
+              }
+              // else: hold and retract completed — stay retracted
+            })
+        .withName("Intake: RetractReleaseFollowUp");
+  }
+
+  private static final LoggedTunableNumber preClimbFlushStowTimeoutSec =
+      new LoggedTunableNumber("Tuning/Intake/PreClimbFlush/StowTimeoutSec", 1.0);
+
+  private static final LoggedTunableNumber preClimbFlushReverseRollerSec =
+      new LoggedTunableNumber("Tuning/Intake/PreClimbFlush/ReverseRollerSec", 1.0);
+
+  /**
+   * Pre-climb flush sequence for auto. Jostles stuck balls, reverses rollers briefly to push them
+   * into the hopper, then stows the intake. If stow fails (balls blocking), redeploys so the intake
+   * isn't left jammed halfway. Register as a NamedCommand for PathPlanner event markers.
+   */
+  private static final LoggedTunableNumber preClimbFlushTotalTimeoutSec =
+      new LoggedTunableNumber("Tuning/Intake/PreClimbFlush/TotalTimeoutSec", 3.0);
+
+  public Command preClimbFlushCommand() {
+    Timer kickTimer = new Timer();
+    return Commands.sequence(
+            // 1. Voltage burst kick to jostle balls off the lip
+            Commands.runOnce(
+                () -> {
+                  io.setDeployBrakeMode(true);
+                  io.setDeployDutyCycle(agitationKickDutyCycle.get());
+                  deployState = DeployState.AGITATING;
+                  kickTimer.restart();
+                }),
+            Commands.waitUntil(() -> kickTimer.hasElapsed(agitationKickDurationSec.get())),
+            // 2. Command back to deployed
+            Commands.runOnce(
+                () -> {
+                  restoreNormalDeployConfig();
+                  deployState = DeployState.DEPLOYING;
+                  io.setDeployBrakeMode(true);
+                  applyDeployMotionConfig();
+                  deployCommanded = true;
+                  movingFirstCycle = true;
+                  io.setDeployPosition(deployExtendedPos.get());
+                }),
+            Commands.waitUntil(this::deployAtTarget).withTimeout(1.0),
+            // 3. Reverse rollers briefly to push balls into hopper
+            Commands.runOnce(this::runEject),
+            Commands.waitSeconds(preClimbFlushReverseRollerSec.get()),
+            Commands.runOnce(this::stopRollers),
+            // 4. Stow the intake
+            Commands.runOnce(this::stow),
+            Commands.waitUntil(this::isStowed)
+                .withTimeout(preClimbFlushStowTimeoutSec.get())
+                .andThen(
+                    // 5. If stow failed, redeploy so we're not jammed halfway
+                    Commands.either(
+                        Commands.none(),
+                        Commands.runOnce(
+                            () -> {
+                              deployState = DeployState.DEPLOYING;
+                              io.setDeployBrakeMode(true);
+                              applyDeployMotionConfig();
+                              deployCommanded = true;
+                              movingFirstCycle = true;
+                              io.setDeployPosition(deployExtendedPos.get());
+                            }),
+                        this::isStowed)))
+        // Overall timeout — if anything gets stuck, give up and redeploy
+        .withTimeout(preClimbFlushTotalTimeoutSec.get())
+        .finallyDo(
+            () -> {
+              // If we timed out mid-sequence, make sure we're in a safe state
+              if (deployState == DeployState.AGITATING || deployState == DeployState.RETRACTING) {
+                restoreNormalDeployConfig();
+                deployState = DeployState.DEPLOYING;
+                io.setDeployBrakeMode(true);
+                applyDeployMotionConfig();
+                deployCommanded = true;
+                movingFirstCycle = true;
+                io.setDeployPosition(deployExtendedPos.get());
+              }
+              stopRollers();
+            })
+        .withName("Intake: PreClimbFlush");
+  }
+
+  /**
+   * Single-shot agitation for the unclog button. Kicks the deploy arm up with a raw voltage burst,
+   * then commands it back to the deployed position. Does NOT require the intake subsystem so it
+   * coexists with smart launch. Gated by a SmartDashboard boolean for easy disable.
+   *
+   * <p>Tunables: Tuning/Intake/Agitation/KickDutyCycle, Tuning/Intake/Agitation/KickDurationSec
+   */
+  private static final LoggedTunableNumber agitationKickDutyCycle =
+      new LoggedTunableNumber("Tuning/Intake/Agitation/KickDutyCycle", -0.2);
+
+  private static final LoggedTunableNumber agitationKickDurationSec =
+      new LoggedTunableNumber("Tuning/Intake/Agitation/KickDurationSec", 0.12);
+
+  public Command unclogAgitateCommand() {
+    Timer kickTimer = new Timer();
+    return Commands.runOnce(
+            () -> {
+              if (!SmartDashboard.getBoolean("Intake/AgitationEnabled", false)) return;
+              if (deployState != DeployState.DEPLOYED
+                  && deployState != DeployState.DEPLOY_SETTLING
+                  && deployState != DeployState.AGITATING) return;
+              io.setDeployBrakeMode(true);
+              io.setDeployDutyCycle(agitationKickDutyCycle.get());
+              deployState = DeployState.AGITATING;
+              kickTimer.restart();
+            })
+        .andThen(Commands.waitUntil(() -> kickTimer.hasElapsed(agitationKickDurationSec.get())))
+        .andThen(
+            Commands.runOnce(
+                () -> {
+                  // Command back to deployed position — motor + gravity pulls it home
+                  restoreNormalDeployConfig();
+                  deploy();
+                }))
+        .onlyIf(() -> SmartDashboard.getBoolean("Intake/AgitationEnabled", false))
+        .withName("Intake: UnclogAgitate");
   }
 
   // ========== Commands ==========

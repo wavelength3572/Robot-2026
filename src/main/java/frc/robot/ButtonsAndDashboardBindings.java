@@ -392,6 +392,7 @@ public class ButtonsAndDashboardBindings {
           "Tuning/Intake/IntakeDeploy/Retract",
           Commands.runOnce(intake::retract, intake).withName("Intake: Retract"));
       SmartDashboard.putData("Tuning/Intake/STOP", intake.stopAllCommand());
+      SmartDashboard.putData("Tuning/Intake/PreClimbFlush", intake.preClimbFlushCommand());
       SmartDashboard.putData(
           "Tuning/Intake/IntakeRollers/RunAtTuningVelocity",
           Commands.run(() -> intake.setRollerVelocity(tuningIntakeDeployedVelocity.get()))
@@ -539,16 +540,25 @@ public class ButtonsAndDashboardBindings {
       //       .whileTrue(spindexer.reciprocateCommand());
       // }
 
-      // Button 3: Retract and run rollers while held; on release, stop rollers but stay retracted
+      // Button 3: Burst-then-retract.
+      // Press: immediate voltage burst kick to jostle balls.
+      // Release after burst (tap): auto-redeploy.
+      // Hold past burst: full retract with rollers, stays retracted on release.
+      // If retract fails (arm stuck): redeploys so it's not left jammed.
+      //
+      // TO REVERT to old simple retract (no burst, hold-only):
+      //   oi.getButtonBox1Button3()
+      //       .whileTrue(
+      //           Commands.startEnd(
+      //               () -> {
+      //                 intake.retract();
+      //                 intake.setRollerVelocity(tuningIntakeDeployedVelocity.get());
+      //               },
+      //               intake::stopRollers,
+      //               intake));
       oi.getButtonBox1Button3()
-          .whileTrue(
-              Commands.startEnd(
-                  () -> {
-                    intake.retract();
-                    intake.setRollerVelocity(tuningIntakeRetractRollerVelocity.get());
-                  },
-                  intake::stopRollers,
-                  intake));
+          .whileTrue(intake.retractWhileHeldCommand(tuningIntakeDeployedVelocity::get));
+      oi.getButtonBox1Button3().onFalse(intake.retractReleaseFollowUpCommand());
     }
 
     // Smart launch:Button 12— mode selected by dashboard toggle
@@ -572,16 +582,21 @@ public class ButtonsAndDashboardBindings {
             intake.smartLaunchRollerCommand(
                 tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean);
 
-        // Agitation only in alliance zones — no need to jostle balls when passing
-        Command zoneGatedAgitation =
-            Commands.waitUntil(shootingCoordinator::isInAllianceZone)
-                .andThen(
-                    intake.agitateCommand(
-                        tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean))
-                .onlyWhile(shootingCoordinator::isInAllianceZone)
-                .repeatedly();
-
-        smartLaunchCmd = smartLaunchCmd.alongWith(zoneGatedAgitation, rollerCmd);
+        // No agitation during smart launch — operator triggers it via Button 3 tap instead.
+        // TO REVERT to auto-agitation during smart launch:
+        //   1. Uncomment the zoneGatedAgitation block below
+        //   2. Change smartLaunchCmd.alongWith(rollerCmd) to
+        //      smartLaunchCmd.alongWith(zoneGatedAgitation, rollerCmd)
+        //
+        // Command zoneGatedAgitation =
+        //     Commands.waitUntil(shootingCoordinator::isInAllianceZone)
+        //         .andThen(
+        //             intake.agitateCommand(
+        //                 tuningIntakeDeployedVelocity::get,
+        //                 oi.getButtonBox1Button4()::getAsBoolean))
+        //         .onlyWhile(shootingCoordinator::isInAllianceZone)
+        //         .repeatedly();
+        smartLaunchCmd = smartLaunchCmd.alongWith(rollerCmd);
       }
       oi.getButtonBox1Button12().whileTrue(smartLaunchCmd);
 

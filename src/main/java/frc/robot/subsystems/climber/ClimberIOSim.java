@@ -27,6 +27,11 @@ public class ClimberIOSim implements ClimberIO {
   }
 
   @Override
+  public void setPosition(double motorRotations, double arbFFVolts) {
+    targetPosition = motorRotations;
+  }
+
+  @Override
   public void stop() {
     targetPosition = currentPosition;
   }

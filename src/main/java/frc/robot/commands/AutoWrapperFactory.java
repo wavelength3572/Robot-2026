@@ -125,7 +125,11 @@ public class AutoWrapperFactory {
               pathWithIntake,
               // Agitate intake after path to shake loose stuck balls while still shooting
               intake != null
-                  ? intake.agitateCommand(() -> 2000.0, () -> false).asProxy()
+                  ? intake
+                      .agitateCommand(
+                          () -> Constants.getRobotConfig().getTuningIntakeDeployedVelocity(),
+                          () -> false)
+                      .asProxy()
                   : Commands.idle());
       steps.add(
           Commands.parallel(
@@ -215,7 +219,10 @@ public class AutoWrapperFactory {
             .withTimeout(10.0)
             .asProxy();
     if (intake != null) {
-      smartLaunch = smartLaunch.alongWith(intake.agitateCommand(() -> 2000.0, () -> false));
+      smartLaunch =
+          smartLaunch.alongWith(
+              intake.agitateCommand(
+                  () -> Constants.getRobotConfig().getTuningIntakeDeployedVelocity(), () -> false));
     }
     return smartLaunch;
   }
