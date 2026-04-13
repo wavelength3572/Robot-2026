@@ -755,8 +755,8 @@ public class Intake extends SubsystemBase {
    * velocity.
    *
    * <p>When useDwell is true, waits for the robot to be stationary for
-   * Tuning/Intake/Agitation/StationaryDwellSec before the first kick. If the robot moves,
-   * pauses and waits for the dwell again. When false, kicks immediately (for auto zone markers).
+   * Tuning/Intake/Agitation/StationaryDwellSec before the first kick. If the robot moves, pauses
+   * and waits for the dwell again. When false, kicks immediately (for auto zone markers).
    *
    * @param climbingOrClimbed supplier — true when climber is CLIMBING or CLIMBED
    * @param useDwell true for teleop (wait until stationary), false for auto (kick immediately)
@@ -776,9 +776,7 @@ public class Intake extends SubsystemBase {
                             stationaryTimer.restart();
                           }
                         })
-                    .until(
-                        () ->
-                            stationaryTimer.hasElapsed(agitationStationaryDwellSec.get()))
+                    .until(() -> stationaryTimer.hasElapsed(agitationStationaryDwellSec.get()))
                 : Commands.none(),
             // Phase 2: Repeating kick cycles while stationary
             Commands.sequence(
@@ -790,8 +788,7 @@ public class Intake extends SubsystemBase {
                           deployState = DeployState.AGITATING;
                           kickTimer.restart();
                         }),
-                    Commands.waitUntil(
-                        () -> kickTimer.hasElapsed(agitationKickDurationSec.get())),
+                    Commands.waitUntil(() -> kickTimer.hasElapsed(agitationKickDurationSec.get())),
                     // Redeploy: send arm back to extended position
                     Commands.runOnce(
                         () -> {

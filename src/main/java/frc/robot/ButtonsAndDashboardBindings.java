@@ -589,8 +589,7 @@ public class ButtonsAndDashboardBindings {
                 tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean);
 
         smartLaunchCmd =
-            smartLaunchCmd.alongWith(
-                intake.agitateCommand(smartLaunchClimbGate, true), rollerCmd);
+            smartLaunchCmd.alongWith(intake.agitateCommand(smartLaunchClimbGate, true), rollerCmd);
       }
       oi.getButtonBox1Button12().whileTrue(smartLaunchCmd);
 

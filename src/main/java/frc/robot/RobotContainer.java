@@ -885,8 +885,7 @@ public class RobotContainer {
                   climber.getState() == Climber.ClimberState.CLIMBING
                       || climber.getState() == Climber.ClimberState.CLIMBED
               : () -> false;
-      NamedCommands.registerCommand(
-          "Agitate", intake.agitateCommand(climbingOrClimbed));
+      NamedCommands.registerCommand("Agitate", intake.agitateCommand(climbingOrClimbed));
     }
 
     // PreClimbFlush: jostle + reverse rollers + stow (used before climb in auto)
