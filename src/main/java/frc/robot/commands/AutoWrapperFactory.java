@@ -132,7 +132,7 @@ public class AutoWrapperFactory {
       // Mid-path agitation is handled by AutoAgitate zone event markers in the paths.
       Command pathThenAgitate =
           intake != null
-              ? Commands.sequence(pathWithIntake, intake.autoAgitateCommand(climbingOrClimbed))
+              ? Commands.sequence(pathWithIntake, intake.agitateCommand(climbingOrClimbed))
               : pathWithIntake;
       steps.add(
           Commands.parallel(
@@ -149,7 +149,7 @@ public class AutoWrapperFactory {
               .withTimeout(10.0)
               .asProxy();
       if (intake != null) {
-        postPathShoot = postPathShoot.alongWith(intake.autoAgitateCommand(climbingOrClimbed));
+        postPathShoot = postPathShoot.alongWith(intake.agitateCommand(climbingOrClimbed));
       }
       steps.add(postPathShoot);
     }

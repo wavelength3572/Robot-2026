@@ -1052,7 +1052,7 @@ public class Intake extends SubsystemBase {
    * @param climbingOrClimbed supplier that returns true when the climber is actively climbing or
    *     has climbed — agitation is suppressed in those states
    */
-  public Command autoAgitateCommand(BooleanSupplier climbingOrClimbed) {
+  public Command agitateCommand(BooleanSupplier climbingOrClimbed) {
     Timer kickTimer = new Timer();
     return Commands.sequence(
             // Kick: brief retract burst
