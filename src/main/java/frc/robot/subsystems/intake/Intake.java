@@ -1082,7 +1082,7 @@ public class Intake extends SubsystemBase {
               restoreNormalDeployConfig();
               deploy();
             })
-        .withName("Intake: AutoAgitate");
+        .withName("Intake: Agitate");
   }
 
   public Command unclogAgitateCommand() {
