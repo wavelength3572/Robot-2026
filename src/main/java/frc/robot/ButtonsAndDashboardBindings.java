@@ -576,27 +576,21 @@ public class ButtonsAndDashboardBindings {
                       launcher, shootingCoordinator, motivator, turret, hood, spindexer),
               smartLaunchReqs);
       if (intake != null) {
+        java.util.function.BooleanSupplier smartLaunchClimbGate =
+            climber != null
+                ? () ->
+                    climber.getState() == Climber.ClimberState.CLIMBING
+                        || climber.getState() == Climber.ClimberState.CLIMBED
+                : () -> false;
         // Rollers spin in all zones when intake is deployed (safety interlock handles retracted
         // state)
         Command rollerCmd =
             intake.smartLaunchRollerCommand(
                 tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean);
 
-        // No agitation during smart launch — operator triggers it via Button 3 tap instead.
-        // TO REVERT to auto-agitation during smart launch:
-        //   1. Uncomment the zoneGatedAgitation block below
-        //   2. Change smartLaunchCmd.alongWith(rollerCmd) to
-        //      smartLaunchCmd.alongWith(zoneGatedAgitation, rollerCmd)
-        //
-        // Command zoneGatedAgitation =
-        //     Commands.waitUntil(shootingCoordinator::isInAllianceZone)
-        //         .andThen(
-        //             intake.agitateCommand(
-        //                 tuningIntakeDeployedVelocity::get,
-        //                 oi.getButtonBox1Button4()::getAsBoolean))
-        //         .onlyWhile(shootingCoordinator::isInAllianceZone)
-        //         .repeatedly();
-        smartLaunchCmd = smartLaunchCmd.alongWith(rollerCmd);
+        smartLaunchCmd =
+            smartLaunchCmd.alongWith(
+                intake.agitateCommand(smartLaunchClimbGate, true), rollerCmd);
       }
       oi.getButtonBox1Button12().whileTrue(smartLaunchCmd);
 
