@@ -752,22 +752,23 @@ public class Intake extends SubsystemBase {
 
   /**
    * Unified kick agitation. Repeating voltage burst kicks, gated on climber state and robot
-   * velocity. Use for both auto (dwellSec=0) and teleop (dwellSec>0).
+   * velocity.
    *
-   * <p>Behavior: waits for robot to be stationary for dwellSec, then kicks repeatedly. If the robot
-   * moves, pauses and waits for the dwell again. Stops if climbing/climbed.
+   * <p>When useDwell is true, waits for the robot to be stationary for
+   * Tuning/Intake/Agitation/StationaryDwellSec before the first kick. If the robot moves,
+   * pauses and waits for the dwell again. When false, kicks immediately (for auto zone markers).
    *
    * @param climbingOrClimbed supplier — true when climber is CLIMBING or CLIMBED
-   * @param dwellSec seconds the robot must be stationary before kicking (0 = immediate)
+   * @param useDwell true for teleop (wait until stationary), false for auto (kick immediately)
    * @return Command that agitates until cancelled
    */
-  public Command agitateCommand(BooleanSupplier climbingOrClimbed, double dwellSec) {
+  public Command agitateCommand(BooleanSupplier climbingOrClimbed, boolean useDwell) {
     Timer kickTimer = new Timer();
     Timer stationaryTimer = new Timer();
     return Commands.sequence(
-            // Phase 1: Wait for robot to be stationary for the dwell period
+            // Phase 1: Wait for robot to be stationary for the dwell period (teleop only)
             Commands.runOnce(stationaryTimer::restart),
-            dwellSec > 0
+            useDwell
                 ? Commands.run(
                         () -> {
                           if (Math.abs(robotVelocitySupplier.getAsDouble())
@@ -775,7 +776,9 @@ public class Intake extends SubsystemBase {
                             stationaryTimer.restart();
                           }
                         })
-                    .until(() -> stationaryTimer.hasElapsed(dwellSec))
+                    .until(
+                        () ->
+                            stationaryTimer.hasElapsed(agitationStationaryDwellSec.get()))
                 : Commands.none(),
             // Phase 2: Repeating kick cycles while stationary
             Commands.sequence(
@@ -818,7 +821,7 @@ public class Intake extends SubsystemBase {
 
   /** Convenience overload — no dwell, for auto zone markers and post-path wrapper. */
   public Command agitateCommand(BooleanSupplier climbingOrClimbed) {
-    return agitateCommand(climbingOrClimbed, 0.0);
+    return agitateCommand(climbingOrClimbed, false);
   }
 
   private static final LoggedTunableNumber retractStowTimeoutSec =

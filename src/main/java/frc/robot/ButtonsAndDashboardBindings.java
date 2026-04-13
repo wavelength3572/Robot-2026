@@ -644,7 +644,7 @@ public class ButtonsAndDashboardBindings {
       if (intake != null) {
         hubShotCmd =
             hubShotCmd.alongWith(
-                intake.agitateCommand(climbingOrClimbed, 1.0),
+                intake.agitateCommand(climbingOrClimbed, true),
                 intake.smartLaunchRollerCommand(
                     tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
@@ -657,7 +657,7 @@ public class ButtonsAndDashboardBindings {
       if (intake != null) {
         leftTrenchCmd =
             leftTrenchCmd.alongWith(
-                intake.agitateCommand(climbingOrClimbed, 1.0),
+                intake.agitateCommand(climbingOrClimbed, true),
                 intake.smartLaunchRollerCommand(
                     tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
@@ -670,7 +670,7 @@ public class ButtonsAndDashboardBindings {
       if (intake != null) {
         rightTrenchCmd =
             rightTrenchCmd.alongWith(
-                intake.agitateCommand(climbingOrClimbed, 1.0),
+                intake.agitateCommand(climbingOrClimbed, true),
                 intake.smartLaunchRollerCommand(
                     tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
