@@ -63,7 +63,7 @@ public class TurretIOSparkMax implements TurretIO {
 
   private double currentInsideAngleDegrees;
   private double currentOutsideAngleDegrees;
-  private static double constCurrentOutputLimit = 0.3;
+  private static double constCurrentOutputLimit = 0.4;
 
   private static final LoggedTunableNumber turretOutputLimit =
       new LoggedTunableNumber("Tuning/Turret/outputLimit", constCurrentOutputLimit);
