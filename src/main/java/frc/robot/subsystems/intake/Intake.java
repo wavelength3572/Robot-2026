@@ -751,121 +751,74 @@ public class Intake extends SubsystemBase {
   }
 
   /**
-   * @param rollerRPM Supplier for roller velocity in RPM
-   * @param intakeActive Supplier that returns true when the deploy button is held (actively
-   *     intaking). While true, agitation is suppressed — the arm stays put and only rollers run.
+   * Unified kick agitation. Repeating voltage burst kicks, gated on climber state and robot
+   * velocity. Use for both auto (dwellSec=0) and teleop (dwellSec>0).
+   *
+   * <p>Behavior: waits for robot to be stationary for dwellSec, then kicks repeatedly. If the robot
+   * moves, pauses and waits for the dwell again. Stops if climbing/climbed.
+   *
+   * @param climbingOrClimbed supplier — true when climber is CLIMBING or CLIMBED
+   * @param dwellSec seconds the robot must be stationary before kicking (0 = immediate)
    * @return Command that agitates until cancelled
    */
-  public Command agitateCommand(DoubleSupplier rollerRPM, BooleanSupplier intakeActive) {
-    Timer agitationTimer = new Timer();
+  public Command agitateCommand(BooleanSupplier climbingOrClimbed, double dwellSec) {
+    Timer kickTimer = new Timer();
     Timer stationaryTimer = new Timer();
-    // Remember pre-agitation state so we can restore it when done
-    boolean[] wasDeployed = {false};
-    // NOTE: This command intentionally does NOT require the intake subsystem
-    // (uses Commands.runOnce/run instead of this.runOnce/run) so it can coexist
-    // with Button 4's deploy+roller command. When intakeActive is true, this
-    // command idles in Phase 1 without touching any motors, letting Button 4
-    // retain full control. When intakeActive becomes false, this command takes
-    // over the deploy motor for agitation.
-    return Commands.runOnce(
-            () -> {
-              wasDeployed[0] = deployCommanded;
-              stationaryTimer.restart();
-            })
-        .andThen(
-            Commands.waitUntil(
+    return Commands.sequence(
+            // Phase 1: Wait for robot to be stationary for the dwell period
+            Commands.runOnce(stationaryTimer::restart),
+            dwellSec > 0
+                ? Commands.run(
+                        () -> {
+                          if (Math.abs(robotVelocitySupplier.getAsDouble())
+                              >= agitationSpeedThreshold.get()) {
+                            stationaryTimer.restart();
+                          }
+                        })
+                    .until(() -> stationaryTimer.hasElapsed(dwellSec))
+                : Commands.none(),
+            // Phase 2: Repeating kick cycles while stationary
+            Commands.sequence(
+                    // Kick: brief retract burst
+                    Commands.runOnce(
+                        () -> {
+                          io.setDeployBrakeMode(true);
+                          io.setDeployDutyCycle(agitationKickDutyCycle.get());
+                          deployState = DeployState.AGITATING;
+                          kickTimer.restart();
+                        }),
+                    Commands.waitUntil(
+                        () -> kickTimer.hasElapsed(agitationKickDurationSec.get())),
+                    // Redeploy: send arm back to extended position
+                    Commands.runOnce(
+                        () -> {
+                          restoreNormalDeployConfig();
+                          deploy();
+                        }),
+                    // Settle: wait for arm to return before next kick
+                    Commands.waitSeconds(agitateSettleSec.get()))
+                .repeatedly()
+                .onlyWhile(
                     () ->
-                        inputs.deployPositionRotations
-                            >= deployExtendedPos.get() - deployTolerance.get())
-                .andThen(
-                    Commands.sequence(
-                            // Phase 1: Wait until intake button is released AND robot has been
-                            // stationary for the dwell period. Any movement or active intaking
-                            // resets the timer.
-                            Commands.runOnce(stationaryTimer::restart),
-                            Commands.run(
-                                    () -> {
-                                      if (intakeActive.getAsBoolean()
-                                          || Math.abs(robotVelocitySupplier.getAsDouble())
-                                              >= agitationSpeedThreshold.get()) {
-                                        stationaryTimer.restart();
-                                      }
-                                    })
-                                .until(
-                                    () ->
-                                        stationaryTimer.hasElapsed(
-                                                agitationStationaryDwellSec.get())
-                                            && SmartDashboard.getBoolean(
-                                                "Intake/AgitationEnabled", false)),
-                            // Phase 2: Agitation cycles — run while stationary and not intaking
-                            Commands.sequence(
-                                    // UP phase: MAXMotion position control retracts against gravity
-                                    Commands.runOnce(
-                                        () -> {
-                                          applyAgitationConfig();
-                                          io.setDeployBrakeMode(false);
-                                          io.setDeployPosition(agitationRetractTarget.get());
-                                          deployState = DeployState.AGITATING;
-                                          setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
-                                          agitationTimer.restart();
-                                        }),
-                                    Commands.waitUntil(
-                                        () ->
-                                            Math.abs(
-                                                        inputs.deployPositionRotations
-                                                            - agitationRetractTarget.get())
-                                                    <= deployTolerance.get()
-                                                || agitationTimer.hasElapsed(
-                                                    agitationTimeoutSec.get())),
-                                    // DOWN phase — coast: motor off, coast mode, gravity pulls arm
-                                    Commands.runOnce(
-                                        () -> {
-                                          restoreNormalDeployConfig();
-                                          io.disableDeploy();
-                                          io.setDeployBrakeMode(false);
-                                        }),
-                                    Commands.waitSeconds(agitationCoastTimeSec.get()),
-                                    // DOWN phase — brake: back-EMF braking decelerates the arm
-                                    Commands.runOnce(() -> io.setDeployBrakeMode(true)),
-                                    Commands.waitSeconds(
-                                        Math.max(
-                                            0,
-                                            agitationFallTime.get() - agitationCoastTimeSec.get())))
-                                .repeatedly()
-                                .onlyWhile(
-                                    () ->
-                                        !intakeActive.getAsBoolean()
-                                            && Math.abs(robotVelocitySupplier.getAsDouble())
-                                                < agitationSpeedThreshold.get())
-                                .finallyDo(
-                                    () -> {
-                                      // Agitation interrupted — send arm back to deployed position
-                                      // so it's not left dangling mid-cycle
-                                      restoreNormalDeployConfig();
-                                      deploy();
-                                    }))
-                        // Repeat: if robot moves or intake button pressed mid-agitation,
-                        // go back to waiting for release + full stationary dwell
-                        .repeatedly()))
+                        Math.abs(robotVelocitySupplier.getAsDouble())
+                            < agitationSpeedThreshold.get()))
+        // If robot moves mid-kick, go back to dwell wait and repeat
+        .repeatedly()
+        .onlyWhile(
+            () ->
+                !climbingOrClimbed.getAsBoolean()
+                    && SmartDashboard.getBoolean("Intake/AgitationEnabled", false))
         .finallyDo(
             () -> {
               restoreNormalDeployConfig();
-              io.stopDeploy(); // Anchor target to current pos before configure() calls
-              io.setDeployBrakeMode(true);
-              if (wasDeployed[0]) {
-                // Was deployed before agitation — resume rollers so the next path can intake
-                runIntake();
-                brakeTimer.restart();
-                deployState = DeployState.AGITATE_SETTLING;
-              } else {
-                // Was retracted before agitation — go straight to retract hold
-                stopRollers();
-                applyRetractMotionConfig();
-                io.setDeployPosition(deployStowedPosition);
-                deployState = DeployState.RETRACTED;
-              }
+              deploy();
             })
         .withName("Intake: Agitate");
+  }
+
+  /** Convenience overload — no dwell, for auto zone markers and post-path wrapper. */
+  public Command agitateCommand(BooleanSupplier climbingOrClimbed) {
+    return agitateCommand(climbingOrClimbed, 0.0);
   }
 
   private static final LoggedTunableNumber retractStowTimeoutSec =
@@ -1041,74 +994,8 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber agitationKickDurationSec =
       new LoggedTunableNumber("Tuning/Intake/Agitation/KickDurationSec", 0.12);
 
-  private static final LoggedTunableNumber autoAgitateSettleSec =
-      new LoggedTunableNumber("Tuning/Intake/Agitation/AutoSettleSec", 0.3);
-
-  /**
-   * Repeating kick agitation for autonomous zone markers. No dwell timer — kicks immediately and
-   * repeats until the command is cancelled (zone exit). Gated on climber state so agitation stops
-   * during climbing/climbed.
-   *
-   * @param climbingOrClimbed supplier that returns true when the climber is actively climbing or
-   *     has climbed — agitation is suppressed in those states
-   */
-  public Command agitateCommand(BooleanSupplier climbingOrClimbed) {
-    Timer kickTimer = new Timer();
-    return Commands.sequence(
-            // Kick: brief retract burst
-            Commands.runOnce(
-                () -> {
-                  io.setDeployBrakeMode(true);
-                  io.setDeployDutyCycle(agitationKickDutyCycle.get());
-                  deployState = DeployState.AGITATING;
-                  kickTimer.restart();
-                }),
-            Commands.waitUntil(() -> kickTimer.hasElapsed(agitationKickDurationSec.get())),
-            // Redeploy: send arm back to extended position
-            Commands.runOnce(
-                () -> {
-                  restoreNormalDeployConfig();
-                  deploy();
-                }),
-            // Settle: wait for arm to return before next kick
-            Commands.waitSeconds(autoAgitateSettleSec.get()))
-        .repeatedly()
-        .onlyWhile(
-            () ->
-                !climbingOrClimbed.getAsBoolean()
-                    && SmartDashboard.getBoolean("Intake/AgitationEnabled", false))
-        .finallyDo(
-            () -> {
-              restoreNormalDeployConfig();
-              deploy();
-            })
-        .withName("Intake: Agitate");
-  }
-
-  public Command unclogAgitateCommand() {
-    Timer kickTimer = new Timer();
-    return Commands.runOnce(
-            () -> {
-              if (!SmartDashboard.getBoolean("Intake/AgitationEnabled", false)) return;
-              if (deployState != DeployState.DEPLOYED
-                  && deployState != DeployState.DEPLOY_SETTLING
-                  && deployState != DeployState.AGITATING) return;
-              io.setDeployBrakeMode(true);
-              io.setDeployDutyCycle(agitationKickDutyCycle.get());
-              deployState = DeployState.AGITATING;
-              kickTimer.restart();
-            })
-        .andThen(Commands.waitUntil(() -> kickTimer.hasElapsed(agitationKickDurationSec.get())))
-        .andThen(
-            Commands.runOnce(
-                () -> {
-                  // Command back to deployed position — motor + gravity pulls it home
-                  restoreNormalDeployConfig();
-                  deploy();
-                }))
-        .onlyIf(() -> SmartDashboard.getBoolean("Intake/AgitationEnabled", false))
-        .withName("Intake: UnclogAgitate");
-  }
+  private static final LoggedTunableNumber agitateSettleSec =
+      new LoggedTunableNumber("Tuning/Intake/Agitation/SettleSec", 0.3);
 
   // ========== Commands ==========
 

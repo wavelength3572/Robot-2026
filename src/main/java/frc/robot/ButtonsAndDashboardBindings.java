@@ -631,14 +631,20 @@ public class ButtonsAndDashboardBindings {
 
     // Hub shot: Button 8 — fixed position launch for close-range hub shots
     if (launcher != null && turret != null) {
+      java.util.function.BooleanSupplier climbingOrClimbed =
+          climber != null
+              ? () ->
+                  climber.getState() == Climber.ClimberState.CLIMBING
+                      || climber.getState() == Climber.ClimberState.CLIMBED
+              : () -> false;
+
       Command hubShotCmd =
           ShootingCommands.hubShotCommand(
               launcher, shootingCoordinator, motivator, turret, hood, spindexer);
       if (intake != null) {
         hubShotCmd =
             hubShotCmd.alongWith(
-                intake.agitateCommand(
-                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean),
+                intake.agitateCommand(climbingOrClimbed, 1.0),
                 intake.smartLaunchRollerCommand(
                     tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
@@ -651,8 +657,7 @@ public class ButtonsAndDashboardBindings {
       if (intake != null) {
         leftTrenchCmd =
             leftTrenchCmd.alongWith(
-                intake.agitateCommand(
-                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean),
+                intake.agitateCommand(climbingOrClimbed, 1.0),
                 intake.smartLaunchRollerCommand(
                     tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
@@ -665,8 +670,7 @@ public class ButtonsAndDashboardBindings {
       if (intake != null) {
         rightTrenchCmd =
             rightTrenchCmd.alongWith(
-                intake.agitateCommand(
-                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean),
+                intake.agitateCommand(climbingOrClimbed, 1.0),
                 intake.smartLaunchRollerCommand(
                     tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
