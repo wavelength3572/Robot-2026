@@ -11,6 +11,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Constants;
+import frc.robot.subsystems.climber.Climber;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.launcher.Launcher;
@@ -72,7 +73,8 @@ public class AutoWrapperFactory {
       Motivator motivator,
       Turret turret,
       Hood hood,
-      Spindexer spindexer) {
+      Spindexer spindexer,
+      Climber climber) {
 
     List<Command> steps = new ArrayList<>();
 
@@ -116,24 +118,40 @@ public class AutoWrapperFactory {
     // robot is stationary and SmartLaunch2 keeps firing until auto ends.
     //
     // For END_OF_PATH: SmartLaunch2 only runs after the path completes.
+    // Climb gate for post-path agitation: suppress during CLIMBING/CLIMBED
+    java.util.function.BooleanSupplier climbingOrClimbed =
+        climber != null
+            ? () ->
+                climber.getState() == Climber.ClimberState.CLIMBING
+                    || climber.getState() == Climber.ClimberState.CLIMBED
+            : () -> false;
+
     if (pathStrategy != PathShootingStrategy.END_OF_PATH) {
-      // Path and SmartLaunch2 run in parallel. SmartLaunch2 keeps the parallel group alive
-      // after the path finishes, continuing to shoot until auto ends.
-      // Agitation is handled by AutoAgitate zone event markers in the paths themselves.
+      // Path runs, then post-path agitation kicks in. SmartLaunch2 runs the entire time
+      // in parallel and keeps the group alive after both path and agitation finish.
+      // Mid-path agitation is handled by AutoAgitate zone event markers in the paths.
+      Command pathThenAgitate =
+          intake != null
+              ? Commands.sequence(pathWithIntake, intake.autoAgitateCommand(climbingOrClimbed))
+              : pathWithIntake;
       steps.add(
           Commands.parallel(
-              pathWithIntake,
+              pathThenAgitate,
               ShootingCommands.smartLaunchDangerousCommand(
                       launcher, coordinator, motivator, turret, hood, spindexer, trigger)
                   .asProxy()));
     } else {
-      // END_OF_PATH: run path first, then shoot until auto ends
+      // END_OF_PATH: run path first, then shoot with agitation
       steps.add(pathWithIntake);
-      steps.add(
+      Command postPathShoot =
           ShootingCommands.smartLaunchDangerousCommand(
                   launcher, coordinator, motivator, turret, hood, spindexer)
               .withTimeout(10.0)
-              .asProxy());
+              .asProxy();
+      if (intake != null) {
+        postPathShoot = postPathShoot.alongWith(intake.autoAgitateCommand(climbingOrClimbed));
+      }
+      steps.add(postPathShoot);
     }
 
     return Commands.sequence(steps.toArray(Command[]::new))

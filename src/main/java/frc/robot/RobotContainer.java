@@ -513,7 +513,8 @@ public class RobotContainer {
         motivator,
         turret,
         hood,
-        spindexer);
+        spindexer,
+        climber);
   }
 
   /**
