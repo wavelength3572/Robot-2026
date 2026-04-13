@@ -875,7 +875,7 @@ public class RobotContainer {
           "resetStartingField", ShootingCommands.resetStartingFieldCommand(shootingCoordinator));
     }
 
-    // AutoAgitate: repeating kick agitation for zone event markers in auto paths.
+    // Agitate: repeating kick agitation for zone event markers in auto paths.
     // Uses voltage burst kicks (not MAXMotion) for stronger jolt. Gated on climber state
     // so it stops during climbing/climbed.
     if (intake != null) {
@@ -885,9 +885,6 @@ public class RobotContainer {
                   climber.getState() == Climber.ClimberState.CLIMBING
                       || climber.getState() == Climber.ClimberState.CLIMBED
               : () -> false;
-      NamedCommands.registerCommand(
-          "AutoAgitate", intake.autoAgitateCommand(climbingOrClimbed));
-      // Keep "Agitate" as an alias
       NamedCommands.registerCommand(
           "Agitate", intake.autoAgitateCommand(climbingOrClimbed));
     }
