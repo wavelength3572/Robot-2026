@@ -28,10 +28,6 @@ TBA_BASE = "https://www.thebluealliance.com/api/v3"
 SB_BASE = "https://api.statbotics.io/v3"
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-# Default read-only TBA key. Override via TBA_KEY env var or ~/.tba_key file.
-# If this repo is public, rotate this key at https://www.thebluealliance.com/account
-DEFAULT_TBA_KEY = "ojG6dDdRalOD0nCL71UN36yeEBTdCBpxWgOFaldjDuU5R3WqOZjLUpO39bisnRmm"
-
 
 def load_tba_key() -> str:
     key = os.environ.get("TBA_KEY", "").strip()
@@ -40,7 +36,7 @@ def load_tba_key() -> str:
     key_file = pathlib.Path.home() / ".tba_key"
     if key_file.exists():
         return key_file.read_text().strip()
-    return DEFAULT_TBA_KEY
+    sys.exit("error: set TBA_KEY env var or write a key to ~/.tba_key")
 
 
 def tba_get(path: str, key: str) -> Any:
