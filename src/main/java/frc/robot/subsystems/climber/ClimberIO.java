@@ -28,8 +28,8 @@ public interface ClimberIO {
   /** Stop the motor (brake mode holds position). */
   public default void stop() {}
 
-  /** Update PID gains on the motor controller. */
-  public default void configurePID(double kP) {}
+  /** Update PID gains and climb output cap on the motor controller. */
+  public default void configurePID(double kP, double climbMaxOutput) {}
 
   /** Zero the encoder position (call in pit if robot rebooted with climber not stowed). */
   public default void zeroEncoder() {}

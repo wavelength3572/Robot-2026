@@ -116,8 +116,7 @@ public class RobotContainer {
         hood = config.hasHood() ? new Hood(new HoodIOSparkMax()) : null;
         motivator = config.hasMotivator() ? new Motivator(new MotivatorIOSparkFlex()) : null;
         spindexer = config.hasSpindexer() ? new Spindexer(new SpindexerIOSparkMax()) : null;
-        // TODO: Climber hardware is busted — using sim IO until repaired
-        climber = config.hasClimber() ? new Climber(new ClimberIOSim()) : null;
+        climber = config.hasClimber() ? new Climber(new ClimberIOSpark()) : null;
 
         drive =
             config.hasDrive()

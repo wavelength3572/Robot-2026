@@ -34,10 +34,15 @@ public class ClimberIOSpark implements ClimberIO {
         .smartCurrentLimit(config.getClimberCurrentLimit())
         .voltageCompensation(12.0);
 
+    // Slot 0: extend/stow — full output range. Slot 1: climb — output capped to
+    // climbMaxOutput so the robot lifts slowly and predictably under load.
+    double climbMax = config.getClimberClimbMaxOutput();
     motorConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(config.getClimberKp(), 0.0, 0.0);
+        .pid(config.getClimberKp(), 0.0, 0.0, ClosedLoopSlot.kSlot0)
+        .pid(config.getClimberKp(), 0.0, 0.0, ClosedLoopSlot.kSlot1)
+        .outputRange(-climbMax, climbMax, ClosedLoopSlot.kSlot1);
 
     // Hardware soft limits — prevent over-travel even if software fails
     motorConfig
@@ -69,15 +74,22 @@ public class ClimberIOSpark implements ClimberIO {
 
   @Override
   public void setPosition(double motorRotations) {
-    controller.setSetpoint(motorRotations, ControlType.kPosition);
-  }
-
-  @Override
-  public void setPosition(double motorRotations, double arbFFVolts) {
+    // Slot 0 — normal extend/stow motion, full output range.
     controller.setSetpoint(
         motorRotations,
         ControlType.kPosition,
         ClosedLoopSlot.kSlot0,
+        0.0,
+        SparkClosedLoopController.ArbFFUnits.kVoltage);
+  }
+
+  @Override
+  public void setPosition(double motorRotations, double arbFFVolts) {
+    // Slot 1 — climb motion, output range capped to climbMaxOutput. arbFF adds on top.
+    controller.setSetpoint(
+        motorRotations,
+        ControlType.kPosition,
+        ClosedLoopSlot.kSlot1,
         arbFFVolts,
         SparkClosedLoopController.ArbFFUnits.kVoltage);
   }
@@ -103,9 +115,13 @@ public class ClimberIOSpark implements ClimberIO {
   }
 
   @Override
-  public void configurePID(double kP) {
+  public void configurePID(double kP, double climbMaxOutput) {
     var pidConfig = new SparkMaxConfig();
-    pidConfig.closedLoop.pid(kP, 0.0, 0.0);
+    pidConfig
+        .closedLoop
+        .pid(kP, 0.0, 0.0, ClosedLoopSlot.kSlot0)
+        .pid(kP, 0.0, 0.0, ClosedLoopSlot.kSlot1)
+        .outputRange(-climbMaxOutput, climbMaxOutput, ClosedLoopSlot.kSlot1);
     motor.configure(
         pidConfig,
         com.revrobotics.ResetMode.kNoResetSafeParameters,

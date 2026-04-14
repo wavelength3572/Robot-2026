@@ -1,11 +1,14 @@
 package frc.robot.subsystems.climber;
 
+import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.math.filter.Debouncer.DebounceType;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -70,6 +73,9 @@ public class Climber extends SubsystemBase {
           "Climber/climbPosition", Constants.getRobotConfig().getClimberClimbPosition());
   private static final LoggedTunableNumber kP =
       new LoggedTunableNumber("Climber/kP", Constants.getRobotConfig().getClimberKp());
+  private static final LoggedTunableNumber climbMaxOutput =
+      new LoggedTunableNumber(
+          "Climber/climbMaxOutput", Constants.getRobotConfig().getClimberClimbMaxOutput());
   private static final LoggedTunableNumber positionTolerance =
       new LoggedTunableNumber(
           "Climber/positionTolerance", Constants.getRobotConfig().getClimberPositionTolerance());
@@ -80,7 +86,20 @@ public class Climber extends SubsystemBase {
       new LoggedTunableNumber(
           "Climber/climbTimeoutSec", Constants.getRobotConfig().getClimberClimbTimeoutSec());
   private static final LoggedTunableNumber climbArbFFVolts =
-      new LoggedTunableNumber("Climber/climbArbFFVolts", 0.0);
+      new LoggedTunableNumber("Climber/climbArbFFVolts", -0.1);
+
+  // Home-to-hard-stop tunables. Drive slowly in reverse until the current spikes
+  // against the mechanical stop, then zero the encoder at that position.
+  private static final LoggedTunableNumber homingVolts =
+      new LoggedTunableNumber("Climber/homingVolts", -5.0);
+  private static final LoggedTunableNumber homingStallAmps =
+      new LoggedTunableNumber("Climber/homingStallAmps", 8.0);
+  private static final LoggedTunableNumber homingStallDebounceSec =
+      new LoggedTunableNumber("Climber/homingStallDebounceSec", 0.20);
+  private static final LoggedTunableNumber homingStartupDelaySec =
+      new LoggedTunableNumber("Climber/homingStartupDelaySec", 0.8);
+  private static final LoggedTunableNumber homingTimeoutSec =
+      new LoggedTunableNumber("Climber/homingTimeoutSec", 5.0);
 
   private boolean lastClimbSucceeded = false;
 
@@ -184,8 +203,8 @@ public class Climber extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.processInputs("Climber", inputs);
 
-    if (LoggedTunableNumber.hasChanged(kP)) {
-      io.configurePID(kP.get());
+    if (LoggedTunableNumber.hasChanged(kP, climbMaxOutput)) {
+      io.configurePID(kP.get(), climbMaxOutput.get());
     }
 
     switch (state) {
@@ -386,6 +405,54 @@ public class Climber extends SubsystemBase {
               }
             })
         .withName("ClimberClimb");
+  }
+
+  /**
+   * Home the climber by driving slowly into the reverse hard stop and detecting the stall via motor
+   * current. When the current stays above {@code homingStallAmps} for {@code
+   * homingStallDebounceSec}, the motor stops and the encoder is zeroed at that position.
+   *
+   * <p>Soft limits are disabled for the duration so the reverse soft limit at 0 doesn't block
+   * motion if the encoder is currently at or below 0. Safety timeout of {@code homingTimeoutSec}
+   * ensures the command always terminates.
+   */
+  public Command homeCommand() {
+    Timer timer = new Timer();
+    Debouncer stallDebouncer = new Debouncer(homingStallDebounceSec.get(), DebounceType.kRising);
+    return Commands.startRun(
+            () -> {
+              timer.restart();
+              stallDebouncer.calculate(false); // reset debouncer state
+              io.setSoftLimitsEnabled(false);
+              io.setVoltage(homingVolts.get());
+              state = ClimberState.STOWING;
+              Logger.recordOutput("Climber/Homing/Active", true);
+            },
+            () -> io.setVoltage(homingVolts.get()),
+            this)
+        .until(
+            () -> {
+              // Ignore the inrush current transient when the motor first starts moving.
+              if (timer.get() < homingStartupDelaySec.get()) {
+                Logger.recordOutput("Climber/Homing/Stalled", false);
+                return false;
+              }
+              boolean stalled =
+                  stallDebouncer.calculate(inputs.currentAmps > homingStallAmps.get());
+              Logger.recordOutput("Climber/Homing/Stalled", stalled);
+              return stalled;
+            })
+        .withTimeout(homingTimeoutSec.get())
+        .finallyDo(
+            (interrupted) -> {
+              io.stop();
+              io.zeroEncoder();
+              io.setSoftLimitsEnabled(true);
+              state = ClimberState.STOWED;
+              targetPositionRotations = 0.0;
+              Logger.recordOutput("Climber/Homing/Active", false);
+            })
+        .withName("ClimberHome");
   }
 
   // ===== Helpers =====

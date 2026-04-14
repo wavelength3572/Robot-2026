@@ -188,6 +188,15 @@ public class ButtonsAndDashboardBindings {
           Commands.runOnce(climber::setEncoderAtExtended)
               .ignoringDisable(true)
               .withName("Pit Set Encoder At Extended"));
+
+      // Home to hard stop: drives slowly in reverse until motor current spikes against
+      // the mechanical stop, then zeros the encoder. Tune via Climber/homing* on dashboard.
+      // Deferred so the debouncer and timeout pick up live tunable changes on each run.
+      Set<Subsystem> homeReqs = new HashSet<>();
+      homeReqs.add(climber);
+      SmartDashboard.putData(
+          "Pit/Climber/HomeToHardStop",
+          Commands.defer(climber::homeCommand, homeReqs).withName("Pit Climber Home"));
     }
 
     // Launcher RPM trim buttons (mirrors button box axis knob positions)

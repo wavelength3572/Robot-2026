@@ -219,6 +219,7 @@ public class MainBotConfig implements RobotConfig {
       25.0; // Motor rotations when climbed (off ground)
   private static final double climberKp = 0.5;
   private static final int climberCurrentLimit = 40;
+  private static final double climberClimbMaxOutput = 0.8; // Duty-cycle cap during CLIMBING
   private static final double climberPositionTolerance = 0.5; // Motor rotations
   private static final double climberExtendTimeoutSec = 5.0;
   private static final double climberClimbTimeoutSec = 5.0;
@@ -1160,6 +1161,11 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public int getClimberCurrentLimit() {
     return climberCurrentLimit;
+  }
+
+  @Override
+  public double getClimberClimbMaxOutput() {
+    return climberClimbMaxOutput;
   }
 
   @Override

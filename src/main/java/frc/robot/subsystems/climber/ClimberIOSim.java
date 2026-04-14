@@ -37,7 +37,7 @@ public class ClimberIOSim implements ClimberIO {
   }
 
   @Override
-  public void configurePID(double kP) {
+  public void configurePID(double kP, double climbMaxOutput) {
     // No-op in sim
   }
 

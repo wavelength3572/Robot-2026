@@ -610,6 +610,14 @@ public interface RobotConfig {
     return 0.1;
   }
 
+  /**
+   * Maximum closed-loop output magnitude during the climb motion (0.0–1.0 duty cycle). Caps the
+   * voltage the PID can request while CLIMBING so the robot lifts slowly and predictably.
+   */
+  default double getClimberClimbMaxOutput() {
+    return 0.5;
+  }
+
   /** Climber current limit in amps. */
   default int getClimberCurrentLimit() {
     return 40;
