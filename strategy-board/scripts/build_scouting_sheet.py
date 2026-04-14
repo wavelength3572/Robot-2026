@@ -48,11 +48,19 @@ def tba_get(path: str, key: str) -> Any:
 
 
 def sb_get(path: str) -> Any:
-    r = requests.get(f"{SB_BASE}{path}", timeout=20)
-    if r.status_code == 404:
+    # Statbotics often returns 500 for pre-event data (e.g. team_event before
+    # matches are played) and 404 for missing entries. Treat both as "no data"
+    # so a single team's missing stats don't abort the whole run.
+    try:
+        r = requests.get(f"{SB_BASE}{path}", timeout=20)
+    except requests.RequestException:
         return None
-    r.raise_for_status()
-    return r.json()
+    if r.status_code >= 400:
+        return None
+    try:
+        return r.json()
+    except ValueError:
+        return None
 
 
 def fmt(v: Any, digits: int = 2) -> str:
