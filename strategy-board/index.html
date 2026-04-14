@@ -79,6 +79,40 @@ canvas{display:block}
 .ml-item.done{opacity:0.5}
 .ml-label{font-weight:600}
 .ml-teams{font-size:12px;color:#9ca3af;margin-top:2px}
+/* Draw toolbar */
+.dtb{background:#0d1117;border-bottom:1px solid #1e3a5f;padding:0 16px;height:36px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.dtb.hidden{display:none}
+.dtb-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280}
+.dtb-div{width:1px;height:20px;background:#1e3a5f}
+.pill{height:26px;border-radius:6px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;border:1px solid;font-size:13px;cursor:pointer;background:transparent;font-family:inherit;transition:background .15s,color .15s,box-shadow .15s}
+.pill-lbl{font-weight:700}
+.pill-num{font-weight:400;opacity:.85}
+.pill-num::before{content:'\00b7';margin-right:3px;opacity:.6}
+.pill.sel{color:#fff;background:var(--slot-color);border-color:var(--slot-color);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.pill:not(.sel){color:var(--slot-color);border-color:var(--slot-color)}
+.pill:not(.sel):hover{background:color-mix(in srgb,var(--slot-color) 15%,transparent)}
+.tbtn{background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:4px 10px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;transition:all .15s}
+.tbtn:hover:not([disabled]){background:#374151;color:#e0e0e0}
+.tbtn.act{background:#f59e0b;color:#000;border-color:#f59e0b}
+.tbtn.act:hover{background:#fbbf24}
+.tbtn[disabled]{opacity:.4;cursor:not-allowed}
+.tbtn .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#6b7280;margin-left:6px}
+.tbtn.act .kbd{color:#78350f}
+.sct{margin-left:auto;font-size:13px;color:#6b7280;font-variant-numeric:tabular-nums}
+/* On-field station tags */
+.st-tag{position:absolute;min-width:54px;padding:4px 7px;border:1.5px solid var(--slot-color);background:rgba(13,17,23,.92);border-radius:6px;color:var(--slot-color);font-size:12px;line-height:1.1;text-align:center;pointer-events:none;transition:background .15s,color .15s,box-shadow .15s,transform .1s;z-index:10;backdrop-filter:blur(2px);user-select:none}
+.st-tag.left{transform:translate(-100%,-50%)}
+.st-tag.right{transform:translate(0,-50%)}
+.st-tag.left::after,.st-tag.right::after{content:'';position:absolute;top:50%;width:10px;height:1.5px;background:var(--slot-color)}
+.st-tag.left::after{right:-10px;transform:translateY(-50%)}
+.st-tag.right::after{left:-10px;transform:translateY(-50%)}
+.st-lbl{font-weight:700;font-size:11px;letter-spacing:.5px}
+.st-num{font-weight:600;font-size:14px;color:#e0e0e0;margin-top:1px}
+.st-num.empty{color:#6b7280;font-weight:400}
+.st-tag.sel{background:var(--slot-color);color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.15),0 4px 12px rgba(0,0,0,.5)}
+.st-tag.sel .st-num{color:#fff}
+.st-tag.clickable{pointer-events:auto;cursor:pointer}
+.st-tag.clickable:hover:not(.sel){background:color-mix(in srgb,var(--slot-color) 20%,#0d1117)}
 </style>
 </head>
 <body>
@@ -93,6 +127,16 @@ canvas{display:block}
 <button class="btn btn-r" id="clrBtn">Clear</button>
 </div>
 </header>
+<div class="dtb hidden" id="drawToolbar">
+<span class="dtb-lbl">Drawing For</span>
+<span class="dtb-div"></span>
+<button class="pill sel" id="pillFree" data-slot="free" style="--slot-color:#f59e0b"><span class="pill-lbl">Free</span></button>
+<span class="dtb-lbl" style="color:#4b5563">or click a station tag on the field</span>
+<span class="dtb-div" style="margin-left:auto"></span>
+<button class="tbtn act" id="arrowToggle" title="Toggle direction arrows">&#9698; Arrows</button>
+<button class="tbtn" id="undoBtn" disabled>&#8634; Undo<span class="kbd">Ctrl+Z</span></button>
+<span class="sct" id="strokeCount">no strokes</span>
+</div>
 <div class="main">
 <div class="sb">
 <div class="sb-scroll">
@@ -147,6 +191,12 @@ canvas{display:block}
 <canvas id="field"></canvas>
 <div class="leg" id="legend"></div>
 <div class="mtt" id="mtt"></div>
+<div class="st-tag left" id="stB1" data-slot="b1" style="--slot-color:#2563eb"><div class="st-lbl">B1</div><div class="st-num">&mdash;</div></div>
+<div class="st-tag left" id="stB2" data-slot="b2" style="--slot-color:#06b6d4"><div class="st-lbl">B2</div><div class="st-num">&mdash;</div></div>
+<div class="st-tag left" id="stB3" data-slot="b3" style="--slot-color:#7c3aed"><div class="st-lbl">B3</div><div class="st-num">&mdash;</div></div>
+<div class="st-tag right" id="stR1" data-slot="r1" style="--slot-color:#dc2626"><div class="st-lbl">R1</div><div class="st-num">&mdash;</div></div>
+<div class="st-tag right" id="stR2" data-slot="r2" style="--slot-color:#f97316"><div class="st-lbl">R2</div><div class="st-num">&mdash;</div></div>
+<div class="st-tag right" id="stR3" data-slot="r3" style="--slot-color:#be123c"><div class="st-lbl">R3</div><div class="st-num">&mdash;</div></div>
 </div>
 </div>
 <div class="ctrls">
@@ -222,6 +272,10 @@ SLOTS.forEach(s => slotData[s] = {teamNum:'',autoName:'',color: s[0]==='r' ? '#d
 let playing=false, animTime=0, animSpeed=1, totalTime=20, lastFrame=0;
 let pathSamples = {};
 let drawMode=false, drawActive=false, drawStrokes=[];
+const SLOT_COLORS={free:'#f59e0b',r1:'#dc2626',r2:'#f97316',r3:'#be123c',b1:'#2563eb',b2:'#06b6d4',b3:'#7c3aed'};
+let currentDrawSlot='free';
+let arrowsEnabled=localStorage.getItem('bb_arrows')!=='0';
+const ARROW_SPACING=1.2, ARROW_LEN=0.35, ARROW_WIDE=0.22;
 let camX=0, camY=0, camScale=1;
 
 // ============ CANVAS SETUP ============
@@ -235,7 +289,7 @@ function fitToScreen(){
 function resize(){
   canvas.width=area.clientWidth*devicePixelRatio; canvas.height=area.clientHeight*devicePixelRatio;
   canvas.style.width=area.clientWidth+'px'; canvas.style.height=area.clientHeight+'px';
-  fitToScreen(); draw();
+  fitToScreen(); draw(); if(typeof positionStationTags==='function')positionStationTags();
 }
 window.addEventListener('resize',resize);
 
@@ -408,17 +462,52 @@ function draw(){
   if(playing||animTime>0) drawAnimRobots();
   // Draw strokes
   for(const stroke of drawStrokes){
-    ctx.beginPath();ctx.strokeStyle=stroke.color;ctx.lineWidth=3*devicePixelRatio;ctx.globalAlpha=0.8;
+    const strokeColor=stroke.color||SLOT_COLORS[stroke.slot||'free'];
+    ctx.beginPath();ctx.strokeStyle=strokeColor;ctx.lineWidth=3*devicePixelRatio;ctx.globalAlpha=0.8;
     const[sx,sy]=fieldToCanvas(stroke.pts[0].x,stroke.pts[0].y);ctx.moveTo(sx,sy);
     for(let i=1;i<stroke.pts.length;i++){const[px,py]=fieldToCanvas(stroke.pts[i].x,stroke.pts[i].y);ctx.lineTo(px,py);}
     ctx.stroke();ctx.globalAlpha=1;
+    if(arrowsEnabled)drawStrokeArrows(stroke.pts,strokeColor);
   }
   // Active draw stroke
   if(drawActive&&drawPts.length>1){
-    ctx.beginPath();ctx.strokeStyle='#f59e0b';ctx.lineWidth=3*devicePixelRatio;ctx.globalAlpha=0.8;
+    const activeColor=SLOT_COLORS[currentDrawSlot];
+    ctx.beginPath();ctx.strokeStyle=activeColor;ctx.lineWidth=3*devicePixelRatio;ctx.globalAlpha=0.8;
     const[sx,sy]=fieldToCanvas(drawPts[0].x,drawPts[0].y);ctx.moveTo(sx,sy);
     for(let i=1;i<drawPts.length;i++){const[px,py]=fieldToCanvas(drawPts[i].x,drawPts[i].y);ctx.lineTo(px,py);}
     ctx.stroke();ctx.globalAlpha=1;
+    if(arrowsEnabled)drawStrokeArrows(drawPts,activeColor);
+  }
+}
+
+function drawStrokeArrows(pts,color){
+  if(pts.length<2)return;
+  const segLens=[];let total=0;
+  for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);segLens.push(d);total+=d;}
+  if(total<0.3)return;
+  const marks=[];
+  for(let t=ARROW_SPACING;t<total;t+=ARROW_SPACING)marks.push(t);
+  marks.push(total);
+  for(const target of marks){
+    let acc=0,segIdx=0;
+    for(let i=0;i<segLens.length;i++){if(acc+segLens[i]>=target){segIdx=i;break;}acc+=segLens[i];}
+    const segStart=pts[segIdx],segEnd=pts[segIdx+1];const segLen=segLens[segIdx]||1;
+    const f=(target-acc)/segLen;
+    const x=segStart.x+(segEnd.x-segStart.x)*f;
+    const y=segStart.y+(segEnd.y-segStart.y)*f;
+    let dx=segEnd.x-segStart.x,dy=segEnd.y-segStart.y;
+    if(segIdx>0){dx+=(segEnd.x-pts[segIdx-1].x);dy+=(segEnd.y-pts[segIdx-1].y);}
+    const mag=Math.hypot(dx,dy)||1;dx/=mag;dy/=mag;
+    const px=-dy,py=dx;
+    const tipX=x+dx*(ARROW_LEN*0.5),tipY=y+dy*(ARROW_LEN*0.5);
+    const baseX=x-dx*(ARROW_LEN*0.5),baseY=y-dy*(ARROW_LEN*0.5);
+    const leftX=baseX+px*(ARROW_WIDE*0.5),leftY=baseY+py*(ARROW_WIDE*0.5);
+    const rightX=baseX-px*(ARROW_WIDE*0.5),rightY=baseY-py*(ARROW_WIDE*0.5);
+    const[tx,ty]=fieldToCanvas(tipX,tipY);
+    const[lx,ly]=fieldToCanvas(leftX,leftY);
+    const[rx,ry]=fieldToCanvas(rightX,rightY);
+    ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(lx,ly);ctx.lineTo(rx,ry);ctx.closePath();
+    ctx.fillStyle=color;ctx.globalAlpha=1;ctx.fill();
   }
 }
 
@@ -507,7 +596,7 @@ function updateSlot(slot){
     slotData[slot].autoName='';
     infoEl.textContent='Team not loaded';
   }else{slotData[slot].autoName='';infoEl.textContent='';}
-  updateLegend();draw();
+  updateLegend();refreshPills();draw();
 }
 function onAutoSelect(slot){
   slotData[slot].autoName=document.getElementById(slot+'a').value;
@@ -545,7 +634,7 @@ function autoRestoreMatchState(){
       }
     });
     if(state.strokes)drawStrokes=state.strokes;
-    pathSamples={};updateTotalTime();updateLegend();draw();
+    pathSamples={};updateTotalTime();updateLegend();refreshPills();updateStrokeCount();draw();
   }catch(e){}
 }
 
@@ -838,19 +927,93 @@ function readDirRecursive(dirEntry){
 
 // ============ PENCIL DRAWING ============
 let drawPts=[];
-document.getElementById('drawBtn').onclick=()=>{drawMode=!drawMode;document.getElementById('drawBtn').classList.toggle('act',drawMode);canvas.style.cursor=drawMode?'crosshair':'default';};
+const drawToolbar=document.getElementById('drawToolbar');
+const undoBtn=document.getElementById('undoBtn');
+const arrowToggle=document.getElementById('arrowToggle');
+const strokeCountEl=document.getElementById('strokeCount');
+
+const STATION_YS={1:5/6,2:3/6,3:1/6};
+function stationFieldPos(slot){
+  const isRed=slot[0]==='r';
+  const stNum=parseInt(slot[1],10);
+  return{x:isRed?FIELD_W:0, y:FIELD_H*STATION_YS[stNum]};
+}
+function refreshPills(){
+  const freePill=document.getElementById('pillFree');
+  if(freePill)freePill.classList.toggle('sel',currentDrawSlot==='free');
+  for(const slot of SLOTS){
+    const tag=document.getElementById('st'+slot.toUpperCase());
+    if(!tag)continue;
+    tag.classList.toggle('sel',currentDrawSlot===slot);
+    tag.classList.toggle('clickable',drawMode);
+    const numEl=tag.querySelector('.st-num');
+    const t=slotData[slot].teamNum;
+    if(t){numEl.textContent=t;numEl.classList.remove('empty');}
+    else{numEl.textContent='\u2014';numEl.classList.add('empty');}
+  }
+}
+function positionStationTags(){
+  for(const slot of SLOTS){
+    const tag=document.getElementById('st'+slot.toUpperCase());
+    if(!tag)continue;
+    const p=stationFieldPos(slot);
+    const[cx,cy]=fieldToCanvas(p.x,p.y);
+    const px=cx/devicePixelRatio, py=cy/devicePixelRatio;
+    const offset=slot[0]==='r'?14:-14;
+    tag.style.left=(px+offset)+'px';
+    tag.style.top=py+'px';
+  }
+}
+function updateStrokeCount(){
+  const n=drawStrokes.length;
+  strokeCountEl.textContent=n===0?'no strokes':(n===1?'1 stroke':n+' strokes');
+  undoBtn.disabled=n===0;
+}
+function undoStroke(){
+  if(!drawStrokes.length)return;
+  drawStrokes.pop();autoSaveMatchState();updateStrokeCount();draw();
+}
+
+document.getElementById('drawBtn').onclick=()=>{
+  drawMode=!drawMode;
+  document.getElementById('drawBtn').classList.toggle('act',drawMode);
+  canvas.style.cursor=drawMode?'crosshair':'default';
+  drawToolbar.classList.toggle('hidden',!drawMode);
+  refreshPills();
+};
+document.getElementById('pillFree').onclick=()=>{currentDrawSlot='free';refreshPills();};
+for(const slot of SLOTS){
+  const tag=document.getElementById('st'+slot.toUpperCase());
+  if(tag)tag.onclick=()=>{if(!drawMode)return;currentDrawSlot=slot;refreshPills();};
+}
+arrowToggle.onclick=()=>{
+  arrowsEnabled=!arrowsEnabled;
+  arrowToggle.classList.toggle('act',arrowsEnabled);
+  try{localStorage.setItem('bb_arrows',arrowsEnabled?'1':'0');}catch(e){}
+  draw();
+};
+if(!arrowsEnabled)arrowToggle.classList.remove('act');
+undoBtn.onclick=undoStroke;
+document.addEventListener('keydown',e=>{
+  if(!drawMode)return;
+  const tag=(document.activeElement&&document.activeElement.tagName)||'';
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
+  if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&(e.key==='z'||e.key==='Z')){e.preventDefault();undoStroke();}
+});
+refreshPills();updateStrokeCount();
+
 canvas.addEventListener('mousedown',e=>{if(!drawMode||e.button!==0)return;e.preventDefault();drawActive=true;
   const[fx,fy]=canvasToField(e.offsetX*devicePixelRatio,e.offsetY*devicePixelRatio);drawPts=[{x:fx,y:fy}];});
 canvas.addEventListener('mousemove',e=>{if(!drawActive)return;
   const[fx,fy]=canvasToField(e.offsetX*devicePixelRatio,e.offsetY*devicePixelRatio);
   const last=drawPts[drawPts.length-1];if(Math.hypot(fx-last.x,fy-last.y)>0.05){drawPts.push({x:fx,y:fy});draw();}});
 canvas.addEventListener('mouseup',()=>{if(!drawActive)return;drawActive=false;
-  if(drawPts.length>2){drawStrokes.push({pts:[...drawPts],color:'#f59e0b'});autoSaveMatchState();}drawPts=[];draw();});
+  if(drawPts.length>2){drawStrokes.push({pts:[...drawPts],color:SLOT_COLORS[currentDrawSlot],slot:currentDrawSlot});autoSaveMatchState();updateStrokeCount();}drawPts=[];draw();});
 
 document.getElementById('clrBtn').onclick=()=>{
   drawStrokes=[];SLOTS.forEach(s=>{slotData[s].autoName='';document.getElementById(s+'a').value='';});
   animTime=0;playing=false;document.getElementById('playBtn').innerHTML='&#9654;';
-  pathSamples={};updateLegend();draw();
+  pathSamples={};updateLegend();updateStrokeCount();draw();
 };
 
 // ============ HOVER TOOLTIPS ============
@@ -930,7 +1093,7 @@ document.querySelector('#loadIn').onchange=async e=>{
         }
       });
     }
-    pathSamples={};updateTotalTime();updateLegend();draw();
+    pathSamples={};updateTotalTime();updateLegend();refreshPills();updateStrokeCount();draw();
   }catch(err){alert('Failed to load config: '+err.message);}
   e.target.value='';
 };
@@ -954,7 +1117,7 @@ canvas.addEventListener('touchmove',e=>{
 },{passive:false});
 canvas.addEventListener('touchend',e=>{
   if(!drawActive)return;e.preventDefault();drawActive=false;
-  if(drawPts.length>2){drawStrokes.push({pts:[...drawPts],color:'#f59e0b'});autoSaveMatchState();}drawPts=[];draw();
+  if(drawPts.length>2){drawStrokes.push({pts:[...drawPts],color:SLOT_COLORS[currentDrawSlot],slot:currentDrawSlot});autoSaveMatchState();updateStrokeCount();}drawPts=[];draw();
 },{passive:false});
 
 // ============ DEFAULT STARTING POSITIONS ============
