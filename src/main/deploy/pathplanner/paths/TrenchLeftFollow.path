@@ -3,13 +3,13 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 3.6545403225819397,
-        "y": 6.2951854838724985
+        "x": 3.6142087016473674,
+        "y": 6.279108239842492
       },
       "prevControl": null,
       "nextControl": {
-        "x": 3.115447019867629,
-        "y": 7.185811258274519
+        "x": 3.0751153989330566,
+        "y": 7.169734014244512
       },
       "isLocked": false,
       "linkedName": "AimedAtDepot"
@@ -191,7 +191,19 @@
     }
   ],
   "pointTowardsZones": [],
-  "eventMarkers": [],
+  "eventMarkers": [
+    {
+      "name": "CeaseFireAndStowHood",
+      "waypointRelativePos": 0.40257510729613744,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "CeaseFireAndStowHood"
+        }
+      }
+    }
+  ],
   "globalConstraints": {
     "maxVelocity": 2.75,
     "maxAcceleration": 3.1,

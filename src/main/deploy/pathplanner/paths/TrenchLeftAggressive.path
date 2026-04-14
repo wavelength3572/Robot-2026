@@ -3,13 +3,13 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 4.521932021472754,
-        "y": 7.6613774597486
+        "x": 4.498423937491065,
+        "y": 7.667186317423003
       },
       "prevControl": null,
       "nextControl": {
-        "x": 6.626585165748335,
-        "y": 7.335812300414551
+        "x": 6.603077081766646,
+        "y": 7.341621158088953
       },
       "isLocked": false,
       "linkedName": "TrenchLeftLineStart"
@@ -94,7 +94,21 @@
       "rotationDegrees": 90.0
     }
   ],
-  "constraintZones": [],
+  "constraintZones": [
+    {
+      "name": "Constraints Zone",
+      "minWaypointRelativePos": 0,
+      "maxWaypointRelativePos": 1.2669527896995727,
+      "constraints": {
+        "maxVelocity": 3.5,
+        "maxAcceleration": 6.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
   "pointTowardsZones": [],
   "eventMarkers": [],
   "globalConstraints": {
