@@ -305,10 +305,20 @@ public class DriveCommands {
           double distToFinal =
               drive.getPose().getTranslation().getDistance(finalPose.getTranslation());
 
-          // If already inside the close threshold, skip the waypoint and use DriveToPose
-          // directly. PathPlanner's AD* pathfinder struggles with short distances (<1m).
+          // If already inside the close threshold, skip the pathfinder (AD* struggles <1m) but
+          // still do a two-stage approach so the robot doesn't come in diagonally: first align
+          // laterally with the pole at the current approach depth, then drive straight in.
           if (distToFinal <= CLIMB_CLOSE_THRESHOLD_METERS) {
-            return new DriveToPose(drive, () -> finalPose, config.getPoleAlignFinalApproachSpeed());
+            // Robot position expressed in final pose's local frame. X = depth along approach
+            // axis, Y = lateral offset from the pole.
+            Transform2d currentInFinalFrame = drive.getPose().minus(finalPose);
+            Pose2d lateralAlignPose =
+                finalPose.transformBy(
+                    new Transform2d(currentInFinalFrame.getX(), 0, new Rotation2d()));
+            return Commands.sequence(
+                new DriveToPose(
+                    drive, () -> lateralAlignPose, config.getPoleAlignFinalApproachSpeed()),
+                new DriveToPose(drive, () -> finalPose, config.getPoleAlignFinalApproachSpeed()));
           }
 
           return Commands.sequence(
