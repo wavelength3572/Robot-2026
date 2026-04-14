@@ -176,6 +176,15 @@ public class ShootingCoordinator extends SubsystemBase {
   private boolean dangerTrenchActive = false;
   private double dangerTrenchEntryTimestamp = 0.0;
 
+  // Predictive hood safety: when in ALLIANCE_TRENCH, project turret position forward
+  // by this many seconds using field velocity. If the predicted point falls inside the
+  // DANGER_TRENCH band, treat it as already-in-danger (forces hood to min via
+  // NO_FIRE_ZONE + applies danger speed brake early) so the hood has time to lower
+  // before the robot physically crosses the boundary. Set to 0.0 to disable prediction.
+  private final LoggedTunableNumber trenchLookaheadSec =
+      new LoggedTunableNumber("Shots/TrenchMode/LookaheadSec", 0.3);
+  private boolean dangerTrenchImminent = false;
+
   // Auto passing: when false, PASS/LONG_PASS zones are treated as no-fire zones in auto.
   // Set by AutoWrapperFactory based on path strategy (AUTO_SHOOT enables, others disable).
   // Teleop always allows passing regardless of this flag.
@@ -466,6 +475,7 @@ public class ShootingCoordinator extends SubsystemBase {
     // see strategy comparisons and shot parameters before enabling.
     periodicCounter++;
     updateShotCalculation(alliance, isBlueAlliance);
+    updateDangerTrenchImminent(alliance);
     updateCoordinatorState();
     updateTrenchHoodSafety();
     updateDangerTrenchSafety();
@@ -1498,6 +1508,87 @@ public class ShootingCoordinator extends SubsystemBase {
   }
 
   /**
+   * True when the robot is in ALLIANCE_TRENCH and its projected turret position (turret +
+   * fieldVelocity * lookaheadSec) falls inside DANGER_TRENCH. Treated identically to being in
+   * DANGER_TRENCH for hood-safety purposes: forces hood to min via NO_FIRE_ZONE and applies the
+   * danger speed brake. Gives the hood lead time to lower before the robot crosses the boundary.
+   */
+  public boolean isDangerTrenchImminent() {
+    return dangerTrenchImminent;
+  }
+
+  /**
+   * Recompute {@link #dangerTrenchImminent}. Runs every cycle after {@link #updateShotCalculation}
+   * and before the coordinator state machine so the prediction can gate NO_FIRE_ZONE entry.
+   *
+   * <p>Scoped to current-zone == ALLIANCE_TRENCH to avoid false positives elsewhere on the field.
+   * Time-based lookahead auto-scales with approach speed: slow motion predicts only a short
+   * distance (no nuisance trips), fast approach predicts farther (real warning). Tune against
+   * worst-case hood slew time from shot angle to {@code trenchHoodMaxDeg}.
+   */
+  private void updateDangerTrenchImminent(DriverStation.Alliance alliance) {
+    double lookaheadSec = trenchLookaheadSec.get();
+    ZoneDetector.Zone zone = cachedAimResult != null ? cachedAimResult.zone() : null;
+    boolean inAllianceTrench = zone == ZoneDetector.Zone.ALLIANCE_TRENCH;
+    // Hold the latch through any trench zone, not just ALLIANCE_TRENCH. Turret
+    // position at the DANGER_TRENCH boundary can flicker zones cycle-to-cycle
+    // under pose noise; releasing on every flicker produced oscillation in the
+    // imminent flag. Only fully leaving all trench zones is a durable release.
+    boolean inAnyTrench =
+        zone == ZoneDetector.Zone.ALLIANCE_TRENCH
+            || zone == ZoneDetector.Zone.DANGER_TRENCH
+            || zone == ZoneDetector.Zone.NEUTRAL_TRENCH;
+
+    // Hard exit: out of all trench zones, or prediction not possible at all.
+    if (!inAnyTrench
+        || lookaheadSec <= 0.0
+        || robotPoseSupplier == null
+        || fieldSpeedsSupplier == null) {
+      if (dangerTrenchImminent) {
+        dangerTrenchImminent = false;
+        Logger.recordOutput("SmartLaunch/TrenchHoodSafety/Imminent", false);
+      }
+      return;
+    }
+
+    // Only compute a fresh prediction when actually in ALLIANCE_TRENCH. In
+    // DANGER/NEUTRAL trench the latch is just held as-is (zone-based safety
+    // already drives the hood down via NO_FIRE_ZONE).
+    boolean predictedInDanger = false;
+    double predX = 0.0;
+    double predY = 0.0;
+    Pose2d robotPose = null;
+    if (inAllianceTrench) {
+      robotPose = robotPoseSupplier.get();
+      ChassisSpeeds speeds = fieldSpeedsSupplier.get();
+      double[] turretPos =
+          ShotCalculator.getTurretFieldPosition(
+              robotPose.getX(),
+              robotPose.getY(),
+              robotPose.getRotation().getRadians(),
+              turretConfig);
+      predX = turretPos[0] + speeds.vxMetersPerSecond * lookaheadSec;
+      predY = turretPos[1] + speeds.vyMetersPerSecond * lookaheadSec;
+      predictedInDanger = FieldConstants.TrenchZones.isInDangerTrenchZone(predX, predY, alliance);
+
+      if (!dangerTrenchImminent) {
+        dangerTrenchImminent = predictedInDanger;
+      }
+      // Once latched, no transient release. Only the hard-exit above can clear it.
+    }
+
+    if (periodicCounter % 5 == 0) {
+      Logger.recordOutput("SmartLaunch/TrenchHoodSafety/Imminent", dangerTrenchImminent);
+      Logger.recordOutput("SmartLaunch/TrenchHoodSafety/PredictedInDanger", predictedInDanger);
+      if (robotPose != null) {
+        Logger.recordOutput(
+            "SmartLaunch/TrenchHoodSafety/PredictedTurret",
+            new Pose2d(predX, predY, robotPose.getRotation()));
+      }
+    }
+  }
+
+  /**
    * Update danger trench safety state. When in the DANGER_TRENCH zone with the hood physically
    * above the safe angle, near-stops the robot (0.3 m/s) and forces the hood to lower. After a
    * tunable timeout (default 2s), relaxes to a fallback speed so the driver can escape if the hood
@@ -1511,7 +1602,8 @@ public class ShootingCoordinator extends SubsystemBase {
     boolean wasActive = dangerTrenchActive;
 
     boolean inDangerZone =
-        cachedAimResult != null && cachedAimResult.zone() == ZoneDetector.Zone.DANGER_TRENCH;
+        (cachedAimResult != null && cachedAimResult.zone() == ZoneDetector.Zone.DANGER_TRENCH)
+            || dangerTrenchImminent;
 
     if (inDangerZone && hood != null) {
       boolean hoodAboveSafe = hood.getCurrentAngle() > trenchHoodMaxDeg.get();
@@ -1687,7 +1779,8 @@ public class ShootingCoordinator extends SubsystemBase {
     boolean inNoFireZone =
         currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH
             || currentZone == ZoneDetector.Zone.DANGER_TRENCH
-            || currentZone == ZoneDetector.Zone.BUMP;
+            || currentZone == ZoneDetector.Zone.BUMP
+            || dangerTrenchImminent;
     if (!isAutoCollecting() && coordinatorState == CoordinatorState.UNARMED) {
       if (inNoFireZone) {
         coordinatorState = CoordinatorState.NO_FIRE_ZONE;
