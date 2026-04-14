@@ -183,7 +183,15 @@ public class ShootingCoordinator extends SubsystemBase {
   // before the robot physically crosses the boundary. Set to 0.0 to disable prediction.
   private final LoggedTunableNumber trenchLookaheadSec =
       new LoggedTunableNumber("Shots/TrenchMode/LookaheadSec", 0.3);
+  // Escape hatch for the imminent latch: if predictedInDanger stays continuously
+  // false for this many seconds while latched, release. Lets a driver who truly
+  // changes their mind (reverses out of the approach) recover hood-up shooting
+  // without having to back all the way out of the trench zone. Set to 0 to
+  // disable — the latch then only releases on full trench-zone exit.
+  private final LoggedTunableNumber trenchReleaseDwellSec =
+      new LoggedTunableNumber("Shots/TrenchMode/ReleaseDwellSec", 0.5);
   private boolean dangerTrenchImminent = false;
+  private double trenchImminentClearSinceSec = 0.0;
 
   // Auto passing: when false, PASS/LONG_PASS zones are treated as no-fire zones in auto.
   // Set by AutoWrapperFactory based on path strategy (AUTO_SHOOT enables, others disable).
@@ -1546,6 +1554,7 @@ public class ShootingCoordinator extends SubsystemBase {
         || fieldSpeedsSupplier == null) {
       if (dangerTrenchImminent) {
         dangerTrenchImminent = false;
+        trenchImminentClearSinceSec = 0.0;
         Logger.recordOutput("SmartLaunch/TrenchHoodSafety/Imminent", false);
       }
       return;
@@ -1573,13 +1582,35 @@ public class ShootingCoordinator extends SubsystemBase {
 
       if (!dangerTrenchImminent) {
         dangerTrenchImminent = predictedInDanger;
+        trenchImminentClearSinceSec = 0.0;
+      } else {
+        // Latched. Release only if predictedInDanger has been CONTINUOUSLY false
+        // for trenchReleaseDwellSec. Transient clears (brake-induced v drop,
+        // pose noise) reset the timer, so the latch only opens on a genuine
+        // sustained change — e.g. driver actually reverses course.
+        double releaseDwellSec = trenchReleaseDwellSec.get();
+        if (releaseDwellSec <= 0.0 || predictedInDanger) {
+          trenchImminentClearSinceSec = 0.0;
+        } else {
+          double now = Timer.getFPGATimestamp();
+          if (trenchImminentClearSinceSec == 0.0) {
+            trenchImminentClearSinceSec = now;
+          } else if (now - trenchImminentClearSinceSec >= releaseDwellSec) {
+            dangerTrenchImminent = false;
+            trenchImminentClearSinceSec = 0.0;
+          }
+        }
       }
-      // Once latched, no transient release. Only the hard-exit above can clear it.
     }
 
     if (periodicCounter % 5 == 0) {
       Logger.recordOutput("SmartLaunch/TrenchHoodSafety/Imminent", dangerTrenchImminent);
       Logger.recordOutput("SmartLaunch/TrenchHoodSafety/PredictedInDanger", predictedInDanger);
+      double clearElapsed =
+          (dangerTrenchImminent && trenchImminentClearSinceSec > 0.0)
+              ? Timer.getFPGATimestamp() - trenchImminentClearSinceSec
+              : 0.0;
+      Logger.recordOutput("SmartLaunch/TrenchHoodSafety/ClearDwellSec", clearElapsed);
       if (robotPose != null) {
         Logger.recordOutput(
             "SmartLaunch/TrenchHoodSafety/PredictedTurret",
