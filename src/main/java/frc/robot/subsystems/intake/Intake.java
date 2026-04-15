@@ -765,55 +765,59 @@ public class Intake extends SubsystemBase {
   public Command agitateCommand(BooleanSupplier climbingOrClimbed, boolean useDwell) {
     Timer kickTimer = new Timer();
     Timer stationaryTimer = new Timer();
-    return Commands.sequence(
-            // Phase 1: Wait for robot to be stationary for the dwell period (teleop only)
-            Commands.runOnce(stationaryTimer::restart),
-            useDwell
-                ? Commands.run(
-                        () -> {
-                          if (Math.abs(robotVelocitySupplier.getAsDouble())
-                              >= agitationSpeedThreshold.get()) {
-                            stationaryTimer.restart();
-                          }
-                        })
-                    .until(() -> stationaryTimer.hasElapsed(agitationStationaryDwellSec.get()))
-                : Commands.none(),
-            // Phase 2: Repeating kick cycles while stationary
-            Commands.sequence(
-                    // Kick: brief retract burst
-                    Commands.runOnce(
-                        () -> {
-                          io.setDeployBrakeMode(true);
-                          io.setDeployDutyCycle(agitationKickDutyCycle.get());
-                          deployState = DeployState.AGITATING;
-                          kickTimer.restart();
-                        }),
-                    Commands.waitUntil(() -> kickTimer.hasElapsed(agitationKickDurationSec.get())),
-                    // Redeploy: send arm back to extended position
-                    Commands.runOnce(
-                        () -> {
-                          restoreNormalDeployConfig();
-                          deploy();
-                        }),
-                    // Settle: wait for arm to return before next kick
-                    Commands.waitSeconds(agitateSettleSec.get()))
-                .repeatedly()
-                .onlyWhile(
-                    () ->
-                        Math.abs(robotVelocitySupplier.getAsDouble())
-                            < agitationSpeedThreshold.get()))
-        // If robot moves mid-kick, go back to dwell wait and repeat
-        .repeatedly()
-        .onlyWhile(
-            () ->
-                !climbingOrClimbed.getAsBoolean()
-                    && SmartDashboard.getBoolean("Intake/AgitationEnabled", false))
-        .finallyDo(
-            () -> {
-              restoreNormalDeployConfig();
-              deploy();
-            })
-        .withName("Intake: Agitate");
+    Command agitate =
+        Commands.sequence(
+                // Phase 1: Wait for robot to be stationary for the dwell period (teleop only)
+                Commands.runOnce(stationaryTimer::restart),
+                useDwell
+                    ? Commands.run(
+                            () -> {
+                              if (Math.abs(robotVelocitySupplier.getAsDouble())
+                                  >= agitationSpeedThreshold.get()) {
+                                stationaryTimer.restart();
+                              }
+                            })
+                        .until(() -> stationaryTimer.hasElapsed(agitationStationaryDwellSec.get()))
+                    : Commands.none(),
+                // Phase 2: Repeating kick cycles while stationary
+                Commands.sequence(
+                        // Kick: brief retract burst
+                        Commands.runOnce(
+                            () -> {
+                              io.setDeployBrakeMode(true);
+                              io.setDeployDutyCycle(agitationKickDutyCycle.get());
+                              deployState = DeployState.AGITATING;
+                              kickTimer.restart();
+                            }),
+                        Commands.waitUntil(
+                            () -> kickTimer.hasElapsed(agitationKickDurationSec.get())),
+                        // Redeploy: send arm back to extended position
+                        Commands.runOnce(
+                            () -> {
+                              restoreNormalDeployConfig();
+                              deploy();
+                            }),
+                        // Settle: wait for arm to return before next kick
+                        Commands.waitSeconds(agitateSettleSec.get()))
+                    .repeatedly()
+                    .onlyWhile(
+                        () ->
+                            Math.abs(robotVelocitySupplier.getAsDouble())
+                                < agitationSpeedThreshold.get()))
+            // If robot moves mid-kick, go back to dwell wait and repeat
+            .repeatedly()
+            .onlyWhile(
+                () ->
+                    !climbingOrClimbed.getAsBoolean()
+                        && SmartDashboard.getBoolean("Intake/AgitationEnabled", false))
+            .finallyDo(
+                () -> {
+                  restoreNormalDeployConfig();
+                  deploy();
+                });
+    // Skip agitation entirely if the intake is stowed at command start — nothing to shake out,
+    // and avoids the finallyDo auto-deploying the arm.
+    return Commands.either(Commands.none(), agitate, this::isStowed).withName("Intake: Agitate");
   }
 
   /** Convenience overload — no dwell, for auto zone markers and post-path wrapper. */
@@ -989,7 +993,7 @@ public class Intake extends SubsystemBase {
    * <p>Tunables: Tuning/Intake/Agitation/KickDutyCycle, Tuning/Intake/Agitation/KickDurationSec
    */
   private static final LoggedTunableNumber agitationKickDutyCycle =
-      new LoggedTunableNumber("Tuning/Intake/Agitation/KickDutyCycle", -0.2);
+      new LoggedTunableNumber("Tuning/Intake/Agitation/KickDutyCycle", -0.15);
 
   private static final LoggedTunableNumber agitationKickDurationSec =
       new LoggedTunableNumber("Tuning/Intake/Agitation/KickDurationSec", 0.12);
