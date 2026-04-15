@@ -121,9 +121,9 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretOutsideMaxAngleDeg = turretInsideMaxAngleDeg + turretZeroOffset;
   private static final double turretOutsideMinAngleDeg = turretInsideMinAngleDeg + turretZeroOffset;
   private static final double turretAbsoluteEncoderOffsetTweak =
-      1.5; // 1.5 was old value; // 2.827154; // This is in degrees. + is CCW
+      0; // 1.5 was old value; // 2.827154; // This is in degrees. + is CCW
   private static final double turretAbsoluteEncoderOffset =
-      0.1483 + (turretAbsoluteEncoderOffsetTweak / (360.0 / turretExternalGearRatio)); // 0.30148
+      0.224393 + (turretAbsoluteEncoderOffsetTweak / (360.0 / turretExternalGearRatio)); // 0.30148
 
   private static final int turretCurrentLimitAmps = 20;
   private static final double turretKp = 0.12;
@@ -277,7 +277,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeAgitationCoastTimeSec = 0.1;
   private static final double intakeAgitationFallTimeSec = 0.2;
   private static final double intakeAgitationSpeedThresholdMps = 0.05;
-  private static final double intakeAgitationStationaryDwellSec = 2.0;
+  private static final double intakeAgitationStationaryDwellSec = 4.0;
   private static final double intakeRollerMinDeployPosition = 0.05;
 
   // ========== Shot Calculation ==========
@@ -300,14 +300,14 @@ public class MainBotConfig implements RobotConfig {
   private static final double zoneCornerDist = 5.1;
 
   // ========== Fixed Height Shot Strategy ==========
-  private static final double fixedHeightPeakHeightIn = 86.0;
+  private static final double fixedHeightPeakHeightIn = 100.0;
   private static final double fixedHeightPassThroughHeightIn = 74.0;
   private static final double fixedHeightHorizontalOffsetIn = 8.0;
   private static final double fixedHeightMinRPM = 1500.0;
   private static final double fixedHeightMaxRPM = 4000.0;
 
   // ========== Fixed Height Pass Strategy ==========
-  private static final double fixedHeightPassPeakHeightIn = 110.0;
+  private static final double fixedHeightPassPeakHeightIn = 80.0;
   private static final double fixedHeightLongPassPeakHeightIn = 150.0;
   private static final double fixedHeightPassMinRPM = 1000.0;
   private static final double fixedHeightPassMaxRPM = 4500.0;
@@ -372,10 +372,11 @@ public class MainBotConfig implements RobotConfig {
 
   // ========== Shooting Commands — Feed Ratios ==========
   private static final double motivatorLauncherRatio = 0.2;
-  private static final double passingMotivatorRPM = 1650.0;
-  private static final double spindexerCloseRPM = 400.0;
+  private static final double shootingMotivatorRPM = 1200.0;
+  private static final double passingMotivatorRPM = 1200.0;
+  private static final double spindexerCloseRPM = 300.0;
   private static final double spindexerFarRPM = 400.0;
-  private static final double spindexerPassRPM = 550.0;
+  private static final double spindexerPassRPM = 400.0;
 
   // ========== Shooting Commands — Override Defaults ==========
   private static final double overrideLauncherRPM = 2500.0;
@@ -1790,6 +1791,11 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getMotivatorLauncherRatio() {
     return motivatorLauncherRatio;
+  }
+
+  @Override
+  public double getShootingMotivatorRPM() {
+    return shootingMotivatorRPM;
   }
 
   @Override

@@ -419,8 +419,8 @@ public class ShootingCoordinator extends SubsystemBase {
     SmartDashboard.putData("SmartLaunch/Pass/Strategy", passingStrategyChooser);
 
     // Pass strategy chooser — which pass strategy to use (FixedHeight vs Waypoint)
-    passStrategyChooser.setDefaultOption("Waypoint (arc through point)", PASS_STRAT_WAYPOINT);
-    passStrategyChooser.addOption("FixedHeight (arc to peak)", PASS_STRAT_FIXED);
+    passStrategyChooser.setDefaultOption("FixedHeight (arc to peak)", PASS_STRAT_FIXED);
+    passStrategyChooser.addOption("Waypoint (arc through point)", PASS_STRAT_WAYPOINT);
     SmartDashboard.putData("SmartLaunch/PassStrategy", passStrategyChooser);
 
     // Hub strategy chooser — which shot strategy to use for hub shots
