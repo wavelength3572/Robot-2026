@@ -10,6 +10,7 @@ package frc.robot.util;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
+import frc.robot.Constants;
 import java.util.Optional;
 import java.util.function.Supplier;
 import lombok.Setter;
@@ -51,6 +52,13 @@ public class HubShiftUtil {
   private static final boolean[] inactiveSchedule = {true, false, true, false, true, true};
   private static final double timeResetThreshold = 3.0;
   private static double shiftTimerOffset = 0.0;
+
+  /** Seconds before shifted active window to suppress all feeding (passing + shooting). */
+  public static final LoggedTunableNumber preActiveCutoffSeconds =
+      new LoggedTunableNumber(
+          "HubShift/PreActiveCutoffSec",
+          Constants.getRobotConfig().getHubShiftPreActiveCutoffSec());
+
   @Setter private static Supplier<Optional<Boolean>> allianceWinOverride = () -> Optional.empty();
 
   public static Optional<Boolean> getAllianceWinOverride() {

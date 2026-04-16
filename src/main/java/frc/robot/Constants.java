@@ -7,17 +7,17 @@
 
 package frc.robot;
 
-import edu.wpi.first.wpilibj.Preferences;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
 
 /**
  * This class defines the runtime mode used by AdvantageKit. The mode is always "real" when running
- * on a roboRIO. Change the value of "simMode" to switch between "sim" (physics sim) and "replay"
- * (log replay from a file).
+ * on a roboRIO. Change the value of "simMode" to switch between "sim" (physics sim), "replay" (log
+ * replay from a file), or "pit" (simulated drive with real subsystems for pit testing).
  */
 public final class Constants {
   public static final Mode simMode = Mode.SIM;
-  public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
+  public static final Mode currentMode = resolveMode();
 
   /**
    * Robot type for simulation mode. Change this to test different configurations. On real hardware,
@@ -42,36 +42,37 @@ public final class Constants {
       return simRobotType;
     }
 
-    System.out.println("[RobotConfig] Starting robot type detection...");
-
-    try {
-      // Read RobotPreferences from RoboRIO for the RobotName
-      if (Preferences.getString("RobotName", "nullBot").equals("SquareBot")) {
-        System.out.println("[RobotConfig] Detected SquareBot");
-        return RobotType.SQUAREBOT;
-      } else {
-        System.out.println("[RobotConfig] Assuming MainBot");
-        return RobotType.MAINBOT;
-      }
-    } catch (Exception e) {
-      System.out.println(
-          "[RobotConfig] Error during detection, defaulting to MainBot: " + e.getMessage());
-      return RobotType.MAINBOT;
-    }
+    System.out.println("[RobotConfig] Assuming MainBot");
+    return RobotType.MAINBOT;
   }
 
   public static RobotConfig getRobotConfig() {
     if (robotConfig == null) {
-      switch (currentRobot) {
-        case SQUAREBOT:
-          robotConfig = new SquareBotConfig();
-          break;
-        case MAINBOT:
-          robotConfig = new MainBotConfig();
-          break;
-      }
+      robotConfig = new MainBotConfig();
     }
     return robotConfig;
+  }
+
+  /**
+   * Resolves the runtime mode. On real hardware, normally REAL. When simMode is set to PIT and
+   * deployed to the roboRIO, enables pit mode (simulated drive, real everything else). As a safety
+   * measure, PIT mode falls back to REAL when FMS is connected.
+   */
+  private static Mode resolveMode() {
+    if (RobotBase.isReal()) {
+      if (simMode == Mode.PIT) {
+        if (DriverStation.isFMSAttached()) {
+          System.out.println(
+              "[RobotConfig] simMode is PIT but FMS is connected — falling back to REAL for safety.");
+          return Mode.REAL;
+        }
+        System.out.println(
+            "[RobotConfig] *** PIT MODE ENABLED *** Drive is simulated, all other subsystems are real.");
+        return Mode.PIT;
+      }
+      return Mode.REAL;
+    }
+    return simMode;
   }
 
   public static enum Mode {
@@ -81,14 +82,17 @@ public final class Constants {
     /** Running a physics simulator. */
     SIM,
 
+    /**
+     * Pit mode: real robot hardware for all subsystems EXCEPT drive, which uses physics simulation.
+     * Allows virtual field driving in the pits with real targeting and vision.
+     */
+    PIT,
+
     /** Replaying from a log file. */
     REPLAY
   }
 
   public static enum RobotType {
-    /** SquareBot2026 - 21.25" chassis with NEO drive motors */
-    SQUAREBOT,
-
     /** MainBot2026 - 23.5" x 31" chassis with NEO Vortex drive motors */
     MAINBOT
   }
@@ -108,17 +112,28 @@ public final class Constants {
 
   /** Team-specific strategy constants (pass targets, trench positions). */
   public static final class StrategyConstants {
-    /** Pass target X positions (1/3 into alliance zone from wall). */
+    /** Pass target X positions (closer to neutral zone for achievable pass RPMs). */
     public static final double BLUE_PASS_TARGET_X = 2.0;
 
     public static final double RED_PASS_TARGET_X = FieldConstants.fieldLength - BLUE_PASS_TARGET_X;
 
-    /** Pass target Y positions (offset from field center toward each trench). */
-    public static final double PASS_TARGET_Y_OFFSET = 1.75;
+    /** Pass target Y positions (offset from field center toward each outer wall). */
+    public static final double PASS_TARGET_Y_OFFSET = 2.66;
 
     public static final double RIGHT_PASS_TARGET_Y =
         FieldConstants.fieldWidth / 2 - PASS_TARGET_Y_OFFSET;
     public static final double LEFT_PASS_TARGET_Y =
         FieldConstants.fieldWidth / 2 + PASS_TARGET_Y_OFFSET;
+
+    /**
+     * Lob pass target Y positions for driver-station strategy. Station 1/2 target is far from the
+     * outpost; station 3 target is near the outpost.
+     *
+     * <p>Both targets are 1.5m from their respective walls. Station 1 is near the high-Y wall for
+     * blue, station 3 is near the low-Y wall for blue.
+     */
+    public static final double LOB_STATION_1_TARGET_Y = 1.5;
+
+    public static final double LOB_STATION_3_TARGET_Y = 1.5;
   }
 }

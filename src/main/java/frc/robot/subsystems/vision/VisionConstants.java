@@ -111,20 +111,19 @@ public final class VisionConstants {
   // MAINBOT camera transforms - from CAD measurements (4 March 2026 PDF)
   // Positions measured from robot center origin, converted inches → meters (×0.0254)
 
-  // Center Rear camera (forward facing) - mounted at rear center, looking forward
+  // Center Rear camera (now mounted back-to-back with Right Rear, facing front-left)
+  // Moved from rear center to right rear to allow structure for climber
   public static Transform3d mainBotToCenterRearCam =
       new Transform3d(
-          -0.26538, // X: 10.448" to rear
-          -0.04445, // Y: 1.750" to the right
-          0.52093, // Z: 20.509" up
+          -0.21760, // X: 8.567" to rear
+          -0.32903, // Y: 12.954" to the right
+          0.52410, // Z: 20.634" up
           new Rotation3d(
               0.0,
               Rotation2d.fromDegrees(-10).getRadians(), // Pitch 10° up from horizontal
-              Rotation2d.fromDegrees(0).getRadians())); // Yaw: facing forward
+              Rotation2d.fromDegrees(30).getRadians())); // Yaw: 30° (back-to-back with right rear)
 
-  // Right Front camera (rightward facing) - mounted at front right
-  // TODO: PDF says -83° yaw (7° toward front), but we changed to -97° (7° toward rear / inward)
-  //   to mirror LeftRear's inward offset. Confirm new mount angle with CAD person.
+  // Right Front camera (rightward facing) - mounted at front right, -97° yaw (7° inward)
   public static Transform3d mainBotToRightFrontCam =
       new Transform3d(
           0.23904, // X: 9.411" to front
@@ -135,27 +134,27 @@ public final class VisionConstants {
               Rotation2d.fromDegrees(-16).getRadians(), // Pitch 16° up from horizontal
               Rotation2d.fromDegrees(-97).getRadians())); // Yaw: 97° right (7° toward rear/inward)
 
-  // Left Rear camera (leftward facing) - mounted at rear left
+  // Left Rear camera (leftward-rearward facing) - mounted at rear left
   public static Transform3d mainBotToLeftRearCam =
       new Transform3d(
-          -0.22962, // X: 9.040" to rear
-          0.38002, // Y: 14.960" to the left
+          -0.23302, // X: 9.174" to rear
+          0.37940, // Y: 14.937" to the left
           0.36449, // Z: 14.350" up
           new Rotation3d(
               0.0,
               Rotation2d.fromDegrees(-21).getRadians(), // Pitch 21° up from horizontal
-              Rotation2d.fromDegrees(83).getRadians())); // Yaw: 83° left (7° toward front)
+              Rotation2d.fromDegrees(120).getRadians())); // Yaw: 120° (left-rearward)
 
-  // Right Rear camera (rearward facing) - mounted at rear right
+  // Right Rear camera (right-rearward facing) - mounted at rear right
   public static Transform3d mainBotToRightRearCam =
       new Transform3d(
-          -0.26670, // X: 10.5" to rear
-          -0.35111, // Y: 13.823" to the right
+          -0.26525, // X: 10.443" to rear
+          -0.36340, // Y: 14.307" to the right
           0.52410, // Z: 20.634" up
           new Rotation3d(
               0.0,
               Rotation2d.fromDegrees(-10).getRadians(), // Pitch 10° up from horizontal
-              Rotation2d.fromDegrees(180).getRadians())); // Yaw: facing rearward
+              Rotation2d.fromDegrees(210).getRadians())); // Yaw: 210° (right-rearward)
 
   private VisionConstants() {}
 }

@@ -3,110 +3,138 @@ package frc.robot.subsystems.climber;
 import static frc.robot.util.SparkUtil.*;
 
 import com.revrobotics.RelativeEncoder;
+import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.FeedbackSensor;
+import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.wpilibj.RobotController;
-import edu.wpi.first.wpilibj.Servo;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
-import frc.robot.util.LoggedTunableNumber;
 
 public class ClimberIOSpark implements ClimberIO {
-
-  private final SparkMax climberMotor;
-  private final RelativeEncoder climberEncoder;
-  private final SparkClosedLoopController climberController;
-
-  private double targetPosition = 0;
-
-  private static final LoggedTunableNumber climbServoPosition =
-      new LoggedTunableNumber("Climber/servo", 0.0);
-
-  private Servo servo = new Servo(1);
+  private final SparkMax motor;
+  private final RelativeEncoder encoder;
+  private final SparkClosedLoopController controller;
 
   public ClimberIOSpark() {
     RobotConfig config = Constants.getRobotConfig();
 
-    climberMotor = new SparkMax(config.getClimberCanId(), MotorType.kBrushless);
-    climberEncoder = climberMotor.getEncoder();
-    climberController = climberMotor.getClosedLoopController();
+    motor = new SparkMax(config.getClimberCanId(), MotorType.kBrushless);
+    encoder = motor.getEncoder();
+    controller = motor.getClosedLoopController();
 
-    // Configure climber motor
-    var climberConfig = new SparkMaxConfig();
-    climberConfig
+    var motorConfig = new SparkMaxConfig();
+    motorConfig
         .inverted(false)
         .idleMode(IdleMode.kBrake)
-        .smartCurrentLimit(20)
+        .smartCurrentLimit(config.getClimberCurrentLimit())
         .voltageCompensation(12.0);
 
-    climberConfig.closedLoop.feedbackSensor(FeedbackSensor.kPrimaryEncoder).pid(0.0, 0.0, 0.0);
+    // Slot 0: extend/stow — full output range. Slot 1: climb — output capped to
+    // climbMaxOutput so the robot lifts slowly and predictably under load.
+    double climbMax = config.getClimberClimbMaxOutput();
+    motorConfig
+        .closedLoop
+        .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
+        .pid(config.getClimberKp(), 0.0, 0.0, ClosedLoopSlot.kSlot0)
+        .pid(config.getClimberKp(), 0.0, 0.0, ClosedLoopSlot.kSlot1)
+        .outputRange(-climbMax, climbMax, ClosedLoopSlot.kSlot1);
+
+    // Hardware soft limits — prevent over-travel even if software fails
+    motorConfig
+        .softLimit
+        .forwardSoftLimit((float) config.getClimberExtendPosition())
+        .forwardSoftLimitEnabled(true)
+        .reverseSoftLimit(0.0f)
+        .reverseSoftLimitEnabled(true);
 
     tryUntilOk(
-        climberMotor,
+        motor,
         5,
         () ->
-            climberMotor.configure(
-                climberConfig,
+            motor.configure(
+                motorConfig,
                 com.revrobotics.ResetMode.kResetSafeParameters,
                 com.revrobotics.PersistMode.kPersistParameters));
 
-    climberMotor.set(0.0);
-    tryUntilOk(climberMotor, 5, () -> climberEncoder.setPosition(0.0));
-    servo.set(0.0);
+    // Zero encoder at startup (robot must start with climber stowed)
+    tryUntilOk(motor, 5, () -> encoder.setPosition(0.0));
   }
 
   @Override
   public void updateInputs(ClimberIOInputs inputs) {
-    if (LoggedTunableNumber.hasChanged(climbServoPosition)) {
-      setServoPosition(climbServoPosition.get());
-    }
-    inputs.appliedVolts = climberMotor.getAppliedOutput() * RobotController.getBatteryVoltage();
-    inputs.currentAmps = climberMotor.getOutputCurrent();
-    inputs.currentPosition = climberEncoder.getPosition();
-    inputs.targetPosition = this.targetPosition;
+    inputs.positionRotations = encoder.getPosition();
+    inputs.appliedVolts = motor.getAppliedOutput() * RobotController.getBatteryVoltage();
+    inputs.currentAmps = motor.getOutputCurrent();
   }
 
   @Override
-  public void setClimberVoltage(double volts) {
-    climberMotor.setVoltage(volts);
+  public void setPosition(double motorRotations) {
+    // Slot 0 — normal extend/stow motion, full output range.
+    controller.setSetpoint(
+        motorRotations,
+        ControlType.kPosition,
+        ClosedLoopSlot.kSlot0,
+        0.0,
+        SparkClosedLoopController.ArbFFUnits.kVoltage);
   }
 
   @Override
-  public void setServoPosition(double position) {
-    // Position is 0 to 1.0
-    // where 0.0 is one extreme and 1.0 is the other
-    servo.set(position);
+  public void setPosition(double motorRotations, double arbFFVolts) {
+    // Slot 1 — climb motion, output range capped to climbMaxOutput. arbFF adds on top.
+    controller.setSetpoint(
+        motorRotations,
+        ControlType.kPosition,
+        ClosedLoopSlot.kSlot1,
+        arbFFVolts,
+        SparkClosedLoopController.ArbFFUnits.kVoltage);
   }
 
   @Override
-  public void deployClimber() {}
-
-  @Override
-  public void stopClimber() {
-    climberMotor.setVoltage(0.0);
-  }
-
-  public void climb() {}
-
-  @Override
-  public boolean isClimberDeployed() {
-    return false;
-  }
-
-  public double drumToEncoder(double drumRotations) {
-    return drumRotations;
-  }
-
-  public double encoderToDrum(double encoderRotations) {
-    return encoderRotations;
+  public void setVoltage(double volts) {
+    motor.setVoltage(volts);
   }
 
   @Override
-  public boolean isClimbingFinished() {
-    return false;
+  public void setSoftLimitsEnabled(boolean enabled) {
+    var config = new SparkMaxConfig();
+    config.softLimit.forwardSoftLimitEnabled(enabled).reverseSoftLimitEnabled(enabled);
+    motor.configure(
+        config,
+        com.revrobotics.ResetMode.kNoResetSafeParameters,
+        com.revrobotics.PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void stop() {
+    motor.setVoltage(0.0);
+  }
+
+  @Override
+  public void configurePID(double kP, double climbMaxOutput) {
+    var pidConfig = new SparkMaxConfig();
+    pidConfig
+        .closedLoop
+        .pid(kP, 0.0, 0.0, ClosedLoopSlot.kSlot0)
+        .pid(kP, 0.0, 0.0, ClosedLoopSlot.kSlot1)
+        .outputRange(-climbMaxOutput, climbMaxOutput, ClosedLoopSlot.kSlot1);
+    motor.configure(
+        pidConfig,
+        com.revrobotics.ResetMode.kNoResetSafeParameters,
+        com.revrobotics.PersistMode.kNoPersistParameters);
+  }
+
+  @Override
+  public void zeroEncoder() {
+    tryUntilOk(motor, 5, () -> encoder.setPosition(0.0));
+  }
+
+  @Override
+  public void setEncoderPosition(double rotations) {
+    tryUntilOk(motor, 5, () -> encoder.setPosition(rotations));
   }
 }

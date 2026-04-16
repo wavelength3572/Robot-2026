@@ -22,7 +22,6 @@ public interface MotivatorIO {
     public double wheelRPM = 0.0;
     public double appliedVolts = 0.0;
     public double currentAmps = 0.0;
-    public double PdhCurrentAmps = 0.0;
     public double tempCelsius = 0.0;
     public double targetRPM = 0.0;
     public boolean atSetpoint = false;
@@ -50,8 +49,8 @@ public interface MotivatorIO {
   /** Configure PID gains for motivator motor 1. */
   default void configureMotivatorPID(double kP, double kI, double kD, double kS, double kV) {}
 
-  /** Set velocity tolerances for atSetpoint checks. */
-  default void setVelocityTolerance(double motivatorToleranceRPM) {}
+  /** Set velocity tolerances for atSetpoint checks (with hysteresis). */
+  default void setVelocityTolerance(double enterToleranceRPM, double exitToleranceRPM) {}
 
   default double getFFCharacterizationVelocity() {
     return 0.0;

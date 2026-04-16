@@ -5,30 +5,35 @@ import org.littletonrobotics.junction.AutoLog;
 public interface ClimberIO {
   @AutoLog
   public static class ClimberIOInputs {
-    public double targetPosition = 0.0;
-    public double currentPosition = 0.0;
+    public double positionRotations = 0.0;
     public double appliedVolts = 0.0;
     public double currentAmps = 0.0;
-    public boolean climbingFinished = false;
   }
 
-  public default void setClimberVoltage(double volts) {}
-
-  public default void setServoPosition(double position) {}
-
+  /** Read sensor data into inputs. */
   public default void updateInputs(ClimberIOInputs inputs) {}
 
-  public default void deployClimber() {}
+  /** Command the motor to a target position in motor rotations. */
+  public default void setPosition(double motorRotations) {}
 
-  public default void climb() {}
+  /** Command the motor to a target position with an arbitrary feedforward voltage. */
+  public default void setPosition(double motorRotations, double arbFFVolts) {}
 
-  public default void stopClimber() {}
+  /** Run the motor at a raw voltage (for pit mode). */
+  public default void setVoltage(double volts) {}
 
-  public default boolean isClimberDeployed() {
-    return false;
-  }
+  /** Enable or disable soft limits (disable for pit recovery). */
+  public default void setSoftLimitsEnabled(boolean enabled) {}
 
-  public default boolean isClimbingFinished() {
-    return false;
-  }
+  /** Stop the motor (brake mode holds position). */
+  public default void stop() {}
+
+  /** Update PID gains and climb output cap on the motor controller. */
+  public default void configurePID(double kP, double climbMaxOutput) {}
+
+  /** Zero the encoder position (call in pit if robot rebooted with climber not stowed). */
+  public default void zeroEncoder() {}
+
+  /** Set the encoder to a specific position (for pit recovery). */
+  public default void setEncoderPosition(double rotations) {}
 }

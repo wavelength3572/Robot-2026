@@ -3,9 +3,13 @@ package frc.robot.subsystems.turret;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import frc.robot.subsystems.led.IndicatorLight.TurretEncoderStatus;
 import frc.robot.util.LoggedTunableNumber;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -16,8 +20,23 @@ import org.littletonrobotics.junction.Logger;
  * visualization live in {@link frc.robot.subsystems.shooting.ShootingCoordinator}.
  */
 public class Turret extends SubsystemBase {
+
+  /** Turret operating state. */
+  public enum TurretState {
+    LOCKED,
+    ROTATING_CW,
+    ROTATING_CCW,
+    /** At target angle, actively commanded by a shooting or tracking command. */
+    READY,
+    /** At target angle, but no command is actively driving the turret. */
+    IDLE,
+    FLIPPING,
+    STALLED,
+    DISCONNECTED
+  }
+
   private final TurretIO io;
-  private final TurretIOInputsAutoLogged inputs = new TurretIOInputsAutoLogged();
+  private final TurretIOInputsAutoLogged turretInputs = new TurretIOInputsAutoLogged();
 
   private final RobotConfig config;
 
@@ -35,15 +54,42 @@ public class Turret extends SubsystemBase {
   private static final LoggedTunableNumber kD =
       new LoggedTunableNumber("Tuning/Turret/kD", Constants.getRobotConfig().getTurretKd());
 
-  // TODO: Turret uses PD-only control (no kI, no feedforward). This causes steady-state error
-  // where the motor can't push through friction at small errors. Consider adding kI and/or kS.
+  // Tolerance for atTarget() — does NOT affect motor control
+  private final double readyToleranceAngleDeg;
 
-  // Tunable ready-gate tolerance for atTarget() — does NOT affect motor control
-  private static final LoggedTunableNumber readyToleranceAngleDeg =
-      new LoggedTunableNumber("Tuning/Turret/ReadyToleranceAngleDeg", 2.0);
+  private final Timer stallTimer = new Timer(); // How long stall condition has persisted
+  private double lastRequestedTargetAngle = -1000;
+  private double stallTargetAngle = -1000;
 
   // How close to a limit (degrees) before safety indicators fire
-  private static final double WARNING_ZONE_DEG = 20.0;
+  private final double warningZoneDeg;
+
+  // Startup encoder validation thresholds (degrees from expected zero position)
+  private final double encoderWarningThresholdDeg;
+  private final double encoderErrorThresholdDeg;
+
+  // Current state — promoted from periodic() local for external readiness checks
+  private TurretState currentState = TurretState.LOCKED;
+
+  // When true, the turret is being actively commanded (shooting command or auto-track).
+  // Set via setActivelyCommanded(). Affects state: at-target reports IDLE instead of READY.
+  private boolean activelyCommanded = false;
+
+  // Turret lock — when true, all movement commands are blocked and motor is in brake hold
+  private boolean locked = false;
+
+  // Startup encoder validation
+  private boolean startupValidationDone = false;
+  private TurretEncoderStatus encoderValidationStatus = TurretEncoderStatus.VALID;
+
+  private final Alert encoderWarningAlert =
+      new Alert(
+          "Turret absolute encoder offset from expected position (5-15 deg). Check encoder mount.",
+          AlertType.kWarning);
+  private final Alert encoderErrorAlert =
+      new Alert(
+          "TURRET LOCKED — Absolute encoder >15 deg from expected position! Encoder may have shifted. Do NOT enable until inspected.",
+          AlertType.kError);
 
   /**
    * Creates a new Turret subsystem.
@@ -62,28 +108,124 @@ public class Turret extends SubsystemBase {
     outsideAngleMax = config.getTurretOutsideMaxAngleDeg();
     outsideCenterDeg = (outsideAngleMax + outsideAngleMin) / 2.0;
 
-    // Log turret configuration (logged once at startup)
-    Logger.recordOutput("Turret/Config/outsideAngleMin", outsideAngleMin);
-    Logger.recordOutput("Turret/Config/outsideAngleMax", outsideAngleMax);
-    Logger.recordOutput("Turret/Config/heightMeters", turretHeightMeters);
-    Logger.recordOutput("Turret/Config/gearRatio", config.getTurretGearRatio());
-    Logger.recordOutput("Turret/Config/kP", config.getTurretKp());
-    Logger.recordOutput("Turret/Config/kD", config.getTurretKd());
-    Logger.recordOutput("Turret/Config/currentLimitAmps", config.getTurretCurrentLimitAmps());
+    readyToleranceAngleDeg = config.getTurretToleranceAngleDeg();
+
+    warningZoneDeg = config.getTurretWarningZoneDeg();
+    encoderWarningThresholdDeg = config.getTurretEncoderWarningThresholdDeg();
+    encoderErrorThresholdDeg = config.getTurretEncoderErrorThresholdDeg();
   }
 
   @Override
   public void periodic() {
-    io.updateInputs(inputs);
-    Logger.processInputs("Turret", inputs);
+    io.updateInputs(turretInputs);
+    Logger.processInputs("Turret", turretInputs);
+
+    // One-time startup encoder validation: check if the inside angle is near 0°
+    // (the expected position when the team places the turret at the known setup position).
+    // If the absolute encoder offset has physically shifted, this angle will be wrong.
+    if (!startupValidationDone && turretInputs.connected) {
+      startupValidationDone = true;
+      double startupAngleError = Math.abs(turretInputs.currentInsideAngleDeg);
+      Logger.recordOutput("Turret/StartupAngleError", startupAngleError);
+
+      if (startupAngleError >= encoderErrorThresholdDeg) {
+        encoderValidationStatus = TurretEncoderStatus.ERROR;
+        encoderErrorAlert.set(true);
+        lock();
+        System.err.println(
+            "[Turret] CRITICAL: Startup angle is "
+                + String.format("%.1f", startupAngleError)
+                + " deg from expected. Encoder offset may have shifted! Turret LOCKED.");
+      } else if (startupAngleError >= encoderWarningThresholdDeg) {
+        encoderValidationStatus = TurretEncoderStatus.WARNING;
+        encoderWarningAlert.set(true);
+        System.err.println(
+            "[Turret] WARNING: Startup angle is "
+                + String.format("%.1f", startupAngleError)
+                + " deg from expected. Check encoder mount.");
+      }
+    }
+
+    // Compute and log state
+    if (!turretInputs.connected) {
+      currentState = TurretState.DISCONNECTED;
+    } else if (currentState == TurretState.STALLED) {
+      currentState = TurretState.STALLED;
+    } else if (locked) {
+      currentState = TurretState.LOCKED;
+    } else if (atTarget()) {
+      currentState = activelyCommanded ? TurretState.READY : TurretState.IDLE;
+    } else if (Math.abs(getOutsideTargetAngle() - getOutsideCurrentAngle()) > 100) {
+      currentState = TurretState.FLIPPING;
+    } else if (getOutsideTargetAngle() > getOutsideCurrentAngle()) {
+      currentState = TurretState.ROTATING_CW;
+    } else {
+      currentState = TurretState.ROTATING_CCW;
+    }
+
+    // See if we can detect a Jam
+    // If we get to a STALLED state then this code won't run anymore
+    // Until the code that does the stall procedure
+    // releases the STALLED state
+    if (currentState == TurretState.READY
+        || currentState == TurretState.IDLE
+        || currentState == TurretState.FLIPPING
+        || currentState == TurretState.ROTATING_CW
+        || currentState == TurretState.ROTATING_CCW) {
+      double positionError =
+          Math.abs(turretInputs.targetOutsideAngleDeg - turretInputs.currentOutsideAngleDeg);
+      // boolean stalled = (turretInputs.currentAmps > 14.0 && positionError > 3.0);
+      boolean stalled = (turretInputs.currentAmps > 14.0);
+      if (stalled) {
+        if (!stallTimer.isRunning()) {
+          stallTimer.restart();
+        }
+        if (stallTimer.hasElapsed(.5)) {
+          currentState = TurretState.STALLED;
+          setOutsideTurretAngle(turretInputs.targetOutsideAngleDeg);
+        }
+      } else {
+        stallTimer.stop();
+      }
+    } else {
+      stallTimer.stop();
+    }
+
+    Logger.recordOutput("Subsystems/TurretState", currentState.name());
 
     // Push tunable PID changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kD)) {
       io.configurePID(kP.get(), kD.get());
     }
+  }
 
-    Logger.recordOutput("Turret/AngleError", getOutsideTargetAngle() - getOutsideCurrentAngle());
-    Logger.recordOutput("Turret/AtTarget", atTarget());
+  // ========== Turret Lock ==========
+
+  /** Lock the turret — cuts motor output and blocks all movement commands. */
+  public void lock() {
+    locked = true;
+    io.stop();
+  }
+
+  /** Unlock the turret — allows movement commands again. */
+  public void unlock() {
+    locked = false;
+  }
+
+  /**
+   * @return true if the turret is locked
+   */
+  public boolean isLocked() {
+    return locked;
+  }
+
+  /**
+   * Get the startup encoder validation status.
+   *
+   * @return VALID, WARNING, or ERROR based on startup angle deviation
+   */
+  public TurretEncoderStatus getEncoderValidationStatus() {
+    return encoderValidationStatus;
   }
 
   // ========== Angle Control ==========
@@ -95,13 +237,37 @@ public class Turret extends SubsystemBase {
    * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
   public void setOutsideTurretAngle(double angleDegrees) {
+    if (locked) return;
     double clampedAngle = Math.max(outsideAngleMin, Math.min(outsideAngleMax, angleDegrees));
-
-    if (clampedAngle != angleDegrees) {
-      Logger.recordOutput("Turret/Safety/ClampedRequestDeg", clampedAngle);
+    lastRequestedTargetAngle = clampedAngle;
+    Logger.recordOutput("Turret/lastRequestedTargetAngle", lastRequestedTargetAngle);
+    if (currentState == TurretState.STALLED) {
+      if (stallTargetAngle == -1000) {
+        // first time since detecting stall
+        if (lastRequestedTargetAngle >= getOutsideCurrentAngle()) {
+          // trying to move CCW
+          // To Target an angle 90 degrees CW
+          stallTargetAngle = getOutsideCurrentAngle() - 110;
+        } else {
+          // Trying to move CW
+          // To Target an angle 90 degrees CCW
+          stallTargetAngle = getOutsideCurrentAngle() + 110;
+        }
+        // Make the target the Max angle in either direction if the 90 degree
+        // offset pushed it out of that range.
+        // This prevents trying to flip
+        stallTargetAngle = Math.max(outsideAngleMin, Math.min(outsideAngleMax, stallTargetAngle));
+      }
+      io.setOutsideTurretAngle(stallTargetAngle);
+      if (Math.abs(stallTargetAngle - getOutsideCurrentAngle()) <= 2.0) {
+        currentState = TurretState.ROTATING_CCW;
+        stallTargetAngle = -1000;
+        io.setOutsideTurretAngle(lastRequestedTargetAngle);
+      }
+    } else {
+      stallTargetAngle = -1000;
+      io.setOutsideTurretAngle(lastRequestedTargetAngle);
     }
-
-    io.setOutsideTurretAngle(clampedAngle);
   }
 
   /**
@@ -111,6 +277,7 @@ public class Turret extends SubsystemBase {
    * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
   public void holdOutsideTurretAngle(double angleDegrees, double robotOmega) {
+    if (locked) return;
 
     // Normalize robotOmega to -180 to +180 range
     // This code actually probably doesn't do anything
@@ -156,7 +323,7 @@ public class Turret extends SubsystemBase {
       }
     }
 
-    io.setOutsideTurretAngle(bestAngle);
+    setOutsideTurretAngle(bestAngle);
   }
 
   /**
@@ -166,11 +333,25 @@ public class Turret extends SubsystemBase {
    * @param angleDegrees Angle in degrees (positive = counter-clockwise when viewed from above)
    */
   public void setInsideTurretAngle_ONLY_FOR_TESTING(double angleDegrees) {
+    if (locked) return;
     io.setInsideTurretAngle_ONLY_FOR_TESTING(angleDegrees);
   }
 
   public void setTurretVolts(double volts) {
+    if (locked) return;
     io.setTurretVolts(volts);
+  }
+
+  public void forceTurretOutOfStallState() {
+    // This is used for when the turret is in a STALL state and the user
+    // released the shoot button before the STALL resolved naturally
+    // We will have the turret seek its current angle so there is no
+    // motor pressure and get it out of the STALL state
+    // So, when the button is pressed again either
+    // the stall is resolved anyways and the turret operates normally
+    // or it will just stall again and we are probably screwed
+    currentState = TurretState.ROTATING_CCW;
+    setOutsideTurretAngle(getOutsideCurrentAngle());
   }
 
   /**
@@ -184,6 +365,7 @@ public class Turret extends SubsystemBase {
    */
   public void aimAtFieldPosition(
       double robotX, double robotY, double robotOmega, double targetX, double targetY) {
+    if (locked) return;
     double turretAngle =
         calculateOutsideTurretAngleFromTurret(robotX, robotY, robotOmega, targetX, targetY);
     setOutsideTurretAngle(turretAngle);
@@ -239,11 +421,6 @@ public class Turret extends SubsystemBase {
     // Calculate relative (desired) angle (turret angle relative to robot heading)
     double relativeAngle = absoluteAngle - robotOmega;
 
-    // Log calculation values
-    Logger.recordOutput("Turret/RobotOmegaNormalized", robotOmegaNormalized);
-    Logger.recordOutput("Turret/AbsoluteAngle", absoluteAngle);
-    Logger.recordOutput("Turret/RelativeAngle", relativeAngle);
-
     double bestOutsideAngle = flipOutsideAngle(relativeAngle);
 
     return bestOutsideAngle;
@@ -286,8 +463,6 @@ public class Turret extends SubsystemBase {
       bestOutsideAngle = outsideAngleMax;
     }
 
-    Logger.recordOutput("Turret/bestOutsideAngle", bestOutsideAngle);
-
     return bestOutsideAngle;
   }
 
@@ -299,7 +474,7 @@ public class Turret extends SubsystemBase {
    * @return Current angle in degrees
    */
   public double getOutsideCurrentAngle() {
-    return io.getOutsideCurrentAngle();
+    return turretInputs.currentOutsideAngleDeg;
   }
 
   /**
@@ -308,7 +483,25 @@ public class Turret extends SubsystemBase {
    * @return Target angle in degrees
    */
   public double getOutsideTargetAngle() {
-    return io.getOutsideTargetAngle();
+    return turretInputs.targetOutsideAngleDeg;
+  }
+
+  /**
+   * Get the current turret operating state.
+   *
+   * @return Current TurretState
+   */
+  public TurretState getState() {
+    return currentState;
+  }
+
+  /**
+   * Mark whether the turret is being actively commanded by a shooting or tracking command. When
+   * false, at-target reports IDLE instead of READY. Shooting commands and auto-track should call
+   * setActivelyCommanded(true); the default idle command should call setActivelyCommanded(false).
+   */
+  public void setActivelyCommanded(boolean commanded) {
+    this.activelyCommanded = commanded;
   }
 
   /**
@@ -317,8 +510,10 @@ public class Turret extends SubsystemBase {
    * @return True if at target
    */
   public boolean atTarget() {
-    return Math.abs(getOutsideCurrentAngle() - getOutsideTargetAngle())
-        <= readyToleranceAngleDeg.get();
+    if (locked) return true;
+    // If we are not stalled and within Tolerance
+    return currentState != TurretState.STALLED
+        && Math.abs(getOutsideCurrentAngle() - getOutsideTargetAngle()) <= readyToleranceAngleDeg;
   }
 
   /**
@@ -354,7 +549,7 @@ public class Turret extends SubsystemBase {
    * @return Warning zone in degrees
    */
   public double getWarningZoneDeg() {
-    return WARNING_ZONE_DEG;
+    return warningZoneDeg;
   }
 
   /**
@@ -381,18 +576,23 @@ public class Turret extends SubsystemBase {
    * @return True if within warning zone of either limit
    */
   public boolean isNearLimit() {
-    return getRoomCW() <= WARNING_ZONE_DEG || getRoomCCW() <= WARNING_ZONE_DEG;
+    return getRoomCW() <= warningZoneDeg || getRoomCCW() <= warningZoneDeg;
   }
 
   // ========== 3D Pose & Config ==========
 
+  // Visualization Z offset: model geometry already includes some height from the CAD assembly,
+  // so the full turretHeightMeters over-counts. This adjusts only the 3D visualization, not
+  // physics.
+  private static final double VIZ_Z_OFFSET = -0.04445; // -1.75 inches
+
   /** Returns the current turret 3D pose for component visualization. */
-  @AutoLogOutput(key = "Odometry/Turret")
+  @AutoLogOutput(key = "Visualizations/Robot/0_Turret")
   public Pose3d getPose() {
     return new Pose3d(
         turretXOffset,
         turretYOffset,
-        turretHeightMeters,
+        turretHeightMeters + VIZ_Z_OFFSET,
         new Rotation3d(0.0, 0.0, Rotation2d.fromDegrees(getOutsideCurrentAngle()).getRadians()));
   }
 

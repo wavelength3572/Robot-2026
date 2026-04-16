@@ -7,6 +7,8 @@
 
 package frc.robot.commands;
 
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.path.PathConstraints;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.filter.SlewRateLimiter;
@@ -21,6 +23,9 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.Constants;
+import frc.robot.FieldConstants;
+import frc.robot.RobotConfig;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
 import frc.robot.util.LoggedTunableNumber;
@@ -29,6 +34,7 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
@@ -48,10 +54,14 @@ public class DriveCommands {
   // Speed limit ramp-back system: prevents sudden acceleration when a speed-limiting
   // command (e.g. smart launch) ends while the driver is pushing the stick forward.
   private static final LoggedTunableNumber speedLimitRampRateMps2 =
-      new LoggedTunableNumber("Drive/SpeedLimit/RampRateMps2", 4.0);
+      new LoggedTunableNumber(
+          "Drive/SpeedLimit/RampRateMps2",
+          Constants.getRobotConfig().getDriveSpeedLimitRampRateMps2());
 
-  private static double speedLimitTargetMps = Double.MAX_VALUE;
-  private static double effectiveSpeedLimitMps = Double.MAX_VALUE;
+  private static final double NO_SPEED_LIMIT = Constants.getRobotConfig().getMaxSpeedMetersPerSec();
+
+  private static double speedLimitTargetMps = NO_SPEED_LIMIT;
+  private static double effectiveSpeedLimitMps = NO_SPEED_LIMIT;
   private static double lastRampTimestamp = 0.0;
 
   /** Set the drive speed limit (m/s). Takes effect instantly (no ramp on the way down). */
@@ -63,7 +73,7 @@ public class DriveCommands {
 
   /** Clear the drive speed limit. Speed ramps back up at the configured rate. */
   public static void clearSpeedLimit() {
-    speedLimitTargetMps = Double.MAX_VALUE;
+    speedLimitTargetMps = NO_SPEED_LIMIT;
     lastRampTimestamp = Timer.getFPGATimestamp();
     // effectiveSpeedLimitMps is NOT snapped up — it ramps in joystickDrive
   }
@@ -91,11 +101,6 @@ public class DriveCommands {
     double clampedLimit = Math.min(effectiveSpeedLimitMps, maxSpeedMps);
     double scale =
         (maxSpeedMps > 0.0 && clampedLimit < maxSpeedMps) ? clampedLimit / maxSpeedMps : 1.0;
-
-    Logger.recordOutput("SpeedLimit/EffectiveMps", Math.min(effectiveSpeedLimitMps, maxSpeedMps));
-    Logger.recordOutput("SpeedLimit/TargetMps", Math.min(speedLimitTargetMps, maxSpeedMps));
-    Logger.recordOutput("SpeedLimit/Scale", scale);
-    Logger.recordOutput("SpeedLimit/Ramping", effectiveSpeedLimitMps < speedLimitTargetMps);
 
     return scale;
   }
@@ -258,6 +263,124 @@ public class DriveCommands {
 
         // Reset PID controller when command starts
         .beforeStarting(() -> angleController.reset(drive.getRotation().getRadians()));
+  }
+
+  // Pole alignment tuning — config values in feet/inches, converted to meters here
+  private static final RobotConfig config = Constants.getRobotConfig();
+  private static final double POLE_ALIGN_MAX_DISTANCE_METERS =
+      Units.feetToMeters(config.getPoleAlignMaxDistanceFeet());
+  private static final double CLIMB_WAYPOINT_OFFSET_METERS =
+      Units.feetToMeters(config.getPoleAlignWaypointOffsetFeet());
+  private static final double CLIMB_CLOSE_THRESHOLD_METERS =
+      Units.feetToMeters(config.getPoleAlignCloseThresholdFeet());
+
+  /**
+   * Pathfind to the nearest tower pole in two stages:
+   *
+   * <ol>
+   *   <li>Pathfind to a waypoint 2 ft out from the final pose (in the direction the robot faces),
+   *       so the robot locks in its X position and heading before committing to Y.
+   *   <li>Slow precise drive from the waypoint straight into the final climb pose.
+   * </ol>
+   */
+  public static Command pathfindToNearestPole(Drive drive) {
+    PathConstraints constraints =
+        new PathConstraints(
+            Units.feetToMeters(config.getPoleAlignMaxVelocityFeetPerSec()),
+            Units.feetToMeters(config.getPoleAlignMaxAccelerationFeetPerSec2()),
+            2 * Math.PI,
+            4 * Math.PI);
+
+    return Commands.defer(
+        () -> {
+          Pose2d finalPose = findNearestClimbPose(drive);
+
+          // Waypoint is CLIMB_WAYPOINT_OFFSET_METERS in front of the final pose (robot's +X
+          // direction in robot frame = the direction the robot faces in field frame).
+          // For left pose (90°): offsets in +Y.  For right pose (-90°): offsets in -Y.
+          Pose2d waypointPose =
+              finalPose.transformBy(
+                  new Transform2d(CLIMB_WAYPOINT_OFFSET_METERS, 0, new Rotation2d()));
+
+          double distToFinal =
+              drive.getPose().getTranslation().getDistance(finalPose.getTranslation());
+
+          // If already inside the close threshold, skip the pathfinder (AD* struggles <1m) but
+          // still do a two-stage approach so the robot doesn't come in diagonally: first align
+          // laterally with the pole at the current approach depth, then drive straight in.
+          if (distToFinal <= CLIMB_CLOSE_THRESHOLD_METERS) {
+            // Robot position expressed in final pose's local frame. X = depth along approach
+            // axis, Y = lateral offset from the pole.
+            Transform2d currentInFinalFrame = drive.getPose().minus(finalPose);
+            Pose2d lateralAlignPose =
+                finalPose.transformBy(
+                    new Transform2d(currentInFinalFrame.getX(), 0, new Rotation2d()));
+            return Commands.sequence(
+                new DriveToPose(
+                    drive, () -> lateralAlignPose, config.getPoleAlignFinalApproachSpeed()),
+                new DriveToPose(drive, () -> finalPose, config.getPoleAlignFinalApproachSpeed()));
+          }
+
+          return Commands.sequence(
+              AutoBuilder.pathfindToPose(waypointPose, constraints, 0.0),
+              new DriveToPose(drive, () -> finalPose, config.getPoleAlignFinalApproachSpeed()));
+        },
+        Set.of(drive));
+  }
+
+  /**
+   * Returns true if the robot is within {@link #POLE_ALIGN_MAX_DISTANCE_METERS} of the nearest
+   * alliance climb pose.
+   */
+  public static boolean isNearAllianceTower(Drive drive) {
+    return drive
+            .getPose()
+            .getTranslation()
+            .getDistance(findNearestClimbPose(drive).getTranslation())
+        < POLE_ALIGN_MAX_DISTANCE_METERS;
+  }
+
+  /**
+   * Logs the pole-alignment activation boundary (3m circle around each alliance climb pose) so it
+   * can be visualized on the AdvantageScope field view.
+   */
+  public static void logClimbActivationBoundary() {
+    boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
+    Pose2d[] poses = isRed ? FieldConstants.Tower.oppClimbPoses : FieldConstants.Tower.climbPoses;
+
+    int pointsPerCircle = 60;
+    List<Pose2d> boundaryPoints = new java.util.ArrayList<>();
+
+    for (Pose2d climbPose : poses) {
+      Translation2d center = climbPose.getTranslation();
+      for (int i = 0; i <= pointsPerCircle; i++) {
+        double angle = 2.0 * Math.PI * i / pointsPerCircle;
+        double x = center.getX() + POLE_ALIGN_MAX_DISTANCE_METERS * Math.cos(angle);
+        double y = center.getY() + POLE_ALIGN_MAX_DISTANCE_METERS * Math.sin(angle);
+        boundaryPoints.add(new Pose2d(x, y, new Rotation2d()));
+      }
+    }
+
+    Logger.recordOutput(
+        "Visualizations/Zones/ClimbActivationBoundary", boundaryPoints.toArray(new Pose2d[0]));
+  }
+
+  /** Find the nearest alliance climb pose to the robot's current position. */
+  public static Pose2d findNearestClimbPose(Drive drive) {
+    Pose2d robotPose = drive.getPose();
+    boolean isRed = RobotStatus.getAlliance() == Alliance.Red;
+    Pose2d[] poses = isRed ? FieldConstants.Tower.oppClimbPoses : FieldConstants.Tower.climbPoses;
+
+    Pose2d closest = poses[0];
+    double closestDist = robotPose.getTranslation().getDistance(closest.getTranslation());
+    for (int i = 1; i < poses.length; i++) {
+      double dist = robotPose.getTranslation().getDistance(poses[i].getTranslation());
+      if (dist < closestDist) {
+        closest = poses[i];
+        closestDist = dist;
+      }
+    }
+    return closest;
   }
 
   /**

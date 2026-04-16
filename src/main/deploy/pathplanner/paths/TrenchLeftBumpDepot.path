@@ -1,0 +1,196 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 4.498423937491065,
+        "y": 7.667186317423003
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 5.498423937491049,
+        "y": 7.667186317423003
+      },
+      "isLocked": false,
+      "linkedName": "TrenchLeftLineStart"
+    },
+    {
+      "anchor": {
+        "x": 7.853072580645161,
+        "y": 6.631653225806451
+      },
+      "prevControl": {
+        "x": 7.853072580645161,
+        "y": 7.352198038252544
+      },
+      "nextControl": {
+        "x": 7.853072580645161,
+        "y": 5.911108413360358
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 7.845758064516129,
+        "y": 5.03708870967742
+      },
+      "prevControl": {
+        "x": 7.845758064516129,
+        "y": 5.53708870967742
+      },
+      "nextControl": {
+        "x": 7.845758064516129,
+        "y": 4.73708870967742
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 4.6273709677419355,
+        "y": 5.592991935483871
+      },
+      "prevControl": {
+        "x": 6.227370967741935,
+        "y": 5.592991935483871
+      },
+      "nextControl": {
+        "x": 2.1273709677419355,
+        "y": 5.592991935483871
+      },
+      "isLocked": false,
+      "linkedName": "LeftBump"
+    },
+    {
+      "anchor": {
+        "x": 0.648274193546361,
+        "y": 5.973346774196791
+      },
+      "prevControl": {
+        "x": 0.648274193546361,
+        "y": 5.115020173653739
+      },
+      "nextControl": {
+        "x": 0.648274193546361,
+        "y": 6.4733467741967905
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 2.550048387099511,
+        "y": 5.366241935483374
+      },
+      "prevControl": {
+        "x": 1.7669851089286672,
+        "y": 6.149305213654217
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": null
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.811550151975683,
+      "rotationDegrees": -90.0
+    },
+    {
+      "waypointRelativePos": 1.7629179331307012,
+      "rotationDegrees": -90.0
+    },
+    {
+      "waypointRelativePos": 2.705167173252283,
+      "rotationDegrees": 135.0
+    },
+    {
+      "waypointRelativePos": 3.2234042553191498,
+      "rotationDegrees": 135.0
+    },
+    {
+      "waypointRelativePos": 3.6793313069908895,
+      "rotationDegrees": 160.0
+    },
+    {
+      "waypointRelativePos": 4.008358662613983,
+      "rotationDegrees": 175.0
+    }
+  ],
+  "constraintZones": [
+    {
+      "name": "Sprint Zone",
+      "minWaypointRelativePos": 0,
+      "maxWaypointRelativePos": 0.95,
+      "constraints": {
+        "maxVelocity": 3.5,
+        "maxAcceleration": 6.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "Pickup Zone",
+      "minWaypointRelativePos": 0.95,
+      "maxWaypointRelativePos": 2.2,
+      "constraints": {
+        "maxVelocity": 1.8,
+        "maxAcceleration": 3.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "Bump Transit Zone",
+      "minWaypointRelativePos": 2.2,
+      "maxWaypointRelativePos": 3.172190784155219,
+      "constraints": {
+        "maxVelocity": 2.5,
+        "maxAcceleration": 3.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "Constraints Zone",
+      "minWaypointRelativePos": 3.17,
+      "maxWaypointRelativePos": 5.5,
+      "constraints": {
+        "maxVelocity": 0.5,
+        "maxAcceleration": 1.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 2.5,
+    "maxAcceleration": 2.5,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 145.0
+  },
+  "reversed": false,
+  "folder": "TrenchLeftPaths",
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": -90.0
+  },
+  "useDefaultConstraints": false
+}
