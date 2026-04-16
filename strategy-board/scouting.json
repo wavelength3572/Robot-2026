@@ -15,7 +15,7 @@
   { "team":  469, "nickname": "Las Guerrillas",                "city": "Pontiac, Michigan",         "robot_type": "TURRET", "height": "SHORT", "climb": "NO" },
   { "team":  226, "nickname": "Hammerheads",                   "city": "Troy, Michigan",            "robot_type": "TURRET", "height": "SHORT", "climb": "NO" },
   { "team": 9210, "nickname": "Fighting Falcons",              "city": "Jackson, Michigan",         "robot_type": null, "height": null, "climb": null },
-  { "team": 4398, "nickname": "Gladiators",                    "city": "Traverse City, Michigan",   "robot_type": null, "height": null, "climb": null },
+  { "team": 4398, "nickname": "Gladiators",                    "city": "Traverse City, Michigan",   "robot_type": "DRUM", "height": "SHORT", "climb": "NO" },
   { "team": 5046, "nickname": "Jacked Up Jackets",             "city": "Memphis, Michigan",         "robot_type": null, "height": null, "climb": null },
   { "team": 5462, "nickname": "2Paw Robotics",                 "city": "Paw Paw, Michigan",         "robot_type": null, "height": null, "climb": null },
   { "team":10349, "nickname": "Pontiac Firebirds",             "city": "Pontiac, Michigan",         "robot_type": null, "height": null, "climb": null },
