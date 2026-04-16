@@ -492,22 +492,20 @@ public class ButtonsAndDashboardBindings {
     Command poleAlignWithAutoExtend =
         climber != null
             ? Commands.parallel(
-                    DriveCommands.pathfindToNearestPole(drive),
-                    Commands.waitUntil(
-                            () ->
-                                drive
-                                        .getPose()
-                                        .getTranslation()
-                                        .getDistance(
-                                            DriveCommands.findNearestClimbPose(drive)
-                                                .getTranslation())
-                                    <= Units.feetToMeters(
-                                        Constants.getRobotConfig()
-                                            .getClimberAutoExtendDistanceFeet()))
-                        .andThen(Commands.runOnce(climber::extend))
-                        .withName("AutoExtendClimber"))
-                .andThen(Commands.waitSeconds(0.2))
-                .andThen(Commands.runOnce(climber::climb))
+                DriveCommands.pathfindToNearestPole(drive),
+                Commands.waitUntil(
+                        () ->
+                            drive
+                                    .getPose()
+                                    .getTranslation()
+                                    .getDistance(
+                                        DriveCommands.findNearestClimbPose(drive).getTranslation())
+                                <= Units.feetToMeters(
+                                    Constants.getRobotConfig().getClimberAutoExtendDistanceFeet()))
+                    .andThen(Commands.runOnce(climber::extend))
+                    .withName("AutoExtendClimber"))
+            // .andThen(Commands.waitSeconds(0.2))
+            // .andThen(Commands.runOnce(climber::climb))
             : DriveCommands.pathfindToNearestPole(drive);
     oi.getRightJoyLeftButton()
         .and(() -> DriveCommands.isNearAllianceTower(drive))
