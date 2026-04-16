@@ -483,23 +483,31 @@ public class ButtonsAndDashboardBindings {
     // Pathfind to nearest tower pole — hold to follow path, release to stop.
     // Re-pressing recalculates from current position.
     // Auto-extends climber if operator hasn't already (within 1m, runs in parallel with driving).
+    // After pathfind + extend complete, pauses 0.2s to let the drive settle, then fires climb
+    // (same as manual Button 10). Releasing the button before climb fires cancels everything;
+    // once climb fires, periodic drives it to completion regardless. Operator can still press
+    // climb manually at any time — earlier press wins, later press is a harmless no-op.
     // Gated on isNearAllianceTower so it only activates within 3m of a climb pose.
     // Buttons 23 (left slider) and 24 (right slider) below the right axis, plus button 25.
     Command poleAlignWithAutoExtend =
         climber != null
             ? Commands.parallel(
-                DriveCommands.pathfindToNearestPole(drive),
-                Commands.waitUntil(
-                        () ->
-                            drive
-                                    .getPose()
-                                    .getTranslation()
-                                    .getDistance(
-                                        DriveCommands.findNearestClimbPose(drive).getTranslation())
-                                <= Units.feetToMeters(
-                                    Constants.getRobotConfig().getClimberAutoExtendDistanceFeet()))
-                    .andThen(Commands.runOnce(climber::extend))
-                    .withName("AutoExtendClimber"))
+                    DriveCommands.pathfindToNearestPole(drive),
+                    Commands.waitUntil(
+                            () ->
+                                drive
+                                        .getPose()
+                                        .getTranslation()
+                                        .getDistance(
+                                            DriveCommands.findNearestClimbPose(drive)
+                                                .getTranslation())
+                                    <= Units.feetToMeters(
+                                        Constants.getRobotConfig()
+                                            .getClimberAutoExtendDistanceFeet()))
+                        .andThen(Commands.runOnce(climber::extend))
+                        .withName("AutoExtendClimber"))
+                .andThen(Commands.waitSeconds(0.2))
+                .andThen(Commands.runOnce(climber::climb))
             : DriveCommands.pathfindToNearestPole(drive);
     oi.getRightJoyLeftButton()
         .and(() -> DriveCommands.isNearAllianceTower(drive))
@@ -510,6 +518,11 @@ public class ButtonsAndDashboardBindings {
     oi.getRightJoyDownButton()
         .and(() -> DriveCommands.isNearAllianceTower(drive))
         .whileTrue(poleAlignWithAutoExtend);
+
+    // Sim/test dashboard button: one-shot schedule of the full pole-align + auto-climb flow.
+    // Runs to completion (no whileTrue cancel-on-release behavior) — use for sim verification.
+    SmartDashboard.putData(
+        "Sim/PoleAlignAutoClimb", poleAlignWithAutoExtend.withName("PoleAlignAutoClimb"));
 
     // X-stance button (interlink button 13): while held, lock wheels in X pattern.
     // Only activates when robot speed is below 1 m/s to prevent skidding.
