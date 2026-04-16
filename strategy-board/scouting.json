@@ -25,7 +25,7 @@
   { "team": 5535, "nickname": "Bionic Bison",                  "city": "New Buffalo, Michigan",     "robot_type": null, "height": null, "climb": null },
   { "team": 1684, "nickname": "The Chimeras",                  "city": "Lapeer, Michigan",          "robot_type": null, "height": null, "climb": null },
   { "team": 4855, "nickname": "Ramageddon",                    "city": "South Haven, Michigan",     "robot_type": "DRUM", "height": "TALL", "climb": "NO" },
-  { "team":  302, "nickname": "The Dragons",                   "city": "Lake Orion, Michigan",      "robot_type": null, "height": null, "climb": null },
+  { "team":  302, "nickname": "The Dragons",                   "city": "Lake Orion, Michigan",      "robot_type": "DRUM", "height": "TALL", "climb": "NO" },
   { "team": 9215, "nickname": "T-Town Tech",                   "city": "Tekonsha, Michigan",        "robot_type": null, "height": null, "climb": null },
   { "team":  862, "nickname": "Lightning Robotics",            "city": "Canton, Michigan",          "robot_type": null, "height": null, "climb": null },
   { "team": 3767, "nickname": "TC Titans",                     "city": "Traverse City, Michigan",   "robot_type": null, "height": null, "climb": null },
