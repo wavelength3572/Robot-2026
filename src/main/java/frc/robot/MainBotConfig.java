@@ -255,7 +255,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double spindexerAutoUnclogStallCurrentAmps = 10.0;
   private static final double spindexerAutoUnclogStallRPMError = 20.0;
   private static final double spindexerAutoUnclogStallDurationSec = 0.2;
-  private static final double spindexerAutoUnclogReverseDurationSec = 0.50;
+  private static final double spindexerAutoUnclogReverseDurationSec = 0.30;
   private static final double spindexerAutoUnclogMaxAttempts = 30;
   private static final double spindexerReciprocateRPM = 50.0;
   private static final double spindexerReciprocateIntervalSec = 1.0;

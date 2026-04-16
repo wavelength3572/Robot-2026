@@ -210,11 +210,6 @@ public class Robot extends LoggedRobot {
       robotContainer.getShootingCoordinator().resetShotCounts();
     }
 
-    // Enable auto-unclog so jams are cleared automatically (no driver available in auto)
-    if (robotContainer.getSpindexer() != null) {
-      robotContainer.getSpindexer().enableAutoUnclog();
-    }
-
     // Reset climber and intake to stowed so sim starts clean each auto
     if (Constants.currentMode == Constants.Mode.SIM) {
       if (robotContainer.getClimber() != null) {

@@ -710,8 +710,9 @@ public class ButtonsAndDashboardBindings {
       suppressTrigger.onTrue(Commands.runOnce(spindexer::suppressFeeding));
       suppressTrigger.onFalse(Commands.runOnce(spindexer::unsuppressFeeding));
 
-      // Auto-unclog toggle — off by default, enable from dashboard if needed
-      SmartDashboard.putBoolean("Tuning/Spindexer/AutoUnclog/Enabled", false);
+      // Auto-unclog toggle — on by default, disable from dashboard if needed
+      SmartDashboard.putBoolean(
+          "Tuning/Spindexer/AutoUnclog/Enabled", spindexer.isAutoUnclogEnabled());
       SmartDashboard.putData(
           "Tuning/Spindexer/AutoUnclog/Toggle",
           Commands.runOnce(
@@ -733,11 +734,11 @@ public class ButtonsAndDashboardBindings {
     // B7 hold 2s: stow (from EXTENDED or EXTENDING, deliberate action)
     // B10: climb (from EXTENDED only)
     if (climber != null) {
-      oi.getButtonBox1Button7().onTrue(Commands.runOnce(climber::extend));
-      oi.getButtonBox1Button7()
-          .debounce(Constants.getRobotConfig().getClimberStowHoldTimeSec())
-          .onTrue(Commands.runOnce(climber::stow));
-      oi.getButtonBox1Button10().onTrue(Commands.runOnce(climber::climb));
+      // oi.getButtonBox1Button7().onTrue(Commands.runOnce(climber::extend));
+      // oi.getButtonBox1Button7()
+      //     .debounce(Constants.getRobotConfig().getClimberStowHoldTimeSec())
+      //     .onTrue(Commands.runOnce(climber::stow));
+      // oi.getButtonBox1Button10().onTrue(Commands.runOnce(climber::climb));
     }
   }
 }

@@ -1081,6 +1081,7 @@ public class RobotContainer {
       sendable.setDefaultOption("None", Commands.none());
       autoFolderMap.entrySet().stream()
           .filter(e -> !"Retired".equals(e.getValue()))
+          // .filter(e -> !e.getKey().toLowerCase().contains("climb"))
           .sorted(Map.Entry.comparingByKey())
           .forEachOrdered(
               entry -> {
@@ -1094,6 +1095,7 @@ public class RobotContainer {
       SendableChooser<Command> sendable = new SendableChooser<>();
       sendable.setDefaultOption("None", Commands.none());
       autoFolderMap.entrySet().stream()
+          // .filter(e -> !e.getKey().toLowerCase().contains("climb"))
           .sorted(Map.Entry.comparingByKey())
           .forEachOrdered(
               entry -> {

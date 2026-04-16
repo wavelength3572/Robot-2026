@@ -282,7 +282,9 @@ public class Climber extends SubsystemBase {
 
   // ===== Actions =====
 
-  /** Extend action. Goes to extended position from STOWED, CLIMBED, or CLIMBING. No-op otherwise. */
+  /**
+   * Extend action. Goes to extended position from STOWED, CLIMBED, or CLIMBING. No-op otherwise.
+   */
   public void extend() {
     if (state == ClimberState.STOWED
         || state == ClimberState.CLIMBED
