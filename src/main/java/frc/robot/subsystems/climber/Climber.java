@@ -293,9 +293,9 @@ public class Climber extends SubsystemBase {
     }
   }
 
-  /** Stow action. Returns to stowed position from EXTENDED only. No-op otherwise. */
+  /** Stow action. Returns to stowed position from EXTENDED or EXTENDING. No-op otherwise. */
   public void stow() {
-    if (state == ClimberState.EXTENDED) {
+    if (state == ClimberState.EXTENDED || state == ClimberState.EXTENDING) {
       targetPositionRotations = 0.0;
       io.setPosition(targetPositionRotations);
       state = ClimberState.STOWING;

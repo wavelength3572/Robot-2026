@@ -730,7 +730,7 @@ public class ButtonsAndDashboardBindings {
 
     // Climber controls — no subsystem requirement to avoid canceling driver auto-align
     // B7: extend (from STOWED or CLIMBED, no-op if already extended)
-    // B7 hold 2s: stow (from EXTENDED only, deliberate action)
+    // B7 hold 2s: stow (from EXTENDED or EXTENDING, deliberate action)
     // B10: climb (from EXTENDED only)
     if (climber != null) {
       oi.getButtonBox1Button7().onTrue(Commands.runOnce(climber::extend));
