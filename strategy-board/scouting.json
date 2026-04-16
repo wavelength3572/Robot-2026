@@ -19,7 +19,7 @@
   { "team": 5046, "nickname": "Jacked Up Jackets",             "city": "Memphis, Michigan",         "robot_type": null, "height": null, "climb": null },
   { "team": 5462, "nickname": "2Paw Robotics",                 "city": "Paw Paw, Michigan",         "robot_type": null, "height": null, "climb": null },
   { "team":10349, "nickname": "Pontiac Firebirds",             "city": "Pontiac, Michigan",         "robot_type": null, "height": null, "climb": null },
-  { "team": 2586, "nickname": "Copper Bots",                   "city": "Calumet, Michigan",         "robot_type": null, "height": null, "climb": null },
+  { "team": 2586, "nickname": "Copper Bots",                   "city": "Calumet, Michigan",         "robot_type": "TURRET", "height": "SHORT", "climb": "YES" },
   { "team":  247, "nickname": "Da Bears",                      "city": "Berkley, Michigan",         "robot_type": "DRUM", "height": "SHORT", "climb": "YES" },
   { "team": 3602, "nickname": "RoboMos",                       "city": "Escanaba, Michigan",        "robot_type": null, "height": null, "climb": null },
   { "team": 5535, "nickname": "Bionic Bison",                  "city": "New Buffalo, Michigan",     "robot_type": null, "height": null, "climb": null },
