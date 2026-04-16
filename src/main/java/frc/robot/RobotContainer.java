@@ -488,7 +488,7 @@ public class RobotContainer {
     if (selectedAuto == null) return null;
 
     String displayName = autoChooser.getSendableChooser().getSelected();
-    if (displayName == null) return selectedAuto;
+    if (displayName == null || displayName.equals("None")) return selectedAuto;
 
     // Resolve display name → raw auto name for PathPlanner lookup
     String rawName = displayToAutoName.getOrDefault(displayName, displayName);
