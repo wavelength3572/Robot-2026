@@ -256,7 +256,8 @@ public class Robot extends LoggedRobot {
     DriveCommands.clearSpeedLimit();
 
     // De-climb sequence: extend to lower robot, drive forward 1 foot to clear pole, then stow.
-    if (robotContainer.getClimber() != null && robotContainer.getClimber().isClimbed()) {
+    if (robotContainer.getClimber() != null
+        && (robotContainer.getClimber().isClimbed() || robotContainer.getClimber().isClimbing())) {
       var climberRef = robotContainer.getClimber();
       var driveRef = robotContainer.getDrive();
       CommandScheduler.getInstance()

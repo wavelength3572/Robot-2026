@@ -282,9 +282,11 @@ public class Climber extends SubsystemBase {
 
   // ===== Actions =====
 
-  /** Extend action. Goes to extended position from STOWED or CLIMBED. No-op otherwise. */
+  /** Extend action. Goes to extended position from STOWED, CLIMBED, or CLIMBING. No-op otherwise. */
   public void extend() {
-    if (state == ClimberState.STOWED || state == ClimberState.CLIMBED) {
+    if (state == ClimberState.STOWED
+        || state == ClimberState.CLIMBED
+        || state == ClimberState.CLIMBING) {
       targetPositionRotations = extendPosition.get();
       io.setPosition(targetPositionRotations);
       state = ClimberState.EXTENDING;
@@ -353,6 +355,10 @@ public class Climber extends SubsystemBase {
 
   public boolean isClimbed() {
     return state == ClimberState.CLIMBED;
+  }
+
+  public boolean isClimbing() {
+    return state == ClimberState.CLIMBING;
   }
 
   public boolean isStowed() {
