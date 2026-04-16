@@ -35,7 +35,7 @@
   { "team": 1076, "nickname": "PiHi Samurai",                  "city": "Ann Arbor, Michigan",       "robot_type": "TURRET", "height": "SHORT", "climb": "NO" },
   { "team": 7250, "nickname": "OsCODEa 0w|5",                  "city": "Oscoda, Michigan",          "robot_type": "DRUM", "height": "SHORT", "climb": "NO" },
   { "team": 5577, "nickname": "Kinematic Wolves",              "city": "Detroit, Michigan",         "robot_type": "DRUM", "height": "TALL", "climb": "NO" },
-  { "team": 9255, "nickname": "Botmasterz",                    "city": "Grosse Pointe, Michigan",   "robot_type": null, "height": null, "climb": null },
+  { "team": 9255, "nickname": "Botmasterz",                    "city": "Grosse Pointe, Michigan",   "robot_type": "DRUM", "height": "TALL", "climb": "NO" },
   { "team": 8424, "nickname": "Tractor Technicians Next Gen",  "city": "Mason, Michigan",           "robot_type": "DRUM", "height": "SHORT", "climb": "NO" },
   { "team": 7598, "nickname": "SCA Constellations",            "city": "Wixom, Michigan",           "robot_type": "DRUM", "height": "TALL", "climb": "NO" },
   { "team": 8767, "nickname": "Dark Horse Robotics",           "city": "North Branch, Michigan",    "robot_type": "DRUM", "height": "SHORT", "climb": "NO" }
