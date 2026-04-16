@@ -3,7 +3,7 @@
   { "team": 5193, "nickname": "Pantheon",                      "city": "Saginaw, Michigan",         "robot_type": null, "height": null, "climb": null },
   { "team": 3414, "nickname": "Hackbots",                      "city": "Farmington, Michigan",      "robot_type": "TURRET", "height": "TALL", "climb": "NO" },
   { "team": 6090, "nickname": "Wayland Wildcats",              "city": "Wayland, Michigan",         "robot_type": null, "height": null, "climb": null },
-  { "team": 5114, "nickname": "Titanium Tigers",               "city": "Fenton, Michigan",          "robot_type": null, "height": null, "climb": null },
+  { "team": 5114, "nickname": "Titanium Tigers",               "city": "Fenton, Michigan",          "robot_type": "TURRET", "height": "SHORT", "climb": "NO" },
   { "team":  201, "nickname": "The FEDS",                      "city": "Rochester, Michigan",       "robot_type": "DRUM", "height": "SHORT", "climb": "NO" },
   { "team": 8608, "nickname": "Alpha Bots",                    "city": "Battle Creek, Michigan",    "robot_type": null, "height": null, "climb": null },
   { "team": 1498, "nickname": "The Polar Pilots",              "city": "Richmond, Michigan",        "robot_type": null, "height": null, "climb": null },
