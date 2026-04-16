@@ -38,5 +38,5 @@
   { "team": 9255, "nickname": "Botmasterz",                    "city": "Grosse Pointe, Michigan",   "robot_type": null, "height": null, "climb": null },
   { "team": 8424, "nickname": "Tractor Technicians Next Gen",  "city": "Mason, Michigan",           "robot_type": null, "height": null, "climb": null },
   { "team": 7598, "nickname": "SCA Constellations",            "city": "Wixom, Michigan",           "robot_type": null, "height": null, "climb": null },
-  { "team": 8767, "nickname": "Dark Horse Robotics",           "city": "North Branch, Michigan",    "robot_type": null, "height": null, "climb": null }
+  { "team": 8767, "nickname": "Dark Horse Robotics",           "city": "North Branch, Michigan",    "robot_type": "DRUM", "height": "SHORT", "climb": "NO" }
 ]
