@@ -30,7 +30,7 @@
   { "team":  862, "nickname": "Lightning Robotics",            "city": "Canton, Michigan",          "robot_type": null, "height": null, "climb": null },
   { "team": 3767, "nickname": "TC Titans",                     "city": "Traverse City, Michigan",   "robot_type": null, "height": null, "climb": null },
   { "team":  244, "nickname": "RoboDawgs 3D",                  "city": "Grandville, Michigan",      "robot_type": null, "height": null, "climb": null },
-  { "team": 6528, "nickname": "Terror Bytes",                  "city": "Gibraltar, Michigan",       "robot_type": null, "height": null, "climb": null },
+  { "team": 6528, "nickname": "Terror Bytes",                  "city": "Gibraltar, Michigan",       "robot_type": "DRUM", "height": "SHORT", "climb": "NO" },
   { "team": 5982, "nickname": "Merrill's Circuits of Destruction", "city": "Merrill, Michigan",    "robot_type": "DRUM", "height": "TALL", "climb": "NO" },
   { "team": 1076, "nickname": "PiHi Samurai",                  "city": "Ann Arbor, Michigan",       "robot_type": "TURRET", "height": "SHORT", "climb": "NO" },
   { "team": 7250, "nickname": "OsCODEa 0w|5",                  "city": "Oscoda, Michigan",          "robot_type": null, "height": null, "climb": null },
