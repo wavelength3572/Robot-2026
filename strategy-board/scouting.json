@@ -7,7 +7,7 @@
   { "team":  201, "nickname": "The FEDS",                      "city": "Rochester, Michigan",       "robot_type": "DRUM", "height": "SHORT", "climb": "NO" },
   { "team": 8608, "nickname": "Alpha Bots",                    "city": "Battle Creek, Michigan",    "robot_type": "TURRET", "height": "SHORT", "climb": "NO" },
   { "team": 1498, "nickname": "The Polar Pilots",              "city": "Richmond, Michigan",        "robot_type": "DRUM", "height": "TALL", "climb": "NO" },
-  { "team": 9245, "nickname": "Laker Dreadnoughts",            "city": "Pigeon, Michigan",          "robot_type": null, "height": null, "climb": null },
+  { "team": 9245, "nickname": "Laker Dreadnoughts",            "city": "Pigeon, Michigan",          "robot_type": "TURRET", "height": "SHORT", "climb": "NO" },
   { "team": 3656, "nickname": "Dexter Dreadbots",              "city": "Dexter, Michigan",          "robot_type": "DRUM", "height": "SHORT", "climb": "NO" },
   { "team": 1023, "nickname": "Bedford Express",               "city": "Temperance, Michigan",      "robot_type": "TURRET", "height": "SHORT", "climb": "NO" },
   { "team": 2611, "nickname": "Jacktown Vectors",              "city": "Jackson, Michigan",         "robot_type": "DRUM", "height": "SHORT", "climb": "NO" },
