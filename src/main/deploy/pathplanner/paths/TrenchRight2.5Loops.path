@@ -182,6 +182,10 @@
       "rotationDegrees": -135.0
     },
     {
+      "waypointRelativePos": 4.01420959147423,
+      "rotationDegrees": -90.0
+    },
+    {
       "waypointRelativePos": 4.492007104795724,
       "rotationDegrees": -90.0
     },
@@ -191,18 +195,6 @@
     },
     {
       "waypointRelativePos": 6.7406749555950185,
-      "rotationDegrees": -135.0
-    },
-    {
-      "waypointRelativePos": 10.5,
-      "rotationDegrees": -90.0
-    },
-    {
-      "waypointRelativePos": 10.75,
-      "rotationDegrees": 110.0
-    },
-    {
-      "waypointRelativePos": 10.95,
       "rotationDegrees": -135.0
     }
   ],
@@ -255,7 +247,7 @@
       },
       "rotationOffset": 180.0,
       "minWaypointRelativePos": 2.51,
-      "maxWaypointRelativePos": 3.9235095613048063,
+      "maxWaypointRelativePos": 3.8,
       "name": "Point Towards Zone"
     },
     {
@@ -264,8 +256,8 @@
         "y": 4.03
       },
       "rotationOffset": 180.0,
-      "minWaypointRelativePos": 9.0,
-      "maxWaypointRelativePos": 10.5,
+      "minWaypointRelativePos": 8.5,
+      "maxWaypointRelativePos": 9.5,
       "name": "Point Towards Zone"
     }
   ],

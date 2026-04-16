@@ -182,6 +182,10 @@
       "rotationDegrees": 135.0
     },
     {
+      "waypointRelativePos": 3.8898756660745955,
+      "rotationDegrees": 90.0
+    },
+    {
       "waypointRelativePos": 4.525754884547066,
       "rotationDegrees": 90.0
     },
@@ -196,14 +200,6 @@
     {
       "waypointRelativePos": 10,
       "rotationDegrees": 90.0
-    },
-    {
-      "waypointRelativePos": 10.5,
-      "rotationDegrees": -110.0
-    },
-    {
-      "waypointRelativePos": 10.9,
-      "rotationDegrees": 135.0
     }
   ],
   "constraintZones": [
@@ -255,7 +251,7 @@
       },
       "rotationOffset": 180.0,
       "minWaypointRelativePos": 2.51,
-      "maxWaypointRelativePos": 3.9235095613048063,
+      "maxWaypointRelativePos": 3.7,
       "name": "Point Towards Zone"
     },
     {
@@ -265,7 +261,7 @@
       },
       "rotationOffset": 180.0,
       "minWaypointRelativePos": 8.51,
-      "maxWaypointRelativePos": 10.0,
+      "maxWaypointRelativePos": 9.5,
       "name": "Point Towards Zone"
     }
   ],
