@@ -560,25 +560,16 @@ public class ButtonsAndDashboardBindings {
       //       .whileTrue(spindexer.reciprocateCommand());
       // }
 
-      // Button 3: Burst-then-retract.
-      // Press: immediate voltage burst kick to jostle balls.
-      // Release after burst (tap): auto-redeploy.
-      // Hold past burst: full retract with rollers, stays retracted on release.
-      // If retract fails (arm stuck): redeploys so it's not left jammed.
-      //
-      // TO REVERT to old simple retract (no burst, hold-only):
-      //   oi.getButtonBox1Button3()
-      //       .whileTrue(
-      //           Commands.startEnd(
-      //               () -> {
-      //                 intake.retract();
-      //                 intake.setRollerVelocity(tuningIntakeDeployedVelocity.get());
-      //               },
-      //               intake::stopRollers,
-      //               intake));
+      // Button 3: Retract and run rollers while held; on release, stop rollers but stay retracted.
       oi.getButtonBox1Button3()
-          .whileTrue(intake.retractWhileHeldCommand(tuningIntakeDeployedVelocity::get));
-      oi.getButtonBox1Button3().onFalse(intake.retractReleaseFollowUpCommand());
+          .whileTrue(
+              Commands.startEnd(
+                  () -> {
+                    intake.retract();
+                    intake.setRollerVelocity(tuningIntakeDeployedVelocity.get());
+                  },
+                  intake::stopRollers,
+                  intake));
     }
 
     // Smart launch:Button 12— mode selected by dashboard toggle
