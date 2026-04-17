@@ -84,60 +84,44 @@
         "y": 1.3397443803712725
       },
       "prevControl": {
-        "x": 1.9583345057536232,
-        "y": 1.7397047116053694
+        "x": 1.9172799303791945,
+        "y": 1.73701034608259
       },
       "nextControl": {
-        "x": 1.9738259270338179,
-        "y": 0.6398138007116031
+        "x": 2.033716887417219,
+        "y": 0.7462500000000001
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 0.65,
-        "y": 0.7012521290262919
+        "x": 0.814048013245033,
+        "y": 0.7462500000000001
       },
       "prevControl": {
-        "x": 0.65,
-        "y": 0.30125212902629184
+        "x": 0.814048013245033,
+        "y": 0.34625000000000006
       },
       "nextControl": {
-        "x": 0.65,
-        "y": 1.101252129026292
+        "x": 0.814048013245033,
+        "y": 1.1462500000000002
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 1.106,
-        "y": 1.2200270832440878
+        "x": 1.6199006622516556,
+        "y": 1.3923841059602637
       },
       "prevControl": {
-        "x": 1.106,
-        "y": 0.9700270832440878
-      },
-      "nextControl": {
-        "x": 1.106,
-        "y": 1.5630270832440878
-      },
-      "isLocked": false,
-      "linkedName": null
-    },
-    {
-      "anchor": {
-        "x": 1.110506386516714,
-        "y": 2.90623785355902
-      },
-      "prevControl": {
-        "x": 1.0945941058149598,
-        "y": 2.3493080289976174
+        "x": 1.3077235099337747,
+        "y": 1.2762251655629142
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "ClimbRight"
+      "linkedName": null
     }
   ],
   "rotationTargets": [
@@ -146,25 +130,17 @@
       "rotationDegrees": 180.0
     },
     {
-      "waypointRelativePos": 5.462469733656125,
+      "waypointRelativePos": 5.923728813559341,
       "rotationDegrees": 180.0
-    },
-    {
-      "waypointRelativePos": 7.079903147699769,
-      "rotationDegrees": 180.0
-    },
-    {
-      "waypointRelativePos": 7.65,
-      "rotationDegrees": -90.0
     }
   ],
   "constraintZones": [
     {
-      "name": "Pickup From Outpost Zone",
-      "minWaypointRelativePos": 0.9,
-      "maxWaypointRelativePos": 2.9780918727915173,
+      "name": "Preload Shots Zone",
+      "minWaypointRelativePos": 0.1,
+      "maxWaypointRelativePos": 0.9,
       "constraints": {
-        "maxVelocity": 1.5,
+        "maxVelocity": 1.1,
         "maxAcceleration": 2.5,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
@@ -173,11 +149,11 @@
       }
     },
     {
-      "name": "Preload Shots Zone",
-      "minWaypointRelativePos": 0.1,
-      "maxWaypointRelativePos": 0.9,
+      "name": "Pickup From Outpost Zone",
+      "minWaypointRelativePos": 0.9,
+      "maxWaypointRelativePos": 2.9780918727915173,
       "constraints": {
-        "maxVelocity": 1.1,
+        "maxVelocity": 1.5,
         "maxAcceleration": 2.5,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
@@ -200,24 +176,11 @@
     },
     {
       "name": "Pickup From Outpost",
-      "minWaypointRelativePos": 5.65,
-      "maxWaypointRelativePos": 6.7,
+      "minWaypointRelativePos": 5.510954063604241,
+      "maxWaypointRelativePos": 6.084805653710242,
       "constraints": {
         "maxVelocity": 0.2,
         "maxAcceleration": 1.0,
-        "maxAngularVelocity": 540.0,
-        "maxAngularAcceleration": 720.0,
-        "nominalVoltage": 12.0,
-        "unlimited": false
-      }
-    },
-    {
-      "name": "Climbing Zone",
-      "minWaypointRelativePos": 6.7,
-      "maxWaypointRelativePos": 8.0,
-      "constraints": {
-        "maxVelocity": 0.75,
-        "maxAcceleration": 1.5,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
         "nominalVoltage": 12.0,
@@ -232,24 +195,12 @@
         "y": 4.033
       },
       "rotationOffset": 180.0,
-      "minWaypointRelativePos": 3.985865724381632,
+      "minWaypointRelativePos": 4.363250883392238,
       "maxWaypointRelativePos": 5.0,
       "name": "Point Towards Hub Zone #1"
     }
   ],
-  "eventMarkers": [
-    {
-      "name": "ClimberExtend",
-      "waypointRelativePos": 7.25,
-      "endWaypointRelativePos": null,
-      "command": {
-        "type": "named",
-        "data": {
-          "name": "ClimberExtend"
-        }
-      }
-    }
-  ],
+  "eventMarkers": [],
   "globalConstraints": {
     "maxVelocity": 2.5,
     "maxAcceleration": 3.0,
@@ -260,7 +211,7 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": -90.0
+    "rotation": -135.0
   },
   "reversed": false,
   "folder": "AllianceZonePaths",

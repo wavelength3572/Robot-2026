@@ -544,11 +544,11 @@ public class RobotContainer {
           Map.entry("TrenchRightSnowblowClimb", AutoWrapperFactory.StartStrategy.SPRINT),
           // Depot autos
           Map.entry("DepotClimb", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
-          Map.entry("DepotLeftTrenchClimb", AutoWrapperFactory.StartStrategy.SPRINT),
-          Map.entry("Depot-Outpost-Climb", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("DepotLeftTrench", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
+          Map.entry("Depot-Outpost", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
           // Outpost autos
-          Map.entry("Outpost-Depot-Climb", AutoWrapperFactory.StartStrategy.SPRINT),
-          Map.entry("OutpostRightTrenchClimb", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("Outpost-Depot", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
+          Map.entry("OutpostRightTrench", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
           // Retired autos (wrapped so they work if switched to practice mode at the field)
           Map.entry("TrenchLeftAggressive", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("TrenchLeftSafe", AutoWrapperFactory.StartStrategy.SPRINT),
@@ -590,15 +590,12 @@ public class RobotContainer {
                   AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
               // Depot autos
               Map.entry("DepotClimb", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
-              Map.entry(
-                  "DepotLeftTrenchClimb", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
-              Map.entry(
-                  "Depot-Outpost-Climb", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
+              Map.entry("DepotLeftTrench", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
+              Map.entry("Depot-Outpost", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
               // Outpost autos
+              Map.entry("Outpost-Depot", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
               Map.entry(
-                  "Outpost-Depot-Climb", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
-              Map.entry(
-                  "OutpostRightTrenchClimb", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
+                  "OutpostRightTrench", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
               // Retired autos
               Map.entry("TrenchLeftAggressive", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry("TrenchLeftSafe", AutoWrapperFactory.PathShootingStrategy.NO_PASS),

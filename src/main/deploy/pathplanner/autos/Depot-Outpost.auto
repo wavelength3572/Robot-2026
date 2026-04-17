@@ -7,13 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Depot-Outpost-Climb"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "ClimberClimb"
+            "pathName": "Depot-Outpost"
           }
         }
       ]

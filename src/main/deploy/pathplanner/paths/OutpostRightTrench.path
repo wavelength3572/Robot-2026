@@ -116,44 +116,28 @@
         "y": 0.92021352312683
       },
       "prevControl": {
-        "x": 6.814045673603589,
-        "y": 1.2141778307634987
+        "x": 6.896494195691731,
+        "y": 1.0547228508943498
       },
       "nextControl": {
-        "x": 6.0858837485125905,
-        "y": 0.6404744958433184
+        "x": 6.048460264900663,
+        "y": 0.8043294701986747
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 1.5993001186253237,
-        "y": 1.038564650065026
+        "x": 3.797880794701987,
+        "y": 0.8624089403973516
       },
       "prevControl": {
-        "x": 2.90928836571534,
-        "y": 0.7335531264640245
-      },
-      "nextControl": {
-        "x": 1.0033107101183194,
-        "y": 1.1773320305683184
-      },
-      "isLocked": false,
-      "linkedName": null
-    },
-    {
-      "anchor": {
-        "x": 1.110506386516714,
-        "y": 2.90623785355902
-      },
-      "prevControl": {
-        "x": 1.1105063865167137,
-        "y": 0.9062378535590199
+        "x": 4.581953642384105,
+        "y": 0.6591307947019869
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "ClimbRight"
+      "linkedName": "TrenchRightShoot"
     }
   ],
   "rotationTargets": [
@@ -186,7 +170,7 @@
       "rotationDegrees": -90.0
     },
     {
-      "waypointRelativePos": 8.9,
+      "waypointRelativePos": 8,
       "rotationDegrees": -90.0
     }
   ],
@@ -233,7 +217,7 @@
     {
       "name": "Shooting Zone #2",
       "minWaypointRelativePos": 7.65,
-      "maxWaypointRelativePos": 8.8,
+      "maxWaypointRelativePos": 8,
       "constraints": {
         "maxVelocity": 1.1,
         "maxAcceleration": 2.2,
@@ -245,8 +229,8 @@
     },
     {
       "name": "Climbing Zone",
-      "minWaypointRelativePos": 8.8,
-      "maxWaypointRelativePos": 9.0,
+      "minWaypointRelativePos": 8,
+      "maxWaypointRelativePos": 8.5,
       "constraints": {
         "maxVelocity": 0.6,
         "maxAcceleration": 1.6,
@@ -257,18 +241,7 @@
       }
     }
   ],
-  "pointTowardsZones": [
-    {
-      "fieldPosition": {
-        "x": 4.605,
-        "y": 4.01
-      },
-      "rotationOffset": 180.0,
-      "minWaypointRelativePos": 7.714285714285848,
-      "maxWaypointRelativePos": 8.8,
-      "name": "Point Towards Zone"
-    }
-  ],
+  "pointTowardsZones": [],
   "eventMarkers": [
     {
       "name": "CeaseFireAndStowHood",
@@ -278,17 +251,6 @@
         "type": "named",
         "data": {
           "name": "CeaseFireAndStowHood"
-        }
-      }
-    },
-    {
-      "name": "ClimberExtend",
-      "waypointRelativePos": 8.240719910011236,
-      "endWaypointRelativePos": null,
-      "command": {
-        "type": "named",
-        "data": {
-          "name": "ClimberExtend"
         }
       }
     }

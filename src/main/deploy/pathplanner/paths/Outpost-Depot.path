@@ -20,12 +20,12 @@
         "y": 0.7937661041620299
       },
       "prevControl": {
-        "x": 2.3516320420034043,
-        "y": 0.9788994306075376
+        "x": 2.222475165562914,
+        "y": 0.09285596026489995
       },
       "nextControl": {
-        "x": 0.6297583687111334,
-        "y": 0.7187105815775495
+        "x": 0.703258406416998,
+        "y": 1.064406452531161
       },
       "isLocked": false,
       "linkedName": null
@@ -144,32 +144,16 @@
     },
     {
       "anchor": {
-        "x": 1.483847921797733,
-        "y": 5.788166898915178
+        "x": 2.3168543046357617,
+        "y": 6.234759933774834
       },
       "prevControl": {
-        "x": 1.483847921797733,
-        "y": 7.138166898915179
-      },
-      "nextControl": {
-        "x": 1.483847921797733,
-        "y": 5.538166898915178
-      },
-      "isLocked": false,
-      "linkedName": null
-    },
-    {
-      "anchor": {
-        "x": 1.0106749734846971,
-        "y": 4.5648579278498564
-      },
-      "prevControl": {
-        "x": 1.1979932630455474,
-        "y": 5.440028215525482
+        "x": 1.677980132450331,
+        "y": 6.546937086092714
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "ClimbLeft"
+      "linkedName": null
     }
   ],
   "rotationTargets": [
@@ -184,10 +168,6 @@
     {
       "waypointRelativePos": 8.1,
       "rotationDegrees": 180.0
-    },
-    {
-      "waypointRelativePos": 9.7,
-      "rotationDegrees": 90.0
     }
   ],
   "constraintZones": [
@@ -220,7 +200,7 @@
     {
       "name": "Shooting Zone #2",
       "minWaypointRelativePos": 7.5,
-      "maxWaypointRelativePos": 10.0,
+      "maxWaypointRelativePos": 9.5,
       "constraints": {
         "maxVelocity": 0.65,
         "maxAcceleration": 1.0,
@@ -253,19 +233,7 @@
       "name": "Point Towards Hub Zone #2"
     }
   ],
-  "eventMarkers": [
-    {
-      "name": "ClimberExtend",
-      "waypointRelativePos": 9.7,
-      "endWaypointRelativePos": null,
-      "command": {
-        "type": "named",
-        "data": {
-          "name": "ClimberExtend"
-        }
-      }
-    }
-  ],
+  "eventMarkers": [],
   "globalConstraints": {
     "maxVelocity": 2.5,
     "maxAcceleration": 2.5,
@@ -276,7 +244,7 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 90.0
+    "rotation": 135.0
   },
   "reversed": false,
   "folder": "AllianceZonePaths",

@@ -7,13 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "DepotLeftTrenchClimb"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "ClimberClimb"
+            "pathName": "DepotLeftTrench"
           }
         }
       ]
