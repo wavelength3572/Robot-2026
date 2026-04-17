@@ -188,7 +188,6 @@ public class AutoWrapperFactory {
       return Commands.none();
     }
     return Commands.sequence(
-        Commands.waitSeconds(0.1),
         Commands.runOnce(
             () -> {
               intake.deploy();

@@ -278,7 +278,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double intakeAgitationFallTimeSec = 0.2;
   private static final double intakeAgitationSpeedThresholdMps = 0.05;
   private static final double intakeAgitationStationaryDwellSec = 4.0;
-  private static final double intakeRollerMinDeployPosition = 0.05;
+  private static final double intakeRollerMinDeployPosition = 0.0;
 
   // ========== Shot Calculation ==========
   private static final double shotEfficiencyClose = 0.815;
