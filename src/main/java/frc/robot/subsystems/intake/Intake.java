@@ -60,6 +60,10 @@ public class Intake extends SubsystemBase {
   // How long to brake after deploy reaches target before switching to coast
   private static final LoggedTunableNumber deployBrakeTime;
 
+  // Roller velocity setpoints
+  private static final LoggedTunableNumber rollerIntakeRPM;
+  private static final LoggedTunableNumber rollerEjectRPM;
+
   // Agitation tunables
   private static final LoggedTunableNumber agitationFallTime;
   private static final LoggedTunableNumber agitationSpeedThreshold;
@@ -99,6 +103,8 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kD", config.getIntakeRollerKd());
     rollerKFF =
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kFF", config.getIntakeRollerKff());
+    rollerIntakeRPM = new LoggedTunableNumber("Tuning/Intake/IntakeRollers/IntakeRPM", 2275.0);
+    rollerEjectRPM = new LoggedTunableNumber("Tuning/Intake/IntakeRollers/EjectRPM", -1000.0);
     deployKS = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kS", config.getIntakeDeployKs());
     deployKV = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kV", config.getIntakeDeployKv());
     // Deploy motion profile
@@ -230,8 +236,6 @@ public class Intake extends SubsystemBase {
   public static final double ROLLER_EJECT_SPEED = -0.6;
   public static final double ROLLER_HOLD_SPEED = 0.1;
   public static final double ROLLER_INTAKE_RPM_RETRACTED = 0.0;
-  public static final double ROLLER_INTAKE_RPM_DEPLOYED = 2275.0;
-  public static final double ROLLER_EJECT_RPM = -1000.0;
 
   // Pending roller velocity — set when deploy is commanded, applied once position threshold is met
   private boolean rollersPending = false;
@@ -619,7 +623,7 @@ public class Intake extends SubsystemBase {
    * the safety interlock can properly re-pend and restart the rollers.
    */
   public void runIntake() {
-    double rpm = deployCommanded ? ROLLER_INTAKE_RPM_DEPLOYED : ROLLER_INTAKE_RPM_RETRACTED;
+    double rpm = deployCommanded ? rollerIntakeRPM.get() : ROLLER_INTAKE_RPM_RETRACTED;
 
     // Mark rollers as actively commanded so the safety interlock in periodic() can
     // re-pend them if the arm temporarily dips below the safe position threshold.
@@ -646,7 +650,7 @@ public class Intake extends SubsystemBase {
   public void runEject() {
     if (isRollerSafetyLocked()) return;
     if (useVelocityControl) {
-      io.setRollerVelocity(ROLLER_EJECT_RPM);
+      io.setRollerVelocity(rollerEjectRPM.get());
     } else {
       io.setRollerDutyCycle(ROLLER_EJECT_SPEED);
     }
