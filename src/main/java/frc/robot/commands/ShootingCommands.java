@@ -709,6 +709,13 @@ public class ShootingCommands {
                         hood.setHoodAngle(hood.getMinAngle());
                         return;
                       }
+                      // Hold Fire (B11) → keep hood down; hood pops up on release.
+                      // Safety net for bad odometry scenarios where zone-based clamp fails.
+                      if (spindexer != null && spindexer.isFeedingSuppressed()) {
+                        hood.setActivelyCommanded(true);
+                        hood.setHoodAngle(hood.getMinAngle());
+                        return;
+                      }
                       if (coordinator.isAutoCollecting()) {
                         hood.setActivelyCommanded(true);
                         hood.setHoodAngle(hood.getMinAngle());
