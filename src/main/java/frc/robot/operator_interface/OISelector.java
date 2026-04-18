@@ -95,37 +95,16 @@ public class OISelector {
     }
 
     if (interlinkDXPort != null && buttonBox1Port != null) {
+      System.out.println("Joysticks Found");
       noOperatorInterfaceWarning.set(false);
       nonCompetitionOperatorInterfaceWarning.set(buttonBox2Port == null);
       return new InterLinkDXButtonBoxOI(interlinkDXPort, buttonBox1Port, buttonBox2Port);
-    } else if (interlinkDXPort != null) {
-      noOperatorInterfaceWarning.set(false);
-      nonCompetitionOperatorInterfaceWarning.set(true);
-      return new InterLinkDXOI(interlinkDXPort);
-    } else if (xBoxPort != null) {
-      noOperatorInterfaceWarning.set(false);
-      nonCompetitionOperatorInterfaceWarning.set(true);
-      return new SingleHandheldOI(xBoxPort);
-    } else if (buttonBox1Port != null && buttonBox2Port != null) {
-      noOperatorInterfaceWarning.set(false);
-      nonCompetitionOperatorInterfaceWarning.set(true);
-      return new ButtonBoxOI(buttonBox1Port, buttonBox2Port);
-    } else if (keyboardPort != null) {
-      noOperatorInterfaceWarning.set(false);
-      nonCompetitionOperatorInterfaceWarning.set(true);
-      return new KeyboardOI(keyboardPort);
-    } else if (gampadPort != null) {
-      noOperatorInterfaceWarning.set(false);
-      nonCompetitionOperatorInterfaceWarning.set(true);
-      return new GamepadOI(gampadPort);
-    } else if (firstPort != null && secondPort != null) {
-      noOperatorInterfaceWarning.set(false);
-      nonCompetitionOperatorInterfaceWarning.set(false);
-      return new DualJoysticksOI(firstPort, secondPort);
+
     } else {
-      noOperatorInterfaceWarning.set(true);
+      System.out.println("Default Joysticks");
+      noOperatorInterfaceWarning.set(false);
       nonCompetitionOperatorInterfaceWarning.set(false);
-      return new OperatorInterface() {};
+      return new InterLinkDXButtonBoxOI(0, 1, 2);
     }
   }
 }
