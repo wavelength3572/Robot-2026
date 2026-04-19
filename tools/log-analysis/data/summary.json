@@ -4,7 +4,7 @@
       "file": "akit_26-04-17_14-54-34_micmp2_q32.wpilog",
       "stem": "akit_26-04-17_14-54-34_micmp2_q32",
       "duration_s": 339.61,
-      "parse_seconds": 1.89,
+      "parse_seconds": 3.17,
       "summaries": {
         "bps": {
           "firing_bps": 1.053,
@@ -13,6 +13,17 @@
           "target_gap_bps": 10.947,
           "balls_during_firing": 100,
           "firing_seconds": 94.94
+        },
+        "effective_bps": {
+          "effective_bps": 1.053,
+          "target_bps": 12.0,
+          "target_gap_bps": 10.947,
+          "balls_during_firing": 100,
+          "active_seconds_total": 94.94,
+          "spinup_seconds_total": 0.0,
+          "firing_intervals_total": 17,
+          "intervals_never_ready": 0,
+          "longest_dry_s": 17.04
         },
         "firing_intervals": {
           "firing_intervals": 17,
@@ -83,7 +94,7 @@
       "file": "akit_26-04-17_15-25-45_micmp2_q36.wpilog",
       "stem": "akit_26-04-17_15-25-45_micmp2_q36",
       "duration_s": 373.16,
-      "parse_seconds": 2.26,
+      "parse_seconds": 3.26,
       "summaries": {
         "bps": {
           "firing_bps": 0.854,
@@ -92,6 +103,17 @@
           "target_gap_bps": 11.146,
           "balls_during_firing": 79,
           "firing_seconds": 92.46
+        },
+        "effective_bps": {
+          "effective_bps": 0.854,
+          "target_bps": 12.0,
+          "target_gap_bps": 11.146,
+          "balls_during_firing": 79,
+          "active_seconds_total": 92.46,
+          "spinup_seconds_total": 0.0,
+          "firing_intervals_total": 17,
+          "intervals_never_ready": 0,
+          "longest_dry_s": 13.302
         },
         "firing_intervals": {
           "firing_intervals": 17,
@@ -162,7 +184,7 @@
       "file": "akit_26-04-17_16-21-55_micmp2_q43.wpilog",
       "stem": "akit_26-04-17_16-21-55_micmp2_q43",
       "duration_s": 442.54,
-      "parse_seconds": 2.37,
+      "parse_seconds": 3.7,
       "summaries": {
         "bps": {
           "firing_bps": 0.947,
@@ -171,6 +193,17 @@
           "target_gap_bps": 11.053,
           "balls_during_firing": 91,
           "firing_seconds": 96.11
+        },
+        "effective_bps": {
+          "effective_bps": 0.947,
+          "target_bps": 12.0,
+          "target_gap_bps": 11.053,
+          "balls_during_firing": 91,
+          "active_seconds_total": 96.11,
+          "spinup_seconds_total": 0.0,
+          "firing_intervals_total": 13,
+          "intervals_never_ready": 0,
+          "longest_dry_s": 13.881
         },
         "firing_intervals": {
           "firing_intervals": 13,
@@ -241,7 +274,7 @@
       "file": "akit_26-04-17_18-08-32_micmp2_q49.wpilog",
       "stem": "akit_26-04-17_18-08-32_micmp2_q49",
       "duration_s": 295.51,
-      "parse_seconds": 1.83,
+      "parse_seconds": 2.69,
       "summaries": {
         "bps": {
           "firing_bps": 0.968,
@@ -250,6 +283,17 @@
           "target_gap_bps": 11.032,
           "balls_during_firing": 65,
           "firing_seconds": 67.17
+        },
+        "effective_bps": {
+          "effective_bps": 0.968,
+          "target_bps": 12.0,
+          "target_gap_bps": 11.032,
+          "balls_during_firing": 65,
+          "active_seconds_total": 67.17,
+          "spinup_seconds_total": 0.0,
+          "firing_intervals_total": 23,
+          "intervals_never_ready": 0,
+          "longest_dry_s": 10.88
         },
         "firing_intervals": {
           "firing_intervals": 23,
@@ -320,7 +364,7 @@
       "file": "akit_26-04-17_18-52-14_micmp2_q55.wpilog",
       "stem": "akit_26-04-17_18-52-14_micmp2_q55",
       "duration_s": 374.92,
-      "parse_seconds": 2.0,
+      "parse_seconds": 2.89,
       "summaries": {
         "bps": {
           "firing_bps": 1.181,
@@ -329,6 +373,17 @@
           "target_gap_bps": 10.819,
           "balls_during_firing": 96,
           "firing_seconds": 81.32
+        },
+        "effective_bps": {
+          "effective_bps": 1.192,
+          "target_bps": 12.0,
+          "target_gap_bps": 10.808,
+          "balls_during_firing": 96,
+          "active_seconds_total": 80.52,
+          "spinup_seconds_total": 0.8,
+          "firing_intervals_total": 20,
+          "intervals_never_ready": 1,
+          "longest_dry_s": 13.2
         },
         "firing_intervals": {
           "firing_intervals": 20,
@@ -399,7 +454,7 @@
       "file": "akit_26-04-17_20-10-07_micmp2_q65.wpilog",
       "stem": "akit_26-04-17_20-10-07_micmp2_q65",
       "duration_s": 317.29,
-      "parse_seconds": 1.54,
+      "parse_seconds": 2.29,
       "summaries": {
         "bps": {
           "firing_bps": 1.039,
@@ -408,6 +463,17 @@
           "target_gap_bps": 10.961,
           "balls_during_firing": 2,
           "firing_seconds": 1.92
+        },
+        "effective_bps": {
+          "effective_bps": 1.039,
+          "target_bps": 12.0,
+          "target_gap_bps": 10.961,
+          "balls_during_firing": 2,
+          "active_seconds_total": 1.92,
+          "spinup_seconds_total": 0.0,
+          "firing_intervals_total": 1,
+          "intervals_never_ready": 0,
+          "longest_dry_s": 1.0
         },
         "firing_intervals": {
           "firing_intervals": 1,
@@ -469,7 +535,7 @@
       "file": "akit_26-04-17_20-42-53_micmp2_q69.wpilog",
       "stem": "akit_26-04-17_20-42-53_micmp2_q69",
       "duration_s": 302.76,
-      "parse_seconds": 1.87,
+      "parse_seconds": 2.89,
       "summaries": {
         "bps": {
           "firing_bps": 0.808,
@@ -478,6 +544,17 @@
           "target_gap_bps": 11.192,
           "balls_during_firing": 95,
           "firing_seconds": 117.61
+        },
+        "effective_bps": {
+          "effective_bps": 0.812,
+          "target_bps": 12.0,
+          "target_gap_bps": 11.188,
+          "balls_during_firing": 95,
+          "active_seconds_total": 117.05,
+          "spinup_seconds_total": 0.56,
+          "firing_intervals_total": 20,
+          "intervals_never_ready": 0,
+          "longest_dry_s": 11.703
         },
         "firing_intervals": {
           "firing_intervals": 20,
@@ -548,7 +625,7 @@
       "file": "akit_26-04-17_21-21-07_micmp2_q74.wpilog",
       "stem": "akit_26-04-17_21-21-07_micmp2_q74",
       "duration_s": 273.77,
-      "parse_seconds": 1.68,
+      "parse_seconds": 2.76,
       "summaries": {
         "bps": {
           "firing_bps": 0.818,
@@ -557,6 +634,17 @@
           "target_gap_bps": 11.182,
           "balls_during_firing": 77,
           "firing_seconds": 94.15
+        },
+        "effective_bps": {
+          "effective_bps": 0.818,
+          "target_bps": 12.0,
+          "target_gap_bps": 11.182,
+          "balls_during_firing": 77,
+          "active_seconds_total": 94.15,
+          "spinup_seconds_total": 0.0,
+          "firing_intervals_total": 20,
+          "intervals_never_ready": 0,
+          "longest_dry_s": 16.862
         },
         "firing_intervals": {
           "firing_intervals": 20,
@@ -626,6 +714,7 @@
   ],
   "analyzer_order": [
     "bps",
+    "effective_bps",
     "firing_intervals",
     "jams",
     "match_summary",
@@ -634,5 +723,5 @@
     "spindexer_events",
     "turret_flips"
   ],
-  "generated_at": "2026-04-19T18:43:44"
+  "generated_at": "2026-04-19T19:19:45"
 }

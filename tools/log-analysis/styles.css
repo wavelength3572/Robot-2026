@@ -156,6 +156,7 @@ td.ok { color: var(--ok); }
 .event-row.motivator_zero_cause .k { color: var(--accent); }
 .event-row.slugs .k { color: var(--ok); }
 .event-row.spindexer_events .k { color: #db61a2; }
+.event-row.effective_bps .k { color: var(--fg); }
 
 #inspector {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;

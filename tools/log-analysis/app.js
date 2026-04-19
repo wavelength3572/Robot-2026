@@ -93,35 +93,32 @@ function renderFleet() {
   // Headline cards
   const totalOf = (aid, key) =>
     matches.reduce((acc, m) => acc + (m.summaries[aid]?.[key] ?? 0), 0);
-  const totalBalls = totalOf("bps", "balls_during_firing");
-  const totalFiringS = totalOf("bps", "firing_seconds");
+  const totalBalls = totalOf("effective_bps", "balls_during_firing");
+  const totalActiveS = totalOf("effective_bps", "active_seconds_total");
   const flipsFiring = totalOf("turret_flips", "flips_during_firing");
   const jamsTotal = totalOf("jams", "jam_events");
   const jamsSeconds = totalOf("jams", "jam_seconds_total");
   const unclogManual = totalOf("spindexer_events", "unclogging_events");
   const unclogAuto = totalOf("spindexer_events", "auto_unclogging_events");
 
-  // Best slug across the fleet; median-of-medians for typical.
-  let bestSlug = 0;
-  const perMatchMedian = [];
+  let worstDry = 0;
+  let worstDryMatch = "";
   for (const m of matches) {
-    const s = m.summaries.slugs ?? {};
-    if ((s.best_slug_bps ?? 0) > bestSlug) bestSlug = s.best_slug_bps;
-    if (s.median_slug_bps != null) perMatchMedian.push(s.median_slug_bps);
+    const d = m.summaries.effective_bps?.longest_dry_s ?? 0;
+    if (d > worstDry) {
+      worstDry = d;
+      worstDryMatch = m.stem.split("_").pop();
+    }
   }
-  perMatchMedian.sort((a, b) => a - b);
-  const medianSlug = perMatchMedian.length
-    ? perMatchMedian[Math.floor(perMatchMedian.length / 2)]
-    : 0;
 
-  const firingBps = totalFiringS > 0 ? totalBalls / totalFiringS : 0;
+  const effBps = totalActiveS > 0 ? totalBalls / totalActiveS : 0;
   document.getElementById("stat-match-count").textContent = matches.length;
-  document.getElementById("stat-avg-firing-bps").textContent = firingBps.toFixed(2);
-  tintBps("stat-avg-firing-bps", firingBps);
-  document.getElementById("stat-best-slug").textContent = bestSlug.toFixed(2);
-  tintBps("stat-best-slug", bestSlug);
-  document.getElementById("stat-median-slug").textContent = medianSlug.toFixed(2);
-  tintBps("stat-median-slug", medianSlug);
+  document.getElementById("stat-avg-firing-bps").textContent = effBps.toFixed(2);
+  tintBps("stat-avg-firing-bps", effBps);
+  document.getElementById("stat-worst-dry").textContent = worstDry.toFixed(1) + "s";
+  const dryEl = document.getElementById("stat-worst-dry");
+  dryEl.classList.remove("ok", "warn", "bad");
+  dryEl.classList.add(worstDry >= 10 ? "bad" : worstDry >= 3 ? "warn" : "ok");
   document.getElementById("stat-flips-firing").textContent = flipsFiring;
   document.getElementById("stat-jams").textContent = jamsTotal;
   document.getElementById("stat-jam-s").textContent = jamsSeconds.toFixed(1);
@@ -166,17 +163,12 @@ function renderFleet() {
 
 function deriveColumns(matches, analyzerOrder) {
   const priority = {
-    "bps.firing_bps": ["Firing BPS", (v) => v.toFixed(2)],
-    "bps.target_gap_bps": ["Gap to 12", (v) => v.toFixed(2)],
-    "bps.peak_2s_bps": ["Peak 2s BPS", (v) => v.toFixed(2)],
-    "slugs.best_slug_bps": ["Best slug BPS", (v) => v.toFixed(2)],
-    "slugs.median_slug_bps": ["Median slug BPS", (v) => v.toFixed(2)],
-    "slugs.largest_slug_balls": ["Biggest slug", (v) => v],
-    "slugs.slug_count": ["Slugs", (v) => v],
-    "slugs.p10_gap_ms": ["P10 gap ms", (v) => v.toFixed(0)],
-    "slugs.p50_gap_ms": ["P50 gap ms", (v) => v.toFixed(0)],
-    "bps.balls_during_firing": ["Balls", (v) => v],
-    "bps.firing_seconds": ["Firing s", (v) => v.toFixed(1)],
+    "effective_bps.effective_bps": ["Effective BPS", (v) => v.toFixed(2)],
+    "effective_bps.target_gap_bps": ["Gap to 12", (v) => v.toFixed(2)],
+    "effective_bps.balls_during_firing": ["Balls", (v) => v],
+    "effective_bps.active_seconds_total": ["Active s", (v) => v.toFixed(1)],
+    "effective_bps.longest_dry_s": ["Worst dry s", (v) => v.toFixed(1)],
+    "effective_bps.intervals_never_ready": ["Never ready", (v) => v],
     "jams.jam_events": ["Jams", (v) => v],
     "jams.jam_seconds_total": ["Jam s", (v) => v.toFixed(1)],
     "turret_flips.flip_count": ["Flips", (v) => v],
@@ -187,11 +179,6 @@ function deriveColumns(matches, analyzerOrder) {
     "spindexer_events.auto_unclogging_events": ["Auto-unclog", (v) => v],
     "spindexer_events.jammed_events": ["Spindexer JAMMED", (v) => v],
     "motivator_zero_cause.total_drops": ["Mot→0", (v) => v],
-    "motivator_zero_cause.cause_turret_flipping_or_stalled": ["\u00a0\u00a0↳turret flip/stall", (v) => v],
-    "motivator_zero_cause.cause_unachievable": ["\u00a0\u00a0↳unachievable", (v) => v],
-    "motivator_zero_cause.cause_zone_change": ["\u00a0\u00a0↳zone change", (v) => v],
-    "motivator_zero_cause.cause_coord_left_firing": ["\u00a0\u00a0↳coord exited", (v) => v],
-    "motivator_zero_cause.cause_unknown": ["\u00a0\u00a0↳unknown", (v) => v],
   };
   const cols = [];
   for (const [path, [label, fmt]] of Object.entries(priority)) {
@@ -217,10 +204,10 @@ function deriveColumns(matches, analyzerOrder) {
 
 function cellTint(aid, key, v) {
   if (typeof v !== "number") return "";
-  if (aid === "bps" && (key === "firing_bps" || key === "peak_2s_bps")) return bpsTintClass(v);
-  if (aid === "bps" && key === "target_gap_bps") return v <= 2 ? "ok" : v >= 8 ? "bad" : "warn";
-  if (aid === "slugs" && (key === "best_slug_bps" || key === "median_slug_bps")) return bpsTintClass(v);
-  if (aid === "slugs" && key === "p10_gap_ms") return v <= 90 ? "ok" : v <= 150 ? "warn" : "bad";
+  if (aid === "effective_bps" && key === "effective_bps") return bpsTintClass(v);
+  if (aid === "effective_bps" && key === "target_gap_bps") return v <= 2 ? "ok" : v >= 8 ? "bad" : "warn";
+  if (aid === "effective_bps" && key === "longest_dry_s") return v >= 10 ? "bad" : v >= 3 ? "warn" : "";
+  if (aid === "effective_bps" && key === "intervals_never_ready") return v > 0 ? "warn" : "";
   if (aid === "jams" && key === "jam_events") return v === 0 ? "" : v >= 20 ? "bad" : "warn";
   if (aid === "jams" && key === "jam_seconds_total") return v === 0 ? "" : v >= 20 ? "bad" : "warn";
   if (aid === "turret_flips" && key === "flips_during_firing") return v >= 10 ? "bad" : v >= 5 ? "warn" : "";
@@ -372,8 +359,7 @@ function renderMatch(match) {
 
 function renderMatchCards(match) {
   const row = document.getElementById("match-summary-cards");
-  const bps = match.analyzers.bps?.summary ?? {};
-  const slugs = match.analyzers.slugs?.summary ?? {};
+  const eff = match.analyzers.effective_bps?.summary ?? {};
   const flips = match.analyzers.turret_flips?.summary ?? {};
   const jams = match.analyzers.jams?.summary ?? {};
   const spin = match.analyzers.spindexer_events?.summary ?? {};
@@ -387,14 +373,21 @@ function renderMatchCards(match) {
     row.appendChild(div);
   };
 
-  const firingBps = bps.firing_bps ?? 0;
-  card("Firing BPS", firingBps.toFixed(2), `${bps.balls_during_firing ?? 0} balls / ${(bps.firing_seconds ?? 0).toFixed(1)}s  ·  target ${TARGET_BPS}`, bpsTintClass(firingBps));
-  card("Best slug BPS", (slugs.best_slug_bps ?? 0).toFixed(2), `${slugs.largest_slug_balls ?? 0} ball peak slug`, bpsTintClass(slugs.best_slug_bps ?? 0));
-  card("Median slug BPS", (slugs.median_slug_bps ?? 0).toFixed(2), `${slugs.multi_ball_slug_count ?? 0} multi-ball slugs`, bpsTintClass(slugs.median_slug_bps ?? 0));
-  card("P10 gap ms", (slugs.p10_gap_ms ?? 0).toFixed(0), `${slugs.bps_at_p10_gap ? slugs.bps_at_p10_gap.toFixed(1) : "0"} BPS @ p10`);
-  card("Jams", jams.jam_events ?? 0, `${(jams.jam_seconds_total ?? 0).toFixed(1)}s lost`, (jams.jam_events ?? 0) >= 20 ? "bad" : (jams.jam_events ?? 0) > 0 ? "warn" : "");
-  card("Hold-fire / Unclog / Auto", `${spin.suppressed_events ?? 0} / ${spin.unclogging_events ?? 0} / ${spin.auto_unclogging_events ?? 0}`, `${(spin.total_interrupted_seconds ?? 0).toFixed(1)}s spindexer interrupted`);
-  card("Flips during firing", `${flips.flips_during_firing ?? 0}/${flips.flip_count ?? 0}`, `${(flips.flip_seconds_during_firing ?? 0).toFixed(1)}s`);
+  const ebps = eff.effective_bps ?? 0;
+  const dry = eff.longest_dry_s ?? 0;
+  card("Effective BPS", ebps.toFixed(2),
+       `${eff.balls_during_firing ?? 0} balls / ${(eff.active_seconds_total ?? 0).toFixed(1)}s active  ·  target ${TARGET_BPS}`,
+       bpsTintClass(ebps));
+  card("Worst dry stretch", dry.toFixed(1) + "s",
+       "longest held-fire window with no balls — jam or empty?",
+       dry >= 10 ? "bad" : dry >= 3 ? "warn" : "ok");
+  card("Jams (feeding)", jams.jam_events ?? 0,
+       `${(jams.jam_seconds_total ?? 0).toFixed(1)}s feeding w/ no ball impact`,
+       (jams.jam_events ?? 0) >= 20 ? "bad" : (jams.jam_events ?? 0) > 0 ? "warn" : "");
+  card("Hold-fire / Unclog / Auto", `${spin.suppressed_events ?? 0} / ${spin.unclogging_events ?? 0} / ${spin.auto_unclogging_events ?? 0}`,
+       `${(spin.total_interrupted_seconds ?? 0).toFixed(1)}s spindexer non-feeding`);
+  card("Flips during firing", `${flips.flips_during_firing ?? 0}/${flips.flip_count ?? 0}`,
+       `${(flips.flip_seconds_during_firing ?? 0).toFixed(1)}s in flip`);
   card("Motivator → 0 during firing", drops.total_drops ?? 0);
 }
 
@@ -568,13 +561,13 @@ function renderEventList() {
 }
 
 function eventLabel(aid, e) {
+  if (aid === "effective_bps")
+    return `${e.balls} balls in ${e.active_s}s → ${e.effective_bps} BPS  ·  worst dry ${e.longest_dry_s}s  [${e.phase}]${e.note ? " · " + e.note : ""}`;
   if (aid === "slugs") return `${e.balls} balls in ${e.duration_s}s → ${e.bps} BPS  (min gap ${e.min_gap_ms}ms)`;
   if (aid === "jams") return `jam ${e.duration_s}s @ ${e.launcher_target_rpm} RPM (spindexer ${e.spindexer_state_at_start})`;
   if (aid === "turret_flips") return `${e.entry_angle}° → ${e.exit_angle}° (${e.duration_s}s)${e.during_firing ? ", during firing" : ""}`;
   if (aid === "spindexer_events") return `${e.state} for ${e.duration_s}s  (coord: ${e.coord_state_at_start})`;
   if (aid === "motivator_zero_cause") return `cause: ${e.cause}  coord: ${e.coord_before}→${e.coord_after}  ${e.transition_reason}`;
-  if (aid === "firing_intervals") return `firing ${e.duration_s}s, ${e.balls_fired} balls [${e.phase}]`;
-  if (aid === "bps") return `${e.balls_fired} balls in ${e.duration_s}s → ${e.bps} BPS, peak 2s=${e.peak_2s_bps}`;
   return JSON.stringify(e);
 }
 
@@ -583,6 +576,7 @@ function eventTag(aid, e) {
   if (aid === "turret_flips") return e.during_firing ? "during firing" : "";
   if (aid === "spindexer_events") return e.state;
   if (aid === "slugs") return `${e.balls}b`;
+  if (aid === "effective_bps") return (e.longest_dry_s ?? 0) >= 3 ? "dry!" : "";
   return "";
 }
 
