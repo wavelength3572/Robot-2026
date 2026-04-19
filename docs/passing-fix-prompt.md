@@ -65,14 +65,19 @@ Replace the precision-aim gate with a **predicted-landing-point gate**.
 ## Current strategies in use (verified from logs)
 
 - `HUB`        → `Hub FixedHeight` (99.8% of firing samples)
-- `PASS`       → **`Pass Symmetric`** (98.5%)
-- `LONG_PASS`  → **`Pass Symmetric Long`** (100%)
+- `PASS`       → **`Pass Symmetric`** (98.5%) — no apex constraint, mirror-image
+                 target on our side of the field, selected when dashboard
+                 chooser is NOT on `WAYPOINT`. Handled by
+                 `FixedHeightPassStrategy` with `PassingStrategy.SYMMETRIC`.
+                 See `ShootingCoordinator.java:713-725`.
+- `LONG_PASS`  → **`Pass Symmetric Long`** (100%) — same idea, taller peak.
 
-So the relevant strategy file to understand is
-`src/main/java/frc/robot/subsystems/shooting/TwoStageShotStrategy.java`
-or whichever class implements `Pass Symmetric` — I initially thought
-`Pass Waypoint` was active but it isn't. Confirm which Java class emits
-the string `"Pass Symmetric"` before changing anything.
+The alternative branch (`Pass Waypoint`, `WaypointPassStrategy.java`) was
+NOT used in these 8 logs — it only runs when `passStrategyChooser == WAYPOINT`.
+It constrains the ball to pass through a 3D apex above the bump, which
+may give the solver a tighter fixed point. **Worth comparing empirically
+before (or instead of) implementing a new geo-fence path.** If the simple
+chooser switch helps, that's a cheaper fix.
 
 ## Files to read first (before changing anything)
 
