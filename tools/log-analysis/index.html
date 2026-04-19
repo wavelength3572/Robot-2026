@@ -26,28 +26,40 @@
         <div class="big" id="stat-match-count">—</div>
       </div>
       <div class="card">
-        <h3>Effective BPS</h3>
-        <div class="big" id="stat-avg-firing-bps">—</div>
-        <div class="sub">balls ÷ time launcher was ready & button held — target <b>12.0</b></div>
+        <h3>Truly-active BPS</h3>
+        <div class="big" id="stat-truly-bps">—</div>
+        <div class="sub">balls ÷ spindexer-feeding seconds — target <b>12.0</b></div>
+      </div>
+      <div class="card">
+        <h3>HUB BPS (alliance zone)</h3>
+        <div class="big" id="stat-hub-bps">—</div>
+        <div class="sub">hub-scoring intervals only</div>
+      </div>
+      <div class="card">
+        <h3>PASS BPS (neutral zone)</h3>
+        <div class="big" id="stat-pass-bps">—</div>
+        <div class="sub">pass + long-pass intervals</div>
       </div>
       <div class="card">
         <h3>Worst dry stretch</h3>
         <div class="big" id="stat-worst-dry">—</div>
-        <div class="sub">longest held-fire span with no ball impacts — jam? empty?</div>
+        <div class="sub">longest held-fire with no balls — jam or empty?</div>
       </div>
       <div class="card">
-        <h3>Jams (FEEDING, no impact ≥0.5s)</h3>
+        <h3>Jams</h3>
         <div class="big" id="stat-jams">—</div>
         <div class="sub"><span id="stat-jam-s">—</span>s total</div>
-      </div>
-      <div class="card">
-        <h3>Flips during firing</h3>
-        <div class="big" id="stat-flips-firing">—</div>
       </div>
       <div class="card">
         <h3>Unclogs (manual / auto)</h3>
         <div class="big" id="stat-unclogs">—</div>
       </div>
+    </section>
+
+    <section class="card">
+      <h2>Firing time breakdown (fleet total)</h2>
+      <div id="fleet-breakdown-bar" class="stack-bar"></div>
+      <div id="fleet-breakdown-legend" class="stack-legend"></div>
     </section>
 
     <section class="card">
@@ -79,6 +91,12 @@
         <canvas id="timeline-main"></canvas>
       </div>
       <div class="legend" id="timeline-legend"></div>
+    </section>
+
+    <section class="card">
+      <h2>Firing intervals — where did the time go?</h2>
+      <div id="match-breakdown" class="breakdown-grid"></div>
+      <div id="match-breakdown-legend" class="stack-legend"></div>
     </section>
 
     <section class="two-col">

@@ -87,13 +87,15 @@ Re-run the extractor. The fleet table automatically picks up new
 
 | id | Output |
 |---|---|
+| `effective_bps` | **Main BPS analyzer.** Partitions every `FIRING` interval into 9 time buckets (feeding/flipping/suppressed/unclogging/auto-unclogging/jammed/reciprocating/stopped/not-ready). Emits `truly_active_bps = balls / feeding_s` — the honest number — and per-interval event with `aim_mode` (HUB/PASS/LONG_PASS/NONE) |
+| `bps_by_mode` | Same partition logic, grouped by `SmartLaunch/Status/AimMode`. Produces `hub_bps`, `pass_bps`, `long_pass_bps` separately so alliance-zone hub shooting and neutral-zone passing don't get averaged together |
 | `firing_intervals` | Contiguous `SmartLaunch/CoordinatorState == FIRING` spans with balls-per-interval |
-| `bps` | Firing BPS (driver-visible), peak 2 s BPS, gap to 12 BPS target |
-| `slugs` | Ball-impact clustering: each slug is a burst with gaps < 300 ms. Emits per-slug BPS, inter-ball gap percentiles, best slug, and `bps_at_p10_gap` (mechanism ceiling) |
+| `bps` | Legacy per-firing-interval BPS (balls ÷ FIRING duration). Kept for comparison |
+| `slugs` | Ball-impact clustering (gaps < 300 ms). Diagnostic only — inter-ball gap percentiles, best slug |
 | `jams` | Windows where coordinator is `FIRING` + spindexer is `FEEDING` but no ball impact for ≥0.5 s |
 | `turret_flips` | `Subsystems/TurretState == FLIPPING` entries, flagged when during/near firing |
 | `spindexer_events` | Time in `SUPPRESSED` (operator hold-fire), `UNCLOGGING` (manual), `AUTO_UNCLOGGING`, `JAMMED`, `RECIPROCATING` during any firing attempt |
-| `motivator_zero_cause` | `/Motivator/TargetRPM` falling edges, classified against the three real causes from `ShootingCommands.java:569/749/775` (turret flip/stall, zone change, coord exited firing, unachievable) |
+| `motivator_zero_cause` | `/Motivator/TargetRPM` falling edges, classified against the three real causes from `ShootingCommands.java:569/749/775` |
 | `match_summary` | Duration, shot counts, plus downsampled signal series for the timeline |
 
 The "12 BPS" target comes from the competitive baseline (83 ms between balls).

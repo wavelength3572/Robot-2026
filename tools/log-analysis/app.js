@@ -19,6 +19,19 @@ const EVENT_COLORS = {
 
 const TARGET_BPS = 12.0;
 
+// Bucket name → color + friendly label. Order matters for the stacked bar.
+const BUCKETS = [
+  ["feeding_s",          "#3fb950", "Feeding"],
+  ["stopped_s",          "#8b949e", "Stopped"],
+  ["reciprocating_s",    "#6e7681", "Reciprocating"],
+  ["flipping_s",         "#d29922", "Turret flip/stall"],
+  ["suppressed_s",       "#a371f7", "Hold-fire"],
+  ["unclogging_s",       "#db61a2", "Manual unclog"],
+  ["auto_unclogging_s",  "#f0883e", "Auto-unclog"],
+  ["jammed_s",           "#f85149", "JAMMED"],
+  ["not_ready_s",        "#484f58", "Launcher spinup"],
+];
+
 const CAUSE_COLORS = {
   operator_release: "#8b949e",
   turret_flipping: "#d29922",
@@ -93,36 +106,49 @@ function renderFleet() {
   // Headline cards
   const totalOf = (aid, key) =>
     matches.reduce((acc, m) => acc + (m.summaries[aid]?.[key] ?? 0), 0);
+
   const totalBalls = totalOf("effective_bps", "balls_during_firing");
-  const totalActiveS = totalOf("effective_bps", "active_seconds_total");
-  const flipsFiring = totalOf("turret_flips", "flips_during_firing");
+  const totalFeeding = totalOf("effective_bps", "feeding_s");
+  const trulyBps = totalFeeding > 0 ? totalBalls / totalFeeding : 0;
+
+  const hubBalls = totalOf("bps_by_mode", "hub_balls");
+  const hubFeeding = totalOf("bps_by_mode", "hub_feeding_s");
+  const hubBps = hubFeeding > 0 ? hubBalls / hubFeeding : 0;
+
+  const passBalls = totalOf("bps_by_mode", "pass_balls") + totalOf("bps_by_mode", "long_pass_balls");
+  const passFeeding = totalOf("bps_by_mode", "pass_feeding_s") + totalOf("bps_by_mode", "long_pass_feeding_s");
+  const passBps = passFeeding > 0 ? passBalls / passFeeding : 0;
+
   const jamsTotal = totalOf("jams", "jam_events");
   const jamsSeconds = totalOf("jams", "jam_seconds_total");
   const unclogManual = totalOf("spindexer_events", "unclogging_events");
   const unclogAuto = totalOf("spindexer_events", "auto_unclogging_events");
 
   let worstDry = 0;
-  let worstDryMatch = "";
   for (const m of matches) {
     const d = m.summaries.effective_bps?.longest_dry_s ?? 0;
-    if (d > worstDry) {
-      worstDry = d;
-      worstDryMatch = m.stem.split("_").pop();
-    }
+    if (d > worstDry) worstDry = d;
   }
 
-  const effBps = totalActiveS > 0 ? totalBalls / totalActiveS : 0;
   document.getElementById("stat-match-count").textContent = matches.length;
-  document.getElementById("stat-avg-firing-bps").textContent = effBps.toFixed(2);
-  tintBps("stat-avg-firing-bps", effBps);
+  const set = (id, v, tint) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = v;
+    if (tint) tintBps(id, tint);
+  };
+  set("stat-truly-bps", trulyBps.toFixed(2), trulyBps);
+  set("stat-hub-bps", hubBps.toFixed(2), hubBps);
+  set("stat-pass-bps", passBps.toFixed(2), passBps);
   document.getElementById("stat-worst-dry").textContent = worstDry.toFixed(1) + "s";
   const dryEl = document.getElementById("stat-worst-dry");
   dryEl.classList.remove("ok", "warn", "bad");
   dryEl.classList.add(worstDry >= 10 ? "bad" : worstDry >= 3 ? "warn" : "ok");
-  document.getElementById("stat-flips-firing").textContent = flipsFiring;
   document.getElementById("stat-jams").textContent = jamsTotal;
   document.getElementById("stat-jam-s").textContent = jamsSeconds.toFixed(1);
   document.getElementById("stat-unclogs").textContent = `${unclogManual} / ${unclogAuto}`;
+
+  renderFleetBreakdown(matches);
 
   // Table columns: derive from union of summary keys across matches.
   const cols = deriveColumns(matches, analyzerOrder);
@@ -163,22 +189,27 @@ function renderFleet() {
 
 function deriveColumns(matches, analyzerOrder) {
   const priority = {
+    "effective_bps.truly_active_bps": ["Truly-active BPS", (v) => v.toFixed(2)],
+    "bps_by_mode.hub_bps": ["HUB BPS", (v) => v.toFixed(2)],
+    "bps_by_mode.pass_bps": ["PASS BPS", (v) => v.toFixed(2)],
+    "bps_by_mode.long_pass_bps": ["LONG-PASS BPS", (v) => v.toFixed(2)],
     "effective_bps.effective_bps": ["Effective BPS", (v) => v.toFixed(2)],
-    "effective_bps.target_gap_bps": ["Gap to 12", (v) => v.toFixed(2)],
     "effective_bps.balls_during_firing": ["Balls", (v) => v],
-    "effective_bps.active_seconds_total": ["Active s", (v) => v.toFixed(1)],
+    "effective_bps.feeding_s": ["Feeding s", (v) => v.toFixed(1)],
+    "effective_bps.flipping_s": ["Flip s", (v) => v.toFixed(1)],
+    "effective_bps.suppressed_s": ["Hold-fire s", (v) => v.toFixed(1)],
+    "effective_bps.unclogging_s": ["Unclog s", (v) => v.toFixed(1)],
+    "effective_bps.auto_unclogging_s": ["Auto-unclog s", (v) => v.toFixed(1)],
+    "effective_bps.jammed_s": ["JAMMED s", (v) => v.toFixed(1)],
+    "effective_bps.stopped_s": ["Stopped s", (v) => v.toFixed(1)],
     "effective_bps.longest_dry_s": ["Worst dry s", (v) => v.toFixed(1)],
-    "effective_bps.intervals_never_ready": ["Never ready", (v) => v],
+    "bps_by_mode.hub_intervals": ["HUB intervals", (v) => v],
+    "bps_by_mode.pass_intervals": ["PASS intervals", (v) => v],
     "jams.jam_events": ["Jams", (v) => v],
     "jams.jam_seconds_total": ["Jam s", (v) => v.toFixed(1)],
-    "turret_flips.flip_count": ["Flips", (v) => v],
     "turret_flips.flips_during_firing": ["Flips/fire", (v) => v],
-    "turret_flips.flip_seconds_during_firing": ["Flip s/fire", (v) => v.toFixed(1)],
-    "spindexer_events.suppressed_events": ["Hold-fire", (v) => v],
     "spindexer_events.unclogging_events": ["Manual unclog", (v) => v],
     "spindexer_events.auto_unclogging_events": ["Auto-unclog", (v) => v],
-    "spindexer_events.jammed_events": ["Spindexer JAMMED", (v) => v],
-    "motivator_zero_cause.total_drops": ["Mot→0", (v) => v],
   };
   const cols = [];
   for (const [path, [label, fmt]] of Object.entries(priority)) {
@@ -204,17 +235,15 @@ function deriveColumns(matches, analyzerOrder) {
 
 function cellTint(aid, key, v) {
   if (typeof v !== "number") return "";
-  if (aid === "effective_bps" && key === "effective_bps") return bpsTintClass(v);
-  if (aid === "effective_bps" && key === "target_gap_bps") return v <= 2 ? "ok" : v >= 8 ? "bad" : "warn";
+  if (aid === "effective_bps" && (key === "truly_active_bps" || key === "effective_bps")) return bpsTintClass(v);
+  if (aid === "bps_by_mode" && (key === "hub_bps" || key === "pass_bps" || key === "long_pass_bps")) return bpsTintClass(v);
   if (aid === "effective_bps" && key === "longest_dry_s") return v >= 10 ? "bad" : v >= 3 ? "warn" : "";
-  if (aid === "effective_bps" && key === "intervals_never_ready") return v > 0 ? "warn" : "";
+  if (aid === "effective_bps" && key === "jammed_s") return v > 0 ? "bad" : "";
   if (aid === "jams" && key === "jam_events") return v === 0 ? "" : v >= 20 ? "bad" : "warn";
   if (aid === "jams" && key === "jam_seconds_total") return v === 0 ? "" : v >= 20 ? "bad" : "warn";
   if (aid === "turret_flips" && key === "flips_during_firing") return v >= 10 ? "bad" : v >= 5 ? "warn" : "";
   if (aid === "spindexer_events" && (key === "unclogging_events" || key === "auto_unclogging_events"))
     return v >= 5 ? "bad" : v >= 1 ? "warn" : "";
-  if (aid === "spindexer_events" && key === "jammed_events") return v > 0 ? "bad" : "";
-  if (aid === "motivator_zero_cause" && key === "total_drops") return v >= 5 ? "warn" : "";
   return "";
 }
 
@@ -229,6 +258,93 @@ function tintBps(id, v) {
   if (!el) return;
   el.classList.remove("ok", "warn", "bad");
   el.classList.add(bpsTintClass(v));
+}
+
+function renderFleetBreakdown(matches) {
+  const totals = {};
+  for (const [k] of BUCKETS) totals[k] = 0;
+  for (const m of matches) {
+    const s = m.summaries.effective_bps ?? {};
+    for (const [k] of BUCKETS) totals[k] += s[k] ?? 0;
+  }
+  const total = Object.values(totals).reduce((a, b) => a + b, 0);
+  const barEl = document.getElementById("fleet-breakdown-bar");
+  barEl.innerHTML = "";
+  if (total <= 0) return;
+  for (const [key, color, label] of BUCKETS) {
+    const v = totals[key];
+    if (v <= 0) continue;
+    const pct = (100 * v) / total;
+    const div = document.createElement("div");
+    div.style.background = color;
+    div.style.width = pct.toFixed(2) + "%";
+    div.setAttribute("data-label", `${label}: ${v.toFixed(1)}s (${pct.toFixed(1)}%)`);
+    barEl.appendChild(div);
+  }
+  renderStackLegend("fleet-breakdown-legend");
+}
+
+function renderStackLegend(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = "";
+  for (const [, color, label] of BUCKETS) {
+    const span = document.createElement("span");
+    span.innerHTML = `<span class="sw" style="background:${color}"></span>${label}`;
+    el.appendChild(span);
+  }
+}
+
+function renderMatchBreakdown(match) {
+  const events = match.analyzers.effective_bps?.events ?? [];
+  const grid = document.getElementById("match-breakdown");
+  grid.innerHTML = "";
+  // Header row
+  const headers = ["Time (s)", "Mode", "Dur s", "Balls", "Where the time went"];
+  for (const h of headers) {
+    const d = document.createElement("div");
+    d.className = "bh";
+    d.textContent = h;
+    grid.appendChild(d);
+  }
+  for (const e of events) {
+    const total = e.duration_s > 0 ? e.duration_s : 0.001;
+    const time = document.createElement("div");
+    time.className = "bm";
+    time.textContent = `${e.start_s.toFixed(1)}-${e.end_s.toFixed(1)}`;
+
+    const mode = document.createElement("div");
+    mode.className = "bm " + (e.aim_mode || "none").toLowerCase();
+    mode.textContent = e.aim_mode || "NONE";
+
+    const dur = document.createElement("div");
+    dur.className = "bm";
+    dur.textContent = e.duration_s.toFixed(2);
+
+    const balls = document.createElement("div");
+    balls.className = "bm";
+    balls.textContent = `${e.balls} (${e.truly_active_bps.toFixed(1)} BPS)`;
+
+    const bar = document.createElement("div");
+    bar.className = "stack-bar";
+    bar.style.height = "18px";
+    for (const [key, color, label] of BUCKETS) {
+      const v = e[key] ?? 0;
+      if (v <= 0) continue;
+      const segment = document.createElement("div");
+      segment.style.background = color;
+      segment.style.width = ((100 * v) / total).toFixed(2) + "%";
+      segment.setAttribute("data-label", `${label}: ${v.toFixed(2)}s`);
+      bar.appendChild(segment);
+    }
+
+    grid.appendChild(time);
+    grid.appendChild(mode);
+    grid.appendChild(dur);
+    grid.appendChild(balls);
+    grid.appendChild(bar);
+  }
+  renderStackLegend("match-breakdown-legend");
 }
 
 function renderFleetCharts(matches) {
@@ -353,6 +469,11 @@ function renderMatch(match) {
   } catch (err) {
     console.error("timeline failed:", err);
   }
+  try {
+    renderMatchBreakdown(match);
+  } catch (err) {
+    console.error("breakdown failed:", err);
+  }
   renderEventList();
   document.getElementById("inspector").textContent = "Click an event to see detail.";
 }
@@ -360,10 +481,9 @@ function renderMatch(match) {
 function renderMatchCards(match) {
   const row = document.getElementById("match-summary-cards");
   const eff = match.analyzers.effective_bps?.summary ?? {};
-  const flips = match.analyzers.turret_flips?.summary ?? {};
+  const mode = match.analyzers.bps_by_mode?.summary ?? {};
   const jams = match.analyzers.jams?.summary ?? {};
   const spin = match.analyzers.spindexer_events?.summary ?? {};
-  const drops = match.analyzers.motivator_zero_cause?.summary ?? {};
   row.innerHTML = "";
 
   const card = (title, value, sub = "", tint = "") => {
@@ -373,22 +493,34 @@ function renderMatchCards(match) {
     row.appendChild(div);
   };
 
-  const ebps = eff.effective_bps ?? 0;
+  const trulyBps = eff.truly_active_bps ?? 0;
+  const hubBps = mode.hub_bps ?? 0;
+  const passBps = mode.pass_bps ?? 0;
+  const longPassBps = mode.long_pass_bps ?? 0;
   const dry = eff.longest_dry_s ?? 0;
-  card("Effective BPS", ebps.toFixed(2),
-       `${eff.balls_during_firing ?? 0} balls / ${(eff.active_seconds_total ?? 0).toFixed(1)}s active  ·  target ${TARGET_BPS}`,
-       bpsTintClass(ebps));
+
+  card("Truly-active BPS", trulyBps.toFixed(2),
+       `${eff.balls_during_firing ?? 0} balls / ${(eff.feeding_s ?? 0).toFixed(1)}s feeding  ·  target ${TARGET_BPS}`,
+       bpsTintClass(trulyBps));
+  card("HUB BPS", hubBps.toFixed(2),
+       `${mode.hub_balls ?? 0} balls across ${mode.hub_intervals ?? 0} intervals`,
+       bpsTintClass(hubBps));
+  card("PASS BPS", passBps.toFixed(2),
+       `${mode.pass_balls ?? 0} balls across ${mode.pass_intervals ?? 0} intervals`,
+       bpsTintClass(passBps));
+  if ((mode.long_pass_intervals ?? 0) > 0) {
+    card("LONG-PASS BPS", longPassBps.toFixed(2),
+         `${mode.long_pass_balls ?? 0} balls across ${mode.long_pass_intervals ?? 0} intervals`,
+         bpsTintClass(longPassBps));
+  }
   card("Worst dry stretch", dry.toFixed(1) + "s",
-       "longest held-fire window with no balls — jam or empty?",
+       "longest held-fire window with no balls",
        dry >= 10 ? "bad" : dry >= 3 ? "warn" : "ok");
   card("Jams (feeding)", jams.jam_events ?? 0,
        `${(jams.jam_seconds_total ?? 0).toFixed(1)}s feeding w/ no ball impact`,
        (jams.jam_events ?? 0) >= 20 ? "bad" : (jams.jam_events ?? 0) > 0 ? "warn" : "");
   card("Hold-fire / Unclog / Auto", `${spin.suppressed_events ?? 0} / ${spin.unclogging_events ?? 0} / ${spin.auto_unclogging_events ?? 0}`,
        `${(spin.total_interrupted_seconds ?? 0).toFixed(1)}s spindexer non-feeding`);
-  card("Flips during firing", `${flips.flips_during_firing ?? 0}/${flips.flip_count ?? 0}`,
-       `${(flips.flip_seconds_during_firing ?? 0).toFixed(1)}s in flip`);
-  card("Motivator → 0 during firing", drops.total_drops ?? 0);
 }
 
 function renderTimeline(match) {
