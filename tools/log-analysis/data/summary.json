@@ -4,7 +4,7 @@
       "file": "akit_26-04-17_14-54-34_micmp2_q32.wpilog",
       "stem": "akit_26-04-17_14-54-34_micmp2_q32",
       "duration_s": 339.61,
-      "parse_seconds": 3.57,
+      "parse_seconds": 3.37,
       "summaries": {
         "bps": {
           "firing_bps": 1.053,
@@ -161,7 +161,7 @@
       "file": "akit_26-04-17_15-25-45_micmp2_q36.wpilog",
       "stem": "akit_26-04-17_15-25-45_micmp2_q36",
       "duration_s": 373.16,
-      "parse_seconds": 3.39,
+      "parse_seconds": 3.26,
       "summaries": {
         "bps": {
           "firing_bps": 0.854,
@@ -318,7 +318,7 @@
       "file": "akit_26-04-17_16-21-55_micmp2_q43.wpilog",
       "stem": "akit_26-04-17_16-21-55_micmp2_q43",
       "duration_s": 442.54,
-      "parse_seconds": 3.62,
+      "parse_seconds": 3.52,
       "summaries": {
         "bps": {
           "firing_bps": 0.947,
@@ -475,7 +475,7 @@
       "file": "akit_26-04-17_18-08-32_micmp2_q49.wpilog",
       "stem": "akit_26-04-17_18-08-32_micmp2_q49",
       "duration_s": 295.51,
-      "parse_seconds": 2.73,
+      "parse_seconds": 2.83,
       "summaries": {
         "bps": {
           "firing_bps": 0.968,
@@ -632,7 +632,7 @@
       "file": "akit_26-04-17_18-52-14_micmp2_q55.wpilog",
       "stem": "akit_26-04-17_18-52-14_micmp2_q55",
       "duration_s": 374.92,
-      "parse_seconds": 3.19,
+      "parse_seconds": 3.1,
       "summaries": {
         "bps": {
           "firing_bps": 1.181,
@@ -789,7 +789,7 @@
       "file": "akit_26-04-17_20-10-07_micmp2_q65.wpilog",
       "stem": "akit_26-04-17_20-10-07_micmp2_q65",
       "duration_s": 317.29,
-      "parse_seconds": 2.47,
+      "parse_seconds": 2.25,
       "summaries": {
         "bps": {
           "firing_bps": 1.039,
@@ -933,7 +933,7 @@
       "file": "akit_26-04-17_20-42-53_micmp2_q69.wpilog",
       "stem": "akit_26-04-17_20-42-53_micmp2_q69",
       "duration_s": 302.76,
-      "parse_seconds": 3.4,
+      "parse_seconds": 2.67,
       "summaries": {
         "bps": {
           "firing_bps": 0.808,
@@ -1090,7 +1090,7 @@
       "file": "akit_26-04-17_21-21-07_micmp2_q74.wpilog",
       "stem": "akit_26-04-17_21-21-07_micmp2_q74",
       "duration_s": 273.77,
-      "parse_seconds": 2.56,
+      "parse_seconds": 2.65,
       "summaries": {
         "bps": {
           "firing_bps": 0.818,
@@ -1259,5 +1259,5 @@
     "velcomp_diagnostic",
     "zero_ball_firing"
   ],
-  "generated_at": "2026-04-19T20:42:53"
+  "generated_at": "2026-04-19T20:50:26"
 }
