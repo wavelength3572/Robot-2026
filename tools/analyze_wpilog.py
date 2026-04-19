@@ -96,7 +96,55 @@ def main() -> int:
     }
     (out_dir / "summary.json").write_text(json.dumps(fleet_out, default=_json_default, indent=2))
     print(f"\nWrote {len(fleet_rows)} match files + summary.json to {out_dir}")
+
+    # Build a single self-contained HTML the user can double-click to open,
+    # bypassing browsers' file:// CORS block on fetch().
+    try:
+        _write_standalone_html(out_dir, fleet_out)
+    except Exception as exc:
+        print(f"(standalone dashboard skipped: {exc})", file=sys.stderr)
+
     return 0
+
+
+def _write_standalone_html(out_dir: Path, fleet_out: dict) -> None:
+    """Emit tools/log-analysis/dashboard.html with CSS/JS/data all inlined."""
+    web_dir = out_dir.parent  # tools/log-analysis/
+    index_html = (web_dir / "index.html").read_text()
+    styles_css = (web_dir / "styles.css").read_text()
+    app_js = (web_dir / "app.js").read_text()
+    chartjs = (web_dir / "vendor" / "chart.umd.min.js").read_text()
+
+    # Gather every per-match JSON we just wrote
+    matches = {}
+    for match in fleet_out["matches"]:
+        match_path = out_dir / f"match_{match['stem']}.json"
+        if match_path.exists():
+            matches[match["stem"]] = json.loads(match_path.read_text())
+    bundle = {"summary": fleet_out, "matches": matches}
+    bundle_json = json.dumps(bundle, default=_json_default)
+
+    # Replace the three external resource references in index.html with inlined blocks.
+    html = index_html
+    # 1. The Chart.js <script src="vendor/...">  →  inline full library
+    html = html.replace(
+        '<script src="vendor/chart.umd.min.js"></script>',
+        f"<script>\n{chartjs}\n</script>",
+    )
+    # 2. The CSS <link ...>  →  inline <style>
+    html = html.replace(
+        '<link rel="stylesheet" href="styles.css" />',
+        f"<style>\n{styles_css}\n</style>",
+    )
+    # 3. The app <script src="app.js">  →  prepend embedded data, then inline the app
+    data_block = f'<script>window.WPILOG_DATA = {bundle_json};</script>'
+    app_block = f"<script>\n{app_js}\n</script>"
+    html = html.replace('<script src="app.js"></script>', data_block + "\n" + app_block)
+
+    dashboard_path = web_dir / "dashboard.html"
+    dashboard_path.write_text(html)
+    size_mb = dashboard_path.stat().st_size / (1024 * 1024)
+    print(f"Wrote standalone dashboard: {dashboard_path}  ({size_mb:.1f} MB, double-click to open)")
 
 
 def _json_default(o):

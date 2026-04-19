@@ -56,8 +56,14 @@ const state = {
 // --- Boot ---
 
 async function boot() {
-  const res = await fetch("data/summary.json");
-  state.summary = await res.json();
+  // If the page embedded data inline (standalone dashboard.html), use it.
+  // Otherwise fetch from ./data/ (dev mode with a local HTTP server).
+  if (window.WPILOG_DATA && window.WPILOG_DATA.summary) {
+    state.summary = window.WPILOG_DATA.summary;
+  } else {
+    const res = await fetch("data/summary.json");
+    state.summary = await res.json();
+  }
   document.getElementById("generated-at").textContent =
     "generated " + state.summary.generated_at;
 
@@ -453,8 +459,12 @@ async function loadMatch(stem) {
   if (state.currentMatch?.stem === stem) return;
   let match = state.matchCache.get(stem);
   if (!match) {
-    const res = await fetch(`data/match_${stem}.json`);
-    match = await res.json();
+    if (window.WPILOG_DATA && window.WPILOG_DATA.matches && window.WPILOG_DATA.matches[stem]) {
+      match = window.WPILOG_DATA.matches[stem];
+    } else {
+      const res = await fetch(`data/match_${stem}.json`);
+      match = await res.json();
+    }
     state.matchCache.set(stem, match);
   }
   state.currentMatch = match;
