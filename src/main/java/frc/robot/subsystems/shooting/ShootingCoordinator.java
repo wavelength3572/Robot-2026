@@ -116,6 +116,14 @@ public class ShootingCoordinator extends SubsystemBase {
   private static final LoggedTunableNumber velocityCompMaxDivergenceDeg =
       new LoggedTunableNumber("Shots/VelocityComp/MaxDivergenceDeg", 20.0);
 
+  // Geo-fenced passing: replaces iterative velcomp + divergence gate for PASS/LONG_PASS.
+  // When enabled, uses single-pass lead correction and a predicted-landing-point safety check
+  // instead of the 20-degree divergence gate that blocks 50% of passes.
+  private static final LoggedTunableNumber geoFencePassEnabled =
+      new LoggedTunableNumber("Shots/GeoFencePass/Enabled", 1.0); // 1.0 = enabled
+  private static final LoggedTunableNumber geoFenceMarginM =
+      new LoggedTunableNumber("Shots/GeoFencePass/MarginM", 0.5);
+
   // ========== Coordinator-computed fields (derived from strategy + geometry) ==========
   // These are computed after the strategy returns and exposed via getters.
   private double currentTurretAngleDeg = 0.0;
@@ -123,6 +131,12 @@ public class ShootingCoordinator extends SubsystemBase {
   private double currentExitVelocityMps = 0.0;
   private boolean currentShotAchievable = true;
   private double currentDivergenceDeg = 0.0;
+  // Geo-fence pass state (logged each cycle when geo-fence mode is active)
+  private boolean geoFenceActive = false; // true when geo-fence mode was used this cycle
+  private boolean geoFenceResult = false;
+  private String geoFenceReason = "";
+  private double predictedLandingX = 0.0;
+  private double predictedLandingY = 0.0;
 
   // Visualizer (created during initialize)
   private ShotVisualizer visualizer = null;
@@ -922,6 +936,11 @@ public class ShootingCoordinator extends SubsystemBase {
   /**
    * Calculate and apply pass shot with an optional peak height override.
    *
+   * <p>When geo-fence pass mode is enabled, replaces the iterative velocity compensation and 20-deg
+   * divergence gate with a single-pass open-loop lead correction and a predicted-landing-point
+   * safety check. This dramatically improves pass reliability (the divergence gate blocked ~50% of
+   * passes due to long TOF amplifying solver error).
+   *
    * @param peakHeightIn Peak height in inches, or -1 to use the strategy's default
    */
   private void calculatePassToTarget(
@@ -942,38 +961,62 @@ public class ShootingCoordinator extends SubsystemBase {
     target = applyTurretTrim(target, turretX, turretY);
     rawTarget = target;
 
-    // Velocity compensation for passes: iterative refinement (3 passes, same as hub shots)
+    boolean useGeoFence = geoFencePassEnabled.get() >= 1.0;
+    geoFenceActive = useGeoFence;
+
     double robotSpeed = Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
     compensatedAimTarget = target;
     double passContractionRate = -1.0;
 
-    if (robotSpeed > 0.1) {
-      double prevCorrectionDist = 0.0;
-      for (int i = 0; i < 3; i++) {
-        double dist =
-            Math.hypot(
-                compensatedAimTarget.getX() - turretX, compensatedAimTarget.getY() - turretY);
-        ShotCalculator.ShotResult iterShot =
-            peakHeightIn > 0
-                ? fixedHeightPassStrategy.calculateShot(dist, peakHeightIn)
-                : fixedHeightPassStrategy.calculateShot(dist);
-        double exitVel = fixedHeightPassStrategy.estimateExitVelocity(iterShot.launcherRPM(), dist);
-        double launchAngle = iterShot.launchAngleRad();
-        double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, dist);
-        if (tof <= 0 || tof >= Double.MAX_VALUE) break;
-        Translation2d prevAim =
-            new Translation2d(compensatedAimTarget.getX(), compensatedAimTarget.getY());
+    if (useGeoFence) {
+      // --- Geo-fence mode: single-pass open-loop lead ---
+      // Step 1: compute shot at static target to get TOF estimate
+      double staticDist = Math.hypot(target.getX() - turretX, target.getY() - turretY);
+      ShotCalculator.ShotResult staticShot =
+          peakHeightIn > 0
+              ? fixedHeightPassStrategy.calculateShot(staticDist, peakHeightIn)
+              : fixedHeightPassStrategy.calculateShot(staticDist);
+      double exitVel =
+          fixedHeightPassStrategy.estimateExitVelocity(staticShot.launcherRPM(), staticDist);
+      double launchAngle = staticShot.launchAngleRad();
+      double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, staticDist);
+
+      // Step 2: single-pass lead correction — shift aim by robot_velocity * TOF
+      if (robotSpeed > 0.1 && tof > 0 && tof < Double.MAX_VALUE) {
         compensatedAimTarget = predictTargetPos(target, fieldSpeeds, tof);
-        double correctionDist =
-            prevAim.getDistance(
-                new Translation2d(compensatedAimTarget.getX(), compensatedAimTarget.getY()));
-        if (i > 0 && prevCorrectionDist > 0.001) {
-          passContractionRate = correctionDist / prevCorrectionDist;
+      }
+    } else {
+      // --- Legacy mode: iterative 3-pass velocity compensation ---
+      if (robotSpeed > 0.1) {
+        double prevCorrectionDist = 0.0;
+        for (int i = 0; i < 3; i++) {
+          double dist =
+              Math.hypot(
+                  compensatedAimTarget.getX() - turretX, compensatedAimTarget.getY() - turretY);
+          ShotCalculator.ShotResult iterShot =
+              peakHeightIn > 0
+                  ? fixedHeightPassStrategy.calculateShot(dist, peakHeightIn)
+                  : fixedHeightPassStrategy.calculateShot(dist);
+          double exitVel =
+              fixedHeightPassStrategy.estimateExitVelocity(iterShot.launcherRPM(), dist);
+          double launchAngle = iterShot.launchAngleRad();
+          double tof = ShotCalculator.calculateTimeOfFlight(exitVel, launchAngle, dist);
+          if (tof <= 0 || tof >= Double.MAX_VALUE) break;
+          Translation2d prevAim =
+              new Translation2d(compensatedAimTarget.getX(), compensatedAimTarget.getY());
+          compensatedAimTarget = predictTargetPos(target, fieldSpeeds, tof);
+          double correctionDist =
+              prevAim.getDistance(
+                  new Translation2d(compensatedAimTarget.getX(), compensatedAimTarget.getY()));
+          if (i > 0 && prevCorrectionDist > 0.001) {
+            passContractionRate = correctionDist / prevCorrectionDist;
+          }
+          prevCorrectionDist = correctionDist;
         }
-        prevCorrectionDist = correctionDist;
       }
     }
 
+    // Compute final shot at the (possibly lead-corrected) aim target
     double horizontalDist =
         Math.hypot(compensatedAimTarget.getX() - turretX, compensatedAimTarget.getY() - turretY);
 
@@ -1000,15 +1043,140 @@ public class ShootingCoordinator extends SubsystemBase {
             turret.getMaxAngle(),
             turretConfig);
 
-    // Achievability — flag if velocity compensation diverged too far
-    double staticAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
-    double compAngle =
-        Math.atan2(compensatedAimTarget.getY() - turretY, compensatedAimTarget.getX() - turretX);
-    double divergenceDeg = Math.abs(Math.toDegrees(staticAngle - compAngle));
-    if (divergenceDeg > 180) divergenceDeg = 360 - divergenceDeg;
-    currentDivergenceDeg = divergenceDeg;
-    currentShotAchievable = divergenceDeg <= velocityCompMaxDivergenceDeg.get();
+    if (useGeoFence) {
+      // --- Geo-fence achievability: predict landing point, check safe zone ---
+      Translation2d landing =
+          predictBallLanding(turretX, turretY, fieldSpeeds, currentShot, currentExitVelocityMps);
+      predictedLandingX = landing.getX();
+      predictedLandingY = landing.getY();
+
+      boolean isBlue =
+          DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
+              == DriverStation.Alliance.Blue;
+      String[] reasonOut = new String[1];
+      geoFenceResult = isInsideGeoFence(landing, isBlue, geoFenceMarginM.get(), reasonOut);
+      geoFenceReason = reasonOut[0];
+      currentShotAchievable = geoFenceResult;
+      currentDivergenceDeg = 0.0; // not applicable in geo-fence mode
+
+      Logger.recordOutput("SmartLaunch/Pass/PredictedLandingX", predictedLandingX);
+      Logger.recordOutput("SmartLaunch/Pass/PredictedLandingY", predictedLandingY);
+      Logger.recordOutput("SmartLaunch/Pass/GeoFencePass", geoFenceResult);
+      Logger.recordOutput("SmartLaunch/Pass/FenceReason", geoFenceReason);
+    } else {
+      // --- Legacy achievability: divergence gate ---
+      geoFenceActive = false;
+      geoFenceResult = false;
+      geoFenceReason = "";
+      double staticAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
+      double compAngle =
+          Math.atan2(
+              compensatedAimTarget.getY() - turretY, compensatedAimTarget.getX() - turretX);
+      double divergenceDeg = Math.abs(Math.toDegrees(staticAngle - compAngle));
+      if (divergenceDeg > 180) divergenceDeg = 360 - divergenceDeg;
+      currentDivergenceDeg = divergenceDeg;
+      currentShotAchievable = divergenceDeg <= velocityCompMaxDivergenceDeg.get();
+    }
     Logger.recordOutput("SmartLaunch/VelocityComp/PassContractionRate", passContractionRate);
+  }
+
+  /**
+   * Predict where a launched ball will land (z=0) using vacuum ballistics. Combines the ball's
+   * launch velocity (from turret aim direction + shot parameters) with the robot's field velocity.
+   *
+   * @param turretX Turret field X position
+   * @param turretY Turret field Y position
+   * @param fieldSpeeds Robot's field-relative chassis speeds
+   * @param shot Current shot parameters (for hood angle → launch angle)
+   * @param exitVelocityMps Ball exit velocity in m/s
+   * @return Predicted landing point in field coordinates
+   */
+  private Translation2d predictBallLanding(
+      double turretX,
+      double turretY,
+      ChassisSpeeds fieldSpeeds,
+      ShotCalculator.ShotResult shot,
+      double exitVelocityMps) {
+
+    double launchAngle = shot.launchAngleRad();
+    double vBallHorizontal = exitVelocityMps * Math.cos(launchAngle);
+    double vBallVertical = exitVelocityMps * Math.sin(launchAngle);
+
+    // Aim direction: turret → compensated aim target (2D, normalized)
+    double dx = compensatedAimTarget.getX() - turretX;
+    double dy = compensatedAimTarget.getY() - turretY;
+    double aimDist = Math.hypot(dx, dy);
+    if (aimDist < 0.001) {
+      return new Translation2d(turretX, turretY); // degenerate — turret on target
+    }
+    double aimDirX = dx / aimDist;
+    double aimDirY = dy / aimDist;
+
+    // Total horizontal velocity = ball horizontal (in aim direction) + robot velocity
+    double vTotalX = vBallHorizontal * aimDirX + fieldSpeeds.vxMetersPerSecond;
+    double vTotalY = vBallHorizontal * aimDirY + fieldSpeeds.vyMetersPerSecond;
+
+    // Time to land (z=0), launching from turret height h0
+    // h0 + vz*t - 0.5*g*t^2 = 0  →  t = (vz + sqrt(vz^2 + 2*g*h0)) / g
+    double h0 = turretConfig.heightMeters();
+    double discriminant = vBallVertical * vBallVertical + 2.0 * ShotCalculator.GRAVITY * h0;
+    if (discriminant < 0) {
+      return new Translation2d(turretX, turretY); // can't reach ground (shouldn't happen)
+    }
+    double tLand = (vBallVertical + Math.sqrt(discriminant)) / ShotCalculator.GRAVITY;
+
+    return new Translation2d(turretX + vTotalX * tLand, turretY + vTotalY * tLand);
+  }
+
+  /**
+   * Check if a predicted landing point is inside the geo-fence safe zone. The safe zone is the
+   * alliance zone rectangle shrunk inward by the specified margin.
+   *
+   * @param landing Predicted landing point in field coordinates
+   * @param isBlueAlliance True if blue alliance (affects X bounds)
+   * @param margin Safety margin in meters (shrinks the zone inward)
+   * @param reasonOut Single-element array; receives the reason string on failure, "ok" on success
+   * @return True if landing is inside the safe zone
+   */
+  private static boolean isInsideGeoFence(
+      Translation2d landing, boolean isBlueAlliance, double margin, String[] reasonOut) {
+
+    double x = landing.getX();
+    double y = landing.getY();
+
+    // X bounds (alliance-dependent)
+    double minX, maxX;
+    if (isBlueAlliance) {
+      minX = FieldConstants.PassSafeZone.blueMinX + margin;
+      maxX = FieldConstants.PassSafeZone.blueMaxX - margin;
+    } else {
+      // Red: mirror across field center
+      minX = FieldConstants.fieldLength - FieldConstants.PassSafeZone.blueMaxX + margin;
+      maxX = FieldConstants.fieldLength - FieldConstants.PassSafeZone.blueMinX - margin;
+    }
+
+    // Y bounds (same for both alliances)
+    double minY = FieldConstants.PassSafeZone.minY + margin;
+    double maxY = FieldConstants.PassSafeZone.maxY - margin;
+
+    if (x < minX) {
+      reasonOut[0] = String.format("x=%.1f < minX=%.1f (behind wall)", x, minX);
+      return false;
+    }
+    if (x > maxX) {
+      reasonOut[0] = String.format("x=%.1f > maxX=%.1f (past zone)", x, maxX);
+      return false;
+    }
+    if (y < minY) {
+      reasonOut[0] = String.format("y=%.1f < minY=%.1f (off right side)", y, minY);
+      return false;
+    }
+    if (y > maxY) {
+      reasonOut[0] = String.format("y=%.1f > maxY=%.1f (off left side)", y, maxY);
+      return false;
+    }
+    reasonOut[0] = "ok";
+    return true;
   }
 
   /**
@@ -1110,7 +1278,29 @@ public class ShootingCoordinator extends SubsystemBase {
             turret.getMaxAngle(),
             turretConfig);
 
-    currentShotAchievable = true;
+    // Waypoint pass already uses single-pass velcomp (no iteration, no divergence gate).
+    // Log geo-fence signals for consistency — predict landing and check safe zone.
+    geoFenceActive = geoFencePassEnabled.get() >= 1.0;
+    if (geoFenceActive) {
+      Translation2d landing =
+          predictBallLanding(turretX, turretY, fieldSpeeds, currentShot, currentExitVelocityMps);
+      predictedLandingX = landing.getX();
+      predictedLandingY = landing.getY();
+      boolean isBlue =
+          DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
+              == DriverStation.Alliance.Blue;
+      String[] reasonOut = new String[1];
+      geoFenceResult = isInsideGeoFence(landing, isBlue, geoFenceMarginM.get(), reasonOut);
+      geoFenceReason = reasonOut[0];
+      currentShotAchievable = geoFenceResult;
+
+      Logger.recordOutput("SmartLaunch/Pass/PredictedLandingX", predictedLandingX);
+      Logger.recordOutput("SmartLaunch/Pass/PredictedLandingY", predictedLandingY);
+      Logger.recordOutput("SmartLaunch/Pass/GeoFencePass", geoFenceResult);
+      Logger.recordOutput("SmartLaunch/Pass/FenceReason", geoFenceReason);
+    } else {
+      currentShotAchievable = true;
+    }
   }
 
   // ========== Shot State Logging ==========
@@ -2060,10 +2250,14 @@ public class ShootingCoordinator extends SubsystemBase {
       if (!hoodReady) blocking.append("hood ");
       if (!shotExists) blocking.append("no_shot ");
       if (!velCompOk) {
-        blocking.append(
-            String.format(
-                "velcomp(%.1f/%.0fdeg) ",
-                currentDivergenceDeg, velocityCompMaxDivergenceDeg.get()));
+        if (geoFenceActive) {
+          blocking.append(String.format("geofence(%s) ", geoFenceReason));
+        } else {
+          blocking.append(
+              String.format(
+                  "velcomp(%.1f/%.0fdeg) ",
+                  currentDivergenceDeg, velocityCompMaxDivergenceDeg.get()));
+        }
       }
       if (!speedOk) blocking.append("speed ");
       loggedBlocking = blocking.length() > 0 ? blocking.toString().trim() : "none";
