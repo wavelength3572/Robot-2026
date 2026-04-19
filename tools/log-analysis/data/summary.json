@@ -4,7 +4,7 @@
       "file": "akit_26-04-17_14-54-34_micmp2_q32.wpilog",
       "stem": "akit_26-04-17_14-54-34_micmp2_q32",
       "duration_s": 339.61,
-      "parse_seconds": 3.41,
+      "parse_seconds": 1.96,
       "summaries": {
         "bps": {
           "firing_bps": 1.053,
@@ -131,6 +131,19 @@
           "flip_seconds_during_firing": 5.36,
           "longest_flip_s": 0.86
         },
+        "velcomp_diagnostic": {
+          "pass_intervals_examined": 8,
+          "count_high_tof": 8,
+          "count_not_converging": 0,
+          "count_stuck_residual": 0,
+          "count_oscillating": 0,
+          "count_converging": 0,
+          "count_mixed": 0,
+          "mean_divergence_deg_overall": 18.58,
+          "mean_pass_contraction_overall": 0.066,
+          "fired_intervals": 1,
+          "zero_ball_intervals": 7
+        },
         "zero_ball_firing": {
           "zero_ball_intervals": 12,
           "cause_too_short": 5,
@@ -148,7 +161,7 @@
       "file": "akit_26-04-17_15-25-45_micmp2_q36.wpilog",
       "stem": "akit_26-04-17_15-25-45_micmp2_q36",
       "duration_s": 373.16,
-      "parse_seconds": 3.58,
+      "parse_seconds": 2.36,
       "summaries": {
         "bps": {
           "firing_bps": 0.854,
@@ -275,6 +288,19 @@
           "flip_seconds_during_firing": 4.55,
           "longest_flip_s": 0.88
         },
+        "velcomp_diagnostic": {
+          "pass_intervals_examined": 8,
+          "count_high_tof": 8,
+          "count_not_converging": 0,
+          "count_stuck_residual": 0,
+          "count_oscillating": 0,
+          "count_converging": 0,
+          "count_mixed": 0,
+          "mean_divergence_deg_overall": 23.28,
+          "mean_pass_contraction_overall": 0.022,
+          "fired_intervals": 3,
+          "zero_ball_intervals": 5
+        },
         "zero_ball_firing": {
           "zero_ball_intervals": 9,
           "cause_too_short": 3,
@@ -292,7 +318,7 @@
       "file": "akit_26-04-17_16-21-55_micmp2_q43.wpilog",
       "stem": "akit_26-04-17_16-21-55_micmp2_q43",
       "duration_s": 442.54,
-      "parse_seconds": 3.92,
+      "parse_seconds": 2.53,
       "summaries": {
         "bps": {
           "firing_bps": 0.947,
@@ -419,6 +445,19 @@
           "flip_seconds_during_firing": 2.92,
           "longest_flip_s": 0.9
         },
+        "velcomp_diagnostic": {
+          "pass_intervals_examined": 5,
+          "count_high_tof": 5,
+          "count_not_converging": 0,
+          "count_stuck_residual": 0,
+          "count_oscillating": 0,
+          "count_converging": 0,
+          "count_mixed": 0,
+          "mean_divergence_deg_overall": 27.2,
+          "mean_pass_contraction_overall": 0.044,
+          "fired_intervals": 0,
+          "zero_ball_intervals": 5
+        },
         "zero_ball_firing": {
           "zero_ball_intervals": 7,
           "cause_too_short": 0,
@@ -436,7 +475,7 @@
       "file": "akit_26-04-17_18-08-32_micmp2_q49.wpilog",
       "stem": "akit_26-04-17_18-08-32_micmp2_q49",
       "duration_s": 295.51,
-      "parse_seconds": 3.09,
+      "parse_seconds": 1.83,
       "summaries": {
         "bps": {
           "firing_bps": 0.968,
@@ -563,6 +602,19 @@
           "flip_seconds_during_firing": 8.32,
           "longest_flip_s": 0.9
         },
+        "velcomp_diagnostic": {
+          "pass_intervals_examined": 6,
+          "count_high_tof": 6,
+          "count_not_converging": 0,
+          "count_stuck_residual": 0,
+          "count_oscillating": 0,
+          "count_converging": 0,
+          "count_mixed": 0,
+          "mean_divergence_deg_overall": 9.05,
+          "mean_pass_contraction_overall": -0.02,
+          "fired_intervals": 1,
+          "zero_ball_intervals": 5
+        },
         "zero_ball_firing": {
           "zero_ball_intervals": 15,
           "cause_too_short": 7,
@@ -580,7 +632,7 @@
       "file": "akit_26-04-17_18-52-14_micmp2_q55.wpilog",
       "stem": "akit_26-04-17_18-52-14_micmp2_q55",
       "duration_s": 374.92,
-      "parse_seconds": 3.05,
+      "parse_seconds": 2.02,
       "summaries": {
         "bps": {
           "firing_bps": 1.181,
@@ -707,6 +759,19 @@
           "flip_seconds_during_firing": 6.61,
           "longest_flip_s": 1.08
         },
+        "velcomp_diagnostic": {
+          "pass_intervals_examined": 11,
+          "count_high_tof": 11,
+          "count_not_converging": 0,
+          "count_stuck_residual": 0,
+          "count_oscillating": 0,
+          "count_converging": 0,
+          "count_mixed": 0,
+          "mean_divergence_deg_overall": 15.34,
+          "mean_pass_contraction_overall": -0.006,
+          "fired_intervals": 3,
+          "zero_ball_intervals": 8
+        },
         "zero_ball_firing": {
           "zero_ball_intervals": 12,
           "cause_too_short": 3,
@@ -724,7 +789,7 @@
       "file": "akit_26-04-17_20-10-07_micmp2_q65.wpilog",
       "stem": "akit_26-04-17_20-10-07_micmp2_q65",
       "duration_s": 317.29,
-      "parse_seconds": 2.29,
+      "parse_seconds": 1.52,
       "summaries": {
         "bps": {
           "firing_bps": 1.039,
@@ -842,6 +907,15 @@
           "flip_seconds_during_firing": 0.29,
           "longest_flip_s": 0.29
         },
+        "velcomp_diagnostic": {
+          "pass_intervals_examined": 0,
+          "count_high_tof": 0,
+          "count_not_converging": 0,
+          "count_stuck_residual": 0,
+          "count_oscillating": 0,
+          "count_converging": 0,
+          "count_mixed": 0
+        },
         "zero_ball_firing": {
           "zero_ball_intervals": 0,
           "cause_too_short": 0,
@@ -859,7 +933,7 @@
       "file": "akit_26-04-17_20-42-53_micmp2_q69.wpilog",
       "stem": "akit_26-04-17_20-42-53_micmp2_q69",
       "duration_s": 302.76,
-      "parse_seconds": 2.73,
+      "parse_seconds": 1.83,
       "summaries": {
         "bps": {
           "firing_bps": 0.808,
@@ -986,6 +1060,19 @@
           "flip_seconds_during_firing": 1.04,
           "longest_flip_s": 0.78
         },
+        "velcomp_diagnostic": {
+          "pass_intervals_examined": 9,
+          "count_high_tof": 9,
+          "count_not_converging": 0,
+          "count_stuck_residual": 0,
+          "count_oscillating": 0,
+          "count_converging": 0,
+          "count_mixed": 0,
+          "mean_divergence_deg_overall": 23.2,
+          "mean_pass_contraction_overall": 0.0,
+          "fired_intervals": 2,
+          "zero_ball_intervals": 7
+        },
         "zero_ball_firing": {
           "zero_ball_intervals": 12,
           "cause_too_short": 5,
@@ -1003,7 +1090,7 @@
       "file": "akit_26-04-17_21-21-07_micmp2_q74.wpilog",
       "stem": "akit_26-04-17_21-21-07_micmp2_q74",
       "duration_s": 273.77,
-      "parse_seconds": 2.49,
+      "parse_seconds": 1.74,
       "summaries": {
         "bps": {
           "firing_bps": 0.818,
@@ -1130,6 +1217,19 @@
           "flip_seconds_during_firing": 5.81,
           "longest_flip_s": 1.04
         },
+        "velcomp_diagnostic": {
+          "pass_intervals_examined": 10,
+          "count_high_tof": 10,
+          "count_not_converging": 0,
+          "count_stuck_residual": 0,
+          "count_oscillating": 0,
+          "count_converging": 0,
+          "count_mixed": 0,
+          "mean_divergence_deg_overall": 27.29,
+          "mean_pass_contraction_overall": 0.066,
+          "fired_intervals": 2,
+          "zero_ball_intervals": 8
+        },
         "zero_ball_firing": {
           "zero_ball_intervals": 13,
           "cause_too_short": 5,
@@ -1156,7 +1256,8 @@
     "slugs",
     "spindexer_events",
     "turret_flips",
+    "velcomp_diagnostic",
     "zero_ball_firing"
   ],
-  "generated_at": "2026-04-19T19:55:34"
+  "generated_at": "2026-04-19T20:07:26"
 }
