@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WPILog Analysis — Robot 2026</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>WPILog Analysis</h1>
+    <nav>
+      <button id="nav-fleet" class="active">Fleet</button>
+      <button id="nav-match">Match</button>
+      <select id="match-picker"></select>
+      <span class="spacer"></span>
+      <span id="generated-at"></span>
+    </nav>
+  </header>
+
+  <main id="fleet-view">
+    <section class="card-row">
+      <div class="card">
+        <h3>Matches loaded</h3>
+        <div class="big" id="stat-match-count">—</div>
+      </div>
+      <div class="card">
+        <h3>Avg active BPS</h3>
+        <div class="big" id="stat-avg-active-bps">—</div>
+        <div class="sub">balls ÷ time actually at setpoint</div>
+      </div>
+      <div class="card">
+        <h3>Avg firing BPS</h3>
+        <div class="big" id="stat-avg-firing-bps">—</div>
+        <div class="sub">balls ÷ total FIRING time</div>
+      </div>
+      <div class="card">
+        <h3>Flips during firing</h3>
+        <div class="big" id="stat-flips-firing">—</div>
+      </div>
+      <div class="card">
+        <h3>Jam events</h3>
+        <div class="big" id="stat-jams">—</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Per-match summary</h2>
+      <div class="table-scroll">
+        <table id="fleet-table">
+          <thead><tr></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Across matches</h2>
+      <div class="chart-grid">
+        <div class="chart-box"><canvas id="chart-bps"></canvas></div>
+        <div class="chart-box"><canvas id="chart-flips"></canvas></div>
+        <div class="chart-box"><canvas id="chart-causes"></canvas></div>
+      </div>
+    </section>
+  </main>
+
+  <main id="match-view" hidden>
+    <section class="card-row" id="match-summary-cards"></section>
+
+    <section class="card">
+      <h2 id="match-title">—</h2>
+      <div class="timeline-wrap">
+        <canvas id="timeline-main"></canvas>
+      </div>
+      <div class="legend" id="timeline-legend"></div>
+    </section>
+
+    <section class="two-col">
+      <div class="card">
+        <h2>Events</h2>
+        <div class="event-filter">
+          <label><input type="checkbox" value="jams" checked />Jams</label>
+          <label><input type="checkbox" value="turret_flips" checked />Turret flips</label>
+          <label><input type="checkbox" value="motivator_zero_cause" checked />Motivator→0</label>
+          <label><input type="checkbox" value="firing_intervals" />Firing intervals</label>
+          <label><input type="checkbox" value="bps" />BPS intervals</label>
+        </div>
+        <div class="event-list" id="event-list"></div>
+      </div>
+      <div class="card">
+        <h2>Inspector</h2>
+        <div id="inspector">Click an event to see detail.</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

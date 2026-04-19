@@ -1,0 +1,453 @@
+{
+  "matches": [
+    {
+      "file": "akit_26-04-17_14-54-34_micmp2_q32.wpilog",
+      "stem": "akit_26-04-17_14-54-34_micmp2_q32",
+      "duration_s": 339.61,
+      "parse_seconds": 1.83,
+      "summaries": {
+        "bps": {
+          "active_bps": 2.261,
+          "firing_bps": 1.053,
+          "peak_2s_bps": 3.5,
+          "balls_during_firing": 100,
+          "firing_seconds": 94.94,
+          "active_firing_seconds": 44.23
+        },
+        "firing_intervals": {
+          "firing_intervals": 17,
+          "firing_seconds_total": 94.94,
+          "active_firing_seconds_total": 44.23,
+          "shots_during_firing": 0
+        },
+        "jams": {
+          "jam_events": 0,
+          "jam_seconds_total": 0.0,
+          "longest_jam_s": 0.0
+        },
+        "match_summary": {
+          "duration_s": 339.61,
+          "record_count": 1073465,
+          "total_shots": 0,
+          "auto_shots": 0,
+          "teleop_shots": 0,
+          "median_distance_m": 3.33,
+          "max_distance_m": 10.62
+        },
+        "motivator_zero_cause": {
+          "total_drops": 6,
+          "cause_operator_release": 0,
+          "cause_turret_flipping": 1,
+          "cause_speed_gate": 0,
+          "cause_not_achievable": 0,
+          "cause_spindexer_suppressed": 0,
+          "cause_spindexer_stopped": 5,
+          "cause_no_fire_zone": 0,
+          "cause_settling": 0,
+          "cause_unknown": 0
+        },
+        "turret_flips": {
+          "flip_count": 14,
+          "flips_during_firing": 7,
+          "flip_seconds_total": 7.78,
+          "flip_seconds_during_firing": 5.36,
+          "longest_flip_s": 0.86
+        }
+      }
+    },
+    {
+      "file": "akit_26-04-17_15-25-45_micmp2_q36.wpilog",
+      "stem": "akit_26-04-17_15-25-45_micmp2_q36",
+      "duration_s": 373.16,
+      "parse_seconds": 3.75,
+      "summaries": {
+        "bps": {
+          "active_bps": 1.462,
+          "firing_bps": 0.854,
+          "peak_2s_bps": 3.5,
+          "balls_during_firing": 79,
+          "firing_seconds": 92.46,
+          "active_firing_seconds": 54.03
+        },
+        "firing_intervals": {
+          "firing_intervals": 17,
+          "firing_seconds_total": 92.46,
+          "active_firing_seconds_total": 54.03,
+          "shots_during_firing": 0
+        },
+        "jams": {
+          "jam_events": 1,
+          "jam_seconds_total": 1.32,
+          "longest_jam_s": 1.32
+        },
+        "match_summary": {
+          "duration_s": 373.16,
+          "record_count": 1156799,
+          "total_shots": 0,
+          "auto_shots": 0,
+          "teleop_shots": 0,
+          "median_distance_m": 3.72,
+          "max_distance_m": 8.7
+        },
+        "motivator_zero_cause": {
+          "total_drops": 2,
+          "cause_operator_release": 0,
+          "cause_turret_flipping": 0,
+          "cause_speed_gate": 0,
+          "cause_not_achievable": 1,
+          "cause_spindexer_suppressed": 0,
+          "cause_spindexer_stopped": 1,
+          "cause_no_fire_zone": 0,
+          "cause_settling": 0,
+          "cause_unknown": 0
+        },
+        "turret_flips": {
+          "flip_count": 19,
+          "flips_during_firing": 12,
+          "flip_seconds_total": 7.17,
+          "flip_seconds_during_firing": 4.55,
+          "longest_flip_s": 0.88
+        }
+      }
+    },
+    {
+      "file": "akit_26-04-17_16-21-55_micmp2_q43.wpilog",
+      "stem": "akit_26-04-17_16-21-55_micmp2_q43",
+      "duration_s": 442.54,
+      "parse_seconds": 4.17,
+      "summaries": {
+        "bps": {
+          "active_bps": 1.877,
+          "firing_bps": 0.947,
+          "peak_2s_bps": 4.0,
+          "balls_during_firing": 91,
+          "firing_seconds": 96.11,
+          "active_firing_seconds": 48.47
+        },
+        "firing_intervals": {
+          "firing_intervals": 13,
+          "firing_seconds_total": 96.11,
+          "active_firing_seconds_total": 48.47,
+          "shots_during_firing": 0
+        },
+        "jams": {
+          "jam_events": 0,
+          "jam_seconds_total": 0.0,
+          "longest_jam_s": 0.0
+        },
+        "match_summary": {
+          "duration_s": 442.54,
+          "record_count": 1290159,
+          "total_shots": 0,
+          "auto_shots": 0,
+          "teleop_shots": 0,
+          "median_distance_m": 3.74,
+          "max_distance_m": 8.5
+        },
+        "motivator_zero_cause": {
+          "total_drops": 3,
+          "cause_operator_release": 0,
+          "cause_turret_flipping": 0,
+          "cause_speed_gate": 0,
+          "cause_not_achievable": 0,
+          "cause_spindexer_suppressed": 0,
+          "cause_spindexer_stopped": 3,
+          "cause_no_fire_zone": 0,
+          "cause_settling": 0,
+          "cause_unknown": 0
+        },
+        "turret_flips": {
+          "flip_count": 20,
+          "flips_during_firing": 6,
+          "flip_seconds_total": 8.92,
+          "flip_seconds_during_firing": 2.92,
+          "longest_flip_s": 0.9
+        }
+      }
+    },
+    {
+      "file": "akit_26-04-17_18-08-32_micmp2_q49.wpilog",
+      "stem": "akit_26-04-17_18-08-32_micmp2_q49",
+      "duration_s": 295.51,
+      "parse_seconds": 2.87,
+      "summaries": {
+        "bps": {
+          "active_bps": 1.976,
+          "firing_bps": 0.968,
+          "peak_2s_bps": 3.5,
+          "balls_during_firing": 65,
+          "firing_seconds": 67.17,
+          "active_firing_seconds": 32.89
+        },
+        "firing_intervals": {
+          "firing_intervals": 23,
+          "firing_seconds_total": 67.17,
+          "active_firing_seconds_total": 32.89,
+          "shots_during_firing": 0
+        },
+        "jams": {
+          "jam_events": 0,
+          "jam_seconds_total": 0.0,
+          "longest_jam_s": 0.0
+        },
+        "match_summary": {
+          "duration_s": 295.51,
+          "record_count": 982292,
+          "total_shots": 0,
+          "auto_shots": 0,
+          "teleop_shots": 0,
+          "median_distance_m": 4.34,
+          "max_distance_m": 13.87
+        },
+        "motivator_zero_cause": {
+          "total_drops": 3,
+          "cause_operator_release": 0,
+          "cause_turret_flipping": 0,
+          "cause_speed_gate": 0,
+          "cause_not_achievable": 1,
+          "cause_spindexer_suppressed": 0,
+          "cause_spindexer_stopped": 2,
+          "cause_no_fire_zone": 0,
+          "cause_settling": 0,
+          "cause_unknown": 0
+        },
+        "turret_flips": {
+          "flip_count": 36,
+          "flips_during_firing": 15,
+          "flip_seconds_total": 17.33,
+          "flip_seconds_during_firing": 8.32,
+          "longest_flip_s": 0.9
+        }
+      }
+    },
+    {
+      "file": "akit_26-04-17_18-52-14_micmp2_q55.wpilog",
+      "stem": "akit_26-04-17_18-52-14_micmp2_q55",
+      "duration_s": 374.92,
+      "parse_seconds": 3.4,
+      "summaries": {
+        "bps": {
+          "active_bps": 2.181,
+          "firing_bps": 1.181,
+          "peak_2s_bps": 3.5,
+          "balls_during_firing": 96,
+          "firing_seconds": 81.32,
+          "active_firing_seconds": 44.02
+        },
+        "firing_intervals": {
+          "firing_intervals": 20,
+          "firing_seconds_total": 81.32,
+          "active_firing_seconds_total": 44.02,
+          "shots_during_firing": 0
+        },
+        "jams": {
+          "jam_events": 0,
+          "jam_seconds_total": 0.0,
+          "longest_jam_s": 0.0
+        },
+        "match_summary": {
+          "duration_s": 374.92,
+          "record_count": 1112985,
+          "total_shots": 0,
+          "auto_shots": 0,
+          "teleop_shots": 0,
+          "median_distance_m": 4.2,
+          "max_distance_m": 13.57
+        },
+        "motivator_zero_cause": {
+          "total_drops": 3,
+          "cause_operator_release": 0,
+          "cause_turret_flipping": 1,
+          "cause_speed_gate": 0,
+          "cause_not_achievable": 0,
+          "cause_spindexer_suppressed": 0,
+          "cause_spindexer_stopped": 2,
+          "cause_no_fire_zone": 0,
+          "cause_settling": 0,
+          "cause_unknown": 0
+        },
+        "turret_flips": {
+          "flip_count": 23,
+          "flips_during_firing": 13,
+          "flip_seconds_total": 12.14,
+          "flip_seconds_during_firing": 6.61,
+          "longest_flip_s": 1.08
+        }
+      }
+    },
+    {
+      "file": "akit_26-04-17_20-10-07_micmp2_q65.wpilog",
+      "stem": "akit_26-04-17_20-10-07_micmp2_q65",
+      "duration_s": 317.29,
+      "parse_seconds": 2.44,
+      "summaries": {
+        "bps": {
+          "active_bps": 1.786,
+          "firing_bps": 1.039,
+          "peak_2s_bps": 0.0,
+          "balls_during_firing": 2,
+          "firing_seconds": 1.92,
+          "active_firing_seconds": 1.12
+        },
+        "firing_intervals": {
+          "firing_intervals": 1,
+          "firing_seconds_total": 1.92,
+          "active_firing_seconds_total": 1.12,
+          "shots_during_firing": 0
+        },
+        "jams": {
+          "jam_events": 0,
+          "jam_seconds_total": 0.0,
+          "longest_jam_s": 0.0
+        },
+        "match_summary": {
+          "duration_s": 317.29,
+          "record_count": 798053,
+          "total_shots": 0,
+          "auto_shots": 0,
+          "teleop_shots": 0,
+          "median_distance_m": 3.07,
+          "max_distance_m": 5.0
+        },
+        "motivator_zero_cause": {
+          "total_drops": 1,
+          "cause_operator_release": 0,
+          "cause_turret_flipping": 0,
+          "cause_speed_gate": 0,
+          "cause_not_achievable": 0,
+          "cause_spindexer_suppressed": 0,
+          "cause_spindexer_stopped": 1,
+          "cause_no_fire_zone": 0,
+          "cause_settling": 0,
+          "cause_unknown": 0
+        },
+        "turret_flips": {
+          "flip_count": 1,
+          "flips_during_firing": 1,
+          "flip_seconds_total": 0.29,
+          "flip_seconds_during_firing": 0.29,
+          "longest_flip_s": 0.29
+        }
+      }
+    },
+    {
+      "file": "akit_26-04-17_20-42-53_micmp2_q69.wpilog",
+      "stem": "akit_26-04-17_20-42-53_micmp2_q69",
+      "duration_s": 302.76,
+      "parse_seconds": 2.86,
+      "summaries": {
+        "bps": {
+          "active_bps": 1.717,
+          "firing_bps": 0.808,
+          "peak_2s_bps": 4.5,
+          "balls_during_firing": 95,
+          "firing_seconds": 117.61,
+          "active_firing_seconds": 55.32
+        },
+        "firing_intervals": {
+          "firing_intervals": 20,
+          "firing_seconds_total": 117.61,
+          "active_firing_seconds_total": 55.32,
+          "shots_during_firing": 0
+        },
+        "jams": {
+          "jam_events": 0,
+          "jam_seconds_total": 0.0,
+          "longest_jam_s": 0.0
+        },
+        "match_summary": {
+          "duration_s": 302.76,
+          "record_count": 1027123,
+          "total_shots": 0,
+          "auto_shots": 0,
+          "teleop_shots": 0,
+          "median_distance_m": 3.65,
+          "max_distance_m": 8.54
+        },
+        "motivator_zero_cause": {
+          "total_drops": 5,
+          "cause_operator_release": 0,
+          "cause_turret_flipping": 0,
+          "cause_speed_gate": 0,
+          "cause_not_achievable": 1,
+          "cause_spindexer_suppressed": 0,
+          "cause_spindexer_stopped": 4,
+          "cause_no_fire_zone": 0,
+          "cause_settling": 0,
+          "cause_unknown": 0
+        },
+        "turret_flips": {
+          "flip_count": 12,
+          "flips_during_firing": 3,
+          "flip_seconds_total": 3.48,
+          "flip_seconds_during_firing": 1.04,
+          "longest_flip_s": 0.78
+        }
+      }
+    },
+    {
+      "file": "akit_26-04-17_21-21-07_micmp2_q74.wpilog",
+      "stem": "akit_26-04-17_21-21-07_micmp2_q74",
+      "duration_s": 273.77,
+      "parse_seconds": 2.67,
+      "summaries": {
+        "bps": {
+          "active_bps": 1.636,
+          "firing_bps": 0.818,
+          "peak_2s_bps": 3.0,
+          "balls_during_firing": 77,
+          "firing_seconds": 94.15,
+          "active_firing_seconds": 47.06
+        },
+        "firing_intervals": {
+          "firing_intervals": 20,
+          "firing_seconds_total": 94.15,
+          "active_firing_seconds_total": 47.06,
+          "shots_during_firing": 0
+        },
+        "jams": {
+          "jam_events": 0,
+          "jam_seconds_total": 0.0,
+          "longest_jam_s": 0.0
+        },
+        "match_summary": {
+          "duration_s": 273.77,
+          "record_count": 956453,
+          "total_shots": 0,
+          "auto_shots": 0,
+          "teleop_shots": 0,
+          "median_distance_m": 4.42,
+          "max_distance_m": 11.82
+        },
+        "motivator_zero_cause": {
+          "total_drops": 3,
+          "cause_operator_release": 0,
+          "cause_turret_flipping": 0,
+          "cause_speed_gate": 0,
+          "cause_not_achievable": 0,
+          "cause_spindexer_suppressed": 0,
+          "cause_spindexer_stopped": 3,
+          "cause_no_fire_zone": 0,
+          "cause_settling": 0,
+          "cause_unknown": 0
+        },
+        "turret_flips": {
+          "flip_count": 16,
+          "flips_during_firing": 10,
+          "flip_seconds_total": 8.03,
+          "flip_seconds_during_firing": 5.81,
+          "longest_flip_s": 1.04
+        }
+      }
+    }
+  ],
+  "analyzer_order": [
+    "bps",
+    "firing_intervals",
+    "jams",
+    "match_summary",
+    "motivator_zero_cause",
+    "turret_flips"
+  ],
+  "generated_at": "2026-04-19T18:24:25"
+}
