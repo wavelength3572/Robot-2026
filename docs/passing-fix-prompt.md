@@ -62,6 +62,18 @@ Replace the precision-aim gate with a **predicted-landing-point gate**.
 5. Keep the existing speed cap (~1.5 m/s) for passes.
 6. **Do not change HUB logic.**
 
+## Current strategies in use (verified from logs)
+
+- `HUB`        → `Hub FixedHeight` (99.8% of firing samples)
+- `PASS`       → **`Pass Symmetric`** (98.5%)
+- `LONG_PASS`  → **`Pass Symmetric Long`** (100%)
+
+So the relevant strategy file to understand is
+`src/main/java/frc/robot/subsystems/shooting/TwoStageShotStrategy.java`
+or whichever class implements `Pass Symmetric` — I initially thought
+`Pass Waypoint` was active but it isn't. Confirm which Java class emits
+the string `"Pass Symmetric"` before changing anything.
+
 ## Files to read first (before changing anything)
 
 - `src/main/java/frc/robot/subsystems/shooting/ShootingCoordinator.java`
