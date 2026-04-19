@@ -119,6 +119,18 @@ def main() -> int:
     except Exception as exc:
         print(f"(standalone dashboard skipped: {exc})", file=sys.stderr)
 
+    # Also regenerate the plain-English findings report.
+    try:
+        import generate_report
+        summary, matches = generate_report.load_data(out_dir)
+        report = generate_report.build_report(summary, matches)
+        report_path = Path("docs/analysis-findings.md")
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(report)
+        print(f"Wrote findings report: {report_path}")
+    except Exception as exc:
+        print(f"(findings report skipped: {exc})", file=sys.stderr)
+
     return 0
 
 
