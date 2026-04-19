@@ -19,8 +19,12 @@ DISTANCE = "/RealOutputs/SmartLaunch/Distance/RawDistanceM"
 SERIES_STEP_US = 20_000  # 50 Hz — same as robot periodic loop
 
 SAMPLED_SIGNALS: list[tuple[str, str]] = [
-    ("launcher_actual_rpm", "/Launcher/LeaderVelocityRPM"),
+    # Wheel-side: both signals are at the flywheel's RPM (1.5:1 gear from motor).
+    # Comparing these directly is apples-to-apples.
+    ("launcher_actual_rpm", "/Launcher/WheelVelocityRPM"),
     ("launcher_target_rpm", "/Launcher/TargetVelocityRPM"),
+    ("launcher_motor_rpm", "/Launcher/LeaderVelocityRPM"),
+    ("launcher_motor_target_rpm", "/Launcher/LeaderTargetRPM"),
     ("motivator_actual_rpm", "/Motivator/WheelRPM"),
     ("motivator_target_rpm", "/Motivator/TargetRPM"),
     ("turret_angle_deg", "/Turret/CurrentInsideAngleDeg"),

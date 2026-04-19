@@ -4,7 +4,7 @@
       "file": "akit_26-04-17_14-54-34_micmp2_q32.wpilog",
       "stem": "akit_26-04-17_14-54-34_micmp2_q32",
       "duration_s": 339.61,
-      "parse_seconds": 1.91,
+      "parse_seconds": 1.8,
       "summaries": {
         "bps": {
           "firing_bps": 1.053,
@@ -67,6 +67,17 @@
           "jam_seconds_total": 17.54,
           "longest_jam_s": 1.84
         },
+        "launcher_saturation": {
+          "firing_intervals_examined": 16,
+          "intervals_tracking": 7,
+          "intervals_controller_slack": 1,
+          "intervals_voltage_saturated": 0,
+          "intervals_low_bus_brownout": 5,
+          "intervals_mixed": 3,
+          "fleet_mean_rpm_error_pct": -3.29,
+          "fleet_max_current_a": 131.1,
+          "fleet_min_bus_voltage": 5.66
+        },
         "match_summary": {
           "duration_s": 339.61,
           "record_count": 1073465,
@@ -126,7 +137,7 @@
       "file": "akit_26-04-17_15-25-45_micmp2_q36.wpilog",
       "stem": "akit_26-04-17_15-25-45_micmp2_q36",
       "duration_s": 373.16,
-      "parse_seconds": 2.26,
+      "parse_seconds": 2.19,
       "summaries": {
         "bps": {
           "firing_bps": 0.854,
@@ -189,6 +200,17 @@
           "jam_seconds_total": 37.75,
           "longest_jam_s": 2.36
         },
+        "launcher_saturation": {
+          "firing_intervals_examined": 16,
+          "intervals_tracking": 14,
+          "intervals_controller_slack": 0,
+          "intervals_voltage_saturated": 0,
+          "intervals_low_bus_brownout": 2,
+          "intervals_mixed": 0,
+          "fleet_mean_rpm_error_pct": -1.55,
+          "fleet_max_current_a": 76.2,
+          "fleet_min_bus_voltage": 5.81
+        },
         "match_summary": {
           "duration_s": 373.16,
           "record_count": 1156799,
@@ -248,7 +270,7 @@
       "file": "akit_26-04-17_16-21-55_micmp2_q43.wpilog",
       "stem": "akit_26-04-17_16-21-55_micmp2_q43",
       "duration_s": 442.54,
-      "parse_seconds": 2.51,
+      "parse_seconds": 2.47,
       "summaries": {
         "bps": {
           "firing_bps": 0.947,
@@ -311,6 +333,17 @@
           "jam_seconds_total": 32.03,
           "longest_jam_s": 2.06
         },
+        "launcher_saturation": {
+          "firing_intervals_examined": 13,
+          "intervals_tracking": 5,
+          "intervals_controller_slack": 1,
+          "intervals_voltage_saturated": 0,
+          "intervals_low_bus_brownout": 3,
+          "intervals_mixed": 4,
+          "fleet_mean_rpm_error_pct": -3.45,
+          "fleet_max_current_a": 149.8,
+          "fleet_min_bus_voltage": 5.85
+        },
         "match_summary": {
           "duration_s": 442.54,
           "record_count": 1290159,
@@ -370,7 +403,7 @@
       "file": "akit_26-04-17_18-08-32_micmp2_q49.wpilog",
       "stem": "akit_26-04-17_18-08-32_micmp2_q49",
       "duration_s": 295.51,
-      "parse_seconds": 1.88,
+      "parse_seconds": 1.81,
       "summaries": {
         "bps": {
           "firing_bps": 0.968,
@@ -433,6 +466,17 @@
           "jam_seconds_total": 26.84,
           "longest_jam_s": 1.788
         },
+        "launcher_saturation": {
+          "firing_intervals_examined": 22,
+          "intervals_tracking": 13,
+          "intervals_controller_slack": 0,
+          "intervals_voltage_saturated": 0,
+          "intervals_low_bus_brownout": 4,
+          "intervals_mixed": 5,
+          "fleet_mean_rpm_error_pct": -3.14,
+          "fleet_max_current_a": 149.6,
+          "fleet_min_bus_voltage": 5.82
+        },
         "match_summary": {
           "duration_s": 295.51,
           "record_count": 982292,
@@ -492,7 +536,7 @@
       "file": "akit_26-04-17_18-52-14_micmp2_q55.wpilog",
       "stem": "akit_26-04-17_18-52-14_micmp2_q55",
       "duration_s": 374.92,
-      "parse_seconds": 2.06,
+      "parse_seconds": 1.91,
       "summaries": {
         "bps": {
           "firing_bps": 1.181,
@@ -555,6 +599,17 @@
           "jam_seconds_total": 28.8,
           "longest_jam_s": 1.36
         },
+        "launcher_saturation": {
+          "firing_intervals_examined": 19,
+          "intervals_tracking": 10,
+          "intervals_controller_slack": 1,
+          "intervals_voltage_saturated": 0,
+          "intervals_low_bus_brownout": 5,
+          "intervals_mixed": 3,
+          "fleet_mean_rpm_error_pct": -2.11,
+          "fleet_max_current_a": 77.8,
+          "fleet_min_bus_voltage": 5.77
+        },
         "match_summary": {
           "duration_s": 374.92,
           "record_count": 1112985,
@@ -614,7 +669,7 @@
       "file": "akit_26-04-17_20-10-07_micmp2_q65.wpilog",
       "stem": "akit_26-04-17_20-10-07_micmp2_q65",
       "duration_s": 317.29,
-      "parse_seconds": 1.66,
+      "parse_seconds": 1.43,
       "summaries": {
         "bps": {
           "firing_bps": 1.039,
@@ -677,6 +732,17 @@
           "jam_seconds_total": 0.0,
           "longest_jam_s": 0.0
         },
+        "launcher_saturation": {
+          "firing_intervals_examined": 1,
+          "intervals_tracking": 0,
+          "intervals_controller_slack": 0,
+          "intervals_voltage_saturated": 0,
+          "intervals_low_bus_brownout": 0,
+          "intervals_mixed": 1,
+          "fleet_mean_rpm_error_pct": -3.44,
+          "fleet_max_current_a": 46.3,
+          "fleet_min_bus_voltage": 9.32
+        },
         "match_summary": {
           "duration_s": 317.29,
           "record_count": 798053,
@@ -727,7 +793,7 @@
       "file": "akit_26-04-17_20-42-53_micmp2_q69.wpilog",
       "stem": "akit_26-04-17_20-42-53_micmp2_q69",
       "duration_s": 302.76,
-      "parse_seconds": 1.87,
+      "parse_seconds": 1.76,
       "summaries": {
         "bps": {
           "firing_bps": 0.808,
@@ -790,6 +856,17 @@
           "jam_seconds_total": 33.22,
           "longest_jam_s": 1.46
         },
+        "launcher_saturation": {
+          "firing_intervals_examined": 19,
+          "intervals_tracking": 10,
+          "intervals_controller_slack": 0,
+          "intervals_voltage_saturated": 0,
+          "intervals_low_bus_brownout": 5,
+          "intervals_mixed": 4,
+          "fleet_mean_rpm_error_pct": -2.8,
+          "fleet_max_current_a": 149.8,
+          "fleet_min_bus_voltage": 5.96
+        },
         "match_summary": {
           "duration_s": 302.76,
           "record_count": 1027123,
@@ -849,7 +926,7 @@
       "file": "akit_26-04-17_21-21-07_micmp2_q74.wpilog",
       "stem": "akit_26-04-17_21-21-07_micmp2_q74",
       "duration_s": 273.77,
-      "parse_seconds": 1.75,
+      "parse_seconds": 1.7,
       "summaries": {
         "bps": {
           "firing_bps": 0.818,
@@ -911,6 +988,17 @@
           "jam_events": 33,
           "jam_seconds_total": 27.9,
           "longest_jam_s": 1.78
+        },
+        "launcher_saturation": {
+          "firing_intervals_examined": 19,
+          "intervals_tracking": 12,
+          "intervals_controller_slack": 1,
+          "intervals_voltage_saturated": 0,
+          "intervals_low_bus_brownout": 5,
+          "intervals_mixed": 1,
+          "fleet_mean_rpm_error_pct": -2.39,
+          "fleet_max_current_a": 75.1,
+          "fleet_min_bus_voltage": 6.04
         },
         "match_summary": {
           "duration_s": 273.77,
@@ -974,11 +1062,12 @@
     "effective_bps",
     "firing_intervals",
     "jams",
+    "launcher_saturation",
     "match_summary",
     "motivator_zero_cause",
     "slugs",
     "spindexer_events",
     "turret_flips"
   ],
-  "generated_at": "2026-04-19T19:29:13"
+  "generated_at": "2026-04-19T19:47:49"
 }
