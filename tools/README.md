@@ -83,16 +83,22 @@ Re-run the extractor. The fleet table automatically picks up new
 - `ctx.rel_s(ts_us)` — convert microsecond log time to match-relative seconds
 - `ctx.duration_s()`, `ctx.t0_us`, `ctx.t1_us`, `ctx.record_count`
 
-## Current v1 analyzers
+## Current analyzers
 
 | id | Output |
 |---|---|
-| `firing_intervals` | Contiguous `SmartLaunch/CoordinatorState == FIRING` spans + active-firing subset (where Launcher & Motivator are both at setpoint) |
-| `jams` | Windows inside active firing with no ball impact for ≥0.75 s |
+| `firing_intervals` | Contiguous `SmartLaunch/CoordinatorState == FIRING` spans with balls-per-interval |
+| `bps` | Firing BPS (driver-visible), peak 2 s BPS, gap to 12 BPS target |
+| `slugs` | Ball-impact clustering: each slug is a burst with gaps < 300 ms. Emits per-slug BPS, inter-ball gap percentiles, best slug, and `bps_at_p10_gap` (mechanism ceiling) |
+| `jams` | Windows where coordinator is `FIRING` + spindexer is `FEEDING` but no ball impact for ≥0.5 s |
 | `turret_flips` | `Subsystems/TurretState == FLIPPING` entries, flagged when during/near firing |
-| `motivator_zero_cause` | Every `/Motivator/TargetRPM` falling edge while attempting to fire, classified by cause |
-| `bps` | Active BPS, firing BPS, peak 2 s BPS — per match and per firing interval |
+| `spindexer_events` | Time in `SUPPRESSED` (operator hold-fire), `UNCLOGGING` (manual), `AUTO_UNCLOGGING`, `JAMMED`, `RECIPROCATING` during any firing attempt |
+| `motivator_zero_cause` | `/Motivator/TargetRPM` falling edges, classified against the three real causes from `ShootingCommands.java:569/749/775` (turret flip/stall, zone change, coord exited firing, unachievable) |
 | `match_summary` | Duration, shot counts, plus downsampled signal series for the timeline |
+
+The "12 BPS" target comes from the competitive baseline (83 ms between balls).
+`bps_at_p10_gap` from `slugs` is the honest mechanism ceiling — it's the BPS
+implied by the fastest 10 % of inter-ball gaps observed.
 
 ## Reference: signal paths used
 

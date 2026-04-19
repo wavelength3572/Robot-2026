@@ -69,6 +69,9 @@ main {
 }
 .card-row .card { margin: 0; }
 .big { font-size: 24px; font-weight: 700; color: var(--fg); }
+.big.ok { color: var(--ok); }
+.big.warn { color: var(--warn); }
+.big.bad { color: var(--bad); }
 .sub { font-size: 11px; color: var(--fg-dim); margin-top: 4px; }
 
 .table-scroll { overflow-x: auto; }
@@ -151,6 +154,8 @@ td.ok { color: var(--ok); }
 .event-row.jams .k { color: var(--bad); }
 .event-row.turret_flips .k { color: var(--warn); }
 .event-row.motivator_zero_cause .k { color: var(--accent); }
+.event-row.slugs .k { color: var(--ok); }
+.event-row.spindexer_events .k { color: #db61a2; }
 
 #inspector {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;

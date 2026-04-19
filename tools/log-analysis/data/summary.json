@@ -4,26 +4,25 @@
       "file": "akit_26-04-17_14-54-34_micmp2_q32.wpilog",
       "stem": "akit_26-04-17_14-54-34_micmp2_q32",
       "duration_s": 339.61,
-      "parse_seconds": 1.83,
+      "parse_seconds": 1.89,
       "summaries": {
         "bps": {
-          "active_bps": 2.261,
           "firing_bps": 1.053,
           "peak_2s_bps": 3.5,
+          "target_bps": 12.0,
+          "target_gap_bps": 10.947,
           "balls_during_firing": 100,
-          "firing_seconds": 94.94,
-          "active_firing_seconds": 44.23
+          "firing_seconds": 94.94
         },
         "firing_intervals": {
           "firing_intervals": 17,
           "firing_seconds_total": 94.94,
-          "active_firing_seconds_total": 44.23,
-          "shots_during_firing": 0
+          "balls_during_firing": 100
         },
         "jams": {
-          "jam_events": 0,
-          "jam_seconds_total": 0.0,
-          "longest_jam_s": 0.0
+          "jam_events": 17,
+          "jam_seconds_total": 17.54,
+          "longest_jam_s": 1.84
         },
         "match_summary": {
           "duration_s": 339.61,
@@ -36,15 +35,40 @@
         },
         "motivator_zero_cause": {
           "total_drops": 6,
-          "cause_operator_release": 0,
-          "cause_turret_flipping": 1,
-          "cause_speed_gate": 0,
-          "cause_not_achievable": 0,
-          "cause_spindexer_suppressed": 0,
-          "cause_spindexer_stopped": 5,
-          "cause_no_fire_zone": 0,
-          "cause_settling": 0,
-          "cause_unknown": 0
+          "cause_turret_flipping_or_stalled": 1,
+          "cause_unachievable": 0,
+          "cause_zone_change": 0,
+          "cause_coord_left_firing": 0,
+          "cause_unknown": 5
+        },
+        "slugs": {
+          "slug_count": 41,
+          "multi_ball_slug_count": 6,
+          "total_balls": 49,
+          "singleton_slugs": 35,
+          "mean_slug_bps": 4.447,
+          "median_slug_bps": 4.006,
+          "best_slug_bps": 6.25,
+          "largest_slug_balls": 3,
+          "p10_gap_ms": 188.0,
+          "p50_gap_ms": 240.0,
+          "min_gap_ms": 160.0,
+          "gap_to_12bps_ms_p10": 104.7,
+          "bps_at_p10_gap": 5.32
+        },
+        "spindexer_events": {
+          "suppressed_events": 9,
+          "suppressed_seconds": 21.83,
+          "unclogging_events": 8,
+          "unclogging_seconds": 2.02,
+          "auto_unclogging_events": 7,
+          "auto_unclogging_seconds": 1.71,
+          "jammed_events": 0,
+          "jammed_seconds": 0.0,
+          "reciprocating_events": 0,
+          "reciprocating_seconds": 0.0,
+          "total_interrupted_seconds": 25.57,
+          "total_interesting_events": 24
         },
         "turret_flips": {
           "flip_count": 14,
@@ -59,26 +83,25 @@
       "file": "akit_26-04-17_15-25-45_micmp2_q36.wpilog",
       "stem": "akit_26-04-17_15-25-45_micmp2_q36",
       "duration_s": 373.16,
-      "parse_seconds": 3.75,
+      "parse_seconds": 2.26,
       "summaries": {
         "bps": {
-          "active_bps": 1.462,
           "firing_bps": 0.854,
           "peak_2s_bps": 3.5,
+          "target_bps": 12.0,
+          "target_gap_bps": 11.146,
           "balls_during_firing": 79,
-          "firing_seconds": 92.46,
-          "active_firing_seconds": 54.03
+          "firing_seconds": 92.46
         },
         "firing_intervals": {
           "firing_intervals": 17,
           "firing_seconds_total": 92.46,
-          "active_firing_seconds_total": 54.03,
-          "shots_during_firing": 0
+          "balls_during_firing": 79
         },
         "jams": {
-          "jam_events": 1,
-          "jam_seconds_total": 1.32,
-          "longest_jam_s": 1.32
+          "jam_events": 41,
+          "jam_seconds_total": 37.75,
+          "longest_jam_s": 2.36
         },
         "match_summary": {
           "duration_s": 373.16,
@@ -91,15 +114,40 @@
         },
         "motivator_zero_cause": {
           "total_drops": 2,
-          "cause_operator_release": 0,
-          "cause_turret_flipping": 0,
-          "cause_speed_gate": 0,
-          "cause_not_achievable": 1,
-          "cause_spindexer_suppressed": 0,
-          "cause_spindexer_stopped": 1,
-          "cause_no_fire_zone": 0,
-          "cause_settling": 0,
-          "cause_unknown": 0
+          "cause_turret_flipping_or_stalled": 0,
+          "cause_unachievable": 1,
+          "cause_zone_change": 0,
+          "cause_coord_left_firing": 0,
+          "cause_unknown": 1
+        },
+        "slugs": {
+          "slug_count": 25,
+          "multi_ball_slug_count": 5,
+          "total_balls": 32,
+          "singleton_slugs": 20,
+          "mean_slug_bps": 4.592,
+          "median_slug_bps": 4.306,
+          "best_slug_bps": 5.487,
+          "largest_slug_balls": 3,
+          "p10_gap_ms": 192.9,
+          "p50_gap_ms": 240.0,
+          "min_gap_ms": 182.2,
+          "gap_to_12bps_ms_p10": 109.6,
+          "bps_at_p10_gap": 5.18
+        },
+        "spindexer_events": {
+          "suppressed_events": 6,
+          "suppressed_seconds": 28.22,
+          "unclogging_events": 4,
+          "unclogging_seconds": 1.05,
+          "auto_unclogging_events": 5,
+          "auto_unclogging_seconds": 1.58,
+          "jammed_events": 0,
+          "jammed_seconds": 0.0,
+          "reciprocating_events": 0,
+          "reciprocating_seconds": 0.0,
+          "total_interrupted_seconds": 30.84,
+          "total_interesting_events": 15
         },
         "turret_flips": {
           "flip_count": 19,
@@ -114,26 +162,25 @@
       "file": "akit_26-04-17_16-21-55_micmp2_q43.wpilog",
       "stem": "akit_26-04-17_16-21-55_micmp2_q43",
       "duration_s": 442.54,
-      "parse_seconds": 4.17,
+      "parse_seconds": 2.37,
       "summaries": {
         "bps": {
-          "active_bps": 1.877,
           "firing_bps": 0.947,
           "peak_2s_bps": 4.0,
+          "target_bps": 12.0,
+          "target_gap_bps": 11.053,
           "balls_during_firing": 91,
-          "firing_seconds": 96.11,
-          "active_firing_seconds": 48.47
+          "firing_seconds": 96.11
         },
         "firing_intervals": {
           "firing_intervals": 13,
           "firing_seconds_total": 96.11,
-          "active_firing_seconds_total": 48.47,
-          "shots_during_firing": 0
+          "balls_during_firing": 91
         },
         "jams": {
-          "jam_events": 0,
-          "jam_seconds_total": 0.0,
-          "longest_jam_s": 0.0
+          "jam_events": 34,
+          "jam_seconds_total": 32.03,
+          "longest_jam_s": 2.06
         },
         "match_summary": {
           "duration_s": 442.54,
@@ -146,15 +193,40 @@
         },
         "motivator_zero_cause": {
           "total_drops": 3,
-          "cause_operator_release": 0,
-          "cause_turret_flipping": 0,
-          "cause_speed_gate": 0,
-          "cause_not_achievable": 0,
-          "cause_spindexer_suppressed": 0,
-          "cause_spindexer_stopped": 3,
-          "cause_no_fire_zone": 0,
-          "cause_settling": 0,
-          "cause_unknown": 0
+          "cause_turret_flipping_or_stalled": 0,
+          "cause_unachievable": 0,
+          "cause_zone_change": 0,
+          "cause_coord_left_firing": 0,
+          "cause_unknown": 3
+        },
+        "slugs": {
+          "slug_count": 43,
+          "multi_ball_slug_count": 7,
+          "total_balls": 52,
+          "singleton_slugs": 36,
+          "mean_slug_bps": 7.533,
+          "median_slug_bps": 5.556,
+          "best_slug_bps": 16.734,
+          "largest_slug_balls": 3,
+          "p10_gap_ms": 39.9,
+          "p50_gap_ms": 180.0,
+          "min_gap_ms": 39.6,
+          "gap_to_12bps_ms_p10": -43.4,
+          "bps_at_p10_gap": 25.05
+        },
+        "spindexer_events": {
+          "suppressed_events": 8,
+          "suppressed_seconds": 42.29,
+          "unclogging_events": 4,
+          "unclogging_seconds": 1.02,
+          "auto_unclogging_events": 7,
+          "auto_unclogging_seconds": 1.98,
+          "jammed_events": 0,
+          "jammed_seconds": 0.0,
+          "reciprocating_events": 0,
+          "reciprocating_seconds": 0.0,
+          "total_interrupted_seconds": 45.29,
+          "total_interesting_events": 19
         },
         "turret_flips": {
           "flip_count": 20,
@@ -169,26 +241,25 @@
       "file": "akit_26-04-17_18-08-32_micmp2_q49.wpilog",
       "stem": "akit_26-04-17_18-08-32_micmp2_q49",
       "duration_s": 295.51,
-      "parse_seconds": 2.87,
+      "parse_seconds": 1.83,
       "summaries": {
         "bps": {
-          "active_bps": 1.976,
           "firing_bps": 0.968,
           "peak_2s_bps": 3.5,
+          "target_bps": 12.0,
+          "target_gap_bps": 11.032,
           "balls_during_firing": 65,
-          "firing_seconds": 67.17,
-          "active_firing_seconds": 32.89
+          "firing_seconds": 67.17
         },
         "firing_intervals": {
           "firing_intervals": 23,
           "firing_seconds_total": 67.17,
-          "active_firing_seconds_total": 32.89,
-          "shots_during_firing": 0
+          "balls_during_firing": 65
         },
         "jams": {
-          "jam_events": 0,
-          "jam_seconds_total": 0.0,
-          "longest_jam_s": 0.0
+          "jam_events": 31,
+          "jam_seconds_total": 26.84,
+          "longest_jam_s": 1.788
         },
         "match_summary": {
           "duration_s": 295.51,
@@ -201,15 +272,40 @@
         },
         "motivator_zero_cause": {
           "total_drops": 3,
-          "cause_operator_release": 0,
-          "cause_turret_flipping": 0,
-          "cause_speed_gate": 0,
-          "cause_not_achievable": 1,
-          "cause_spindexer_suppressed": 0,
-          "cause_spindexer_stopped": 2,
-          "cause_no_fire_zone": 0,
-          "cause_settling": 0,
-          "cause_unknown": 0
+          "cause_turret_flipping_or_stalled": 0,
+          "cause_unachievable": 1,
+          "cause_zone_change": 0,
+          "cause_coord_left_firing": 0,
+          "cause_unknown": 2
+        },
+        "slugs": {
+          "slug_count": 19,
+          "multi_ball_slug_count": 5,
+          "total_balls": 26,
+          "singleton_slugs": 14,
+          "mean_slug_bps": 4.157,
+          "median_slug_bps": 4.0,
+          "best_slug_bps": 4.545,
+          "largest_slug_balls": 3,
+          "p10_gap_ms": 220.0,
+          "p50_gap_ms": 240.0,
+          "min_gap_ms": 220.0,
+          "gap_to_12bps_ms_p10": 136.7,
+          "bps_at_p10_gap": 4.55
+        },
+        "spindexer_events": {
+          "suppressed_events": 8,
+          "suppressed_seconds": 34.78,
+          "unclogging_events": 2,
+          "unclogging_seconds": 0.58,
+          "auto_unclogging_events": 5,
+          "auto_unclogging_seconds": 1.55,
+          "jammed_events": 0,
+          "jammed_seconds": 0.0,
+          "reciprocating_events": 0,
+          "reciprocating_seconds": 0.0,
+          "total_interrupted_seconds": 36.91,
+          "total_interesting_events": 15
         },
         "turret_flips": {
           "flip_count": 36,
@@ -224,26 +320,25 @@
       "file": "akit_26-04-17_18-52-14_micmp2_q55.wpilog",
       "stem": "akit_26-04-17_18-52-14_micmp2_q55",
       "duration_s": 374.92,
-      "parse_seconds": 3.4,
+      "parse_seconds": 2.0,
       "summaries": {
         "bps": {
-          "active_bps": 2.181,
           "firing_bps": 1.181,
           "peak_2s_bps": 3.5,
+          "target_bps": 12.0,
+          "target_gap_bps": 10.819,
           "balls_during_firing": 96,
-          "firing_seconds": 81.32,
-          "active_firing_seconds": 44.02
+          "firing_seconds": 81.32
         },
         "firing_intervals": {
           "firing_intervals": 20,
           "firing_seconds_total": 81.32,
-          "active_firing_seconds_total": 44.02,
-          "shots_during_firing": 0
+          "balls_during_firing": 96
         },
         "jams": {
-          "jam_events": 0,
-          "jam_seconds_total": 0.0,
-          "longest_jam_s": 0.0
+          "jam_events": 33,
+          "jam_seconds_total": 28.8,
+          "longest_jam_s": 1.36
         },
         "match_summary": {
           "duration_s": 374.92,
@@ -255,16 +350,41 @@
           "max_distance_m": 13.57
         },
         "motivator_zero_cause": {
-          "total_drops": 3,
-          "cause_operator_release": 0,
-          "cause_turret_flipping": 1,
-          "cause_speed_gate": 0,
-          "cause_not_achievable": 0,
-          "cause_spindexer_suppressed": 0,
-          "cause_spindexer_stopped": 2,
-          "cause_no_fire_zone": 0,
-          "cause_settling": 0,
-          "cause_unknown": 0
+          "total_drops": 2,
+          "cause_turret_flipping_or_stalled": 0,
+          "cause_unachievable": 0,
+          "cause_zone_change": 0,
+          "cause_coord_left_firing": 0,
+          "cause_unknown": 2
+        },
+        "slugs": {
+          "slug_count": 23,
+          "multi_ball_slug_count": 6,
+          "total_balls": 31,
+          "singleton_slugs": 17,
+          "mean_slug_bps": 4.955,
+          "median_slug_bps": 4.547,
+          "best_slug_bps": 7.693,
+          "largest_slug_balls": 3,
+          "p10_gap_ms": 94.0,
+          "p50_gap_ms": 222.1,
+          "min_gap_ms": 80.0,
+          "gap_to_12bps_ms_p10": 10.7,
+          "bps_at_p10_gap": 10.64
+        },
+        "spindexer_events": {
+          "suppressed_events": 8,
+          "suppressed_seconds": 27.84,
+          "unclogging_events": 3,
+          "unclogging_seconds": 0.66,
+          "auto_unclogging_events": 12,
+          "auto_unclogging_seconds": 2.68,
+          "jammed_events": 0,
+          "jammed_seconds": 0.0,
+          "reciprocating_events": 0,
+          "reciprocating_seconds": 0.0,
+          "total_interrupted_seconds": 31.18,
+          "total_interesting_events": 23
         },
         "turret_flips": {
           "flip_count": 23,
@@ -279,21 +399,20 @@
       "file": "akit_26-04-17_20-10-07_micmp2_q65.wpilog",
       "stem": "akit_26-04-17_20-10-07_micmp2_q65",
       "duration_s": 317.29,
-      "parse_seconds": 2.44,
+      "parse_seconds": 1.54,
       "summaries": {
         "bps": {
-          "active_bps": 1.786,
           "firing_bps": 1.039,
           "peak_2s_bps": 0.0,
+          "target_bps": 12.0,
+          "target_gap_bps": 10.961,
           "balls_during_firing": 2,
-          "firing_seconds": 1.92,
-          "active_firing_seconds": 1.12
+          "firing_seconds": 1.92
         },
         "firing_intervals": {
           "firing_intervals": 1,
           "firing_seconds_total": 1.92,
-          "active_firing_seconds_total": 1.12,
-          "shots_during_firing": 0
+          "balls_during_firing": 2
         },
         "jams": {
           "jam_events": 0,
@@ -311,15 +430,31 @@
         },
         "motivator_zero_cause": {
           "total_drops": 1,
-          "cause_operator_release": 0,
-          "cause_turret_flipping": 0,
-          "cause_speed_gate": 0,
-          "cause_not_achievable": 0,
-          "cause_spindexer_suppressed": 0,
-          "cause_spindexer_stopped": 1,
-          "cause_no_fire_zone": 0,
-          "cause_settling": 0,
-          "cause_unknown": 0
+          "cause_turret_flipping_or_stalled": 0,
+          "cause_unachievable": 0,
+          "cause_zone_change": 0,
+          "cause_coord_left_firing": 0,
+          "cause_unknown": 1
+        },
+        "slugs": {
+          "slug_count": 2,
+          "multi_ball_slug_count": 0,
+          "total_balls": 2,
+          "singleton_slugs": 2
+        },
+        "spindexer_events": {
+          "suppressed_events": 0,
+          "suppressed_seconds": 0.0,
+          "unclogging_events": 0,
+          "unclogging_seconds": 0.0,
+          "auto_unclogging_events": 0,
+          "auto_unclogging_seconds": 0.0,
+          "jammed_events": 0,
+          "jammed_seconds": 0.0,
+          "reciprocating_events": 0,
+          "reciprocating_seconds": 0.0,
+          "total_interrupted_seconds": 0.0,
+          "total_interesting_events": 0
         },
         "turret_flips": {
           "flip_count": 1,
@@ -334,26 +469,25 @@
       "file": "akit_26-04-17_20-42-53_micmp2_q69.wpilog",
       "stem": "akit_26-04-17_20-42-53_micmp2_q69",
       "duration_s": 302.76,
-      "parse_seconds": 2.86,
+      "parse_seconds": 1.87,
       "summaries": {
         "bps": {
-          "active_bps": 1.717,
           "firing_bps": 0.808,
           "peak_2s_bps": 4.5,
+          "target_bps": 12.0,
+          "target_gap_bps": 11.192,
           "balls_during_firing": 95,
-          "firing_seconds": 117.61,
-          "active_firing_seconds": 55.32
+          "firing_seconds": 117.61
         },
         "firing_intervals": {
           "firing_intervals": 20,
           "firing_seconds_total": 117.61,
-          "active_firing_seconds_total": 55.32,
-          "shots_during_firing": 0
+          "balls_during_firing": 95
         },
         "jams": {
-          "jam_events": 0,
-          "jam_seconds_total": 0.0,
-          "longest_jam_s": 0.0
+          "jam_events": 36,
+          "jam_seconds_total": 33.22,
+          "longest_jam_s": 1.46
         },
         "match_summary": {
           "duration_s": 302.76,
@@ -366,15 +500,40 @@
         },
         "motivator_zero_cause": {
           "total_drops": 5,
-          "cause_operator_release": 0,
-          "cause_turret_flipping": 0,
-          "cause_speed_gate": 0,
-          "cause_not_achievable": 1,
-          "cause_spindexer_suppressed": 0,
-          "cause_spindexer_stopped": 4,
-          "cause_no_fire_zone": 0,
-          "cause_settling": 0,
-          "cause_unknown": 0
+          "cause_turret_flipping_or_stalled": 0,
+          "cause_unachievable": 1,
+          "cause_zone_change": 0,
+          "cause_coord_left_firing": 0,
+          "cause_unknown": 4
+        },
+        "slugs": {
+          "slug_count": 45,
+          "multi_ball_slug_count": 9,
+          "total_balls": 58,
+          "singleton_slugs": 36,
+          "mean_slug_bps": 4.669,
+          "median_slug_bps": 4.545,
+          "best_slug_bps": 5.71,
+          "largest_slug_balls": 5,
+          "p10_gap_ms": 116.0,
+          "p50_gap_ms": 220.0,
+          "min_gap_ms": 60.0,
+          "gap_to_12bps_ms_p10": 32.7,
+          "bps_at_p10_gap": 8.62
+        },
+        "spindexer_events": {
+          "suppressed_events": 7,
+          "suppressed_seconds": 18.05,
+          "unclogging_events": 4,
+          "unclogging_seconds": 0.94,
+          "auto_unclogging_events": 12,
+          "auto_unclogging_seconds": 3.68,
+          "jammed_events": 0,
+          "jammed_seconds": 0.0,
+          "reciprocating_events": 0,
+          "reciprocating_seconds": 0.0,
+          "total_interrupted_seconds": 22.67,
+          "total_interesting_events": 23
         },
         "turret_flips": {
           "flip_count": 12,
@@ -389,26 +548,25 @@
       "file": "akit_26-04-17_21-21-07_micmp2_q74.wpilog",
       "stem": "akit_26-04-17_21-21-07_micmp2_q74",
       "duration_s": 273.77,
-      "parse_seconds": 2.67,
+      "parse_seconds": 1.68,
       "summaries": {
         "bps": {
-          "active_bps": 1.636,
           "firing_bps": 0.818,
           "peak_2s_bps": 3.0,
+          "target_bps": 12.0,
+          "target_gap_bps": 11.182,
           "balls_during_firing": 77,
-          "firing_seconds": 94.15,
-          "active_firing_seconds": 47.06
+          "firing_seconds": 94.15
         },
         "firing_intervals": {
           "firing_intervals": 20,
           "firing_seconds_total": 94.15,
-          "active_firing_seconds_total": 47.06,
-          "shots_during_firing": 0
+          "balls_during_firing": 77
         },
         "jams": {
-          "jam_events": 0,
-          "jam_seconds_total": 0.0,
-          "longest_jam_s": 0.0
+          "jam_events": 33,
+          "jam_seconds_total": 27.9,
+          "longest_jam_s": 1.78
         },
         "match_summary": {
           "duration_s": 273.77,
@@ -421,15 +579,40 @@
         },
         "motivator_zero_cause": {
           "total_drops": 3,
-          "cause_operator_release": 0,
-          "cause_turret_flipping": 0,
-          "cause_speed_gate": 0,
-          "cause_not_achievable": 0,
-          "cause_spindexer_suppressed": 0,
-          "cause_spindexer_stopped": 3,
-          "cause_no_fire_zone": 0,
-          "cause_settling": 0,
-          "cause_unknown": 0
+          "cause_turret_flipping_or_stalled": 0,
+          "cause_unachievable": 0,
+          "cause_zone_change": 0,
+          "cause_coord_left_firing": 0,
+          "cause_unknown": 3
+        },
+        "slugs": {
+          "slug_count": 25,
+          "multi_ball_slug_count": 6,
+          "total_balls": 31,
+          "singleton_slugs": 19,
+          "mean_slug_bps": 4.353,
+          "median_slug_bps": 4.47,
+          "best_slug_bps": 5.0,
+          "largest_slug_balls": 2,
+          "p10_gap_ms": 200.0,
+          "p50_gap_ms": 223.8,
+          "min_gap_ms": 200.0,
+          "gap_to_12bps_ms_p10": 116.7,
+          "bps_at_p10_gap": 5.0
+        },
+        "spindexer_events": {
+          "suppressed_events": 10,
+          "suppressed_seconds": 22.99,
+          "unclogging_events": 5,
+          "unclogging_seconds": 1.18,
+          "auto_unclogging_events": 9,
+          "auto_unclogging_seconds": 2.31,
+          "jammed_events": 0,
+          "jammed_seconds": 0.0,
+          "reciprocating_events": 0,
+          "reciprocating_seconds": 0.0,
+          "total_interrupted_seconds": 26.48,
+          "total_interesting_events": 24
         },
         "turret_flips": {
           "flip_count": 16,
@@ -447,7 +630,9 @@
     "jams",
     "match_summary",
     "motivator_zero_cause",
+    "slugs",
+    "spindexer_events",
     "turret_flips"
   ],
-  "generated_at": "2026-04-19T18:24:25"
+  "generated_at": "2026-04-19T18:43:44"
 }

@@ -1,18 +1,19 @@
-"""Classify every time `SmartLaunch/Target/MotivatorRPM` drops to zero.
+"""Classify every time `/Motivator/TargetRPM` drops to zero during firing.
 
-During any firing attempt (CoordinatorState ∈ {AIMING, FIRING, SETTLING}) we
-watch the commanded motivator RPM. Each falling edge > 0 → 0 is labeled with
-one of:
-    operator_release   — coordinator exited to INACTIVE/UNARMED/HELD
-    turret_flipping    — TurretState was FLIPPING at the moment of drop
-    speed_gate         — StateTransition message mentioned 'too fast'/'speed'
-    not_achievable     — Target/Achievable was false
-    spindexer_suppressed — SpindexerState == SUPPRESSED
-    unknown            — none of the above matched
+Per `ShootingCommands.java:773` the motivator is commanded every loop while
+the coordinator has a valid shot. It only gets zeroed while *attempting to
+fire* under three conditions (from the Java code):
+
+1. `ShootingCommands.java:569` — turret is `FLIPPING` or `STALLED`
+2. `ShootingCommands.java:749` — auto-collect idle phase
+3. `ShootingCommands.java:775` — currentShot == null (unachievable, zone, etc.)
+
+We classify each falling edge accordingly. The operator releasing the button
+is *not* captured here — it exits `FIRING` entirely, so it's already handled
+by the `firing_intervals` analyzer.
 
 Event output:
-    {t_s, cause, coord_before, coord_after, transition_reason,
-     turret_state, spindexer_state, achievable}
+    {t_s, cause, coord_state, turret_state, transition_reason, achievable}
 """
 
 from __future__ import annotations
@@ -22,16 +23,22 @@ from log_context import AnalyzerResult, LogContext, register_analyzer
 COORDINATOR_STATE = "/RealOutputs/SmartLaunch/CoordinatorState"
 STATE_TRANSITION = "/RealOutputs/SmartLaunch/StateTransition"
 BLOCKING = "/RealOutputs/SmartLaunch/Blocking"
-# `/Motivator/TargetRPM` is the actual motor-command-level setpoint (written
-# every time the Motivator subsystem's target changes). The SmartLaunch
-# coordinator's `Target/MotivatorRPM` is only logged sparsely.
 MOTIVATOR_TARGET = "/Motivator/TargetRPM"
 ACHIEVABLE = "/RealOutputs/SmartLaunch/Target/Achievable"
 TURRET_STATE = "/RealOutputs/Subsystems/TurretState"
-SPINDEXER_STATE = "/RealOutputs/Subsystems/SpindexerState"
 
-FIRING_ATTEMPT_STATES = {"AIMING", "FIRING", "SETTLING", "HELD"}
-TRANSITION_WINDOW_US = 1_000_000  # 1 second
+# Any firing-attempt state. If the motivator drops to 0 while the coordinator
+# is *not* in one of these, we just ignore it — that's a normal end-of-shot.
+FIRING_ATTEMPT = {"AIMING", "FIRING", "SETTLING", "HELD"}
+
+TRANSITION_WINDOW_US = 1_000_000
+CAUSES = (
+    "turret_flipping_or_stalled",
+    "unachievable",
+    "zone_change",
+    "coord_left_firing",
+    "unknown",
+)
 
 
 @register_analyzer(id="motivator_zero_cause", title="Motivator → 0 causes")
@@ -42,7 +49,6 @@ def analyze(ctx: LogContext) -> AnalyzerResult:
     motivator_target = ctx.signal(MOTIVATOR_TARGET)
     achievable = ctx.signal(ACHIEVABLE)
     turret = ctx.signal(TURRET_STATE)
-    spindexer = ctx.signal(SPINDEXER_STATE)
 
     events: list[dict] = []
     counts: dict[str, int] = {}
@@ -51,78 +57,58 @@ def analyze(ctx: LogContext) -> AnalyzerResult:
     for ts, v in zip(motivator_target.timestamps_us, motivator_target.values):
         val = float(v) if v is not None else 0.0
         if prev_val > 1e-3 and val <= 1e-3:
-            current_coord = coord.value_at(ts, "INACTIVE")
             coord_before = coord.value_at(ts - 1, "INACTIVE")
-            if current_coord in FIRING_ATTEMPT_STATES or coord_before in FIRING_ATTEMPT_STATES:
-                cause, reason = _classify(ts, coord, transition, blocking, turret, spindexer, achievable)
-                counts[cause] = counts.get(cause, 0) + 1
-                events.append(
-                    {
-                        "t_s": ctx.rel_s(ts),
-                        "cause": cause,
-                        "coord_before": coord_before,
-                        "coord_after": current_coord,
-                        "transition_reason": reason or "",
-                        "turret_state": turret.value_at(ts, ""),
-                        "spindexer_state": spindexer.value_at(ts, ""),
-                        "achievable": bool(achievable.value_at(ts, False)),
-                    }
-                )
+            # We only care about drops that happened while *attempting to fire*.
+            if coord_before not in FIRING_ATTEMPT:
+                prev_val = val
+                continue
+            cause, reason = _classify(ts, coord, transition, blocking, turret, achievable, coord_before)
+            counts[cause] = counts.get(cause, 0) + 1
+            events.append(
+                {
+                    "t_s": ctx.rel_s(ts),
+                    "cause": cause,
+                    "coord_before": coord_before,
+                    "coord_after": coord.value_at(ts, ""),
+                    "transition_reason": reason,
+                    "turret_state": turret.value_at(ts, ""),
+                    "achievable": bool(achievable.value_at(ts, False)),
+                }
+            )
         prev_val = val
 
     summary = {"total_drops": len(events)}
-    # Make sure every known category is present (so the dashboard shows 0s).
-    for k in ("operator_release", "turret_flipping", "speed_gate",
-              "not_achievable", "spindexer_suppressed", "spindexer_stopped",
-              "no_fire_zone", "settling", "unknown"):
-        summary[f"cause_{k}"] = counts.get(k, 0)
+    for c in CAUSES:
+        summary[f"cause_{c}"] = counts.get(c, 0)
     return AnalyzerResult(id="motivator_zero_cause", title="Motivator → 0 causes", events=events, summary=summary)
 
 
-def _classify(ts, coord, transition, blocking, turret, spindexer, achievable) -> tuple[str, str]:
-    recent_reason = _recent_transition(ts, transition, window_us=TRANSITION_WINDOW_US)
-    recent_block = _recent_transition(ts, blocking, window_us=TRANSITION_WINDOW_US)
-
+def _classify(ts, coord, transition, blocking, turret, achievable, coord_before):
+    recent = _recent(ts, transition, TRANSITION_WINDOW_US)
     coord_after = coord.value_at(ts, "")
-    coord_before = coord.value_at(ts - 1, "")
 
-    # Operator released the fire button: coord exited firing-attempt states.
-    if coord_before in FIRING_ATTEMPT_STATES and coord_after in {"INACTIVE", "UNARMED"}:
-        return "operator_release", recent_reason
+    # Cause 1: turret flipping / stalled (ShootingCommands.java:569)
+    tstate = turret.value_at(ts, "")
+    if tstate in {"FLIPPING", "STALLED"}:
+        return "turret_flipping_or_stalled", recent
+    if recent and ("turret_flip" in recent.lower()):
+        return "turret_flipping_or_stalled", recent
 
-    # Turret flip gate (either FLIPPING now or SETTLING w/ turret_flip reason).
-    if turret.value_at(ts, "") == "FLIPPING":
-        return "turret_flipping", recent_reason
-    if recent_reason and "turret_flip" in recent_reason.lower():
-        return "turret_flipping", recent_reason
+    # Cause 2: the coordinator left any firing-attempt state between
+    # coord_before and now (coord cleared the shot → motivator zeroed via s==null)
+    if coord_after not in FIRING_ATTEMPT:
+        if coord_after == "NO_FIRE_ZONE" or (recent and "no_fire_zone" in recent.lower()):
+            return "zone_change", recent
+        return "coord_left_firing", recent
 
-    # Speed / zone gate per coordinator transition messages.
-    if recent_reason:
-        lower = recent_reason.lower()
-        if "too fast" in lower or "speed" in lower:
-            return "speed_gate", recent_reason
-        if "no_fire_zone" in lower or "neutral_trench" in lower or "bump" in lower:
-            return "no_fire_zone", recent_reason
-        if "settling" in lower or coord_after == "SETTLING":
-            return "settling", recent_reason
-
+    # Cause 3: shot unachievable (currentShot becomes null)
     if not bool(achievable.value_at(ts, True)):
-        return "not_achievable", recent_reason or recent_block
+        return "unachievable", recent
 
-    # Spindexer variants:
-    spin = spindexer.value_at(ts, "")
-    if spin == "SUPPRESSED":
-        return "spindexer_suppressed", recent_reason
-    if spin in {"STOPPED", "RECIPROCATING"}:
-        # Motivator is gated on the spindexer's feeding state in ShootingCommands;
-        # when the spindexer isn't feeding, the motivator target is zeroed even
-        # though the coordinator is still "FIRING".
-        return "spindexer_stopped", recent_reason or recent_block
-
-    return "unknown", recent_reason or recent_block
+    return "unknown", recent or _recent(ts, blocking, TRANSITION_WINDOW_US)
 
 
-def _recent_transition(ts: int, sig, window_us: int) -> str:
+def _recent(ts, sig, window_us) -> str:
     if not sig.timestamps_us:
         return ""
     for i in range(len(sig.timestamps_us) - 1, -1, -1):
@@ -132,18 +118,4 @@ def _recent_transition(ts: int, sig, window_us: int) -> str:
         if ts - tts > window_us:
             return ""
         return str(sig.values[i])
-    return ""
-
-
-def _recent_transition(ts: int, transition, window_us: int) -> str:
-    if not transition.timestamps_us:
-        return ""
-    # Find the last transition <= ts within window_us.
-    for i in range(len(transition.timestamps_us) - 1, -1, -1):
-        tts = transition.timestamps_us[i]
-        if tts > ts:
-            continue
-        if ts - tts > window_us:
-            return ""
-        return str(transition.values[i])
     return ""

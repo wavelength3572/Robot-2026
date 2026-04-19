@@ -22,26 +22,36 @@
   <main id="fleet-view">
     <section class="card-row">
       <div class="card">
-        <h3>Matches loaded</h3>
+        <h3>Matches</h3>
         <div class="big" id="stat-match-count">—</div>
       </div>
       <div class="card">
-        <h3>Avg active BPS</h3>
-        <div class="big" id="stat-avg-active-bps">—</div>
-        <div class="sub">balls ÷ time actually at setpoint</div>
+        <h3>Firing BPS (driver)</h3>
+        <div class="big" id="stat-avg-firing-bps">—</div>
+        <div class="sub">balls ÷ total FIRING time — target <b>12.0</b></div>
       </div>
       <div class="card">
-        <h3>Avg firing BPS</h3>
-        <div class="big" id="stat-avg-firing-bps">—</div>
-        <div class="sub">balls ÷ total FIRING time</div>
+        <h3>Best slug BPS (fleet)</h3>
+        <div class="big" id="stat-best-slug">—</div>
+        <div class="sub">fastest burst anywhere — mechanism ceiling</div>
+      </div>
+      <div class="card">
+        <h3>Median slug BPS</h3>
+        <div class="big" id="stat-median-slug">—</div>
+        <div class="sub">typical burst speed</div>
+      </div>
+      <div class="card">
+        <h3>Jams</h3>
+        <div class="big" id="stat-jams">—</div>
+        <div class="sub"><span id="stat-jam-s">—</span>s total</div>
       </div>
       <div class="card">
         <h3>Flips during firing</h3>
         <div class="big" id="stat-flips-firing">—</div>
       </div>
       <div class="card">
-        <h3>Jam events</h3>
-        <div class="big" id="stat-jams">—</div>
+        <h3>Unclogs (manual + auto)</h3>
+        <div class="big" id="stat-unclogs">—</div>
       </div>
     </section>
 
@@ -80,8 +90,10 @@
       <div class="card">
         <h2>Events</h2>
         <div class="event-filter">
+          <label><input type="checkbox" value="slugs" checked />Slugs</label>
           <label><input type="checkbox" value="jams" checked />Jams</label>
           <label><input type="checkbox" value="turret_flips" checked />Turret flips</label>
+          <label><input type="checkbox" value="spindexer_events" checked />Spindexer events</label>
           <label><input type="checkbox" value="motivator_zero_cause" checked />Motivator→0</label>
           <label><input type="checkbox" value="firing_intervals" />Firing intervals</label>
           <label><input type="checkbox" value="bps" />BPS intervals</label>

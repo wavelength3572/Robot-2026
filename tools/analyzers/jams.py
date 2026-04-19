@@ -1,14 +1,17 @@
 """Jam detection.
 
-A jam is a window inside a firing interval where we're actively trying to shoot
-(launcher & motivator at setpoint, commanded motivator RPM > 0) but no ball
-impacts are being detected on the flywheel. `Launcher/BallImpact/Count` is a
-monotonically increasing counter — if it doesn't tick for more than
-`JAM_NO_IMPACT_SEC`, we flag a jam.
+A jam is a window where the robot is trying to feed — coordinator in `FIRING`,
+spindexer in `FEEDING` — but no ball impacts land for `JAM_NO_IMPACT_SEC`.
+This is the "we're pushing but nothing is coming out" case. Mechanical stall,
+ball stuck in the chute, or the motivator can't pull it through.
+
+(We deliberately don't gate on `Launcher/AtSetpoint` or `Motivator/AtSetpoint`
+anymore — those flicker false as the launcher chases a moving target during
+shoot-on-the-move, which made jams look rarer than they are.)
 
 Event output:
     {start_s, end_s, duration_s, launcher_target_rpm, motivator_target_rpm,
-     coordinator_state, spindexer_state}
+     spindexer_state_at_start}
 """
 
 from __future__ import annotations
@@ -16,43 +19,29 @@ from __future__ import annotations
 from log_context import AnalyzerResult, LogContext, register_analyzer
 
 COORD_STATE = "/RealOutputs/SmartLaunch/CoordinatorState"
-LAUNCHER_AT_SETPOINT = "/Launcher/AtSetpoint"
-MOTIVATOR_AT_SETPOINT = "/Motivator/AtSetpoint"
+SPINDEXER_STATE = "/RealOutputs/Subsystems/SpindexerState"
 MOTIVATOR_TARGET_KEY = "/Motivator/TargetRPM"
 LAUNCHER_TARGET_KEY = "/Launcher/TargetVelocityRPM"
 BALL_IMPACT_COUNT = "/RealOutputs/Launcher/BallImpact/Count"
-BALL_TIME_SINCE_LAST_MS = "/RealOutputs/Launcher/BallImpact/TimeSinceLastMs"
-SPINDEXER_STATE = "/RealOutputs/Subsystems/SpindexerState"
 
-JAM_NO_IMPACT_SEC = 0.75
+JAM_NO_IMPACT_SEC = 0.5  # 0.5s without a ball = probably jammed
 MIN_MOTIVATOR_RPM = 50.0
 
 
 @register_analyzer(id="jams", title="Jams")
 def analyze(ctx: LogContext) -> AnalyzerResult:
     coord = ctx.signal(COORD_STATE)
-    launcher_ready = ctx.signal(LAUNCHER_AT_SETPOINT)
-    motivator_ready = ctx.signal(MOTIVATOR_AT_SETPOINT)
+    spindexer = ctx.signal(SPINDEXER_STATE)
     motivator_target = ctx.signal(MOTIVATOR_TARGET_KEY)
     launcher_target = ctx.signal(LAUNCHER_TARGET_KEY)
     ball_count = ctx.signal(BALL_IMPACT_COUNT)
-    spindexer = ctx.signal(SPINDEXER_STATE)
 
     events: list[dict] = []
     total_jam_s = 0.0
 
-    # For each FIRING interval, scan forward: when conditions to "actively feed"
-    # first become true, mark that moment as the start of a potential jam window.
-    # The window ends either when ball count increments or when we stop trying.
-    in_window = False
-    window_start = 0
-    window_start_ball_count = 0
-
-    # Merge relevant event timestamps inside the log so we advance one step at a time.
     step_times = sorted({
         *coord.timestamps_us,
-        *launcher_ready.timestamps_us,
-        *motivator_ready.timestamps_us,
+        *spindexer.timestamps_us,
         *motivator_target.timestamps_us,
         *ball_count.timestamps_us,
     })
@@ -60,26 +49,28 @@ def analyze(ctx: LogContext) -> AnalyzerResult:
     def trying_to_feed(t_us: int) -> bool:
         if coord.value_at(t_us) != "FIRING":
             return False
-        if not launcher_ready.value_at(t_us, False):
+        if spindexer.value_at(t_us) != "FEEDING":
             return False
-        if not motivator_ready.value_at(t_us, False):
+        if (motivator_target.value_at(t_us, 0.0) or 0.0) <= MIN_MOTIVATOR_RPM:
             return False
-        tgt = motivator_target.value_at(t_us, 0.0) or 0.0
-        return tgt > MIN_MOTIVATOR_RPM
+        return True
 
+    in_window = False
+    window_start = 0
+    window_start_count = 0
     for t in step_times:
         trying = trying_to_feed(t)
-        current_ball_count = int(ball_count.value_at(t, 0) or 0)
+        current = int(ball_count.value_at(t, 0) or 0)
         if trying:
             if not in_window:
                 in_window = True
                 window_start = t
-                window_start_ball_count = current_ball_count
+                window_start_count = current
             else:
-                # If a ball impact lands, reset the window.
-                if current_ball_count > window_start_ball_count:
+                if current > window_start_count:
+                    # Ball fed — reset window.
                     window_start = t
-                    window_start_ball_count = current_ball_count
+                    window_start_count = current
                 elif (t - window_start) / 1e6 >= JAM_NO_IMPACT_SEC:
                     dur = (t - window_start) / 1e6
                     events.append(
@@ -89,12 +80,10 @@ def analyze(ctx: LogContext) -> AnalyzerResult:
                             "duration_s": round(dur, 3),
                             "launcher_target_rpm": round(launcher_target.value_at(window_start, 0.0) or 0.0, 0),
                             "motivator_target_rpm": round(motivator_target.value_at(window_start, 0.0) or 0.0, 0),
-                            "coordinator_state": "FIRING",
-                            "spindexer_state": spindexer.value_at(window_start, ""),
+                            "spindexer_state_at_start": spindexer.value_at(window_start, ""),
                         }
                     )
                     total_jam_s += dur
-                    # Re-anchor so we don't re-emit the same event every step.
                     window_start = t
         else:
             in_window = False

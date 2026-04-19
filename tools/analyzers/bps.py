@@ -1,11 +1,20 @@
-"""Balls-per-second (BPS) metrics.
+"""Per-firing-interval BPS — driver's-seat view.
 
-Three headline numbers per match:
-    active_bps  = ball impacts / seconds in FIRING & launcher & motivator at setpoint
-    firing_bps  = ball impacts / seconds in FIRING
-    best_burst  = peak BPS over any 2s window inside a FIRING interval
+This is the metric that matters competitively: from pulling the fire button
+to releasing it, how many balls came out?
 
-Plus per-firing-interval BPS so the dashboard can highlight good/bad bursts.
+(The previous "active BPS" metric was dropped. It tried to credit only the
+time when Launcher and Motivator were simultaneously AtSetpoint, but the
+robot code doesn't actually stop the motivator between balls during FIRING,
+so that math was measuring `AtSetpoint` flicker noise rather than anything
+meaningful. See the `slugs` analyzer for the mechanism-capability ceiling.)
+
+Summary:
+    firing_bps         — total balls during FIRING ÷ total FIRING seconds
+    peak_2s_bps        — highest BPS over any 2 s window within any firing interval
+    target_bps         — 12.0 (competitive baseline)
+    target_gap_bps     — 12.0 - firing_bps (how short we are)
+    balls_during_firing, firing_seconds
 """
 
 from __future__ import annotations
@@ -13,20 +22,16 @@ from __future__ import annotations
 from log_context import AnalyzerResult, LogContext, register_analyzer
 
 COORDINATOR_STATE = "/RealOutputs/SmartLaunch/CoordinatorState"
-LAUNCHER_AT_SETPOINT = "/Launcher/AtSetpoint"
-MOTIVATOR_AT_SETPOINT = "/Motivator/AtSetpoint"
 BALL_IMPACT_COUNT = "/RealOutputs/Launcher/BallImpact/Count"
 
+TARGET_BPS = 12.0
 
-@register_analyzer(id="bps", title="Balls per second")
+
+@register_analyzer(id="bps", title="Firing BPS")
 def analyze(ctx: LogContext) -> AnalyzerResult:
     coord = ctx.signal(COORDINATOR_STATE)
-    launcher_ready = ctx.signal(LAUNCHER_AT_SETPOINT)
-    motivator_ready = ctx.signal(MOTIVATOR_AT_SETPOINT)
     ball_count = ctx.signal(BALL_IMPACT_COUNT)
 
-    # Find firing intervals (duplicates firing_intervals analyzer logic — cheap
-    # enough and keeps analyzers independent).
     intervals: list[tuple[int, int]] = []
     start = None
     for ts, v in zip(coord.timestamps_us, coord.values):
@@ -40,24 +45,18 @@ def analyze(ctx: LogContext) -> AnalyzerResult:
 
     events: list[dict] = []
     total_firing_s = 0.0
-    total_active_s = 0.0
-    total_balls_in_firing = 0
+    total_balls = 0
     peak_burst = 0.0
 
     for s, e in intervals:
         dur = (e - s) / 1e6
         total_firing_s += dur
-        active_s = _active_seconds(s, e, launcher_ready, motivator_ready)
-        total_active_s += active_s
-
         balls_before = int(ball_count.value_at(s - 1, 0) or 0)
         balls_after = int(ball_count.value_at(e, balls_before) or balls_before)
         delta = max(0, balls_after - balls_before)
-        total_balls_in_firing += delta
+        total_balls += delta
 
         interval_bps = delta / dur if dur > 0 else 0.0
-        interval_active_bps = delta / active_s if active_s > 0.15 else 0.0
-
         burst = _peak_burst(s, e, ball_count, window_us=2_000_000)
         peak_burst = max(peak_burst, burst)
 
@@ -66,50 +65,30 @@ def analyze(ctx: LogContext) -> AnalyzerResult:
                 "start_s": ctx.rel_s(s),
                 "end_s": ctx.rel_s(e),
                 "duration_s": round(dur, 3),
-                "active_duration_s": round(active_s, 3),
                 "balls_fired": delta,
                 "bps": round(interval_bps, 3),
-                "active_bps": round(interval_active_bps, 3),
                 "peak_2s_bps": round(burst, 3),
             }
         )
 
-    active_bps = total_balls_in_firing / total_active_s if total_active_s > 0.1 else 0.0
-    firing_bps = total_balls_in_firing / total_firing_s if total_firing_s > 0.1 else 0.0
+    firing_bps = total_balls / total_firing_s if total_firing_s > 0.1 else 0.0
 
     summary = {
-        "active_bps": round(active_bps, 3),
         "firing_bps": round(firing_bps, 3),
         "peak_2s_bps": round(peak_burst, 3),
-        "balls_during_firing": total_balls_in_firing,
+        "target_bps": TARGET_BPS,
+        "target_gap_bps": round(max(0.0, TARGET_BPS - firing_bps), 3),
+        "balls_during_firing": total_balls,
         "firing_seconds": round(total_firing_s, 2),
-        "active_firing_seconds": round(total_active_s, 2),
     }
-    return AnalyzerResult(id="bps", title="Balls per second", events=events, summary=summary)
-
-
-def _active_seconds(t0_us: int, t1_us: int, launcher_ready, motivator_ready) -> float:
-    edges = {t0_us, t1_us}
-    for ts, _ in launcher_ready.iter_between(t0_us, t1_us):
-        edges.add(ts)
-    for ts, _ in motivator_ready.iter_between(t0_us, t1_us):
-        edges.add(ts)
-    sorted_edges = sorted(edges)
-    total_us = 0
-    for a, b in zip(sorted_edges[:-1], sorted_edges[1:]):
-        if bool(launcher_ready.value_at(a, False)) and bool(motivator_ready.value_at(a, False)):
-            total_us += b - a
-    return total_us / 1e6
+    return AnalyzerResult(id="bps", title="Firing BPS", events=events, summary=summary)
 
 
 def _peak_burst(t0_us: int, t1_us: int, ball_count, window_us: int) -> float:
-    """Max BPS over any `window_us`-long window inside [t0, t1]."""
-    ts_list = ball_count.timestamps_us
-    val_list = ball_count.values
-    if not ts_list:
+    if not ball_count.timestamps_us:
         return 0.0
     peak = 0.0
-    step = 200_000  # 0.2s sliding step
+    step = 200_000
     t = t0_us
     while t + window_us <= t1_us:
         a = int(ball_count.value_at(t, 0) or 0)
