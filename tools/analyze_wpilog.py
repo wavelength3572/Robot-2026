@@ -19,6 +19,7 @@ Adding a new analyzer:
 from __future__ import annotations
 
 import argparse
+import glob as _glob
 import json
 import sys
 import time
@@ -32,9 +33,24 @@ import analyzers  # noqa: F401
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("logs", nargs="+", help=".wpilog files to analyze")
+    parser.add_argument("logs", nargs="+", help=".wpilog files to analyze (globs ok)")
     parser.add_argument("--out", required=True, help="output directory for JSON")
     args = parser.parse_args()
+
+    # Expand globs ourselves so PowerShell users (which don't auto-expand
+    # wildcards) get the same behavior as bash/zsh users.
+    log_paths: list[Path] = []
+    for pattern in args.logs:
+        matches = _glob.glob(pattern)
+        if matches:
+            log_paths.extend(Path(m) for m in matches)
+        elif Path(pattern).exists():
+            log_paths.append(Path(pattern))
+        else:
+            print(f"warning: no files matched {pattern!r}", file=sys.stderr)
+    if not log_paths:
+        print("error: no .wpilog files found", file=sys.stderr)
+        return 2
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -42,9 +58,8 @@ def main() -> int:
     fleet_rows: list[dict] = []
     analyzer_ids: list[str] = []
 
-    for i, log_path in enumerate(args.logs, 1):
-        log_path = Path(log_path)
-        print(f"[{i}/{len(args.logs)}] {log_path.name}", flush=True)
+    for i, log_path in enumerate(log_paths, 1):
+        print(f"[{i}/{len(log_paths)}] {log_path.name}", flush=True)
         t_start = time.time()
         ctx = LogContext(log_path)
         t_parse = time.time() - t_start
