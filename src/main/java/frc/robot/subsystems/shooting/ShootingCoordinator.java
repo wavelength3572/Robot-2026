@@ -1874,7 +1874,9 @@ public class ShootingCoordinator extends SubsystemBase {
         launcherReady = launcher != null && launcher.isReady();
         motivatorReady =
             motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
-        turretReady = turret.getState() == Turret.TurretState.READY;
+        turretReady =
+            turret.getState() == Turret.TurretState.READY
+                || turret.getState() == Turret.TurretState.LOCKED;
         hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
         shotExists = currentShot != null;
         velCompOk = currentShotAchievable;
@@ -1919,7 +1921,9 @@ public class ShootingCoordinator extends SubsystemBase {
       // --- Readiness check for state advancement ---
       launcherReady = launcher != null && launcher.isReady();
       motivatorReady = motivator == null || motivator.getState() == Motivator.MotivatorState.READY;
-      turretReady = turret.getState() == Turret.TurretState.READY;
+      turretReady =
+          turret.getState() == Turret.TurretState.READY
+              || turret.getState() == Turret.TurretState.LOCKED;
       hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
       shotExists = currentShot != null;
       velCompOk = currentShotAchievable;
