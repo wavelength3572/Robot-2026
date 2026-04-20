@@ -808,14 +808,14 @@ public class ShootingCommands {
                         // whenever not FIRING (including AIMING blocked by velcomp,
                         // SETTLING, HELD, etc.) which added ~550 RPM of reversal latency
                         // every time the coordinator reached FIRING.
-                        launcher.setFeedingActive(false);
-                        if (motivator != null
-                            && motivator.getState()
-                                == Motivator.MotivatorState.SPINNING_UP) {
-                          spindexer.setSpindexerVelocity(-150);
-                        } else {
-                          spindexer.stopSpindexer();
-                        }
+                        // launcher.setFeedingActive(false);
+                        // if (motivator != null
+                        //     && motivator.getState()
+                        //         == Motivator.MotivatorState.SPINNING_UP) {
+                        //   spindexer.setSpindexerVelocity(-150);
+                        // } else {
+                          spindexer.stopSpindexer(); // if we arent feeding and if we arent doing something special for auto, then the spindexer shoudl be off
+                        // }
                       }
                     },
                     spindexer)
