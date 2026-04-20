@@ -91,7 +91,7 @@ def main() -> int:
             "t0_us": ctx.t0_us,
             "analyzers": results_by_id,
         }
-        (out_dir / f"match_{log_path.stem}.json").write_text(json.dumps(match_out, default=_json_default))
+        (out_dir / f"match_{log_path.stem}.json").write_text(json.dumps(match_out, default=_json_default), encoding="utf-8")
 
         fleet_summary = {aid: r["summary"] for aid, r in results_by_id.items()}
         fleet_rows.append(
@@ -109,7 +109,7 @@ def main() -> int:
         "analyzer_order": analyzer_ids,
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
-    (out_dir / "summary.json").write_text(json.dumps(fleet_out, default=_json_default, indent=2))
+    (out_dir / "summary.json").write_text(json.dumps(fleet_out, default=_json_default, indent=2), encoding="utf-8")
     print(f"\nWrote {len(fleet_rows)} match files + summary.json to {out_dir}")
 
     # Build a single self-contained HTML the user can double-click to open,
@@ -126,7 +126,7 @@ def main() -> int:
         report = generate_report.build_report(summary, matches)
         report_path = Path("docs/analysis-findings.md")
         report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(report)
+        report_path.write_text(report, encoding="utf-8")
         print(f"Wrote findings report: {report_path}")
     except Exception as exc:
         print(f"(findings report skipped: {exc})", file=sys.stderr)
@@ -137,17 +137,17 @@ def main() -> int:
 def _write_standalone_html(out_dir: Path, fleet_out: dict) -> None:
     """Emit tools/log-analysis/dashboard.html with CSS/JS/data all inlined."""
     web_dir = out_dir.parent  # tools/log-analysis/
-    index_html = (web_dir / "index.html").read_text()
-    styles_css = (web_dir / "styles.css").read_text()
-    app_js = (web_dir / "app.js").read_text()
-    chartjs = (web_dir / "vendor" / "chart.umd.min.js").read_text()
+    index_html = (web_dir / "index.html").read_text(encoding="utf-8")
+    styles_css = (web_dir / "styles.css").read_text(encoding="utf-8")
+    app_js = (web_dir / "app.js").read_text(encoding="utf-8")
+    chartjs = (web_dir / "vendor" / "chart.umd.min.js").read_text(encoding="utf-8")
 
     # Gather every per-match JSON we just wrote
     matches = {}
     for match in fleet_out["matches"]:
         match_path = out_dir / f"match_{match['stem']}.json"
         if match_path.exists():
-            matches[match["stem"]] = json.loads(match_path.read_text())
+            matches[match["stem"]] = json.loads(match_path.read_text(encoding="utf-8"))
     bundle = {"summary": fleet_out, "matches": matches}
     bundle_json = json.dumps(bundle, default=_json_default)
 
@@ -169,7 +169,7 @@ def _write_standalone_html(out_dir: Path, fleet_out: dict) -> None:
     html = html.replace('<script src="app.js"></script>', data_block + "\n" + app_block)
 
     dashboard_path = web_dir / "dashboard.html"
-    dashboard_path.write_text(html)
+    dashboard_path.write_text(html, encoding="utf-8")
     size_mb = dashboard_path.stat().st_size / (1024 * 1024)
     print(f"Wrote standalone dashboard: {dashboard_path}  ({size_mb:.1f} MB, double-click to open)")
 

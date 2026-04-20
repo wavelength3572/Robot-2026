@@ -17,12 +17,12 @@ from pathlib import Path
 
 
 def load_data(data_dir: Path) -> tuple[dict, dict[str, dict]]:
-    summary = json.loads((data_dir / "summary.json").read_text())
+    summary = json.loads((data_dir / "summary.json").read_text(encoding="utf-8"))
     matches = {}
     for m in summary["matches"]:
         p = data_dir / f"match_{m['stem']}.json"
         if p.exists():
-            matches[m["stem"]] = json.loads(p.read_text())
+            matches[m["stem"]] = json.loads(p.read_text(encoding="utf-8"))
     return summary, matches
 
 
@@ -256,7 +256,7 @@ def main() -> int:
     report = build_report(summary, matches)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(report)
+    out.write_text(report, encoding="utf-8")
     print(f"Wrote {out}  ({len(report)} chars, {report.count(chr(10))} lines)")
     return 0
 
