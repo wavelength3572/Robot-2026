@@ -53,6 +53,23 @@ public class FieldConstants {
   }
 
   /**
+   * Safe landing zone for geo-fenced passing. Defined from blue alliance perspective; red alliance
+   * mirrors X bounds across field center. The geo-fence approves a pass shot iff the predicted
+   * landing point (after shrinking by a tunable margin) falls inside this rectangle.
+   */
+  public static class PassSafeZone {
+    /** Blue alliance zone X bounds: ball must land between alliance wall and zone line. */
+    public static final double blueMinX = 0.0;
+
+    public static final double blueMaxX = LinesVertical.allianceZone;
+
+    /** Y bounds: full field width (ball must not leave the sidelines). */
+    public static final double minY = 0.0;
+
+    public static final double maxY = fieldWidth;
+  }
+
+  /**
    * Officially defined and relevant horizontal lines found on the field (defined by Y-axis offset)
    *
    * <p>NOTE: The field element start and end are always left to right from the perspective of the

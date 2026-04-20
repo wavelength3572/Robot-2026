@@ -802,10 +802,20 @@ public class ShootingCommands {
                         launcher.setFeedingActive(false);
                         spindexer.stopSpindexer();
                       } else {
-                        // Motivator is reversing or spinning up — slowly back-spin
-                        // the spindexer to settle fuel away from the launcher interface
+                        // Only back-spin while motivator is actually spinning up — keeps
+                        // balls away from the launcher interface until it's at speed.
+                        // Otherwise stop the spindexer; the old -150 ran unconditionally
+                        // whenever not FIRING (including AIMING blocked by velcomp,
+                        // SETTLING, HELD, etc.) which added ~550 RPM of reversal latency
+                        // every time the coordinator reached FIRING.
                         launcher.setFeedingActive(false);
-                        spindexer.setSpindexerVelocity(-150);
+                        if (motivator != null
+                            && motivator.getState()
+                                == Motivator.MotivatorState.SPINNING_UP) {
+                          spindexer.setSpindexerVelocity(-150);
+                        } else {
+                          spindexer.stopSpindexer();
+                        }
                       }
                     },
                     spindexer)
