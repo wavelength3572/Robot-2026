@@ -14,7 +14,6 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.FieldConstants;
-import frc.robot.commands.DriveCommands;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
@@ -150,62 +149,8 @@ public class ShootingCoordinator extends SubsystemBase {
   // Optional feeding suppression check — when true, launchFuel() is a no-op
   private BooleanSupplier feedingSuppressedSupplier = () -> false;
 
-  // Trench hood safety: the max hood angle considered safe under the trench structure.
-  // If hood is above this while moving in trench, drive speed is limited until it lowers.
-  private final LoggedTunableNumber trenchHoodMaxDeg =
-      new LoggedTunableNumber(
-          "Shots/TrenchMode/HoodMaxDeg", Constants.getRobotConfig().getTrenchHoodMaxDeg());
-
-  // Trench hood safety: limits drive speed when hood is above safe angle while moving in trench.
-  // Protects the hood from hitting the trench structure during transit.
-  private final LoggedTunableNumber trenchSafetySpeedLimitMps =
-      new LoggedTunableNumber(
-          "Shots/TrenchMode/SafetySpeedLimitMps",
-          Constants.getRobotConfig().getTrenchSafetySpeedLimitMps());
-  private final LoggedTunableNumber trenchMovingThresholdMps =
-      new LoggedTunableNumber(
-          "Shots/TrenchMode/MovingThresholdMps",
-          Constants.getRobotConfig().getTrenchMovingThresholdMps());
-  // Hood clamp/unclamp thresholds with hysteresis. Clamp is low (fast response when
-  // accelerating into trench), unclamp is higher (hood starts rising earlier when decelerating).
-  private final LoggedTunableNumber trenchHoodClampSpeedMps =
-      new LoggedTunableNumber(
-          "Shots/TrenchMode/HoodClampSpeedMps",
-          Constants.getRobotConfig().getTrenchHoodClampSpeedMps());
-  private final LoggedTunableNumber trenchHoodUnclampSpeedMps =
-      new LoggedTunableNumber(
-          "Shots/TrenchMode/HoodUnclampSpeedMps",
-          Constants.getRobotConfig().getTrenchHoodUnclampSpeedMps());
-  private boolean trenchHoodSafetyActive = false;
-  private boolean movingInTrench = false; // true when robot is moving in a trench zone
-
-  // Danger trench safety: near-stops the robot when hood is above safe angle in the danger zone
-  // at the alliance/neutral trench boundary. Timeout relaxes limit for broken-hood escape.
-  private final LoggedTunableNumber dangerTrenchSpeedLimitMps =
-      new LoggedTunableNumber("Shots/TrenchMode/DangerSpeedLimitMps", 0.3);
-  private final LoggedTunableNumber dangerTrenchTimeoutSec =
-      new LoggedTunableNumber("Shots/TrenchMode/DangerTimeoutSec", 2.0);
-  private final LoggedTunableNumber dangerTrenchFallbackSpeedMps =
-      new LoggedTunableNumber("Shots/TrenchMode/DangerFallbackSpeedMps", 2.0);
-  private boolean dangerTrenchActive = false;
-  private double dangerTrenchEntryTimestamp = 0.0;
-
-  // Predictive hood safety: when in ALLIANCE_TRENCH, project turret position forward
-  // by this many seconds using field velocity. If the predicted point falls inside the
-  // DANGER_TRENCH band, treat it as already-in-danger (forces hood to min via
-  // NO_FIRE_ZONE + applies danger speed brake early) so the hood has time to lower
-  // before the robot physically crosses the boundary. Set to 0.0 to disable prediction.
-  private final LoggedTunableNumber trenchLookaheadSec =
-      new LoggedTunableNumber("Shots/TrenchMode/LookaheadSec", 0.3);
-  // Escape hatch for the imminent latch: if predictedInDanger stays continuously
-  // false for this many seconds while latched, release. Lets a driver who truly
-  // changes their mind (reverses out of the approach) recover hood-up shooting
-  // without having to back all the way out of the trench zone. Set to 0 to
-  // disable — the latch then only releases on full trench-zone exit.
-  private final LoggedTunableNumber trenchReleaseDwellSec =
-      new LoggedTunableNumber("Shots/TrenchMode/ReleaseDwellSec", 0.5);
-  private boolean dangerTrenchImminent = false;
-  private double trenchImminentClearSinceSec = 0.0;
+  // Trench hood safety and danger zone speed limiting — see TrenchSafetyManager for details.
+  private final TrenchSafetyManager trenchSafety;
 
   // Auto passing: when false, PASS/LONG_PASS zones are treated as no-fire zones in auto.
   // Set by AutoWrapperFactory based on path strategy (AUTO_SHOOT enables, others disable).
@@ -426,6 +371,7 @@ public class ShootingCoordinator extends SubsystemBase {
     this.turretConfig =
         new ShotCalculator.TurretConfig(
             config.getTurretHeightMeters(), config.getTurretOffsetX(), config.getTurretOffsetY());
+    this.trenchSafety = new TrenchSafetyManager(hood, turretConfig);
 
     // Passing strategy chooser — how to pick left vs right pass target
     passingStrategyChooser.setDefaultOption("Symmetric (Y-based)", PassingStrategy.SYMMETRIC);
@@ -468,6 +414,7 @@ public class ShootingCoordinator extends SubsystemBase {
     this.robotPoseSupplier = poseSupplier;
     this.fieldSpeedsSupplier = speedsSupplier;
     this.pitchDegSupplier = pitchDegSupplier;
+    trenchSafety.init(poseSupplier, speedsSupplier);
 
     // Create 3D pose supplier from 2D pose
     Supplier<Pose3d> pose3dSupplier =
@@ -496,12 +443,13 @@ public class ShootingCoordinator extends SubsystemBase {
     // Shot calculation and logging run even while disabled so you can
     // see strategy comparisons and shot parameters before enabling.
     periodicCounter++;
+    boolean shouldLog = periodicCounter % 5 == 0;
     updateShotCalculation(alliance, isBlueAlliance);
-    updateDangerTrenchImminent(alliance);
+    trenchSafety.updateDangerTrenchImminent(cachedAimResult, alliance, shouldLog);
     updateCoordinatorState();
-    updateTrenchHoodSafety();
-    updateDangerTrenchSafety();
-    if (periodicCounter % 5 == 0) {
+    trenchSafety.updateTrenchHoodSafety(cachedAimResult, shouldLog);
+    trenchSafety.updateDangerTrenchSafety(cachedAimResult, shouldLog);
+    if (shouldLog) {
       logShotState();
     }
 
@@ -558,30 +506,9 @@ public class ShootingCoordinator extends SubsystemBase {
 
       // Hood trench clamping — runs for ALL aim modes so setClamped(false) is always
       // called when leaving a trench, regardless of whether we're shooting or passing.
-      boolean inTrenchZone =
-          aimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
-              || aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH
-              || aimResult.zone() == ZoneDetector.Zone.DANGER_TRENCH;
-      boolean inNeutralTrench = aimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH;
-      boolean inDangerTrench = aimResult.zone() == ZoneDetector.Zone.DANGER_TRENCH;
-      if (inTrenchZone) {
-        double robotSpeed =
-            Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-        double threshold =
-            movingInTrench ? trenchHoodUnclampSpeedMps.get() : trenchHoodClampSpeedMps.get();
-        boolean isMoving = robotSpeed > threshold;
-        // Neutral and danger zones always clamp; alliance trench does not clamp
-        boolean hoodClamped = inNeutralTrench || inDangerTrench;
-        if (hood != null) {
-          hood.setClamped(hoodClamped);
-        }
-        movingInTrench = isMoving;
-      } else {
-        movingInTrench = false;
-        if (hood != null) {
-          hood.setClamped(false);
-        }
-      }
+      double robotSpeed =
+          Math.hypot(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
+      trenchSafety.updateHoodClamping(aimResult.zone(), robotSpeed);
 
       // Raw distance to aim target (no velocity compensation) — for logging only
       rawDistanceToTargetM =
@@ -1348,23 +1275,16 @@ public class ShootingCoordinator extends SubsystemBase {
    */
   private void logShotState() {
     // --- Targets (what we're commanding, respecting per-actuator overrides) ---
-    double targetRPM = frc.robot.commands.ShootingCommands.getEffectiveRPM(currentShot);
-    double targetHoodDeg = frc.robot.commands.ShootingCommands.getEffectiveHoodDeg(currentShot);
-
-    Logger.recordOutput("SmartLaunch/Target/LauncherRPM", targetRPM);
-    Logger.recordOutput("SmartLaunch/Target/HoodDeg", targetHoodDeg);
+    Logger.recordOutput("SmartLaunch/Target/LauncherRPM", ShotOverrides.getLauncherRPM(currentShot));
+    Logger.recordOutput("SmartLaunch/Target/HoodDeg", ShotOverrides.getHoodDeg(currentShot));
     Logger.recordOutput("SmartLaunch/Target/TurretDeg", currentTurretAngleDeg);
     Logger.recordOutput(
         "SmartLaunch/Target/LaunchAngleDeg",
         currentShot != null ? currentShot.getLaunchAngleDegrees() : 0.0);
     Logger.recordOutput("SmartLaunch/Target/ExitVelocityMps", currentExitVelocityMps);
     Logger.recordOutput("SmartLaunch/Target/Achievable", currentShotAchievable);
-    Logger.recordOutput(
-        "SmartLaunch/Target/MotivatorRPM",
-        frc.robot.commands.ShootingCommands.getEffectiveMotivatorRPM(currentShot));
-    Logger.recordOutput(
-        "SmartLaunch/Target/SpindexerRPM",
-        frc.robot.commands.ShootingCommands.getEffectiveSpindexerRPM(currentShot));
+    Logger.recordOutput("SmartLaunch/Target/MotivatorRPM", ShotOverrides.getMotivatorRPM(currentShot));
+    Logger.recordOutput("SmartLaunch/Target/SpindexerRPM", ShotOverrides.getSpindexerRPM(currentShot));
 
     // --- Actuals (what hardware is doing) ---
     Logger.recordOutput(
@@ -1664,202 +1584,7 @@ public class ShootingCoordinator extends SubsystemBase {
    * active, drive speed is limited and shooting is suppressed until the hood lowers.
    */
   public boolean isTrenchHoodSafetyActive() {
-    return trenchHoodSafetyActive;
-  }
-
-  /**
-   * Update trench hood safety state. When moving in a trench zone with the hood physically above
-   * the safe angle (trenchHoodMaxDeg), limits drive speed to trenchSafetySpeedLimitMps and lets the
-   * hood lower. Shooting is naturally suppressed because the hood won't be at its target yet. Once
-   * the hood reaches the safe angle, the speed limit is cleared.
-   */
-  private void updateTrenchHoodSafety() {
-    boolean wasActive = trenchHoodSafetyActive;
-
-    boolean inTrenchZone =
-        cachedAimResult != null
-            && (cachedAimResult.zone() == ZoneDetector.Zone.ALLIANCE_TRENCH
-                || cachedAimResult.zone() == ZoneDetector.Zone.NEUTRAL_TRENCH
-                || cachedAimResult.zone() == ZoneDetector.Zone.DANGER_TRENCH);
-
-    if (inTrenchZone && hood != null && fieldSpeedsSupplier != null) {
-      ChassisSpeeds speeds = fieldSpeedsSupplier.get();
-      double robotSpeed = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
-      boolean isMoving = robotSpeed > trenchMovingThresholdMps.get();
-      boolean hoodAboveSafe = hood.getCurrentAngle() > trenchHoodMaxDeg.get();
-
-      trenchHoodSafetyActive = isMoving && hoodAboveSafe;
-    } else {
-      trenchHoodSafetyActive = false;
-    }
-
-    // Apply or release drive speed limit on state transitions.
-    // Defer to danger trench safety when it's active — it uses a more aggressive limit.
-    if (trenchHoodSafetyActive && !dangerTrenchActive) {
-      DriveCommands.setSpeedLimit(trenchSafetySpeedLimitMps.get());
-    } else if (wasActive && !dangerTrenchActive) {
-      DriveCommands.clearSpeedLimit();
-    }
-
-    if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("SmartLaunch/TrenchHoodSafety/Active", trenchHoodSafetyActive);
-    }
-  }
-
-  /**
-   * True when the robot is in ALLIANCE_TRENCH and its projected turret position (turret +
-   * fieldVelocity * lookaheadSec) falls inside DANGER_TRENCH. Treated identically to being in
-   * DANGER_TRENCH for hood-safety purposes: forces hood to min via NO_FIRE_ZONE and applies the
-   * danger speed brake. Gives the hood lead time to lower before the robot crosses the boundary.
-   */
-  public boolean isDangerTrenchImminent() {
-    return dangerTrenchImminent;
-  }
-
-  /**
-   * Recompute {@link #dangerTrenchImminent}. Runs every cycle after {@link #updateShotCalculation}
-   * and before the coordinator state machine so the prediction can gate NO_FIRE_ZONE entry.
-   *
-   * <p>Scoped to current-zone == ALLIANCE_TRENCH to avoid false positives elsewhere on the field.
-   * Time-based lookahead auto-scales with approach speed: slow motion predicts only a short
-   * distance (no nuisance trips), fast approach predicts farther (real warning). Tune against
-   * worst-case hood slew time from shot angle to {@code trenchHoodMaxDeg}.
-   */
-  private void updateDangerTrenchImminent(DriverStation.Alliance alliance) {
-    double lookaheadSec = trenchLookaheadSec.get();
-    ZoneDetector.Zone zone = cachedAimResult != null ? cachedAimResult.zone() : null;
-    boolean inAllianceTrench = zone == ZoneDetector.Zone.ALLIANCE_TRENCH;
-    // Hold the latch through any trench zone, not just ALLIANCE_TRENCH. Turret
-    // position at the DANGER_TRENCH boundary can flicker zones cycle-to-cycle
-    // under pose noise; releasing on every flicker produced oscillation in the
-    // imminent flag. Only fully leaving all trench zones is a durable release.
-    boolean inAnyTrench =
-        zone == ZoneDetector.Zone.ALLIANCE_TRENCH
-            || zone == ZoneDetector.Zone.DANGER_TRENCH
-            || zone == ZoneDetector.Zone.NEUTRAL_TRENCH;
-
-    // Hard exit: out of all trench zones, or prediction not possible at all.
-    if (!inAnyTrench
-        || lookaheadSec <= 0.0
-        || robotPoseSupplier == null
-        || fieldSpeedsSupplier == null) {
-      if (dangerTrenchImminent) {
-        dangerTrenchImminent = false;
-        trenchImminentClearSinceSec = 0.0;
-        Logger.recordOutput("SmartLaunch/TrenchHoodSafety/Imminent", false);
-      }
-      return;
-    }
-
-    // Only compute a fresh prediction when actually in ALLIANCE_TRENCH. In
-    // DANGER/NEUTRAL trench the latch is just held as-is (zone-based safety
-    // already drives the hood down via NO_FIRE_ZONE).
-    boolean predictedInDanger = false;
-    double predX = 0.0;
-    double predY = 0.0;
-    Pose2d robotPose = null;
-    if (inAllianceTrench) {
-      robotPose = robotPoseSupplier.get();
-      ChassisSpeeds speeds = fieldSpeedsSupplier.get();
-      double[] turretPos =
-          ShotCalculator.getTurretFieldPosition(
-              robotPose.getX(),
-              robotPose.getY(),
-              robotPose.getRotation().getRadians(),
-              turretConfig);
-      predX = turretPos[0] + speeds.vxMetersPerSecond * lookaheadSec;
-      predY = turretPos[1] + speeds.vyMetersPerSecond * lookaheadSec;
-      predictedInDanger = FieldConstants.TrenchZones.isInDangerTrenchZone(predX, predY, alliance);
-
-      if (!dangerTrenchImminent) {
-        dangerTrenchImminent = predictedInDanger;
-        trenchImminentClearSinceSec = 0.0;
-      } else {
-        // Latched. Release only if predictedInDanger has been CONTINUOUSLY false
-        // for trenchReleaseDwellSec. Transient clears (brake-induced v drop,
-        // pose noise) reset the timer, so the latch only opens on a genuine
-        // sustained change — e.g. driver actually reverses course.
-        double releaseDwellSec = trenchReleaseDwellSec.get();
-        if (releaseDwellSec <= 0.0 || predictedInDanger) {
-          trenchImminentClearSinceSec = 0.0;
-        } else {
-          double now = Timer.getFPGATimestamp();
-          if (trenchImminentClearSinceSec == 0.0) {
-            trenchImminentClearSinceSec = now;
-          } else if (now - trenchImminentClearSinceSec >= releaseDwellSec) {
-            dangerTrenchImminent = false;
-            trenchImminentClearSinceSec = 0.0;
-          }
-        }
-      }
-    }
-
-    if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("SmartLaunch/TrenchHoodSafety/Imminent", dangerTrenchImminent);
-      Logger.recordOutput("SmartLaunch/TrenchHoodSafety/PredictedInDanger", predictedInDanger);
-      double clearElapsed =
-          (dangerTrenchImminent && trenchImminentClearSinceSec > 0.0)
-              ? Timer.getFPGATimestamp() - trenchImminentClearSinceSec
-              : 0.0;
-      Logger.recordOutput("SmartLaunch/TrenchHoodSafety/ClearDwellSec", clearElapsed);
-      if (robotPose != null) {
-        Logger.recordOutput(
-            "SmartLaunch/TrenchHoodSafety/PredictedTurret",
-            new Pose2d(predX, predY, robotPose.getRotation()));
-      }
-    }
-  }
-
-  /**
-   * Update danger trench safety state. When in the DANGER_TRENCH zone with the hood physically
-   * above the safe angle, near-stops the robot (0.3 m/s) and forces the hood to lower. After a
-   * tunable timeout (default 2s), relaxes to a fallback speed so the driver can escape if the hood
-   * is broken/jammed. Once the hood reaches the safe angle, the limit is cleared immediately.
-   *
-   * <p>Speed limiting uses DriveCommands (teleop joystick only). In auto, path speeds should be
-   * designed to stay within safe limits in trench zones. The hood clamping and force-to-min angle
-   * work in both teleop and auto regardless.
-   */
-  private void updateDangerTrenchSafety() {
-    boolean wasActive = dangerTrenchActive;
-
-    boolean inDangerZone =
-        (cachedAimResult != null && cachedAimResult.zone() == ZoneDetector.Zone.DANGER_TRENCH)
-            || dangerTrenchImminent;
-
-    if (inDangerZone && hood != null) {
-      boolean hoodAboveSafe = hood.getCurrentAngle() > trenchHoodMaxDeg.get();
-
-      if (hoodAboveSafe) {
-        if (!wasActive) {
-          // Just entered danger zone with hood up — record entry time for timeout
-          dangerTrenchEntryTimestamp = Timer.getFPGATimestamp();
-        }
-        dangerTrenchActive = true;
-
-        // After timeout, relax to fallback speed so driver can escape a broken hood
-        double elapsed = Timer.getFPGATimestamp() - dangerTrenchEntryTimestamp;
-        if (elapsed > dangerTrenchTimeoutSec.get()) {
-          DriveCommands.setSpeedLimit(dangerTrenchFallbackSpeedMps.get());
-        } else {
-          DriveCommands.setSpeedLimit(dangerTrenchSpeedLimitMps.get());
-        }
-      } else {
-        // Hood is at or below safe angle — allow passage
-        dangerTrenchActive = false;
-      }
-    } else {
-      dangerTrenchActive = false;
-    }
-
-    // Clear drive speed limit when danger trench safety deactivates
-    if (wasActive && !dangerTrenchActive) {
-      DriveCommands.clearSpeedLimit();
-    }
-
-    if (periodicCounter % 5 == 0) {
-      Logger.recordOutput("SmartLaunch/DangerTrenchSafety/Active", dangerTrenchActive);
-    }
+    return trenchSafety.isTrenchHoodSafetyActive();
   }
 
   // ========== CoordinatorState Machine API ==========
@@ -2002,7 +1727,7 @@ public class ShootingCoordinator extends SubsystemBase {
         currentZone == ZoneDetector.Zone.NEUTRAL_TRENCH
             || currentZone == ZoneDetector.Zone.DANGER_TRENCH
             || currentZone == ZoneDetector.Zone.BUMP
-            || dangerTrenchImminent;
+            || trenchSafety.isDangerTrenchImminent();
     if (!isAutoCollecting() && coordinatorState == CoordinatorState.UNARMED) {
       if (inNoFireZone) {
         coordinatorState = CoordinatorState.NO_FIRE_ZONE;

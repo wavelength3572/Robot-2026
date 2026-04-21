@@ -10,6 +10,7 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.shooting.ShotCalculator;
+import frc.robot.subsystems.shooting.ShotOverrides;
 import frc.robot.subsystems.shooting.ShotVisualizer;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
@@ -20,72 +21,44 @@ import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
 
 /**
- * Factory class for shooting commands. Provides a unified launch command that works for both
- * simulation (spawns fuel balls) and physical robot (runs motivator).
- *
- * <p>Supports two modes:
+ * Factory class for shooting commands. Supports two modes:
  *
  * <ul>
- *   <li>COMPETITION: Auto-calculates optimal trajectory to hub (Shots/*)
+ *   <li>COMPETITION: Auto-calculates optimal trajectory to hub (SmartLaunch)
  *   <li>TEST: Uses fixed preset parameters (hub shot, trench shots)
  * </ul>
- *
- * <p>The launch command:
- *
- * <ol>
- *   <li>Spins up launcher (and motivator if present)
- *   <li>Waits for launcher to reach setpoint
- *   <li>Fires balls repeatedly until button released or out of fuel
- * </ol>
  */
 public class ShootingCommands {
 
   /** Shooting mode determines trajectory calculation and parameter source. */
   public enum ShootingMode {
-    /** Auto-calculated trajectory to hub, optimized RPM/angle for distance (Shots/*). */
+    /** Auto-calculated trajectory to hub, optimized RPM/angle for distance. */
     COMPETITION,
     /** Fixed preset parameters (hub shot, trench shots). */
     TEST
   }
 
-  // Current shooting mode - defaults to competition
   private static ShootingMode currentMode = ShootingMode.COMPETITION;
 
-  /**
-   * Get the current shooting mode.
-   *
-   * @return Current ShootingMode
-   */
   public static ShootingMode getMode() {
     return currentMode;
   }
 
-  /**
-   * Set the shooting mode.
-   *
-   * @param mode The mode to set
-   */
   public static void setMode(ShootingMode mode) {
     if (currentMode != mode) {
       currentMode = mode;
       SmartDashboard.putString("Match/Status/Mode", mode.toString());
       SmartDashboard.putBoolean("Match/Status/Active", mode == ShootingMode.TEST);
-      // System.out.println("[Shooting] Mode changed to: " + mode);
     }
   }
 
-  /**
-   * Check if currently in test mode.
-   *
-   * @return True if in TEST mode
-   */
   public static boolean isTestMode() {
     return currentMode == ShootingMode.TEST;
   }
 
-  // ===== Fixed Shot Presets (tunable from dashboard) =====
+  // ===== Fixed Shot Presets =====
+  // Tunable from dashboard so values can be adjusted without redeploying.
 
-  // Hub shot — close-range shot into the hub
   private static final LoggedTunableNumber hubShotLauncherRPM =
       new LoggedTunableNumber(
           "Shots/HubShot/LauncherRPM", Constants.getRobotConfig().getHubShotLauncherRPM());
@@ -102,7 +75,6 @@ public class ShootingCommands {
       new LoggedTunableNumber(
           "Shots/HubShot/SpindexerRPM", Constants.getRobotConfig().getHubShotSpindexerRPM());
 
-  // Left trench shot
   private static final LoggedTunableNumber leftTrenchLauncherRPM =
       new LoggedTunableNumber(
           "Shots/LeftTrench/LauncherRPM", Constants.getRobotConfig().getLeftTrenchLauncherRPM());
@@ -120,7 +92,6 @@ public class ShootingCommands {
       new LoggedTunableNumber(
           "Shots/LeftTrench/SpindexerRPM", Constants.getRobotConfig().getLeftTrenchSpindexerRPM());
 
-  // Right trench shot
   private static final LoggedTunableNumber rightTrenchLauncherRPM =
       new LoggedTunableNumber(
           "Shots/RightTrench/LauncherRPM", Constants.getRobotConfig().getRightTrenchLauncherRPM());
@@ -141,98 +112,16 @@ public class ShootingCommands {
           "Shots/RightTrench/SpindexerRPM",
           Constants.getRobotConfig().getRightTrenchSpindexerRPM());
 
-  // ===== Motivator / Spindexer RPM Architecture =====
-  // Each ShotStrategy (FixedHeightShotStrategy, FixedHeightPassStrategy, TwoStageShotStrategy)
-  // owns its own motivator and spindexer RPM tunables and returns them in ShotResult.
-  // The strategy is the single source of truth — to change values, edit the strategy.
-  //
-  // The getEffective*() methods below apply per-actuator dashboard overrides on top of
-  // whatever the strategy returned. That's the only layer between strategy and hardware.
-  //
-  // To add a new pass strategy: implement ShotStrategy, return your motivator/spindexer
-  // RPM in the ShotResult, and the override system works automatically.
-
-  // ===== Per-Actuator Overrides =====
-  // Each actuator can be individually overridden via a dashboard toggle + tunable value.
-  // When an override is off, the calculated value is used. When on, the tunable is used.
-  // Any combination of 0-4 overrides can be active at once.
-  private static final LoggedTunableNumber overrideLauncherRPM =
-      new LoggedTunableNumber(
-          "Overrides/LauncherRPM", Constants.getRobotConfig().getOverrideLauncherRPM());
-  private static final LoggedTunableNumber overrideHoodDeg =
-      new LoggedTunableNumber("Overrides/HoodDeg", Constants.getRobotConfig().getOverrideHoodDeg());
-  private static final LoggedTunableNumber overrideMotivatorRPM =
-      new LoggedTunableNumber(
-          "Overrides/MotivatorRPM", Constants.getRobotConfig().getOverrideMotivatorRPM());
-  private static final LoggedTunableNumber overrideSpindexerRPM =
-      new LoggedTunableNumber(
-          "Overrides/SpindexerRPM", Constants.getRobotConfig().getOverrideSpindexerRPM());
-
-  // ===== Launcher RPM Trim =====
-
-  // Trim value added to all launcher RPM targets. Adjusted via button box 1 axis
-  // knob.
-  // Knob positions: (0,-1)=neutral, (0,1)=-50, (-1,1)=+50, (1,1)=+100
-  private static double launcherTrimRPM = 0.0;
-
-  /**
-   * Set the launcher RPM trim offset. This value is added to all launcher RPM targets (both smart
-   * launch and fixed shots).
-   *
-   * @param trimRPM The RPM offset to apply
-   */
-  public static void setLauncherTrimRPM(double trimRPM) {
-    if (launcherTrimRPM != trimRPM) {
-      launcherTrimRPM = trimRPM;
-      SmartDashboard.putNumber("Trim/LauncherRPM", trimRPM);
-      Logger.recordOutput("Trim/LauncherRPM", trimRPM);
-      // System.out.println("[Trim] Launcher RPM trim set to " + trimRPM);
-    }
-  }
-
-  /**
-   * Get the current launcher RPM trim offset.
-   *
-   * @return Current trim RPM value
-   */
-  public static double getLauncherTrimRPM() {
-    return launcherTrimRPM;
-  }
-
   // ===== Command Behavior Constants =====
 
-  // Minimum time between shots (prevents multiple fires per frame)
+  // Minimum time between simulated ball fires (prevents multiple fires per frame)
   private static final double MIN_SHOT_INTERVAL_SECONDS = 0.14;
-
-  // Tracks last sim fire time so the throttle works across all feeding paths
   private static double lastSimFireTimestamp = 0;
 
-  /**
-   * Fire a simulated ball if in SIM/REPLAY mode, throttled to MIN_SHOT_INTERVAL_SECONDS. Call this
-   * from the real feeding code path — the same conditions that gate real feeding automatically gate
-   * sim firing, so sim behavior matches the real robot exactly.
-   */
-  private static void fireSimBallIfReady(ShootingCoordinator coordinator, Launcher launcher) {
-    if (Constants.currentMode == Constants.Mode.REAL) return;
-    double now = Timer.getFPGATimestamp();
-    if (now - lastSimFireTimestamp < MIN_SHOT_INTERVAL_SECONDS) return;
-    ShotVisualizer visualizer = coordinator.getVisualizer();
-    if (visualizer != null && visualizer.getFuelCount() <= 0) return;
-    coordinator.launchFuel();
-    launcher.notifyBallFired();
-    lastSimFireTimestamp = now;
-    Logger.recordOutput("ShotLog/LastShotTime", now);
-    int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
-    Logger.recordOutput("ShotLog/FuelRemaining", fuelRemaining);
-  }
+  private ShootingCommands() {}
 
-  private ShootingCommands() {
-    // Static factory class
-  }
-
-  /** Initialize tunables so they appear in the dashboard immediately. */
+  /** Initialize all tunables so they appear in the dashboard immediately on boot. */
   public static void initTunables() {
-    // Fixed shot preset tunables
     hubShotLauncherRPM.get();
     hubShotHoodAngleDeg.get();
     hubShotTurretAngleDeg.get();
@@ -251,19 +140,7 @@ public class ShootingCommands {
     rightTrenchMotivatorRPM.get();
     rightTrenchSpindexerRPM.get();
 
-    // Per-actuator override tunables and toggles (all default off)
-    overrideLauncherRPM.get();
-    overrideHoodDeg.get();
-    overrideMotivatorRPM.get();
-    overrideSpindexerRPM.get();
-    SmartDashboard.putBoolean("Overrides/Launcher", false);
-    SmartDashboard.putBoolean("Overrides/Hood", false);
-    SmartDashboard.putBoolean("Overrides/Motivator", false);
-    SmartDashboard.putBoolean("Overrides/Spindexer", false);
-
-    // Trim initial value on dashboard
-    SmartDashboard.putNumber("Trim/LauncherRPM", launcherTrimRPM);
-    Logger.recordOutput("Trim/LauncherRPM", launcherTrimRPM);
+    ShotOverrides.initDashboard();
 
     SmartDashboard.putString("Match/Status/Mode", currentMode.toString());
     SmartDashboard.putBoolean("Match/Status/Active", currentMode == ShootingMode.TEST);
@@ -276,28 +153,57 @@ public class ShootingCommands {
     SmartDashboard.putString("Match/Status/State", "Idle");
   }
 
+  // ===== Launcher Trim =====
+  // Thin wrappers — trim state lives in ShotOverrides.
+
   /**
-   * Main launch command. Spins up, waits for setpoint, then fires repeatedly. /** Command to reset
-   * the simulation for testing.
-   *
-   * @param coordinator The shooting coordinator
-   * @return Command that resets simulation state
+   * Set the launcher RPM trim offset. Added to all launcher RPM targets (both smart launch and
+   * fixed shots). Called by button box bindings.
    */
+  public static void setLauncherTrimRPM(double trimRPM) {
+    ShotOverrides.setLauncherTrimRPM(trimRPM);
+  }
+
+  public static double getLauncherTrimRPM() {
+    return ShotOverrides.getLauncherTrimRPM();
+  }
+
+  // ===== Per-Actuator Override Helpers =====
+  // Thin wrappers over ShotOverrides — kept for backward compatibility.
+  // Each returns the override value when its dashboard toggle is on, otherwise the strategy value.
+  // Launcher RPM also includes the trim offset.
+
+  public static double getEffectiveRPM(ShotCalculator.ShotResult shot) {
+    return ShotOverrides.getLauncherRPM(shot);
+  }
+
+  public static double getEffectiveHoodDeg(ShotCalculator.ShotResult shot) {
+    return ShotOverrides.getHoodDeg(shot);
+  }
+
+  public static double getEffectiveMotivatorRPM(ShotCalculator.ShotResult shot) {
+    return ShotOverrides.getMotivatorRPM(shot);
+  }
+
+  public static double getEffectiveSpindexerRPM(ShotCalculator.ShotResult shot) {
+    return ShotOverrides.getSpindexerRPM(shot);
+  }
+
+  // ===== Simulation Commands =====
+
+  /** Reset simulation state: clear field, reset scores, refill hopper to 40 balls. */
   public static Command resetSimulationCommand(ShootingCoordinator coordinator) {
     return Commands.runOnce(
             () -> {
               FuelSim.getInstance().clearFuel();
               FuelSim.Hub.BLUE_HUB.resetScore();
               FuelSim.Hub.RED_HUB.resetScore();
-
               coordinator.resetShotCounts();
-
               ShotVisualizer visualizer = coordinator.getVisualizer();
               if (visualizer != null) {
                 visualizer.setFuelCount(40);
                 Logger.recordOutput("ShotLog/FuelRemaining", 40);
               }
-
               Logger.recordOutput("ShotLog/SimReset", true);
               System.out.println("[Shooting] Simulation reset: field cleared, 40 balls in hopper");
             })
@@ -305,29 +211,20 @@ public class ShootingCommands {
         .withName("Reset Simulation");
   }
 
-  /**
-   * Resets the simulation AND spawns all starting fuel on the field.
-   *
-   * @param coordinator The shooting coordinator
-   * @return Command that resets simulation with full field fuel
-   */
+  /** Reset simulation AND spawn all starting fuel on the field. */
   public static Command resetStartingFieldCommand(ShootingCoordinator coordinator) {
     return Commands.runOnce(
             () -> {
               FuelSim.getInstance().clearFuel();
               FuelSim.Hub.BLUE_HUB.resetScore();
               FuelSim.Hub.RED_HUB.resetScore();
-
               coordinator.resetShotCounts();
-
               FuelSim.getInstance().spawnStartingFuel();
-
               ShotVisualizer visualizer = coordinator.getVisualizer();
               if (visualizer != null) {
                 visualizer.setFuelCount(40);
                 Logger.recordOutput("ShotLog/FuelRemaining", 40);
               }
-
               Logger.recordOutput("ShotLog/SimReset", true);
               System.out.println(
                   "[Shooting] Field reset: all starting fuel spawned, 40 balls in hopper");
@@ -335,6 +232,8 @@ public class ShootingCommands {
         .ignoringDisable(true)
         .withName("Reset Starting Field");
   }
+
+  // ===== Fixed-Position Shot Commands =====
 
   /** Hub shot — close-range fixed-position launch into the hub. */
   public static Command hubShotCommand(
@@ -404,21 +303,16 @@ public class ShootingCommands {
 
   /**
    * Fixed-position launch command. Moves all subsystems to tunable setpoints in parallel, waits for
-   * ready (with 5s timeout), then feeds via spindexer. All parameters are suppliers so dashboard
+   * ready (with 2s timeout), then feeds via spindexer. All parameters are suppliers so dashboard
    * tunables take effect immediately without redeploying.
    *
-   * @param launcher The launcher subsystem
-   * @param coordinator The shooting coordinator
-   * @param motivator The motivator subsystem (can be null)
-   * @param turret The turret subsystem
-   * @param hood The hood subsystem (can be null)
-   * @param spindexer The spindexer subsystem (can be null)
-   * @param launcherRPMSupplier Supplier for target launcher RPM
-   * @param hoodAngleDegSupplier Supplier for target hood angle in degrees
-   * @param turretAngleDegSupplier Supplier for target outside turret angle in degrees
-   * @param motivatorRPMSupplier Supplier for target motivator RPM
-   * @param spindexerRPMSupplier Supplier for target spindexer RPM
-   * @return Command that positions, spins up, feeds, and fires while held
+   * <p>Phases:
+   *
+   * <ol>
+   *   <li>Set subsystem targets simultaneously
+   *   <li>Wait for all subsystems to reach setpoint (2s timeout)
+   *   <li>Feed via spindexer while keeping all subsystems running
+   * </ol>
    */
   public static Command fixedPositionLaunchCommand(
       Launcher launcher,
@@ -433,12 +327,13 @@ public class ShootingCommands {
       DoubleSupplier motivatorRPMSupplier,
       DoubleSupplier spindexerRPMSupplier) {
     // Wrap the launcher RPM supplier to include trim offset
-    DoubleSupplier trimmedLauncherRPM = () -> launcherRPMSupplier.getAsDouble() + launcherTrimRPM;
+    DoubleSupplier trimmedLauncherRPM =
+        () -> launcherRPMSupplier.getAsDouble() + ShotOverrides.getLauncherTrimRPM();
 
     return Commands.sequence(
             Commands.runOnce(() -> setMode(ShootingMode.TEST)),
 
-            // Phase 1: Spin up and position all subsystems in parallel
+            // Phase 1: Set all subsystem targets simultaneously
             Commands.runOnce(
                 () -> {
                   double turretAngle = turretAngleDegSupplier.getAsDouble();
@@ -452,75 +347,41 @@ public class ShootingCommands {
                     hood.setHoodAngle(hoodAngle);
                   }
                   turret.setOutsideTurretAngle(turretAngle);
-
                   if (motivator != null) {
                     motivator.stopMotivator();
-                    // motivator.setMotivatorVelocity(motivatorRPMSupplier.getAsDouble());
                   }
-
                   if (coordinator != null) {
                     coordinator.setManualShotParameters(launcherRPM, hoodAngle, turretAngle);
                   }
-
                   SmartDashboard.putString("Match/Status/State", "Fixed Launch - Positioning");
                 }),
 
-            // Phase 1.5: Brief reverse pulse to clear balls from motivator/spindexer
-            // while the launcher is spinning up
-            // Commands.sequence(
-            //     Commands.runOnce(
-            //         () -> {
-            //           if (motivator != null) {
-            //             motivator.setMotivatorVoltage(-1.0);
-            //           }
-            //           if (spindexer != null) {
-            //             spindexer.reverseSpindexer(250.0);
-            //           }
-            //         }),
-            //     Commands.waitSeconds(0.2),
-            //     Commands.runOnce(
-            //         () -> {
-            //           if (motivator != null) {
-            //             motivator.stopMotivator();
-            //           }
-            //           if (spindexer != null) {
-            //             spindexer.stopSpindexer();
-            //           }
-            //         })),
-
-            // Phase 2: Wait for everything to reach setpoint (with 2s timeout)
+            // Phase 2: Wait for all subsystems to reach setpoint (2s timeout)
             Commands.race(
-                Commands.sequence(
-                    Commands.waitUntil(
-                        () -> {
-                          if (motivator != null
-                              && launcher.isReady()
-                              && turret.atTarget()
-                              && (hood == null || hood.atTarget())) {
-                            motivator.setMotivatorVelocity(motivatorRPMSupplier.getAsDouble());
-                          }
-
-                          boolean launcherReady = launcher.isReady();
-                          boolean motivatorReady =
-                              motivator == null
-                                  || motivator.getState() == Motivator.MotivatorState.READY;
-                          boolean turretReady = turret.atTarget();
-                          boolean hoodReady =
-                              hood == null || hood.getState() == Hood.HoodState.READY;
-
-                          return launcherReady && motivatorReady && turretReady && hoodReady;
-                        })),
+                Commands.waitUntil(
+                    () -> {
+                      if (motivator != null
+                          && launcher.isReady()
+                          && turret.atTarget()
+                          && (hood == null || hood.atTarget())) {
+                        motivator.setMotivatorVelocity(motivatorRPMSupplier.getAsDouble());
+                      }
+                      boolean launcherReady = launcher.isReady();
+                      boolean motivatorReady =
+                          motivator == null
+                              || motivator.getState() == Motivator.MotivatorState.READY;
+                      boolean turretReady = turret.atTarget();
+                      boolean hoodReady = hood == null || hood.getState() == Hood.HoodState.READY;
+                      return launcherReady && motivatorReady && turretReady && hoodReady;
+                    }),
                 Commands.sequence(
                     Commands.waitSeconds(2.0),
                     Commands.runOnce(
-                        () -> {
-                          // System.out.println(
-                          //     "[FixedShot] WARNING: Setup timeout - continuing anyway!");
-                          SmartDashboard.putString(
-                              "Match/Status/State", "Fixed Launch TIMEOUT - continuing anyway");
-                        }))),
+                        () ->
+                            SmartDashboard.putString(
+                                "Match/Status/State",
+                                "Fixed Launch TIMEOUT - continuing anyway")))),
 
-            // Log ready state
             Commands.runOnce(
                 () -> {
                   SmartDashboard.putString("Match/Status/State", "Ready - Feeding");
@@ -529,7 +390,6 @@ public class ShootingCommands {
 
             // Phase 3: Feed via spindexer while keeping all subsystems running
             Commands.parallel(
-                // Keep launcher at speed (reads tunable each cycle)
                 Commands.run(
                     () -> {
                       double rpm = trimmedLauncherRPM.getAsDouble();
@@ -541,16 +401,12 @@ public class ShootingCommands {
                       }
                     },
                     launcher),
-
-                // Keep turret positioned (reads tunable each cycle)
                 Commands.run(
                     () -> {
                       turret.setActivelyCommanded(true);
                       turret.setOutsideTurretAngle(turretAngleDegSupplier.getAsDouble());
                     },
                     turret),
-
-                // Keep hood positioned (reads tunable each cycle)
                 hood != null
                     ? Commands.run(
                         () -> {
@@ -559,8 +415,6 @@ public class ShootingCommands {
                         },
                         hood)
                     : Commands.none(),
-
-                // Keep motivator running
                 motivator != null
                     ? Commands.run(
                         () -> {
@@ -573,8 +427,6 @@ public class ShootingCommands {
                         },
                         motivator)
                     : Commands.none(),
-
-                // Run spindexer to feed fuel continuously (fixed shots are stationary presets)
                 spindexer != null
                     ? Commands.run(
                         () -> {
@@ -608,24 +460,15 @@ public class ShootingCommands {
               }
               setMode(ShootingMode.COMPETITION);
               SmartDashboard.putString("Match/Status/State", "Fixed Launch Stopped");
-              // System.out.println("[FixedShot] Stopped");
             })
         .withName("FixedShot");
   }
 
+  // ===== SmartLaunch Commands =====
+
   /**
-   * Aggressive SmartLaunch variant ("dangerous"). Motivator pre-spins in parallel with launcher and
-   * aiming — no reverse pulse, no waiting for FIRING. Saves ~0.3-0.5s per firing cycle. Subsystems
-   * idle while auto collecting (open neutral/opponent zones). Hood clamps in trench while moving,
-   * pops up below 0.6 m/s in alliance trench only.
-   *
-   * @param launcher The launcher subsystem
-   * @param coordinator The shooting coordinator (owns the state machine)
-   * @param motivator The motivator subsystem (can be null)
-   * @param turret The turret subsystem
-   * @param hood The hood subsystem (can be null)
-   * @param spindexer The spindexer subsystem (can be null)
-   * @return Command that tracks and fires based on coordinator state while held
+   * State-machine-driven SmartLaunch (teleop default). Arms immediately; see the overload with
+   * {@link ShootingCoordinator.ArmTrigger} for auto variants that delay arming.
    */
   public static Command smartLaunchDangerousCommand(
       Launcher launcher,
@@ -645,8 +488,15 @@ public class ShootingCommands {
   }
 
   /**
-   * State-machine-driven SmartLaunch with configurable arm trigger. For sprint autos, use
-   * ON_PASS_ZONE or ON_ALLIANCE_RETURN to prevent shooting preloads at the start.
+   * State-machine-driven SmartLaunch with configurable arm trigger.
+   *
+   * <p>All subsystems run in parallel and track the coordinator's current shot. The motivator
+   * pre-spins with a brief reverse pulse on each spin-up to clear any ball stuck at the
+   * motivator/launcher interface. The spindexer only feeds when the coordinator reaches FIRING
+   * state (all subsystems at target). The hood auto-stows when leaving firing zones.
+   *
+   * <p>For sprint autos use {@link ShootingCoordinator.ArmTrigger#ON_PASS_ZONE} or {@link
+   * ShootingCoordinator.ArmTrigger#ON_ALLIANCE_RETURN} to prevent shooting preloads at start.
    */
   public static Command smartLaunchDangerousCommand(
       Launcher launcher,
@@ -658,23 +508,18 @@ public class ShootingCommands {
       ShootingCoordinator.ArmTrigger armTrigger) {
 
     return Commands.parallel(
-            // Launcher — track shot RPM; coasts when idle (0 RPM → stopMotor via kCoast)
+            // Launcher — track shot RPM; stop when no shot is available
             Commands.run(
                 () -> {
                   ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
-                  if (shot != null) {
-                    double rpm = getEffectiveRPM(shot);
-                    double effectiveRPM = coordinator.getEffectiveLauncherRPM(rpm);
-                    launcher.setVelocity(effectiveRPM);
-                  } else {
-                    launcher.setVelocity(0);
-                  }
+                  double rpm =
+                      shot != null ? coordinator.getEffectiveLauncherRPM(getEffectiveRPM(shot)) : 0;
+                  launcher.setVelocity(rpm);
                 },
                 launcher),
 
-            // Turret — track shot angle, but hold position while auto collecting.
-            // Don't mark actively commanded while UNARMED so turret stays IDLE in logs
-            // until the coordinator is actually driving it.
+            // Turret — track shot angle; hold position during auto collecting.
+            // Not marked actively commanded while UNARMED so turret stays IDLE in logs.
             Commands.run(
                 () -> {
                   boolean unarmed =
@@ -683,7 +528,7 @@ public class ShootingCommands {
                   if (unarmed) return;
                   if (coordinator.isAutoCollecting()) {
                     turret.setActivelyCommanded(true);
-                    return; // hold position
+                    return;
                   }
                   if (coordinator.getCurrentShot() != null) {
                     turret.setActivelyCommanded(true);
@@ -692,13 +537,11 @@ public class ShootingCommands {
                 },
                 turret),
 
-            // Hood — track shot angle; idle at min while auto collecting.
-            // Same UNARMED gate as turret.
+            // Hood — follow shot angle; force to min in no-fire zones or while collecting.
+            // Hood safety (stow on zone transitions) takes priority over state machine.
             hood != null
                 ? Commands.run(
                     () -> {
-                      // Always lower hood in no-fire zones or unarmed, even if not
-                      // actively tracking a shot — hood safety trumps state machine.
                       ShootingCoordinator.CoordinatorState coordState =
                           coordinator.getCoordinatorState();
                       boolean forceMin =
@@ -709,8 +552,7 @@ public class ShootingCommands {
                         hood.setHoodAngle(hood.getMinAngle());
                         return;
                       }
-                      // Hold Fire (B11) → keep hood down; hood pops up on release.
-                      // Safety net for bad odometry scenarios where zone-based clamp fails.
+                      // Hold Fire (B11) → keep hood down; pops up when released
                       if (spindexer != null && spindexer.isFeedingSuppressed()) {
                         hood.setActivelyCommanded(true);
                         hood.setHoodAngle(hood.getMinAngle());
@@ -730,67 +572,22 @@ public class ShootingCommands {
                     hood)
                 : Commands.none(),
 
-            // Motivator — always pre-spin in teleop (ready for passing or shooting).
-            // In auto, idle only while collecting (open neutral/opponent zones).
-            // Reverse pulse runs on first spin-up (not on FIRING entry) to clear any
-            // ball stuck at the motivator/launcher interface during free time.
+            // Motivator — pre-spins in parallel with launcher and aiming (no reverse-pulse
+            // delay). A brief reverse pulse clears any ball stuck at the motivator/launcher
+            // interface each time the motivator transitions from idle to spinning.
             motivator != null
-                ? Commands.run(
-                    new Runnable() {
-                      private final Timer reversePulseTimer = new Timer();
-                      private boolean reversing = false;
-                      private boolean wasIdle = true;
-                      private static final double REVERSE_PULSE_SEC = 0.2;
-
-                      @Override
-                      public void run() {
-                        boolean shouldIdle = coordinator.isAutoCollecting();
-                        if (shouldIdle) {
-                          motivator.stopMotivator();
-                          wasIdle = true;
-                          reversing = false;
-                          return;
-                        }
-
-                        // Trigger reverse pulse when transitioning from idle to spinning
-                        if (wasIdle) {
-                          wasIdle = false;
-                          reversing = true;
-                          reversePulseTimer.restart();
-                        }
-
-                        if (reversing) {
-                          if (reversePulseTimer.hasElapsed(REVERSE_PULSE_SEC)) {
-                            reversing = false;
-                          } else {
-                            motivator.setMotivatorVoltage(-1.0);
-                            return;
-                          }
-                        }
-
-                        ShotCalculator.ShotResult s = coordinator.getCurrentShot();
-                        if (s != null) {
-                          motivator.setMotivatorVelocity(getEffectiveMotivatorRPM(s));
-                        } else {
-                          motivator.stopMotivator();
-                        }
-                      }
-                    },
-                    motivator)
+                ? Commands.run(new MotivatorPreSpinner(coordinator, motivator), motivator)
                 : Commands.none(),
 
-            // Spindexer — feed only when coordinator allows AND motivator is at speed.
-            // Once the coordinator reaches FIRING (which requires motivator READY),
-            // we trust the motivator and don't re-check its state. Brief RPM dips
-            // from ball loading are normal and should not interrupt feeding.
-            // The gate resets automatically when the coordinator leaves FIRING.
+            // Spindexer — feeds only when coordinator reaches FIRING (all subsystems ready).
+            // Stops during auto collecting and between shots.
             spindexer != null
                 ? Commands.run(
                     () -> {
-                      boolean feedingAllowed = coordinator.isFeedingAllowed();
-                      if (feedingAllowed) {
+                      if (coordinator.isFeedingAllowed()) {
                         launcher.setFeedingActive(true);
-                        double spnRPM = getEffectiveSpindexerRPM(coordinator.getCurrentShot());
+                        double spnRPM =
+                            getEffectiveSpindexerRPM(coordinator.getCurrentShot());
                         if (turret.getState() == Turret.TurretState.FLIPPING) {
                           spindexer.stopSpindexer();
                         } else {
@@ -798,24 +595,10 @@ public class ShootingCommands {
                           fireSimBallIfReady(coordinator, launcher);
                         }
                       } else if (coordinator.isAutoCollecting()) {
-                        // Motivator is stopped during auto collecting — no feeding needed
                         launcher.setFeedingActive(false);
                         spindexer.stopSpindexer();
                       } else {
-                        // Only back-spin while motivator is actually spinning up — keeps
-                        // balls away from the launcher interface until it's at speed.
-                        // Otherwise stop the spindexer; the old -150 ran unconditionally
-                        // whenever not FIRING (including AIMING blocked by velcomp,
-                        // SETTLING, HELD, etc.) which added ~550 RPM of reversal latency
-                        // every time the coordinator reached FIRING.
-                        // launcher.setFeedingActive(false);
-                        // if (motivator != null
-                        //     && motivator.getState()
-                        //         == Motivator.MotivatorState.SPINNING_UP) {
-                        //   spindexer.setSpindexerVelocity(-150);
-                        // } else {
-                          spindexer.stopSpindexer(); // if we arent feeding and if we arent doing something special for auto, then the spindexer shoudl be off
-                        // }
+                        spindexer.stopSpindexer();
                       }
                     },
                     spindexer)
@@ -824,7 +607,6 @@ public class ShootingCommands {
             () -> {
               setMode(ShootingMode.COMPETITION);
               coordinator.setSmartLaunchActive(true, armTrigger);
-
               Logger.recordOutput("SmartLaunch/Phase", "SM_ACTIVE");
               SmartDashboard.putString("Match/Status/State", "SmartLaunch 2.0 - Active");
             })
@@ -852,48 +634,76 @@ public class ShootingCommands {
         .withName("SmartLaunchDangerous");
   }
 
-  // Old sequential smartLaunchCommandSeq removed — replaced by smartLaunchDangerousCommand.
+  // ===== Helpers =====
 
-  // ===== Per-Actuator Override Helpers =====
-  // Each actuator has its own Overrides/<Name> toggle. When the toggle is true,
-  // the corresponding tunable value is used instead of the calculated one.
-  // Override any combination of 1-4 actuators independently.
-
-  // Safety cap: matches LauncherIOSparkFlex.MAX_VELOCITY_RPM hardware limit
-  private static final double MAX_LAUNCHER_RPM = 5000.0;
-
-  /** Get effective launcher RPM — override value when toggled, otherwise calculated + trim. */
-  public static double getEffectiveRPM(ShotCalculator.ShotResult shot) {
-    double rpm;
-    if (SmartDashboard.getBoolean("Overrides/Launcher", false)) {
-      rpm = overrideLauncherRPM.get() + launcherTrimRPM;
-    } else {
-      rpm = shot != null ? shot.launcherRPM() + launcherTrimRPM : 0.0;
-    }
-    return Math.min(rpm, MAX_LAUNCHER_RPM);
+  /**
+   * Fire a simulated ball if in SIM/REPLAY mode, throttled to MIN_SHOT_INTERVAL_SECONDS. Called
+   * from the real feeding code path so sim behavior matches real robot gating exactly.
+   */
+  private static void fireSimBallIfReady(ShootingCoordinator coordinator, Launcher launcher) {
+    if (Constants.currentMode == Constants.Mode.REAL) return;
+    double now = Timer.getFPGATimestamp();
+    if (now - lastSimFireTimestamp < MIN_SHOT_INTERVAL_SECONDS) return;
+    ShotVisualizer visualizer = coordinator.getVisualizer();
+    if (visualizer != null && visualizer.getFuelCount() <= 0) return;
+    coordinator.launchFuel();
+    launcher.notifyBallFired();
+    lastSimFireTimestamp = now;
+    Logger.recordOutput("ShotLog/LastShotTime", now);
+    int fuelRemaining = visualizer != null ? visualizer.getFuelCount() : 0;
+    Logger.recordOutput("ShotLog/FuelRemaining", fuelRemaining);
   }
 
-  /** Get effective hood angle — override value when toggled, otherwise calculated. */
-  public static double getEffectiveHoodDeg(ShotCalculator.ShotResult shot) {
-    if (SmartDashboard.getBoolean("Overrides/Hood", false)) {
-      return overrideHoodDeg.get();
-    }
-    return shot != null ? shot.hoodAngleDeg() : 0.0;
-  }
+  /**
+   * Runs in the motivator's {@link Commands#run} slot inside SmartLaunch. Pre-spins the motivator
+   * at shot RPM and executes a brief reverse pulse each time it transitions from idle back to
+   * spinning, to clear any ball that settled at the motivator/launcher interface during free time.
+   */
+  private static class MotivatorPreSpinner implements Runnable {
+    private static final double REVERSE_PULSE_SEC = 0.2;
 
-  /** Get effective motivator RPM — override value when toggled, otherwise from strategy. */
-  public static double getEffectiveMotivatorRPM(ShotCalculator.ShotResult shot) {
-    if (SmartDashboard.getBoolean("Overrides/Motivator", false)) {
-      return overrideMotivatorRPM.get();
-    }
-    return shot != null ? shot.motivatorRPM() : 0.0;
-  }
+    private final ShootingCoordinator coordinator;
+    private final Motivator motivator;
+    private final Timer reversePulseTimer = new Timer();
+    private boolean reversing = false;
+    private boolean wasIdle = true;
 
-  /** Get effective spindexer RPM — override value when toggled, otherwise from strategy. */
-  public static double getEffectiveSpindexerRPM(ShotCalculator.ShotResult shot) {
-    if (SmartDashboard.getBoolean("Overrides/Spindexer", false)) {
-      return overrideSpindexerRPM.get();
+    MotivatorPreSpinner(ShootingCoordinator coordinator, Motivator motivator) {
+      this.coordinator = coordinator;
+      this.motivator = motivator;
     }
-    return shot != null ? shot.spindexerRPM() : 0.0;
+
+    @Override
+    public void run() {
+      if (coordinator.isAutoCollecting()) {
+        motivator.stopMotivator();
+        wasIdle = true;
+        reversing = false;
+        return;
+      }
+
+      // Trigger reverse pulse when transitioning from idle to spinning
+      if (wasIdle) {
+        wasIdle = false;
+        reversing = true;
+        reversePulseTimer.restart();
+      }
+
+      if (reversing) {
+        if (reversePulseTimer.hasElapsed(REVERSE_PULSE_SEC)) {
+          reversing = false;
+        } else {
+          motivator.setMotivatorVoltage(-1.0);
+          return;
+        }
+      }
+
+      ShotCalculator.ShotResult shot = coordinator.getCurrentShot();
+      if (shot != null) {
+        motivator.setMotivatorVelocity(getEffectiveMotivatorRPM(shot));
+      } else {
+        motivator.stopMotivator();
+      }
+    }
   }
 }
