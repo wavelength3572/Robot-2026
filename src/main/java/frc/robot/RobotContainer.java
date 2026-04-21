@@ -910,12 +910,10 @@ public class RobotContainer {
               intake));
     }
 
-    // SmartLaunch: state-machine-driven version (zone-aware, transition-safe).
-    // Automatically stows hood when the button is released (teleop safety).
+    // SmartLaunch: state-machine-driven (zone-aware, transition-safe).
+    // Followed by an auto-stow so the hood is down before the next path segment starts.
     {
-      Command smartLaunch =
-          ShootingCommands.smartLaunchDangerousCommand(
-              launcher, shootingCoordinator, motivator, turret, hood, spindexer);
+      Command smartLaunch = shootingCoordinator.shootCommand();
       if (hood != null) {
         Command autoStowHood =
             Commands.run(() -> hood.setHoodAngle(hood.getMinAngle()), hood)

@@ -84,7 +84,7 @@ public class AutoWrapperFactory {
 
     // Start strategy
     if (startStrategy == StartStrategy.SHOOT_PRELOADS) {
-      steps.add(initialSmartLaunch(launcher, coordinator, motivator, turret, hood, spindexer));
+      steps.add(initialSmartLaunch(coordinator));
     }
 
     // Determine arm trigger for SmartLaunch2 (the path-phase shooting command).
@@ -127,7 +127,7 @@ public class AutoWrapperFactory {
             : () -> false;
 
     if (pathStrategy != PathShootingStrategy.END_OF_PATH) {
-      // Path runs, then post-path agitation kicks in. SmartLaunch2 runs the entire time
+      // Path runs, then post-path agitation kicks in. SmartLaunch runs the entire time
       // in parallel and keeps the group alive after both path and agitation finish.
       // Mid-path agitation is handled by AutoAgitate zone event markers in the paths.
       Command pathThenAgitate =
@@ -136,18 +136,12 @@ public class AutoWrapperFactory {
               : pathWithIntake;
       steps.add(
           Commands.parallel(
-              pathThenAgitate,
-              ShootingCommands.smartLaunchDangerousCommand(
-                      launcher, coordinator, motivator, turret, hood, spindexer, trigger)
-                  .asProxy()));
+              pathThenAgitate, coordinator.shootCommand(trigger).asProxy()));
     } else {
       // END_OF_PATH: run path first, then shoot with agitation
       steps.add(pathWithIntake);
       Command postPathShoot =
-          ShootingCommands.smartLaunchDangerousCommand(
-                  launcher, coordinator, motivator, turret, hood, spindexer)
-              .withTimeout(10.0)
-              .asProxy();
+          coordinator.shootCommand().withTimeout(10.0).asProxy();
       if (intake != null) {
         postPathShoot = postPathShoot.alongWith(intake.agitateCommand(climbingOrClimbed));
       }
@@ -196,17 +190,8 @@ public class AutoWrapperFactory {
         Commands.waitUntil(() -> intake.isDeployed()).withTimeout(0.25));
   }
 
-  private static Command initialSmartLaunch(
-      Launcher launcher,
-      ShootingCoordinator coordinator,
-      Motivator motivator,
-      Turret turret,
-      Hood hood,
-      Spindexer spindexer) {
-    return ShootingCommands.smartLaunchDangerousCommand(
-            launcher, coordinator, motivator, turret, hood, spindexer)
-        .withTimeout(2.5)
-        .asProxy();
+  private static Command initialSmartLaunch(ShootingCoordinator coordinator) {
+    return coordinator.shootCommand().withTimeout(2.5).asProxy();
   }
 
   private static Command runPath(Command selectedAuto) {

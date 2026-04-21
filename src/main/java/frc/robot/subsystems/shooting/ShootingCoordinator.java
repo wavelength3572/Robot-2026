@@ -11,7 +11,11 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import java.util.ArrayList;
+import java.util.List;
 import frc.robot.Constants;
 import frc.robot.FieldConstants;
 import frc.robot.subsystems.hood.Hood;
@@ -89,6 +93,35 @@ public class ShootingCoordinator extends SubsystemBase {
     DRIVER_STATION
   }
 
+  /**
+   * Active shooting goal. Commands set a goal; {@code periodic()} applies it to hardware every
+   * cycle. Commands become trivial one-liners; all behavior lives in the coordinator.
+   */
+  public enum Goal {
+    /** All subsystems idle — no output applied. */
+    IDLE,
+    /** Smart launch armed immediately (teleop default). */
+    SMART_SHOOT,
+    /** Smart launch armed when entering a pass zone (sprint auto). */
+    SMART_SHOOT_ON_PASS_ZONE,
+    /** Smart launch armed on alliance return after visiting neutral (sprint auto). */
+    SMART_SHOOT_ON_ALLIANCE_RETURN,
+    /** Fixed hub shot at tunable setpoints. */
+    FIXED_HUB,
+    /** Fixed left-trench shot at tunable setpoints. */
+    FIXED_LEFT_TRENCH,
+    /** Fixed right-trench shot at tunable setpoints. */
+    FIXED_RIGHT_TRENCH
+  }
+
+  /** Tunable shot parameters for a fixed-position goal. Suppliers read live dashboard values. */
+  private record FixedShotParams(
+      DoubleSupplier launcherRPM,
+      DoubleSupplier hoodAngleDeg,
+      DoubleSupplier turretAngleDeg,
+      DoubleSupplier motivatorRPM,
+      DoubleSupplier spindexerRPM) {}
+
   private final SendableChooser<PassingStrategy> passingStrategyChooser = new SendableChooser<>();
   private final FixedHeightShotStrategy fixedHeightStrategy = new FixedHeightShotStrategy();
   private final FixedHeightPassStrategy fixedHeightPassStrategy = new FixedHeightPassStrategy();
@@ -149,8 +182,79 @@ public class ShootingCoordinator extends SubsystemBase {
   // Optional feeding suppression check — when true, launchFuel() is a no-op
   private BooleanSupplier feedingSuppressedSupplier = () -> false;
 
+  // ===== Fixed Shot Tunables (hub, left trench, right trench) =====
+  private final LoggedTunableNumber hubShotLauncherRPM =
+      new LoggedTunableNumber(
+          "Shots/HubShot/LauncherRPM", Constants.getRobotConfig().getHubShotLauncherRPM());
+  private final LoggedTunableNumber hubShotHoodAngleDeg =
+      new LoggedTunableNumber(
+          "Shots/HubShot/HoodAngleDeg", Constants.getRobotConfig().getHubShotHoodAngleDeg());
+  private final LoggedTunableNumber hubShotTurretAngleDeg =
+      new LoggedTunableNumber(
+          "Shots/HubShot/TurretAngleDeg", Constants.getRobotConfig().getHubShotTurretAngleDeg());
+  private final LoggedTunableNumber hubShotMotivatorRPM =
+      new LoggedTunableNumber(
+          "Shots/HubShot/MotivatorRPM", Constants.getRobotConfig().getHubShotMotivatorRPM());
+  private final LoggedTunableNumber hubShotSpindexerRPM =
+      new LoggedTunableNumber(
+          "Shots/HubShot/SpindexerRPM", Constants.getRobotConfig().getHubShotSpindexerRPM());
+
+  private final LoggedTunableNumber leftTrenchLauncherRPM =
+      new LoggedTunableNumber(
+          "Shots/LeftTrench/LauncherRPM", Constants.getRobotConfig().getLeftTrenchLauncherRPM());
+  private final LoggedTunableNumber leftTrenchHoodAngleDeg =
+      new LoggedTunableNumber(
+          "Shots/LeftTrench/HoodAngleDeg",
+          Constants.getRobotConfig().getLeftTrenchHoodAngleDeg());
+  private final LoggedTunableNumber leftTrenchTurretAngleDeg =
+      new LoggedTunableNumber(
+          "Shots/LeftTrench/TurretAngleDeg",
+          Constants.getRobotConfig().getLeftTrenchTurretAngleDeg());
+  private final LoggedTunableNumber leftTrenchMotivatorRPM =
+      new LoggedTunableNumber(
+          "Shots/LeftTrench/MotivatorRPM",
+          Constants.getRobotConfig().getLeftTrenchMotivatorRPM());
+  private final LoggedTunableNumber leftTrenchSpindexerRPM =
+      new LoggedTunableNumber(
+          "Shots/LeftTrench/SpindexerRPM",
+          Constants.getRobotConfig().getLeftTrenchSpindexerRPM());
+
+  private final LoggedTunableNumber rightTrenchLauncherRPM =
+      new LoggedTunableNumber(
+          "Shots/RightTrench/LauncherRPM", Constants.getRobotConfig().getRightTrenchLauncherRPM());
+  private final LoggedTunableNumber rightTrenchHoodAngleDeg =
+      new LoggedTunableNumber(
+          "Shots/RightTrench/HoodAngleDeg",
+          Constants.getRobotConfig().getRightTrenchHoodAngleDeg());
+  private final LoggedTunableNumber rightTrenchTurretAngleDeg =
+      new LoggedTunableNumber(
+          "Shots/RightTrench/TurretAngleDeg",
+          Constants.getRobotConfig().getRightTrenchTurretAngleDeg());
+  private final LoggedTunableNumber rightTrenchMotivatorRPM =
+      new LoggedTunableNumber(
+          "Shots/RightTrench/MotivatorRPM",
+          Constants.getRobotConfig().getRightTrenchMotivatorRPM());
+  private final LoggedTunableNumber rightTrenchSpindexerRPM =
+      new LoggedTunableNumber(
+          "Shots/RightTrench/SpindexerRPM",
+          Constants.getRobotConfig().getRightTrenchSpindexerRPM());
+
   // Trench hood safety and danger zone speed limiting — see TrenchSafetyManager for details.
   private final TrenchSafetyManager trenchSafety;
+
+  // ===== Goal-based output =====
+  private Goal goal = Goal.IDLE;
+
+  // Motivator pre-spinner state — persists across periodic() cycles so the reverse pulse
+  // fires exactly once per idle→spinning transition, not on every 20ms tick.
+  private static final double MOTIVATOR_REVERSE_PULSE_SEC = 0.2;
+  private final Timer motivatorReversePulseTimer = new Timer();
+  private boolean motivatorReversing = false;
+  private boolean motivatorWasIdle = true;
+
+  // Sim ball fire throttle — prevents multiple fires per frame in SIM/REPLAY modes.
+  private static final double MIN_SHOT_INTERVAL_SECONDS = 0.14;
+  private double lastSimFireTimestamp = 0;
 
   // Auto passing: when false, PASS/LONG_PASS zones are treated as no-fire zones in auto.
   // Set by AutoWrapperFactory based on path strategy (AUTO_SHOOT enables, others disable).
@@ -466,8 +570,12 @@ public class ShootingCoordinator extends SubsystemBase {
       return;
     }
 
-    // Visualization runs AFTER all control logic (passive observer, throttled to
-    // 10Hz)
+    // Apply outputs to hardware based on current goal (set by active shoot command).
+    if (goal != Goal.IDLE) {
+      applyOutputs();
+    }
+
+    // Visualization runs AFTER all control logic (passive observer, throttled to 10Hz)
     if (visualizerCounter % VISUALIZER_DIVISOR == 0
         && visualizer != null
         && robotPoseSupplier != null) {
@@ -480,9 +588,7 @@ public class ShootingCoordinator extends SubsystemBase {
   /** Dispatch shot calculation (hub or pass). */
   private void updateShotCalculation(DriverStation.Alliance alliance, boolean isBlueAlliance) {
     // Only auto-calculate shot in COMPETITION mode
-    if (robotPoseSupplier != null
-        && fieldSpeedsSupplier != null
-        && !frc.robot.commands.ShootingCommands.isTestMode()) {
+    if (robotPoseSupplier != null && fieldSpeedsSupplier != null) {
       Pose2d robotPose = robotPoseSupplier.get();
       ChassisSpeeds fieldSpeeds = fieldSpeedsSupplier.get();
 
@@ -620,79 +726,90 @@ public class ShootingCoordinator extends SubsystemBase {
             new Pose3d(cachedLobStation3Target, Rotation3d.kZero));
       }
 
-      switch (aimResult.mode()) {
-        case HUB -> {
-          currentDistanceMode = "Hub FixedHeight";
-          Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
-          calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
-        }
-        case PASS -> {
-          boolean useWaypoint = PASS_STRAT_WAYPOINT.equals(passStrategyChooser.getSelected());
-          PassingStrategy strategy = passingStrategyChooser.getSelected();
+      // Fixed goals set their own shot parameters; skip auto-calculation for those.
+      if (!isFixedGoal(goal)) {
+        switch (aimResult.mode()) {
+          case HUB -> {
+            currentDistanceMode = "Hub FixedHeight";
+            Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
+            calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
+          }
+          case PASS -> {
+            boolean useWaypoint = PASS_STRAT_WAYPOINT.equals(passStrategyChooser.getSelected());
+            PassingStrategy strategy = passingStrategyChooser.getSelected();
 
-          if (useWaypoint) {
-            // Waypoint pass — arc through a 3D point above the bump
-            boolean isLeftTrench = selectIsLeftTrench(robotPose);
-            currentDistanceMode = "Pass Waypoint";
-            Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
-            Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
-            Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
-            Translation3d waypoint = getWaypoint(isLeftTrench, isBlueAlliance);
-            calculateWaypointPassToTarget(
-                robotPose, fieldSpeeds, activeTarget, waypoint, waypointPassPeakHeightIn.get());
-          } else if (strategy == PassingStrategy.DRIVER_STATION && !isTooCloseToHub(robotPose)) {
-            currentDistanceMode = "Pass Lob";
-            Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
-            var location = DriverStation.getLocation();
-            int station = location.isPresent() ? location.getAsInt() : 2;
-            Translation3d activeTarget =
-                (station <= 2) ? cachedLobStation1Target : cachedLobStation3Target;
-            Logger.recordOutput(
-                "SmartLaunch/Pass/Target", (station <= 2) ? "STATION_1" : "STATION_3");
-            calculatePassToTarget(
-                robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
-          } else {
-            // Symmetric pass (also used as fallback when too close to hub for lob)
-            if (strategy == PassingStrategy.DRIVER_STATION) {
-              currentDistanceMode = "Pass Symmetric (hub fallback)";
+            if (useWaypoint) {
+              boolean isLeftTrench = selectIsLeftTrench(robotPose);
+              currentDistanceMode = "Pass Waypoint";
+              Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
+              Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
+              Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
+              Translation3d waypoint = getWaypoint(isLeftTrench, isBlueAlliance);
+              calculateWaypointPassToTarget(
+                  robotPose, fieldSpeeds, activeTarget, waypoint, waypointPassPeakHeightIn.get());
+            } else if (strategy == PassingStrategy.DRIVER_STATION
+                && !isTooCloseToHub(robotPose)) {
+              currentDistanceMode = "Pass Lob";
+              Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
+              var location = DriverStation.getLocation();
+              int station = location.isPresent() ? location.getAsInt() : 2;
+              Translation3d activeTarget =
+                  (station <= 2) ? cachedLobStation1Target : cachedLobStation3Target;
+              Logger.recordOutput(
+                  "SmartLaunch/Pass/Target", (station <= 2) ? "STATION_1" : "STATION_3");
+              calculatePassToTarget(
+                  robotPose, fieldSpeeds, activeTarget, PassingStrategy.DRIVER_STATION);
             } else {
-              currentDistanceMode = "Pass Symmetric";
+              if (strategy == PassingStrategy.DRIVER_STATION) {
+                currentDistanceMode = "Pass Symmetric (hub fallback)";
+              } else {
+                currentDistanceMode = "Pass Symmetric";
+              }
+              Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
+              boolean isLeftTrench = selectIsLeftTrench(robotPose);
+              Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
+              Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
+              calculatePassToTarget(
+                  robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
             }
-            Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
+          }
+          case LONG_PASS -> {
+            boolean useWaypoint = PASS_STRAT_WAYPOINT.equals(passStrategyChooser.getSelected());
             boolean isLeftTrench = selectIsLeftTrench(robotPose);
             Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
             Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
-            calculatePassToTarget(robotPose, fieldSpeeds, activeTarget, PassingStrategy.SYMMETRIC);
-          }
-        }
-        case LONG_PASS -> {
-          boolean useWaypoint = PASS_STRAT_WAYPOINT.equals(passStrategyChooser.getSelected());
-          boolean isLeftTrench = selectIsLeftTrench(robotPose);
-          Translation3d activeTarget = isLeftTrench ? cachedLeftTarget : cachedRightTarget;
-          Logger.recordOutput("SmartLaunch/Pass/Target", isLeftTrench ? "LEFT" : "RIGHT");
 
-          if (useWaypoint) {
-            currentDistanceMode = "Pass Waypoint Long";
+            if (useWaypoint) {
+              currentDistanceMode = "Pass Waypoint Long";
+              Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
+              Translation3d waypoint = getWaypoint(isLeftTrench, isBlueAlliance);
+              calculateWaypointPassToTarget(
+                  robotPose, fieldSpeeds, activeTarget, waypoint, waypointPassPeakHeightIn.get());
+            } else {
+              currentDistanceMode = "Pass Symmetric Long";
+              Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
+              calculatePassToTarget(
+                  robotPose,
+                  fieldSpeeds,
+                  activeTarget,
+                  PassingStrategy.SYMMETRIC,
+                  longPassPeakHeightIn.get());
+            }
+          }
+          case NONE -> {
+            currentDistanceMode = "Hub FixedHeight";
             Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
-            Translation3d waypoint = getWaypoint(isLeftTrench, isBlueAlliance);
-            calculateWaypointPassToTarget(
-                robotPose, fieldSpeeds, activeTarget, waypoint, waypointPassPeakHeightIn.get());
-          } else {
-            currentDistanceMode = "Pass Symmetric Long";
-            Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
-            calculatePassToTarget(
-                robotPose,
-                fieldSpeeds,
-                activeTarget,
-                PassingStrategy.SYMMETRIC,
-                longPassPeakHeightIn.get());
+            calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
           }
         }
-        case NONE -> {
-          currentDistanceMode = "Hub FixedHeight";
-          Logger.recordOutput("SmartLaunch/Status/Strategy", currentDistanceMode);
-          calculateShotToHub(robotPose, fieldSpeeds, isBlueAlliance);
-        }
+      } else {
+        // Fixed goal: set manual parameters from tunables (refreshed every cycle).
+        FixedShotParams p = fixedShotParamsFor(goal);
+        double rpm =
+            Math.min(
+                p.launcherRPM().getAsDouble() + ShotOverrides.getLauncherTrimRPM(), 5000.0);
+        setManualShotParameters(
+            rpm, p.hoodAngleDeg().getAsDouble(), p.turretAngleDeg().getAsDouble());
       }
     }
   }
@@ -1992,6 +2109,332 @@ public class ShootingCoordinator extends SubsystemBase {
       if (!speedOk) blocking.append("speed ");
       loggedBlocking = blocking.length() > 0 ? blocking.toString().trim() : "none";
     }
+  }
+
+  // ========== Goal-based Output API ==========
+
+  private static boolean isFixedGoal(Goal g) {
+    return g == Goal.FIXED_HUB || g == Goal.FIXED_LEFT_TRENCH || g == Goal.FIXED_RIGHT_TRENCH;
+  }
+
+  private FixedShotParams fixedShotParamsFor(Goal g) {
+    return switch (g) {
+      case FIXED_HUB ->
+          new FixedShotParams(
+              hubShotLauncherRPM::get,
+              hubShotHoodAngleDeg::get,
+              hubShotTurretAngleDeg::get,
+              hubShotMotivatorRPM::get,
+              hubShotSpindexerRPM::get);
+      case FIXED_LEFT_TRENCH ->
+          new FixedShotParams(
+              leftTrenchLauncherRPM::get,
+              leftTrenchHoodAngleDeg::get,
+              leftTrenchTurretAngleDeg::get,
+              leftTrenchMotivatorRPM::get,
+              leftTrenchSpindexerRPM::get);
+      case FIXED_RIGHT_TRENCH ->
+          new FixedShotParams(
+              rightTrenchLauncherRPM::get,
+              rightTrenchHoodAngleDeg::get,
+              rightTrenchTurretAngleDeg::get,
+              rightTrenchMotivatorRPM::get,
+              rightTrenchSpindexerRPM::get);
+      default -> throw new IllegalArgumentException("Not a fixed goal: " + g);
+    };
+  }
+
+  /** Set the active goal. Commands call this in startEnd(on, off). */
+  public void setGoal(Goal newGoal) {
+    setGoal(newGoal, ArmTrigger.IMMEDIATE);
+  }
+
+  /**
+   * Set the active goal with an explicit arm trigger for smart-shoot goals. Smart-shoot goals
+   * activate the state machine; fixed goals also use it (IMMEDIATE trigger). IDLE stops hardware.
+   */
+  public void setGoal(Goal newGoal, ArmTrigger trigger) {
+    if (newGoal == this.goal) return;
+    Goal prevGoal = this.goal;
+    this.goal = newGoal;
+    Logger.recordOutput("SmartLaunch/Goal", newGoal.name());
+    SmartDashboard.putString("Match/Status/Goal", newGoal.name());
+
+    boolean wasActive = prevGoal != Goal.IDLE;
+    boolean nowActive = newGoal != Goal.IDLE;
+
+    if (!wasActive && nowActive) {
+      ArmTrigger at =
+          switch (newGoal) {
+            case SMART_SHOOT_ON_PASS_ZONE -> ArmTrigger.ON_PASS_ZONE;
+            case SMART_SHOOT_ON_ALLIANCE_RETURN -> ArmTrigger.ON_ALLIANCE_RETURN;
+            default -> trigger;
+          };
+      setSmartLaunchActive(true, at);
+      motivatorWasIdle = true;
+    } else if (wasActive && !nowActive) {
+      setSmartLaunchActive(false);
+      applyIdle();
+    } else {
+      // Active goal changed (e.g. fixed hub → fixed left trench) — restart state machine.
+      setSmartLaunchActive(false);
+      ArmTrigger at =
+          switch (newGoal) {
+            case SMART_SHOOT_ON_PASS_ZONE -> ArmTrigger.ON_PASS_ZONE;
+            case SMART_SHOOT_ON_ALLIANCE_RETURN -> ArmTrigger.ON_ALLIANCE_RETURN;
+            default -> trigger;
+          };
+      setSmartLaunchActive(true, at);
+      motivatorWasIdle = true;
+    }
+  }
+
+  public Goal getGoal() {
+    return goal;
+  }
+
+  /**
+   * Returns all subsystems managed by this coordinator (itself + launcher, hood, motivator,
+   * spindexer, turret). Pass to {@code Commands.startEnd()} so the command scheduler knows which
+   * subsystems the shoot command owns.
+   */
+  public Subsystem[] allRequirements() {
+    List<Subsystem> reqs = new ArrayList<>();
+    reqs.add(this);
+    if (launcher != null) reqs.add(launcher);
+    if (hood != null) reqs.add(hood);
+    if (motivator != null) reqs.add(motivator);
+    if (spindexer != null) reqs.add(spindexer);
+    reqs.add(turret);
+    return reqs.toArray(new Subsystem[0]);
+  }
+
+  // ========== Output Application (periodic → hardware) ==========
+
+  private void applyOutputs() {
+    switch (goal) {
+      case SMART_SHOOT,
+              SMART_SHOOT_ON_PASS_ZONE,
+              SMART_SHOOT_ON_ALLIANCE_RETURN ->
+          applySmartShoot();
+      case FIXED_HUB -> applyFixed(fixedShotParamsFor(Goal.FIXED_HUB));
+      case FIXED_LEFT_TRENCH -> applyFixed(fixedShotParamsFor(Goal.FIXED_LEFT_TRENCH));
+      case FIXED_RIGHT_TRENCH -> applyFixed(fixedShotParamsFor(Goal.FIXED_RIGHT_TRENCH));
+      case IDLE -> {} // applyIdle() is called once on the IDLE transition in setGoal()
+    }
+  }
+
+  private void applySmartShoot() {
+    ShotCalculator.ShotResult shot = currentShot;
+
+    // Launcher — track shot RPM; zero when no shot or idling
+    if (launcher != null) {
+      double rpm =
+          shot != null ? getEffectiveLauncherRPM(ShotOverrides.getLauncherRPM(shot)) : 0;
+      launcher.setVelocity(rpm);
+    }
+
+    // Turret — track shot angle; hold position during auto collecting.
+    // Not marked actively commanded while UNARMED so turret stays IDLE in logs.
+    boolean unarmed = coordinatorState == CoordinatorState.UNARMED;
+    if (!unarmed) {
+      if (isAutoCollecting()) {
+        turret.setActivelyCommanded(true);
+      } else if (shot != null) {
+        turret.setActivelyCommanded(true);
+        turret.setOutsideTurretAngle(currentTurretAngleDeg);
+      }
+    }
+
+    // Hood — follow shot angle; force to min in no-fire zones, while collecting, or when held.
+    if (hood != null) {
+      boolean forceMin =
+          coordinatorState == CoordinatorState.NO_FIRE_ZONE || unarmed;
+      if (forceMin) {
+        hood.setActivelyCommanded(true);
+        hood.setHoodAngle(hood.getMinAngle());
+      } else if (spindexer != null && spindexer.isFeedingSuppressed()) {
+        // Hold Fire button → keep hood down; pops up when released
+        hood.setActivelyCommanded(true);
+        hood.setHoodAngle(hood.getMinAngle());
+      } else if (isAutoCollecting()) {
+        hood.setActivelyCommanded(true);
+        hood.setHoodAngle(hood.getMinAngle());
+      } else if (shot != null) {
+        hood.setActivelyCommanded(true);
+        hood.setHoodAngle(ShotOverrides.getHoodDeg(shot));
+      }
+    }
+
+    // Motivator — pre-spins with a brief reverse pulse on each idle→spinning transition
+    if (motivator != null) {
+      applyMotivatorPreSpinner(shot);
+    }
+
+    // Spindexer — feeds only when coordinator reaches FIRING; stops during auto collecting
+    if (spindexer != null) {
+      if (isFeedingAllowed()) {
+        if (launcher != null) launcher.setFeedingActive(true);
+        double spnRPM = ShotOverrides.getSpindexerRPM(shot);
+        if (turret.getState() == Turret.TurretState.FLIPPING) {
+          spindexer.stopSpindexer();
+        } else {
+          spindexer.setSpindexerVelocity(spnRPM);
+          fireSimBallIfReady();
+        }
+      } else if (isAutoCollecting()) {
+        if (launcher != null) launcher.setFeedingActive(false);
+        spindexer.stopSpindexer();
+      } else {
+        spindexer.stopSpindexer();
+      }
+    }
+  }
+
+  private void applyMotivatorPreSpinner(ShotCalculator.ShotResult shot) {
+    if (isAutoCollecting()) {
+      motivator.stopMotivator();
+      motivatorWasIdle = true;
+      motivatorReversing = false;
+      return;
+    }
+    // Trigger reverse pulse each time motivator transitions from idle to spinning
+    if (motivatorWasIdle) {
+      motivatorWasIdle = false;
+      motivatorReversing = true;
+      motivatorReversePulseTimer.restart();
+    }
+    if (motivatorReversing) {
+      if (motivatorReversePulseTimer.hasElapsed(MOTIVATOR_REVERSE_PULSE_SEC)) {
+        motivatorReversing = false;
+      } else {
+        motivator.setMotivatorVoltage(-1.0);
+        return;
+      }
+    }
+    if (shot != null) {
+      motivator.setMotivatorVelocity(ShotOverrides.getMotivatorRPM(shot));
+    } else {
+      motivator.stopMotivator();
+    }
+  }
+
+  private void applyFixed(FixedShotParams params) {
+    // currentShot and currentTurretAngleDeg were already set in updateShotCalculation()
+    // from the same params, so the state machine evaluated readiness correctly this cycle.
+    double motivatorRPM = params.motivatorRPM().getAsDouble();
+    double spindexerRPM = params.spindexerRPM().getAsDouble();
+
+    if (launcher != null) {
+      launcher.setVelocity(currentShot != null ? ShotOverrides.getLauncherRPM(currentShot) : 0);
+    }
+    turret.setActivelyCommanded(true);
+    turret.setOutsideTurretAngle(currentTurretAngleDeg);
+    if (hood != null) {
+      hood.setActivelyCommanded(true);
+      hood.setHoodAngle(
+          currentShot != null ? ShotOverrides.getHoodDeg(currentShot) : hood.getMinAngle());
+    }
+    if (motivator != null) {
+      // Spin motivator only once launcher + turret + hood have all reached their targets
+      boolean allPositioned =
+          (launcher == null || launcher.isReady())
+              && turret.atTarget()
+              && (hood == null || hood.atTarget())
+              && turret.getState() != Turret.TurretState.FLIPPING
+              && turret.getState() != Turret.TurretState.STALLED;
+      if (allPositioned) {
+        motivator.setMotivatorVelocity(motivatorRPM);
+      } else {
+        motivator.stopMotivator();
+      }
+    }
+    if (spindexer != null) {
+      if (isFeedingAllowed()) {
+        if (launcher != null) launcher.setFeedingActive(true);
+        if (turret.getState() != Turret.TurretState.FLIPPING) {
+          spindexer.setSpindexerVelocity(spindexerRPM);
+          fireSimBallIfReady();
+        } else {
+          spindexer.stopSpindexer();
+        }
+      } else {
+        spindexer.stopSpindexer();
+      }
+    }
+  }
+
+  private void applyIdle() {
+    if (launcher != null) {
+      launcher.setFeedingActive(false);
+      launcher.stop();
+    }
+    if (motivator != null) motivator.stopMotivator();
+    if (spindexer != null) spindexer.stopSpindexer();
+    if (hood != null) {
+      hood.setActivelyCommanded(false);
+      hood.setHoodAngle(hood.getMinAngle());
+    }
+    turret.setActivelyCommanded(false);
+    if (turret.getState() == Turret.TurretState.STALLED) {
+      turret.forceTurretOutOfStallState();
+    }
+    clearManualShotParameters();
+    motivatorWasIdle = true;
+    motivatorReversing = false;
+  }
+
+  private void fireSimBallIfReady() {
+    if (Constants.currentMode == Constants.Mode.REAL) return;
+    double now = Timer.getFPGATimestamp();
+    if (now - lastSimFireTimestamp < MIN_SHOT_INTERVAL_SECONDS) return;
+    if (visualizer != null && visualizer.getFuelCount() <= 0) return;
+    launchFuel();
+    if (launcher != null) launcher.notifyBallFired();
+    lastSimFireTimestamp = now;
+    Logger.recordOutput("ShotLog/LastShotTime", now);
+    Logger.recordOutput("ShotLog/FuelRemaining", visualizer != null ? visualizer.getFuelCount() : 0);
+  }
+
+  // ========== Command Factories ==========
+
+  /** Smart launch command — arms immediately (teleop default). */
+  public Command shootCommand() {
+    return shootCommand(ArmTrigger.IMMEDIATE);
+  }
+
+  /** Smart launch command with configurable arm trigger (for sprint autos). */
+  public Command shootCommand(ArmTrigger trigger) {
+    Goal targetGoal =
+        switch (trigger) {
+          case IMMEDIATE -> Goal.SMART_SHOOT;
+          case ON_PASS_ZONE -> Goal.SMART_SHOOT_ON_PASS_ZONE;
+          case ON_ALLIANCE_RETURN -> Goal.SMART_SHOOT_ON_ALLIANCE_RETURN;
+        };
+    return Commands.startEnd(
+            () -> setGoal(targetGoal), () -> setGoal(Goal.IDLE), allRequirements())
+        .withName("SmartLaunch");
+  }
+
+  /** Fixed hub shot at tunable setpoints. */
+  public Command hubShotCommand() {
+    return Commands.startEnd(
+            () -> setGoal(Goal.FIXED_HUB), () -> setGoal(Goal.IDLE), allRequirements())
+        .withName("HubShot");
+  }
+
+  /** Fixed left-trench shot at tunable setpoints. */
+  public Command leftTrenchShotCommand() {
+    return Commands.startEnd(
+            () -> setGoal(Goal.FIXED_LEFT_TRENCH), () -> setGoal(Goal.IDLE), allRequirements())
+        .withName("LeftTrenchShot");
+  }
+
+  /** Fixed right-trench shot at tunable setpoints. */
+  public Command rightTrenchShotCommand() {
+    return Commands.startEnd(
+            () -> setGoal(Goal.FIXED_RIGHT_TRENCH), () -> setGoal(Goal.IDLE), allRequirements())
+        .withName("RightTrenchShot");
   }
 
   /**

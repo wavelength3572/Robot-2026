@@ -261,33 +261,11 @@ public class ButtonsAndDashboardBindings {
 
     // === Shot Preset Fire Buttons (mirrors button box, usable from dashboard) ===
     if (turret != null) {
+      SmartDashboard.putData("Shots/HubShot/Fire", shootingCoordinator.hubShotCommand());
+      SmartDashboard.putData("Shots/LeftTrench/Fire", shootingCoordinator.leftTrenchShotCommand());
       SmartDashboard.putData(
-          "Shots/HubShot/Fire",
-          ShootingCommands.hubShotCommand(
-              launcher, shootingCoordinator, motivator, turret, hood, spindexer));
-      SmartDashboard.putData(
-          "Shots/LeftTrench/Fire",
-          ShootingCommands.leftTrenchShotCommand(
-              launcher, shootingCoordinator, motivator, turret, hood, spindexer));
-      SmartDashboard.putData(
-          "Shots/RightTrench/Fire",
-          ShootingCommands.rightTrenchShotCommand(
-              launcher, shootingCoordinator, motivator, turret, hood, spindexer));
-      {
-        Set<Subsystem> dashSmartLaunchReqs = new HashSet<>();
-        dashSmartLaunchReqs.add(launcher);
-        dashSmartLaunchReqs.add(turret);
-        if (hood != null) dashSmartLaunchReqs.add(hood);
-        if (motivator != null) dashSmartLaunchReqs.add(motivator);
-        if (spindexer != null) dashSmartLaunchReqs.add(spindexer);
-        SmartDashboard.putData(
-            "Shots/SmartLaunch/Fire",
-            Commands.defer(
-                () ->
-                    ShootingCommands.smartLaunchDangerousCommand(
-                        launcher, shootingCoordinator, motivator, turret, hood, spindexer),
-                dashSmartLaunchReqs));
-      }
+          "Shots/RightTrench/Fire", shootingCoordinator.rightTrenchShotCommand());
+      SmartDashboard.putData("Shots/SmartLaunch/Fire", shootingCoordinator.shootCommand());
       // Auto-track: toggle works while disabled; turret default command checks the flag
       // TODO: Only enable auto-tracking when we are in the alliance zone AND we have
       //       completed at least one smart launch. This avoids unnecessary turret movement
@@ -572,20 +550,9 @@ public class ButtonsAndDashboardBindings {
                   intake));
     }
 
-    // Smart launch:Button 12— mode selected by dashboard toggle
+    // Smart launch: Button 12
     if (shootingCoordinator != null && launcher != null && turret != null && drive != null) {
-      Set<Subsystem> smartLaunchReqs = new HashSet<>();
-      smartLaunchReqs.add(launcher);
-      smartLaunchReqs.add(turret);
-      if (hood != null) smartLaunchReqs.add(hood);
-      if (motivator != null) smartLaunchReqs.add(motivator);
-      if (spindexer != null) smartLaunchReqs.add(spindexer);
-      Command smartLaunchCmd =
-          Commands.defer(
-              () ->
-                  ShootingCommands.smartLaunchDangerousCommand(
-                      launcher, shootingCoordinator, motivator, turret, hood, spindexer),
-              smartLaunchReqs);
+      Command smartLaunchCmd = shootingCoordinator.shootCommand();
       if (intake != null) {
         java.util.function.BooleanSupplier smartLaunchClimbGate =
             climber != null
@@ -642,9 +609,7 @@ public class ButtonsAndDashboardBindings {
                       || climber.getState() == Climber.ClimberState.CLIMBED
               : () -> false;
 
-      Command hubShotCmd =
-          ShootingCommands.hubShotCommand(
-              launcher, shootingCoordinator, motivator, turret, hood, spindexer);
+      Command hubShotCmd = shootingCoordinator.hubShotCommand();
       if (intake != null) {
         hubShotCmd =
             hubShotCmd.alongWith(
@@ -654,10 +619,8 @@ public class ButtonsAndDashboardBindings {
       }
       oi.getButtonBox1Button8().whileTrue(hubShotCmd);
 
-      // Left trench shot: Button 6
-      Command leftTrenchCmd =
-          ShootingCommands.leftTrenchShotCommand(
-              launcher, shootingCoordinator, motivator, turret, hood, spindexer);
+      // Left trench shot: Button 5
+      Command leftTrenchCmd = shootingCoordinator.leftTrenchShotCommand();
       if (intake != null) {
         leftTrenchCmd =
             leftTrenchCmd.alongWith(
@@ -667,10 +630,8 @@ public class ButtonsAndDashboardBindings {
       }
       oi.getButtonBox1Button5().whileTrue(leftTrenchCmd);
 
-      // Right trench shot: Button 5
-      Command rightTrenchCmd =
-          ShootingCommands.rightTrenchShotCommand(
-              launcher, shootingCoordinator, motivator, turret, hood, spindexer);
+      // Right trench shot: Button 6
+      Command rightTrenchCmd = shootingCoordinator.rightTrenchShotCommand();
       if (intake != null) {
         rightTrenchCmd =
             rightTrenchCmd.alongWith(
