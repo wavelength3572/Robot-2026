@@ -7,7 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRightFollow"
+            "pathName": "bumpPUSHTrenchLeft"
           }
         }
       ]

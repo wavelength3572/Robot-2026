@@ -8,22 +8,18 @@
 package frc.robot;
 
 import com.revrobotics.util.StatusLogger;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.IterativeRobotBase;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Watchdog;
 import edu.wpi.first.wpilibj.simulation.DriverStationSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
-import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.DriveCommands;
 import frc.robot.util.FuelSim;
 import frc.robot.util.HubShiftUtil;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -176,9 +172,6 @@ public class Robot extends LoggedRobot {
     // Update fuel simulation (only runs in SIM mode)
     robotContainer.updateFuelSim();
 
-    // Log climb activation boundary for AdvantageScope visualization
-    DriveCommands.logClimbActivationBoundary();
-
     // Log hub shift info
     HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getOfficialShiftInfo();
     Logger.recordOutput("HubShift/CurrentShift", shiftInfo.currentShift().toString());
@@ -214,11 +207,8 @@ public class Robot extends LoggedRobot {
       robotContainer.getShootingCoordinator().resetShotCounts();
     }
 
-    // Reset climber and intake to stowed so sim starts clean each auto
+    // Reset intake to stowed so sim starts clean each auto
     if (Constants.currentMode == Constants.Mode.SIM) {
-      if (robotContainer.getClimber() != null) {
-        robotContainer.getClimber().forceStow();
-      }
       if (robotContainer.getIntake() != null) {
         robotContainer.getIntake().forceStow();
       }
@@ -253,37 +243,6 @@ public class Robot extends LoggedRobot {
 
     // Clear any stale speed limit from a previous command that didn't end cleanly
     DriveCommands.clearSpeedLimit();
-
-    // De-climb sequence: extend to lower robot, drive forward 1 foot to clear pole, then stow.
-    if (robotContainer.getClimber() != null
-        && (robotContainer.getClimber().isClimbed() || robotContainer.getClimber().isClimbing())) {
-      var climberRef = robotContainer.getClimber();
-      var driveRef = robotContainer.getDrive();
-      CommandScheduler.getInstance()
-          .schedule(
-              Commands.runOnce(climberRef::extend)
-                  .andThen(Commands.waitUntil(climberRef::isExtended).withTimeout(5.0))
-                  .andThen(
-                      Commands.defer(
-                          () -> {
-                            var startPose = driveRef.getPose();
-                            double targetDistM = Units.feetToMeters(1.0);
-                            return Commands.run(
-                                    () -> driveRef.runVelocity(new ChassisSpeeds(0.5, 0.0, 0.0)),
-                                    driveRef)
-                                .until(
-                                    () ->
-                                        driveRef
-                                                .getPose()
-                                                .getTranslation()
-                                                .getDistance(startPose.getTranslation())
-                                            >= targetDistM)
-                                .finallyDo(() -> driveRef.stop());
-                          },
-                          Set.of(driveRef)))
-                  .andThen(Commands.runOnce(climberRef::stow))
-                  .withName("DeClimbSequence"));
-    }
 
     // Force OI rebind on teleop init to ensure controls are bound
     // This fixes the issue where going directly to teleop without
