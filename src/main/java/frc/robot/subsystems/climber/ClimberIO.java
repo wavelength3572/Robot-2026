@@ -2,38 +2,40 @@ package frc.robot.subsystems.climber;
 
 import org.littletonrobotics.junction.AutoLog;
 
+/**
+ * IO interface for the Climber subsystem. Despite the name, this is a pre-feed wheel that sits
+ * before the spindexer — the "climber" label is a holdover from an earlier robot revision.
+ */
 public interface ClimberIO {
   @AutoLog
   public static class ClimberIOInputs {
-    public double positionRotations = 0.0;
+    public boolean connected = false;
+    public double wheelRPM = 0.0;
     public double appliedVolts = 0.0;
     public double currentAmps = 0.0;
+    public double tempCelsius = 0.0;
+    public double targetRPM = 0.0;
+    public boolean atSetpoint = false;
   }
 
-  /** Read sensor data into inputs. */
-  public default void updateInputs(ClimberIOInputs inputs) {}
+  default void updateInputs(ClimberIOInputs inputs) {}
 
-  /** Command the motor to a target position in motor rotations. */
-  public default void setPosition(double motorRotations) {}
+  /** Run the wheel at the specified velocity using closed-loop control. */
+  default void setClimberVelocity(double wheelVelocityRPM) {}
 
-  /** Command the motor to a target position with an arbitrary feedforward voltage. */
-  public default void setPosition(double motorRotations, double arbFFVolts) {}
+  /** Run the motor at a raw voltage (for characterization / pit mode). */
+  default void setClimberVoltage(double volts) {}
 
-  /** Run the motor at a raw voltage (for pit mode). */
-  public default void setVoltage(double volts) {}
+  /** Stop the motor. */
+  default void stopClimber() {}
 
-  /** Enable or disable soft limits (disable for pit recovery). */
-  public default void setSoftLimitsEnabled(boolean enabled) {}
+  /** Configure PID + feedforward gains. */
+  default void configureClimberPID(double kP, double kI, double kD, double kS, double kV) {}
 
-  /** Stop the motor (brake mode holds position). */
-  public default void stop() {}
+  /** Velocity tolerance for atSetpoint check. */
+  default void setVelocityTolerance(double toleranceRPM) {}
 
-  /** Update PID gains and climb output cap on the motor controller. */
-  public default void configurePID(double kP, double climbMaxOutput) {}
-
-  /** Zero the encoder position (call in pit if robot rebooted with climber not stowed). */
-  public default void zeroEncoder() {}
-
-  /** Set the encoder to a specific position (for pit recovery). */
-  public default void setEncoderPosition(double rotations) {}
+  default double getFFCharacterizationVelocity() {
+    return 0.0;
+  }
 }

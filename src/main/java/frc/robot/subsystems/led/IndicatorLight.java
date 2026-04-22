@@ -84,9 +84,6 @@ public class IndicatorLight extends SubsystemBase {
   private Supplier<TurretEncoderStatus> turretEncoderStatusSupplier =
       () -> TurretEncoderStatus.VALID;
 
-  // Climber state supplier — true when the robot has finished climbing (set by RobotContainer)
-  private BooleanSupplier climberClimbedSupplier = () -> false;
-
   // Shooting coordinator supplier — drives edge-LED SmartLaunch status overlay
   private Supplier<ShootingCoordinator.CoordinatorState> coordinatorStateSupplier = null;
   private BooleanSupplier smartLaunchActiveSupplier = () -> false;
@@ -326,11 +323,6 @@ public class IndicatorLight extends SubsystemBase {
    */
   public void setTurretEncoderStatusSupplier(Supplier<TurretEncoderStatus> supplier) {
     this.turretEncoderStatusSupplier = supplier;
-  }
-
-  /** Set the supplier for climber "climbed" state. When true, LEDs show SEGMENTPARTY. */
-  public void setClimberClimbedSupplier(BooleanSupplier supplier) {
-    this.climberClimbedSupplier = supplier;
   }
 
   /**
@@ -927,19 +919,6 @@ public class IndicatorLight extends SubsystemBase {
     // Disabled: orange RSL-style
     if (DriverStation.isDisabled()) {
       return LED_EFFECTS.RSL;
-    }
-
-    // Climber finished
-    if (climberClimbedSupplier.getAsBoolean()) {
-      if (DriverStation.isAutonomous()) {
-        // Alliance-colored ombre after auto climb
-        boolean isRed =
-            DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue)
-                == DriverStation.Alliance.Red;
-        return isRed ? LED_EFFECTS.REDOMBRE : LED_EFFECTS.BLUEOMBRE;
-      }
-      // Party mode after endgame climb
-      return LED_EFFECTS.SEGMENTPARTY;
     }
 
     if (DriverStation.isAutonomous()) {

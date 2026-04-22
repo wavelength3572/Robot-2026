@@ -4,7 +4,6 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -140,63 +139,6 @@ public class ButtonsAndDashboardBindings {
           Commands.runOnce(() -> FuelSim.getInstance().toggleOutpostBarriers())
               .ignoringDisable(true)
               .withName("Toggle Outpost Barriers"));
-    }
-
-    // Climber dashboard buttons (mirrors button box)
-    if (climber != null) {
-      SmartDashboard.putData(
-          "Sim/ClimberExtend", Commands.runOnce(climber::extend).withName("Climber Extend"));
-      SmartDashboard.putData(
-          "Sim/ClimberStow", Commands.runOnce(climber::stow).withName("Climber Stow"));
-      SmartDashboard.putData(
-          "Sim/ClimberClimb", Commands.runOnce(climber::climb).withName("Climber Climb"));
-
-      // Pit mode: raw voltage buttons to manually retract/extend climber, then zero encoder
-      var pitRetractVolts = new LoggedTunableNumber("Pit/Climber/RetractVolts", -1.0);
-      var pitExtendVolts = new LoggedTunableNumber("Pit/Climber/ExtendVolts", 1.0);
-      SmartDashboard.putData(
-          "Pit/Climber/RawVoltageRetract",
-          Commands.startEnd(
-                  () -> {
-                    climber.setSoftLimitsEnabled(false);
-                    climber.setVoltage(pitRetractVolts.get());
-                  },
-                  () -> {
-                    climber.setVoltage(0.0);
-                    climber.setSoftLimitsEnabled(true);
-                  })
-              .withName("Pit Raw Voltage Retract"));
-      SmartDashboard.putData(
-          "Pit/Climber/RawVoltageExtend",
-          Commands.startEnd(
-                  () -> {
-                    climber.setSoftLimitsEnabled(false);
-                    climber.setVoltage(pitExtendVolts.get());
-                  },
-                  () -> {
-                    climber.setVoltage(0.0);
-                    climber.setSoftLimitsEnabled(true);
-                  })
-              .withName("Pit Raw Voltage Extend"));
-      SmartDashboard.putData(
-          "Pit/Climber/ZeroEncoder",
-          Commands.runOnce(climber::zeroEncoder)
-              .ignoringDisable(true)
-              .withName("Pit Climber Zero"));
-      SmartDashboard.putData(
-          "Pit/Climber/SetEncoderAtExtended",
-          Commands.runOnce(climber::setEncoderAtExtended)
-              .ignoringDisable(true)
-              .withName("Pit Set Encoder At Extended"));
-
-      // Home to hard stop: drives slowly in reverse until motor current spikes against
-      // the mechanical stop, then zeros the encoder. Tune via Climber/homing* on dashboard.
-      // Deferred so the debouncer and timeout pick up live tunable changes on each run.
-      Set<Subsystem> homeReqs = new HashSet<>();
-      homeReqs.add(climber);
-      SmartDashboard.putData(
-          "Pit/Climber/HomeToHardStop",
-          Commands.defer(climber::homeCommand, homeReqs).withName("Pit Climber Home"));
     }
 
     // Launcher RPM trim buttons (mirrors button box axis knob positions)
@@ -376,6 +318,14 @@ public class ButtonsAndDashboardBindings {
           spindexer.runSpindexerCommand(tuningSpindexerVelocity));
     }
 
+    // Climber: Run button reads the same Tuning/Climber/TuningVelocity knob the
+    // spindexer-follow default command uses.
+    if (climber != null) {
+      SmartDashboard.putData(
+          "Tuning/Climber/RunAtTuningVelocity",
+          climber.runClimberCommand(Climber.getTuningVelocity()));
+    }
+
     // Hood: SetAngle button reads local TuningAngle
     if (hood != null) {
       SmartDashboard.putData(
@@ -480,48 +430,6 @@ public class ButtonsAndDashboardBindings {
             DriveCommands.joystickDriveAtAngle(
                 drive, oi::getTranslateX, oi::getTranslateY, () -> Rotation2d.fromDegrees(90.0)));
 
-    // Pathfind to nearest tower pole — hold to follow path, release to stop.
-    // Re-pressing recalculates from current position.
-    // Auto-extends climber if operator hasn't already (within 1m, runs in parallel with driving).
-    // After pathfind + extend complete, pauses 0.2s to let the drive settle, then fires climb
-    // (same as manual Button 10). Releasing the button before climb fires cancels everything;
-    // once climb fires, periodic drives it to completion regardless. Operator can still press
-    // climb manually at any time — earlier press wins, later press is a harmless no-op.
-    // Gated on isNearAllianceTower so it only activates within 3m of a climb pose.
-    // Buttons 23 (left slider) and 24 (right slider) below the right axis, plus button 25.
-    Command poleAlignWithAutoExtend =
-        climber != null
-            ? Commands.parallel(
-                DriveCommands.pathfindToNearestPole(drive),
-                Commands.waitUntil(
-                        () ->
-                            drive
-                                    .getPose()
-                                    .getTranslation()
-                                    .getDistance(
-                                        DriveCommands.findNearestClimbPose(drive).getTranslation())
-                                <= Units.feetToMeters(
-                                    Constants.getRobotConfig().getClimberAutoExtendDistanceFeet()))
-                    .andThen(Commands.runOnce(climber::extend))
-                    .withName("AutoExtendClimber"))
-            // .andThen(Commands.waitSeconds(0.2))
-            // .andThen(Commands.runOnce(climber::climb))
-            : DriveCommands.pathfindToNearestPole(drive);
-    oi.getRightJoyLeftButton()
-        .and(() -> DriveCommands.isNearAllianceTower(drive))
-        .whileTrue(poleAlignWithAutoExtend);
-    oi.getRightJoyRightButton()
-        .and(() -> DriveCommands.isNearAllianceTower(drive))
-        .whileTrue(poleAlignWithAutoExtend);
-    oi.getRightJoyDownButton()
-        .and(() -> DriveCommands.isNearAllianceTower(drive))
-        .whileTrue(poleAlignWithAutoExtend);
-
-    // Sim/test dashboard button: one-shot schedule of the full pole-align + auto-climb flow.
-    // Runs to completion (no whileTrue cancel-on-release behavior) — use for sim verification.
-    SmartDashboard.putData(
-        "Sim/PoleAlignAutoClimb", poleAlignWithAutoExtend.withName("PoleAlignAutoClimb"));
-
     // X-stance button (interlink button 13): while held, lock wheels in X pattern.
     // Only activates when robot speed is below 1 m/s to prevent skidding.
     oi.getLockWheels()
@@ -587,12 +495,6 @@ public class ButtonsAndDashboardBindings {
                       launcher, shootingCoordinator, motivator, turret, hood, spindexer),
               smartLaunchReqs);
       if (intake != null) {
-        java.util.function.BooleanSupplier smartLaunchClimbGate =
-            climber != null
-                ? () ->
-                    climber.getState() == Climber.ClimberState.CLIMBING
-                        || climber.getState() == Climber.ClimberState.CLIMBED
-                : () -> false;
         // Rollers spin in all zones when intake is deployed (safety interlock handles retracted
         // state)
         Command rollerCmd =
@@ -600,7 +502,7 @@ public class ButtonsAndDashboardBindings {
                 tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean);
 
         smartLaunchCmd =
-            smartLaunchCmd.alongWith(intake.agitateCommand(smartLaunchClimbGate, true), rollerCmd);
+            smartLaunchCmd.alongWith(intake.agitateCommand(() -> false, true), rollerCmd);
       }
       oi.getButtonBox1Button12().whileTrue(smartLaunchCmd);
 
@@ -635,20 +537,13 @@ public class ButtonsAndDashboardBindings {
 
     // Hub shot: Button 8 — fixed position launch for close-range hub shots
     if (launcher != null && turret != null) {
-      java.util.function.BooleanSupplier climbingOrClimbed =
-          climber != null
-              ? () ->
-                  climber.getState() == Climber.ClimberState.CLIMBING
-                      || climber.getState() == Climber.ClimberState.CLIMBED
-              : () -> false;
-
       Command hubShotCmd =
           ShootingCommands.hubShotCommand(
               launcher, shootingCoordinator, motivator, turret, hood, spindexer);
       if (intake != null) {
         hubShotCmd =
             hubShotCmd.alongWith(
-                intake.agitateCommand(climbingOrClimbed, true),
+                intake.agitateCommand(() -> false, true),
                 intake.smartLaunchRollerCommand(
                     tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
@@ -661,7 +556,7 @@ public class ButtonsAndDashboardBindings {
       if (intake != null) {
         leftTrenchCmd =
             leftTrenchCmd.alongWith(
-                intake.agitateCommand(climbingOrClimbed, true),
+                intake.agitateCommand(() -> false, true),
                 intake.smartLaunchRollerCommand(
                     tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
@@ -674,7 +569,7 @@ public class ButtonsAndDashboardBindings {
       if (intake != null) {
         rightTrenchCmd =
             rightTrenchCmd.alongWith(
-                intake.agitateCommand(climbingOrClimbed, true),
+                intake.agitateCommand(() -> false, true),
                 intake.smartLaunchRollerCommand(
                     tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
@@ -716,18 +611,6 @@ public class ButtonsAndDashboardBindings {
                   })
               .ignoringDisable(true)
               .withName("Toggle AutoUnclog"));
-    }
-
-    // Climber controls — no subsystem requirement to avoid canceling driver auto-align
-    // B7: extend (from STOWED or CLIMBED, no-op if already extended)
-    // B7 hold 2s: stow (from EXTENDED or EXTENDING, deliberate action)
-    // B10: climb (from EXTENDED only)
-    if (climber != null) {
-      // oi.getButtonBox1Button7().onTrue(Commands.runOnce(climber::extend));
-      // oi.getButtonBox1Button7()
-      //     .debounce(Constants.getRobotConfig().getClimberStowHoldTimeSec())
-      //     .onTrue(Commands.runOnce(climber::stow));
-      // oi.getButtonBox1Button10().onTrue(Commands.runOnce(climber::climb));
     }
   }
 }

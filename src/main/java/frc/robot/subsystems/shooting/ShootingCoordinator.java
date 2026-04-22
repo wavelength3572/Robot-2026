@@ -1070,8 +1070,7 @@ public class ShootingCoordinator extends SubsystemBase {
       geoFenceReason = "";
       double staticAngle = Math.atan2(target.getY() - turretY, target.getX() - turretX);
       double compAngle =
-          Math.atan2(
-              compensatedAimTarget.getY() - turretY, compensatedAimTarget.getX() - turretX);
+          Math.atan2(compensatedAimTarget.getY() - turretY, compensatedAimTarget.getX() - turretX);
       double divergenceDeg = Math.abs(Math.toDegrees(staticAngle - compAngle));
       if (divergenceDeg > 180) divergenceDeg = 360 - divergenceDeg;
       currentDivergenceDeg = divergenceDeg;
