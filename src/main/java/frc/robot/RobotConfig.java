@@ -345,6 +345,11 @@ public interface RobotConfig {
     return 0.0;
   }
 
+  /** Hood Ks (static friction feedforward, volts) */
+  default double getHoodKs() {
+    return 0.0;
+  }
+
   /** Hood motor Invert */
   default boolean getHoodMotorInverted() {
     return false;

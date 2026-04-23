@@ -36,9 +36,10 @@ public class Hood extends SubsystemBase {
       new LoggedTunableNumber("Tuning/Hood/kP", Constants.getRobotConfig().getHoodKp());
   private static final LoggedTunableNumber kD =
       new LoggedTunableNumber("Tuning/Hood/kD", Constants.getRobotConfig().getHoodKd());
-
-  // Note: Hood uses PD-only control (no kI, no feedforward). If steady-state error from
-  // friction/gravity becomes a problem, consider adding kI and/or kS.
+  // kS: static-friction feedforward (volts), applied in the direction of position error.
+  // Tune with kP/kD = 0 — raise until the hood just barely creeps toward the setpoint.
+  private static final LoggedTunableNumber kS =
+      new LoggedTunableNumber("Tuning/Hood/kS", Constants.getRobotConfig().getHoodKs());
 
   // Tunable ready-gate tolerance for atTarget() — does NOT affect motor control
   private static final LoggedTunableNumber readyToleranceAngleDeg =
@@ -89,6 +90,9 @@ public class Hood extends SubsystemBase {
     // Push tunable PID changes to IO
     if (LoggedTunableNumber.hasChanged(kP, kD)) {
       io.configurePID(kP.get(), kD.get());
+    }
+    if (LoggedTunableNumber.hasChanged(kS)) {
+      io.setKs(kS.get());
     }
     if (LoggedTunableNumber.hasChanged(readyToleranceAngleDeg)) {
       io.setAngleTolerance(readyToleranceAngleDeg.get());
@@ -207,7 +211,7 @@ public class Hood extends SubsystemBase {
         config.getHoodMinAngleDegrees(), Math.min(config.getHoodMaxAngleDegrees(), angleDeg));
   }
 
-   public void setHoodVolts(double volts) {
+  public void setHoodVolts(double volts) {
     io.setHoodVolts(volts);
   }
 

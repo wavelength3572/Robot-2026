@@ -156,8 +156,12 @@ public class MainBotConfig implements RobotConfig {
   private static final double hoodMinAngleDegrees = 13;
   private static final double hoodMaxAngleDegrees = 46;
   private static final int hoodCurrentLimitAmps = 40;
-  private static final double hoodKp = 0.06;
-  private static final double hoodKd = 0;
+  // Previous tuned values - preserved while re-tuning with kS feedforward
+  // private static final double hoodKp = 0.06;
+  // private static final double hoodKd = 0;
+  private static final double hoodKp = 0.02;
+  private static final double hoodKd = 0.0;
+  private static final double hoodKs = 0.18;
 
   // Motivator Configuration
   private static final int motivatorMotorCanId = 56;
@@ -892,6 +896,12 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public double getHoodKd() {
     return hoodKd;
+  }
+
+  /** Hood ks */
+  @Override
+  public double getHoodKs() {
+    return hoodKs;
   }
 
   /** Hood motor Invert */

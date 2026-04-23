@@ -35,8 +35,7 @@ public interface HoodIO {
    */
   public default void setAngle(double angleDeg) {}
 
-  /** Set the voltage of the hood
-   * */
+  /** Set the voltage of the hood */
   public default void setHoodVolts(double volts) {}
 
   /**
@@ -46,6 +45,13 @@ public interface HoodIO {
    * @param kD Derivative gain
    */
   public default void configurePID(double kP, double kD) {}
+
+  /**
+   * Set the static-friction feedforward (kS), applied in the direction of the position error.
+   *
+   * @param ks Volts
+   */
+  public default void setKs(double ks) {}
 
   /**
    * Set the angle tolerance used for atTarget calculation.
