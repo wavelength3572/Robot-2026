@@ -153,7 +153,6 @@ public class HoodIOSparkMax implements HoodIO {
   @Override
   public void setHoodVolts(double volts) {
     if (volts > .5) volts = .5;
-    // Convert degrees to motor rotations for the PID controller
     motorController.setSetpoint(volts, ControlType.kVoltage);
   }
 }
