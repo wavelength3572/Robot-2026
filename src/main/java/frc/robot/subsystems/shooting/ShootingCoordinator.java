@@ -2265,9 +2265,15 @@ public class ShootingCoordinator extends SubsystemBase {
       }
     }
 
-    // Motivator — pre-spins with a brief reverse pulse on each idle→spinning transition
+    // Motivator — reverse pulse on spin-up is disabled (matches Pre-Worlds tested behavior)
     if (motivator != null) {
-      applyMotivatorPreSpinner(shot);
+      if (isAutoCollecting()) {
+        motivator.stopMotivator();
+      } else if (shot != null) {
+        motivator.setMotivatorVelocity(ShotOverrides.getMotivatorRPM(shot));
+      } else {
+        motivator.stopMotivator();
+      }
     }
 
     // Spindexer — feeds only when coordinator reaches FIRING; stops during auto collecting
