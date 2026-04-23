@@ -117,13 +117,13 @@ public class MainBotConfig implements RobotConfig {
   private static final double turretHeightMeters = 0.3597275;
   private static final double turretInsideMaxAngleDeg = 180.0;
   private static final double turretInsideMinAngleDeg = -180.0;
-  private static final double turretZeroOffset = 63.873;
+  private static final double turretZeroOffset = 76.025; // 63.873;
   private static final double turretOutsideMaxAngleDeg = turretInsideMaxAngleDeg + turretZeroOffset;
   private static final double turretOutsideMinAngleDeg = turretInsideMinAngleDeg + turretZeroOffset;
   private static final double turretAbsoluteEncoderOffsetTweak =
-      0; // 1.5 was old value; // 2.827154; // This is in degrees. + is CCW
+      0.0; // This is in degrees. + is CCW
   private static final double turretAbsoluteEncoderOffset =
-      0.224393 + (turretAbsoluteEncoderOffsetTweak / (360.0 / turretExternalGearRatio)); // 0.30148
+      0.023 + (turretAbsoluteEncoderOffsetTweak / (360.0 / turretExternalGearRatio)); // 0.224393
 
   private static final int turretCurrentLimitAmps = 20;
   private static final double turretKp = 0.12;
@@ -156,8 +156,12 @@ public class MainBotConfig implements RobotConfig {
   private static final double hoodMinAngleDegrees = 13;
   private static final double hoodMaxAngleDegrees = 46;
   private static final int hoodCurrentLimitAmps = 40;
-  private static final double hoodKp = 0.06;
-  private static final double hoodKd = 0;
+  // Previous tuned values - preserved while re-tuning with kS feedforward
+  // private static final double hoodKp = 0.06;
+  // private static final double hoodKd = 0;
+  private static final double hoodKp = 0.02;
+  private static final double hoodKd = 0.0;
+  private static final double hoodKs = 0.18;
 
   // Motivator Configuration
   private static final int motivatorMotorCanId = 56;
@@ -212,19 +216,16 @@ public class MainBotConfig implements RobotConfig {
 
   // ========== Climber Configuration ==========
   private static final int climberMotorCanId = 30;
-  private static final double climberGearRatio = 25.0; // NEO 25:1
-  private static final double climberDrumDiameterInches = 0.75;
-  private static final double climberExtendPosition = 80.0; // Motor rotations to extend (arm up)
-  private static final double climberClimbPosition =
-      25.0; // Motor rotations when climbed (off ground)
-  private static final double climberKp = 0.5;
+  private static final double climberGearRatio = 1.0 / 5.0; // NEO 25:1
+  private static final double tuningClimberVelocity = 200.0;
   private static final int climberCurrentLimit = 40;
-  private static final double climberClimbMaxOutput = 0.8; // Duty-cycle cap during CLIMBING
-  private static final double climberPositionTolerance = 0.5; // Motor rotations
-  private static final double climberExtendTimeoutSec = 5.0;
-  private static final double climberClimbTimeoutSec = 5.0;
-  private static final double climberStowHoldTimeSec = 2.0; // Hold B9 this long to stow
-  private static final double climberAutoExtendDistanceFeet = 3.0; // Auto-extend within this dist
+  // PID + FF — placeholders. Tune kS/kV from a voltage ramp, then add kP if needed.
+  private static final double climberKp = 0.0;
+  private static final double climberKi = 0.0;
+  private static final double climberKd = 0.0;
+  private static final double climberKs = 0.24;
+  private static final double climberKv = 0.001;
+  private static final double climberReadyToleranceRPM = 100.0;
 
   // ========== Pole Alignment Tuning ==========
   private static final double poleAlignMaxDistanceFeet = 10.0; // Activation boundary
@@ -282,8 +283,8 @@ public class MainBotConfig implements RobotConfig {
 
   // ========== Shot Calculation ==========
   private static final double shotEfficiencyClose = 0.815;
-  private static final double shotEfficiencyMid = 0.76;
-  private static final double shotEfficiencyFar = 0.76;
+  private static final double shotEfficiencyMid = 0.80;
+  private static final double shotEfficiencyFar = 0.80;
   private static final double shotEfficiencyCorner = 0.77;
   private static final double shotHoodAngleFudgeClose = 0.0;
   private static final double shotHoodAngleFudgeMid = 0.0;
@@ -324,7 +325,8 @@ public class MainBotConfig implements RobotConfig {
 
   // ========== Shooting Coordinator — Trench Safety ==========
   private static final double trenchHoodMaxDeg = 18.0;
-  private static final double trenchSafetySpeedLimitMps = 2.0;
+  private static final double trenchSafetySpeedLimitMps =
+      10.0; // Effectively disabled (> max drive speed)
   private static final double trenchMovingThresholdMps = 0.6;
   private static final double trenchHoodClampSpeedMps = 0.3;
   private static final double trenchHoodUnclampSpeedMps = 0.5;
@@ -372,11 +374,11 @@ public class MainBotConfig implements RobotConfig {
 
   // ========== Shooting Commands — Feed Ratios ==========
   private static final double motivatorLauncherRatio = 0.2;
-  private static final double shootingMotivatorRPM = 1200.0;
-  private static final double passingMotivatorRPM = 1200.0;
-  private static final double spindexerCloseRPM = 350.0;
+  private static final double shootingMotivatorRPM = 1650.0;
+  private static final double passingMotivatorRPM = 2000.0;
+  private static final double spindexerCloseRPM = 500.0;
   private static final double spindexerFarRPM = 400.0;
-  private static final double spindexerPassRPM = 400.0;
+  private static final double spindexerPassRPM = 600.0;
 
   // ========== Shooting Commands — Override Defaults ==========
   private static final double overrideLauncherRPM = 2500.0;
@@ -896,6 +898,12 @@ public class MainBotConfig implements RobotConfig {
     return hoodKd;
   }
 
+  /** Hood ks */
+  @Override
+  public double getHoodKs() {
+    return hoodKs;
+  }
+
   /** Hood motor Invert */
   @Override
   public boolean getHoodMotorInverted() {
@@ -1140,23 +1148,8 @@ public class MainBotConfig implements RobotConfig {
   }
 
   @Override
-  public double getClimberDrumDiameterInches() {
-    return climberDrumDiameterInches;
-  }
-
-  @Override
-  public double getClimberExtendPosition() {
-    return climberExtendPosition;
-  }
-
-  @Override
-  public double getClimberClimbPosition() {
-    return climberClimbPosition;
-  }
-
-  @Override
-  public double getClimberKp() {
-    return climberKp;
+  public double getTuningClimberVelocity() {
+    return tuningClimberVelocity;
   }
 
   @Override
@@ -1165,65 +1158,33 @@ public class MainBotConfig implements RobotConfig {
   }
 
   @Override
-  public double getClimberClimbMaxOutput() {
-    return climberClimbMaxOutput;
+  public double getClimberKp() {
+    return climberKp;
   }
 
   @Override
-  public double getClimberPositionTolerance() {
-    return climberPositionTolerance;
+  public double getClimberKi() {
+    return climberKi;
   }
 
   @Override
-  public double getClimberExtendTimeoutSec() {
-    return climberExtendTimeoutSec;
+  public double getClimberKd() {
+    return climberKd;
   }
 
   @Override
-  public double getClimberClimbTimeoutSec() {
-    return climberClimbTimeoutSec;
+  public double getClimberKs() {
+    return climberKs;
   }
 
   @Override
-  public double getClimberStowHoldTimeSec() {
-    return climberStowHoldTimeSec;
+  public double getClimberKv() {
+    return climberKv;
   }
 
   @Override
-  public double getClimberAutoExtendDistanceFeet() {
-    return climberAutoExtendDistanceFeet;
-  }
-
-  // ========== Pole Alignment Tuning ==========
-
-  @Override
-  public double getPoleAlignMaxDistanceFeet() {
-    return poleAlignMaxDistanceFeet;
-  }
-
-  @Override
-  public double getPoleAlignWaypointOffsetFeet() {
-    return poleAlignWaypointOffsetFeet;
-  }
-
-  @Override
-  public double getPoleAlignCloseThresholdFeet() {
-    return poleAlignCloseThresholdFeet;
-  }
-
-  @Override
-  public double getPoleAlignMaxVelocityFeetPerSec() {
-    return poleAlignMaxVelocityFeetPerSec;
-  }
-
-  @Override
-  public double getPoleAlignMaxAccelerationFeetPerSec2() {
-    return poleAlignMaxAccelerationFeetPerSec2;
-  }
-
-  @Override
-  public double getPoleAlignFinalApproachSpeed() {
-    return poleAlignFinalApproachSpeed;
+  public double getClimberReadyToleranceRPM() {
+    return climberReadyToleranceRPM;
   }
 
   // ========== Turret Tuning ==========

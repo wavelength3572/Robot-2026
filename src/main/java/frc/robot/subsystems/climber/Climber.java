@@ -1,471 +1,137 @@
 package frc.robot.subsystems.climber;
 
-import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.math.filter.Debouncer.DebounceType;
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.util.Color;
-import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
+import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
-import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
-import org.littletonrobotics.junction.mechanism.LoggedMechanism2d;
-import org.littletonrobotics.junction.mechanism.LoggedMechanismLigament2d;
-import org.littletonrobotics.junction.mechanism.LoggedMechanismRoot2d;
 
 /**
- * Climber subsystem — three positions, two buttons.
- *
- * <p>Hardware: single NEO motor through a 25:1 gearbox driving a 0.75" winch drum. Brake mode holds
- * position when the motor stops.
- *
- * <p>Positions:
- *
- * <ul>
- *   <li>Stowed (0) — fully retracted, put away
- *   <li>Extended (extendPosition) — arm up, lined up with the pole
- *   <li>Climbed (climbPosition) — partially retracted, robot off the ground
- * </ul>
- *
- * <p>Operator buttons:
- *
- * <ul>
- *   <li>B9 (extend): STOWED→EXTENDED, CLIMBED→EXTENDED, EXTENDED→STOWED
- *   <li>B2-1 (climb): EXTENDED→CLIMBED
- * </ul>
+ * Climber subsystem — despite the name, this is a pre-feed wheel that sits before the spindexer.
+ * Runs at a closed-loop velocity with simple feedforward, following whatever the spindexer is
+ * commanded to do (driven externally via a default command in RobotContainer).
  */
 public class Climber extends SubsystemBase {
 
   public enum ClimberState {
-    STOWED, // Position 0 — put away
-    EXTENDING, // Moving to extended position
-    EXTENDED, // Arm up, lined up with pole
-    CLIMBING, // Moving to climb position
-    CLIMBED, // Off the ground, brake holds
-    STOWING // Moving back to position 0
+    STOPPED,
+    FEEDING
   }
-
-  // 3D stowed offset for AdvantageScope (absolute position relative to robot origin)
-  private static final double CLIMBER_3D_X = -0.556;
-  private static final double CLIMBER_3D_Y = -0.103;
-  private static final double CLIMBER_3D_Z = -0.190;
 
   private final ClimberIO io;
   private final ClimberIOInputsAutoLogged inputs = new ClimberIOInputsAutoLogged();
+  private ClimberState state = ClimberState.STOPPED;
 
-  private ClimberState state = ClimberState.STOWED;
-  private double targetPositionRotations = 0.0;
+  private static final LoggedTunableNumber kP;
+  private static final LoggedTunableNumber kI;
+  private static final LoggedTunableNumber kD;
+  private static final LoggedTunableNumber kS;
+  private static final LoggedTunableNumber kV;
+  private static final LoggedTunableNumber toleranceRPM;
+  private static final LoggedTunableNumber targetRPM;
+  private static final LoggedTunableNumber spindexerFollowRatio;
 
-  private static final LoggedTunableNumber extendPosition =
-      new LoggedTunableNumber(
-          "Climber/extendPosition", Constants.getRobotConfig().getClimberExtendPosition());
-  private static final LoggedTunableNumber climbPosition =
-      new LoggedTunableNumber(
-          "Climber/climbPosition", Constants.getRobotConfig().getClimberClimbPosition());
-  private static final LoggedTunableNumber kP =
-      new LoggedTunableNumber("Climber/kP", Constants.getRobotConfig().getClimberKp());
-  private static final LoggedTunableNumber climbMaxOutput =
-      new LoggedTunableNumber(
-          "Climber/climbMaxOutput", Constants.getRobotConfig().getClimberClimbMaxOutput());
-  private static final LoggedTunableNumber positionTolerance =
-      new LoggedTunableNumber(
-          "Climber/positionTolerance", Constants.getRobotConfig().getClimberPositionTolerance());
-  private static final LoggedTunableNumber extendTimeoutSec =
-      new LoggedTunableNumber(
-          "Climber/extendTimeoutSec", Constants.getRobotConfig().getClimberExtendTimeoutSec());
-  private static final LoggedTunableNumber climbTimeoutSec =
-      new LoggedTunableNumber(
-          "Climber/climbTimeoutSec", Constants.getRobotConfig().getClimberClimbTimeoutSec());
-  private static final LoggedTunableNumber climbArbFFVolts =
-      new LoggedTunableNumber("Climber/climbArbFFVolts", -0.1);
+  static {
+    RobotConfig config = Constants.getRobotConfig();
+    kP = new LoggedTunableNumber("Tuning/Climber/kP", config.getClimberKp());
+    kI = new LoggedTunableNumber("Tuning/Climber/kI", config.getClimberKi());
+    kD = new LoggedTunableNumber("Tuning/Climber/kD", config.getClimberKd());
+    kS = new LoggedTunableNumber("Tuning/Climber/kS", config.getClimberKs());
+    kV = new LoggedTunableNumber("Tuning/Climber/kV", config.getClimberKv());
+    toleranceRPM =
+        new LoggedTunableNumber(
+            "Tuning/Climber/ReadyToleranceRPM", config.getClimberReadyToleranceRPM());
+    targetRPM =
+        new LoggedTunableNumber("Tuning/Climber/TuningVelocity", config.getTuningClimberVelocity());
+    // Match path: climberRPM = spindexerTargetRPM / spindexerFollowRatio.
+    // Default 0.2292 → climber spins ~4.37x faster than the spindexer.
+    spindexerFollowRatio = new LoggedTunableNumber("Tuning/Climber/SpindexerFollowRatio", 0.2292);
+  }
 
-  // Home-to-hard-stop tunables. Drive slowly in reverse until the current spikes
-  // against the mechanical stop, then zero the encoder at that position.
-  private static final LoggedTunableNumber homingVolts =
-      new LoggedTunableNumber("Climber/homingVolts", -5.0);
-  private static final LoggedTunableNumber homingStallAmps =
-      new LoggedTunableNumber("Climber/homingStallAmps", 8.0);
-  private static final LoggedTunableNumber homingStallDebounceSec =
-      new LoggedTunableNumber("Climber/homingStallDebounceSec", 0.20);
-  private static final LoggedTunableNumber homingStartupDelaySec =
-      new LoggedTunableNumber("Climber/homingStartupDelaySec", 0.8);
-  private static final LoggedTunableNumber homingTimeoutSec =
-      new LoggedTunableNumber("Climber/homingTimeoutSec", 5.0);
+  /** Live-tunable target RPM for the climber (independent of spindexer speed). */
+  public static LoggedTunableNumber getTuningVelocity() {
+    return targetRPM;
+  }
 
-  private boolean lastClimbSucceeded = false;
-
-  private final Alert climberNotStowedAlert =
-      new Alert("Climber is not stowed — hold B9 for 2s to stow", AlertType.kWarning);
-
-  // Pitch/roll suppliers for climbing observability (wired by RobotContainer)
-  private DoubleSupplier pitchSupplier = () -> 0.0;
-  private DoubleSupplier rollSupplier = () -> 0.0;
-
-  // ========== MECHANISM 2D VISUALIZATION ==========
-  // Canvas: side view, tall enough to show full extension + loop
-  private static final double MECH_CANVAS_WIDTH = 1.0; // meters
-  private static final double MECH_CANVAS_HEIGHT = 1.0; // meters
-  // Climber base at back edge of robot frame
-  private static final double MECH_BASE_X = 0.10;
-  private static final double MECH_BASE_Z = 0.15; // frame rail height off floor
-  // Robot body: extends forward (rightward) from climber base
-  private static final double MECH_BODY_LENGTH = 0.787; // bumper-to-bumper
-  private static final double MECH_BODY_LINE_WIDTH = 6.0;
-  // Arm: extends vertically from base. Max length sized so tip = low rung height (27")
-  private static final double MECH_ARM_MIN_LENGTH = 0.05; // stowed stub
-  private static final double MECH_ARM_MAX_LENGTH =
-      Units.inchesToMeters(27.0) - MECH_BASE_Z; // tip reaches low rung when extended
-  private static final double MECH_ARM_LINE_WIDTH = 6.0;
-  // Closed rectangular loop at tip — pole goes through front-to-back, so from
-  // side view the rectangle is tall (vertical) and narrow (horizontal)
-  private static final double MECH_HOOK_HEIGHT = 0.10; // tall dimension (vertical)
-  private static final double MECH_HOOK_WIDTH = 0.06; // narrow dimension (horizontal, side-to-side)
-  private static final double MECH_HOOK_LINE_WIDTH = 4.0;
-  // Colors
-  private static final Color8Bit COLOR_STOWED = new Color8Bit(Color.kGray);
-  private static final Color8Bit COLOR_MOVING = new Color8Bit(Color.kOrange);
-  private static final Color8Bit COLOR_EXTENDED = new Color8Bit(Color.kGreen);
-  private static final Color8Bit COLOR_CLIMBED = new Color8Bit(Color.kDodgerBlue);
-  private static final Color8Bit COLOR_BODY = new Color8Bit(Color.kDimGray);
-  private static final Color8Bit COLOR_LOOP = new Color8Bit(Color.kWhite);
-
-  private final LoggedMechanism2d mechanism;
-  private final LoggedMechanismLigament2d armLigament;
+  /** Ratio used in match path: climberRPM = spindexerTargetRPM / ratio. */
+  public static double getSpindexerFollowRatio() {
+    return spindexerFollowRatio.get();
+  }
 
   public Climber(ClimberIO io) {
     this.io = io;
-
-    // Initialize Mechanism2d side-view visualization
-    mechanism = new LoggedMechanism2d(MECH_CANVAS_WIDTH, MECH_CANVAS_HEIGHT);
-
-    // Robot body — horizontal reference line extending forward from back edge
-    LoggedMechanismRoot2d bodyRoot = mechanism.getRoot("Body", MECH_BASE_X, MECH_BASE_Z);
-    bodyRoot.append(
-        new LoggedMechanismLigament2d(
-            "RobotBody", MECH_BODY_LENGTH, 0, MECH_BODY_LINE_WIDTH, COLOR_BODY));
-
-    // Climber arm — vertical stick growing upward from back edge
-    LoggedMechanismRoot2d armRoot = mechanism.getRoot("ClimberBase", MECH_BASE_X, MECH_BASE_Z);
-    armLigament =
-        armRoot.append(
-            new LoggedMechanismLigament2d(
-                "ClimberArm", MECH_ARM_MIN_LENGTH, 90, MECH_ARM_LINE_WIDTH, COLOR_STOWED));
-
-    // Closed rectangular loop at tip of arm (side view).
-    // Post connects to center of the bottom (long) side.
-    // The pole sits inside the rectangle.
-    //
-    //      _________
-    //     |         |
-    //     |____|____|
-    //          |
-    //          |  <- post (centered on bottom)
-    //
-    // From top of arm: left half-width, up, right full-width, down, left half-width.
-
-    // Bottom-left half: go left (backward)
-    LoggedMechanismLigament2d hookBotLeft =
-        armLigament.append(
-            new LoggedMechanismLigament2d(
-                "HookBotLeft", MECH_HOOK_WIDTH / 2, 90, MECH_HOOK_LINE_WIDTH, COLOR_LOOP));
-    // Left side: go up
-    LoggedMechanismLigament2d hookLeft =
-        hookBotLeft.append(
-            new LoggedMechanismLigament2d(
-                "HookLeft", MECH_HOOK_HEIGHT, -90, MECH_HOOK_LINE_WIDTH, COLOR_LOOP));
-    // Top: go right (forward, full width)
-    LoggedMechanismLigament2d hookTop =
-        hookLeft.append(
-            new LoggedMechanismLigament2d(
-                "HookTop", MECH_HOOK_WIDTH, -90, MECH_HOOK_LINE_WIDTH, COLOR_LOOP));
-    // Right side: go down
-    LoggedMechanismLigament2d hookRight =
-        hookTop.append(
-            new LoggedMechanismLigament2d(
-                "HookRight", MECH_HOOK_HEIGHT, -90, MECH_HOOK_LINE_WIDTH, COLOR_LOOP));
-    // Bottom-right half: go left (back toward post center)
-    hookRight.append(
-        new LoggedMechanismLigament2d(
-            "HookBotRight", MECH_HOOK_WIDTH / 2, -90, MECH_HOOK_LINE_WIDTH, COLOR_LOOP));
+    io.setVelocityTolerance(toleranceRPM.get());
   }
 
   @Override
   public void periodic() {
     io.updateInputs(inputs);
     Logger.processInputs("Climber", inputs);
+    Logger.recordOutput("Subsystems/ClimberState", state.name());
 
-    if (LoggedTunableNumber.hasChanged(kP, climbMaxOutput)) {
-      io.configurePID(kP.get(), climbMaxOutput.get());
+    if (LoggedTunableNumber.hasChanged(kP, kI, kD, kS, kV)) {
+      io.configureClimberPID(kP.get(), kI.get(), kD.get(), kS.get(), kV.get());
     }
-
-    switch (state) {
-      case STOWED:
-        break;
-
-      case EXTENDING:
-        if (atPosition(targetPositionRotations)) {
-          io.stop();
-          state = ClimberState.EXTENDED;
-        }
-        break;
-
-      case EXTENDED:
-        break;
-
-      case CLIMBING:
-        if (atPosition(targetPositionRotations)) {
-          io.stop();
-          state = ClimberState.CLIMBED;
-          lastClimbSucceeded = true;
-        } else {
-          // Re-send setpoint with arbFF each cycle so the extra voltage stays applied
-          io.setPosition(targetPositionRotations, climbArbFFVolts.get());
-        }
-        break;
-
-      case CLIMBED:
-        break;
-
-      case STOWING:
-        if (atPosition(targetPositionRotations)) {
-          io.stop();
-          state = ClimberState.STOWED;
-        }
-        break;
-    }
-
-    // Alert operator if climber is not stowed during teleop
-    climberNotStowedAlert.set(DriverStation.isTeleopEnabled() && state != ClimberState.STOWED);
-
-    Logger.recordOutput("Climber/State", state.name());
-    Logger.recordOutput("Climber/TargetPosition", targetPositionRotations);
-    Logger.recordOutput(
-        "Climber/ActiveArbFFVolts", state == ClimberState.CLIMBING ? climbArbFFVolts.get() : 0.0);
-    Logger.recordOutput("Climber/LastClimbSucceeded", lastClimbSucceeded);
-    Logger.recordOutput("Climber/PitchDeg", pitchSupplier.getAsDouble());
-    Logger.recordOutput("Climber/RollDeg", rollSupplier.getAsDouble());
-
-    // Update Mechanism2d visualization
-    double fraction = Math.max(0.0, Math.min(inputs.positionRotations / extendPosition.get(), 1.0));
-    double armLength = MECH_ARM_MIN_LENGTH + fraction * (MECH_ARM_MAX_LENGTH - MECH_ARM_MIN_LENGTH);
-    armLigament.setLength(armLength);
-
-    Color8Bit armColor =
-        switch (state) {
-          case STOWED -> COLOR_STOWED;
-          case EXTENDING, CLIMBING, STOWING -> COLOR_MOVING;
-          case EXTENDED -> COLOR_EXTENDED;
-          case CLIMBED -> COLOR_CLIMBED;
-        };
-    armLigament.setColor(armColor);
-    // 3D component pose for AdvantageScope — climber moves vertically
-    // Logged pose is absolute (replaces zeroedPosition in config), so include stowed offset
-    double gearRatio = Constants.getRobotConfig().getClimberGearRatio();
-    double drumDiameterMeters =
-        Units.inchesToMeters(Constants.getRobotConfig().getClimberDrumDiameterInches());
-    double linearHeightMeters =
-        (inputs.positionRotations / gearRatio) * Math.PI * drumDiameterMeters;
-    Logger.recordOutput(
-        "Visualizations/Robot/1_Climber",
-        new Pose3d(
-            CLIMBER_3D_X, CLIMBER_3D_Y, CLIMBER_3D_Z + linearHeightMeters, new Rotation3d()));
-  }
-
-  // ===== Actions =====
-
-  /**
-   * Extend action. Goes to extended position from STOWED, CLIMBED, or CLIMBING. No-op otherwise.
-   */
-  public void extend() {
-    if (state == ClimberState.STOWED
-        || state == ClimberState.CLIMBED
-        || state == ClimberState.CLIMBING) {
-      targetPositionRotations = extendPosition.get();
-      io.setPosition(targetPositionRotations);
-      state = ClimberState.EXTENDING;
+    if (LoggedTunableNumber.hasChanged(toleranceRPM)) {
+      io.setVelocityTolerance(toleranceRPM.get());
     }
   }
 
-  /** Stow action. Returns to stowed position from EXTENDED or EXTENDING. No-op otherwise. */
-  public void stow() {
-    if (state == ClimberState.EXTENDED || state == ClimberState.EXTENDING) {
-      targetPositionRotations = 0.0;
-      io.setPosition(targetPositionRotations);
-      state = ClimberState.STOWING;
-    }
+  public void setClimberVelocity(double velocityRPM) {
+    io.setClimberVelocity(velocityRPM);
+    state = velocityRPM == 0.0 ? ClimberState.STOPPED : ClimberState.FEEDING;
   }
 
-  /** Climb action. From EXTENDED, retracts to climb position with extra pull-down voltage. */
-  public void climb() {
-    lastClimbSucceeded = false;
-    if (state == ClimberState.EXTENDED) {
-      targetPositionRotations = climbPosition.get();
-      io.setPosition(targetPositionRotations, climbArbFFVolts.get());
-      state = ClimberState.CLIMBING;
-    }
+  public void stopClimber() {
+    io.stopClimber();
+    state = ClimberState.STOPPED;
   }
 
-  /** Run the motor at raw voltage (for pit mode). Bypasses state machine. */
-  public void setVoltage(double volts) {
-    io.setVoltage(volts);
+  public double getWheelRPM() {
+    return inputs.wheelRPM;
   }
 
-  /** Enable or disable soft limits (disable for pit recovery). */
-  public void setSoftLimitsEnabled(boolean enabled) {
-    io.setSoftLimitsEnabled(enabled);
+  public double getTargetRPM() {
+    return inputs.targetRPM;
   }
 
-  // ===== State queries =====
-
-  /** Zero the encoder. Use in the pit if the robot rebooted with the climber not stowed. */
-  public void zeroEncoder() {
-    io.zeroEncoder();
-    state = ClimberState.STOWED;
-    targetPositionRotations = 0.0;
+  public boolean isAtSetpoint() {
+    return inputs.atSetpoint;
   }
 
-  /** Set encoder to extended position. Use in pit if code deployed while climber was extended. */
-  public void setEncoderAtExtended() {
-    io.setEncoderPosition(extendPosition.get());
-    state = ClimberState.EXTENDED;
-    targetPositionRotations = extendPosition.get();
-  }
-
-  /** Force the climber back to stowed state (e.g. at auto init). */
-  public void forceStow() {
-    targetPositionRotations = 0.0;
-    io.setPosition(0.0);
-    state = ClimberState.STOWED;
+  public boolean isConnected() {
+    return inputs.connected;
   }
 
   public ClimberState getState() {
     return state;
   }
 
-  public boolean isExtended() {
-    return state == ClimberState.EXTENDED;
+  // ========== Commands ==========
+
+  public Command stopClimberCommand() {
+    return runOnce(this::stopClimber).withName("Climber: Stop");
   }
 
-  public boolean isClimbed() {
-    return state == ClimberState.CLIMBED;
+  public Command runClimberCommand(LoggedTunableNumber rpm) {
+    return run(() -> setClimberVelocity(rpm.get()))
+        .finallyDo(this::stopClimber)
+        .withName("Climber: Run");
   }
 
-  public boolean isClimbing() {
-    return state == ClimberState.CLIMBING;
+  public Command reverseClimberCommand(LoggedTunableNumber rpm) {
+    return run(() -> setClimberVelocity(-Math.abs(rpm.get())))
+        .finallyDo(this::stopClimber)
+        .withName("Climber: Reverse");
   }
 
-  public boolean isStowed() {
-    return state == ClimberState.STOWED;
+  /** Drive the motor in voltage mode (for SysId characterization). */
+  public void runCharacterization(double output) {
+    io.setClimberVoltage(output);
   }
 
-  /** Force state back to STOWED and stop the motor. Safe to call on auto init. */
-  public void resetToStowed() {
-    io.stop();
-    state = ClimberState.STOWED;
-    targetPositionRotations = 0.0;
-  }
-
-  public boolean didLastClimbSucceed() {
-    return lastClimbSucceeded;
-  }
-
-  // ===== Observability suppliers =====
-
-  public void setPitchSupplier(DoubleSupplier supplier) {
-    this.pitchSupplier = supplier;
-  }
-
-  public void setRollSupplier(DoubleSupplier supplier) {
-    this.rollSupplier = supplier;
-  }
-
-  // ===== Command factories (for auto — explicit, not toggles) =====
-
-  /** Command: extend from stowed, finishes when extended or timeout. */
-  public Command extendCommand() {
-    return Commands.runOnce(this::extend, this)
-        .andThen(Commands.waitUntil(this::isExtended).withTimeout(extendTimeoutSec.get()))
-        .withName("ClimberExtend");
-  }
-
-  /** Command: climb from extended, finishes when climbed or timeout. Stops motor on timeout. */
-  public Command climbCommand() {
-    return Commands.runOnce(
-            () -> {
-              lastClimbSucceeded = false;
-              climb();
-            },
-            this)
-        .andThen(Commands.waitUntil(this::isClimbed).withTimeout(climbTimeoutSec.get()))
-        .finallyDo(
-            () -> {
-              if (!isClimbed()) {
-                io.stop();
-              }
-            })
-        .withName("ClimberClimb");
-  }
-
-  /**
-   * Home the climber by driving slowly into the reverse hard stop and detecting the stall via motor
-   * current. When the current stays above {@code homingStallAmps} for {@code
-   * homingStallDebounceSec}, the motor stops and the encoder is zeroed at that position.
-   *
-   * <p>Soft limits are disabled for the duration so the reverse soft limit at 0 doesn't block
-   * motion if the encoder is currently at or below 0. Safety timeout of {@code homingTimeoutSec}
-   * ensures the command always terminates.
-   */
-  public Command homeCommand() {
-    Timer timer = new Timer();
-    Debouncer stallDebouncer = new Debouncer(homingStallDebounceSec.get(), DebounceType.kRising);
-    return Commands.startRun(
-            () -> {
-              timer.restart();
-              stallDebouncer.calculate(false); // reset debouncer state
-              io.setSoftLimitsEnabled(false);
-              io.setVoltage(homingVolts.get());
-              state = ClimberState.STOWING;
-              Logger.recordOutput("Climber/Homing/Active", true);
-            },
-            () -> io.setVoltage(homingVolts.get()),
-            this)
-        .until(
-            () -> {
-              // Ignore the inrush current transient when the motor first starts moving.
-              if (timer.get() < homingStartupDelaySec.get()) {
-                Logger.recordOutput("Climber/Homing/Stalled", false);
-                return false;
-              }
-              boolean stalled =
-                  stallDebouncer.calculate(inputs.currentAmps > homingStallAmps.get());
-              Logger.recordOutput("Climber/Homing/Stalled", stalled);
-              return stalled;
-            })
-        .withTimeout(homingTimeoutSec.get())
-        .finallyDo(
-            (interrupted) -> {
-              io.stop();
-              io.zeroEncoder();
-              io.setSoftLimitsEnabled(true);
-              state = ClimberState.STOWED;
-              targetPositionRotations = 0.0;
-              Logger.recordOutput("Climber/Homing/Active", false);
-            })
-        .withName("ClimberHome");
-  }
-
-  // ===== Helpers =====
-
-  private boolean atPosition(double targetRotations) {
-    return Math.abs(inputs.positionRotations - targetRotations) < positionTolerance.get();
+  public double getFFCharacterizationVelocity() {
+    return io.getFFCharacterizationVelocity();
   }
 }

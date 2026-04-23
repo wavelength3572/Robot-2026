@@ -63,7 +63,7 @@ public class TurretIOSparkMax implements TurretIO {
 
   private double currentInsideAngleDegrees;
   private double currentOutsideAngleDegrees;
-  private static double constCurrentOutputLimit = 0.3;
+  private static double constCurrentOutputLimit = 0.35;
 
   private static final LoggedTunableNumber turretOutputLimit =
       new LoggedTunableNumber("Tuning/Turret/outputLimit", constCurrentOutputLimit);
@@ -262,7 +262,6 @@ public class TurretIOSparkMax implements TurretIO {
   @Override
   public void setTurretVolts(double volts) {
     if (volts > .5) volts = .5;
-    // Convert degrees to motor rotations for the PID controller
     motorController.setSetpoint(volts, ControlType.kVoltage);
   }
 

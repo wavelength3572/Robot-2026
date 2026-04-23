@@ -11,7 +11,6 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.Constants;
-import frc.robot.subsystems.climber.Climber;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.intake.Intake;
 import frc.robot.subsystems.launcher.Launcher;
@@ -73,8 +72,7 @@ public class AutoWrapperFactory {
       Motivator motivator,
       Turret turret,
       Hood hood,
-      Spindexer spindexer,
-      Climber climber) {
+      Spindexer spindexer) {
 
     List<Command> steps = new ArrayList<>();
 
@@ -112,27 +110,13 @@ public class AutoWrapperFactory {
     // Build the path + intake deploy to run together
     Command pathWithIntake = Commands.parallel(runPath(selectedAuto), deployIntake(intake));
 
-    // For PASS_AND_SHOOT, NO_PASS, and IMMEDIATE_ARM: SmartLaunch2
-    // runs for the ENTIRE auto (path + post-path). It doesn't die when the path ends — the
-    // path is just one step in the sequence that runs underneath it. After the path, the
-    // robot is stationary and SmartLaunch2 keeps firing until auto ends.
-    //
-    // For END_OF_PATH: SmartLaunch2 only runs after the path completes.
-    // Climb gate for post-path agitation: suppress during CLIMBING/CLIMBED
-    java.util.function.BooleanSupplier climbingOrClimbed =
-        climber != null
-            ? () ->
-                climber.getState() == Climber.ClimberState.CLIMBING
-                    || climber.getState() == Climber.ClimberState.CLIMBED
-            : () -> false;
-
     if (pathStrategy != PathShootingStrategy.END_OF_PATH) {
       // Path runs, then post-path agitation kicks in. SmartLaunch runs the entire time
       // in parallel and keeps the group alive after both path and agitation finish.
       // Mid-path agitation is handled by AutoAgitate zone event markers in the paths.
       Command pathThenAgitate =
           intake != null
-              ? Commands.sequence(pathWithIntake, intake.agitateCommand(climbingOrClimbed))
+              ? Commands.sequence(pathWithIntake, intake.agitateCommand(() -> false))
               : pathWithIntake;
       steps.add(
           Commands.parallel(
@@ -143,7 +127,7 @@ public class AutoWrapperFactory {
       Command postPathShoot =
           coordinator.shootCommand().withTimeout(10.0).asProxy();
       if (intake != null) {
-        postPathShoot = postPathShoot.alongWith(intake.agitateCommand(climbingOrClimbed));
+        postPathShoot = postPathShoot.alongWith(intake.agitateCommand(() -> false));
       }
       steps.add(postPathShoot);
     }

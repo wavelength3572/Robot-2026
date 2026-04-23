@@ -13,6 +13,7 @@ import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.SparkConnection;
 
 public class HoodIOSparkMax implements HoodIO {
@@ -32,6 +33,12 @@ public class HoodIOSparkMax implements HoodIO {
 
   // Skip CAN reads when motor is disconnected to prevent loop overruns
   private final SparkConnection hoodConnection = new SparkConnection();
+
+  // Closed-loop output limit (fraction of full output, ±).
+  private static double constCurrentOutputLimit = 1.0;
+
+  private static final LoggedTunableNumber hoodOutputLimit =
+      new LoggedTunableNumber("Tuning/Hood/outputLimit", constCurrentOutputLimit);
 
   public HoodIOSparkMax() {
     config = Constants.getRobotConfig();
@@ -62,11 +69,13 @@ public class HoodIOSparkMax implements HoodIO {
         .reverseSoftLimitEnabled(true)
         .reverseSoftLimit((float) degreesToMotorRotations(minAngleDegrees));
 
-    // PID control using motor's relative encoder (units: motor rotations)
+    // PID + kS static-friction feedforward (native REV 2026 onboard).
     motorConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-        .pid(config.getHoodKp(), 0.0, config.getHoodKd());
+        .pid(config.getHoodKp(), 0.0, config.getHoodKd())
+        .outputRange(-constCurrentOutputLimit, constCurrentOutputLimit);
+    motorConfig.closedLoop.feedForward.kS(config.getHoodKs());
 
     // Signal update rates - slow down diagnostic frames to reduce CAN bus load
     motorConfig
@@ -88,6 +97,10 @@ public class HoodIOSparkMax implements HoodIO {
   /** Updates the set of loggable inputs. */
   @Override
   public void updateInputs(HoodIOInputs inputs) {
+    if (LoggedTunableNumber.hasChanged(hoodOutputLimit)) {
+      changeLimits(hoodOutputLimit.get());
+    }
+
     inputs.targetAngleDeg = targetAngle;
     inputs.targetMotorRotations = degreesToMotorRotations(targetAngle);
 
@@ -134,19 +147,38 @@ public class HoodIOSparkMax implements HoodIO {
   }
 
   @Override
+  public void setKs(double ks) {
+    var ksConfig = new SparkMaxConfig();
+    ksConfig.closedLoop.feedForward.kS(ks);
+    motorSpark.configure(
+        ksConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+  }
+
+  private void changeLimits(double outputLimit) {
+    var limitConfig = new SparkMaxConfig();
+    limitConfig.closedLoop.outputRange(-outputLimit, outputLimit);
+    tryUntilOk(
+        motorSpark,
+        5,
+        () ->
+            motorSpark.configure(
+                limitConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters));
+  }
+
+  @Override
   public void setAngleTolerance(double toleranceDeg) {
     this.toleranceDeg = toleranceDeg;
   }
 
   @Override
   public void setAngle(double angleDeg) {
-    // Clamp the target angle to valid range
-    // double clampedDegrees =
-    // Math.max(minAngleDegrees, Math.min(maxAngleDegrees, rotation.getDegrees()));
-    // targetAngle = Rotation2d.fromDegrees(clampedDegrees);
-
-    // Convert degrees to motor rotations for the PID controller
     targetAngle = angleDeg;
     motorController.setSetpoint(degreesToMotorRotations(targetAngle), ControlType.kPosition);
+  }
+
+  @Override
+  public void setHoodVolts(double volts) {
+    if (volts > .5) volts = .5;
+    motorController.setSetpoint(volts, ControlType.kVoltage);
   }
 }

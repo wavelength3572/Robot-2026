@@ -345,6 +345,11 @@ public interface RobotConfig {
     return 0.0;
   }
 
+  /** Hood Ks (static friction feedforward, volts) */
+  default double getHoodKs() {
+    return 0.0;
+  }
+
   /** Hood motor Invert */
   default boolean getHoodMotorInverted() {
     return false;
@@ -587,35 +592,12 @@ public interface RobotConfig {
 
   /** Climber motor gear ratio (motor rotations per output rotation). */
   default double getClimberGearRatio() {
-    return 25.0;
+    return 0.0;
   }
 
-  /** Winch drum diameter in inches. */
-  default double getClimberDrumDiameterInches() {
-    return 0.75;
-  }
-
-  /** Motor rotations to extend (arm up, lined up with pole). */
-  default double getClimberExtendPosition() {
-    return 50.0;
-  }
-
-  /** Motor rotations for climb (partially retracted, off the ground). */
-  default double getClimberClimbPosition() {
-    return 10.0;
-  }
-
-  /** Climber position PID P gain. */
-  default double getClimberKp() {
-    return 0.1;
-  }
-
-  /**
-   * Maximum closed-loop output magnitude during the climb motion (0.0–1.0 duty cycle). Caps the
-   * voltage the PID can request while CLIMBING so the robot lifts slowly and predictably.
-   */
-  default double getClimberClimbMaxOutput() {
-    return 0.5;
+  /** Default target wheel velocity (RPM) for the Climber pre-feed wheel. */
+  default double getTuningClimberVelocity() {
+    return 200.0;
   }
 
   /** Climber current limit in amps. */
@@ -623,61 +605,34 @@ public interface RobotConfig {
     return 40;
   }
 
-  /** Climber position tolerance in motor rotations. */
-  default double getClimberPositionTolerance() {
-    return 2.0;
+  /** Velocity PID P gain. */
+  default double getClimberKp() {
+    return 0.0;
   }
 
-  /** Timeout for climber extend command in seconds. */
-  default double getClimberExtendTimeoutSec() {
-    return 5.0;
+  /** Velocity PID I gain. */
+  default double getClimberKi() {
+    return 0.0;
   }
 
-  /** Timeout for climber climb command in seconds. */
-  default double getClimberClimbTimeoutSec() {
-    return 5.0;
+  /** Velocity PID D gain. */
+  default double getClimberKd() {
+    return 0.0;
   }
 
-  /** Hold duration for B9 stow action in seconds. */
-  default double getClimberStowHoldTimeSec() {
-    return 2.0;
+  /** Static feedforward (volts to overcome friction). */
+  default double getClimberKs() {
+    return 0.0;
   }
 
-  /** Distance from climb pose to auto-extend climber in feet. */
-  default double getClimberAutoExtendDistanceFeet() {
-    return 3.0;
+  /** Velocity feedforward (volts per motor RPM). */
+  default double getClimberKv() {
+    return 0.0;
   }
 
-  // ========== Pole Alignment Tuning ==========
-
-  /** Max distance from climb pose to activate pole alignment in feet. */
-  default double getPoleAlignMaxDistanceFeet() {
-    return 10.0;
-  }
-
-  /** Waypoint offset distance from final climb pose in feet. */
-  default double getPoleAlignWaypointOffsetFeet() {
-    return 2.5;
-  }
-
-  /** Skip waypoint if closer than this to final pose in feet. */
-  default double getPoleAlignCloseThresholdFeet() {
-    return 3.0;
-  }
-
-  /** Max velocity for pole alignment approach in feet/sec. */
-  default double getPoleAlignMaxVelocityFeetPerSec() {
-    return 5.0;
-  }
-
-  /** Max acceleration for pole alignment approach in feet/sec². */
-  default double getPoleAlignMaxAccelerationFeetPerSec2() {
-    return 6.5;
-  }
-
-  /** DriveToPose speed scalar for final pole alignment (0.0-1.0). */
-  default double getPoleAlignFinalApproachSpeed() {
-    return 0.5;
+  /** Velocity tolerance in wheel RPM for atSetpoint check. */
+  default double getClimberReadyToleranceRPM() {
+    return 100.0;
   }
 
   // ========== Turret Tuning ==========

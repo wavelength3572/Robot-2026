@@ -429,28 +429,36 @@ public class FieldConstants {
     }
 
     /**
+     * Extra X-direction expansion (per side) for the opponent trench tight zones. Widens each
+     * opponent trench by this many meters on both the min-X and max-X edges.
+     */
+    public static final double OPPONENT_TRENCH_X_EXPANSION_METERS = 1.0;
+
+    /**
      * Check if a point is inside the opponent's trench zones using bump-aligned X bounds (no lead
      * distance). Used for hood safety in opponent territory without the expanded bounds that would
      * overlap neutral zone passing lanes near the walls.
      */
     public static boolean isInOpponentTrenchZoneTight(
         double x, double y, DriverStation.Alliance alliance) {
-      // X bounds match bump zones (hub center ± halfDepth, no lead).
+      // X bounds match bump zones (hub center ± halfDepth, no lead), expanded by
+      // OPPONENT_TRENCH_X_EXPANSION_METERS on both sides.
       // Y bounds use physical trench opening width only (no hood lead).
+      double xExp = OPPONENT_TRENCH_X_EXPANSION_METERS;
       if (alliance == DriverStation.Alliance.Blue) {
         // Opponent is red — use red bump X extents
         return isInZone(
                 x,
                 y,
-                BumpZones.RED_LEFT_MIN_X,
-                BumpZones.RED_LEFT_MAX_X,
+                BumpZones.RED_LEFT_MIN_X - xExp,
+                BumpZones.RED_LEFT_MAX_X + xExp,
                 fieldWidth - LeftTrench.openingWidth,
                 fieldWidth)
             || isInZone(
                 x,
                 y,
-                BumpZones.RED_RIGHT_MIN_X,
-                BumpZones.RED_RIGHT_MAX_X,
+                BumpZones.RED_RIGHT_MIN_X - xExp,
+                BumpZones.RED_RIGHT_MAX_X + xExp,
                 0,
                 RightTrench.openingWidth);
       } else {
@@ -458,15 +466,15 @@ public class FieldConstants {
         return isInZone(
                 x,
                 y,
-                BumpZones.BLUE_LEFT_MIN_X,
-                BumpZones.BLUE_LEFT_MAX_X,
+                BumpZones.BLUE_LEFT_MIN_X - xExp,
+                BumpZones.BLUE_LEFT_MAX_X + xExp,
                 fieldWidth - LeftTrench.openingWidth,
                 fieldWidth)
             || isInZone(
                 x,
                 y,
-                BumpZones.BLUE_RIGHT_MIN_X,
-                BumpZones.BLUE_RIGHT_MAX_X,
+                BumpZones.BLUE_RIGHT_MIN_X - xExp,
+                BumpZones.BLUE_RIGHT_MAX_X + xExp,
                 0,
                 RightTrench.openingWidth);
       }
@@ -644,17 +652,18 @@ public class FieldConstants {
         TrenchZones.BLUE_RIGHT_MIN_Y,
         TrenchZones.BLUE_RIGHT_MAX_Y);
 
-    // OPPONENT_TRENCH — bump-aligned X bounds (no lead), matches actual detection
+    // OPPONENT_TRENCH — bump-aligned X bounds (no lead) expanded on both sides, matches detection
+    double oppXExp = TrenchZones.OPPONENT_TRENCH_X_EXPANSION_METERS;
     logRect(
         "Visualizations/Zones/OpponentTrench_Left",
-        BumpZones.RED_LEFT_MIN_X,
-        BumpZones.RED_LEFT_MAX_X,
+        BumpZones.RED_LEFT_MIN_X - oppXExp,
+        BumpZones.RED_LEFT_MAX_X + oppXExp,
         fieldWidth - LeftTrench.openingWidth,
         fieldWidth);
     logRect(
         "Visualizations/Zones/OpponentTrench_Right",
-        BumpZones.RED_RIGHT_MIN_X,
-        BumpZones.RED_RIGHT_MAX_X,
+        BumpZones.RED_RIGHT_MIN_X - oppXExp,
+        BumpZones.RED_RIGHT_MAX_X + oppXExp,
         0,
         RightTrench.openingWidth);
 

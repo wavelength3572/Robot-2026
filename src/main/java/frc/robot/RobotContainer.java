@@ -9,7 +9,6 @@ package frc.robot;
 
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
-import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -17,7 +16,6 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.AutoWrapperFactory;
-import frc.robot.commands.DriveCommands;
 import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
@@ -357,11 +355,26 @@ public class RobotContainer {
           shootingCoordinator::getCoordinatorState, shootingCoordinator::isSmartLaunchActive);
     }
 
-    // Wire climber state to LEDs for segment party when climb is complete
-    if (climber != null) {
-      leds.setClimberClimbedSupplier(climber::isClimbed);
-      climber.setPitchSupplier(drive::getPitchDeg);
-      climber.setRollSupplier(drive::getRollDeg);
+    // Climber (pre-feed wheel): runs at spindexerTargetRPM / Tuning/Climber/SpindexerFollowRatio
+    // whenever the spindexer is commanded to feed. Stops otherwise.
+    if (climber != null && spindexer != null) {
+      climber.setDefaultCommand(
+          Commands.run(
+                  () -> {
+                    double spinTarget = spindexer.getSpindexerTargetRPM();
+                    if (spinTarget != 0.0) {
+                      double ratio = Climber.getSpindexerFollowRatio();
+                      if (ratio != 0.0) {
+                        climber.setClimberVelocity(spinTarget / ratio);
+                      } else {
+                        climber.stopClimber();
+                      }
+                    } else {
+                      climber.stopClimber();
+                    }
+                  },
+                  climber)
+              .withName("ClimberFollowSpindexer"));
     }
 
     // Initialize FuelSim for simulation mode (after coordinator so intake can be
@@ -512,8 +525,7 @@ public class RobotContainer {
         motivator,
         turret,
         hood,
-        spindexer,
-        climber);
+        spindexer);
   }
 
   /**
@@ -881,16 +893,8 @@ public class RobotContainer {
     }
 
     // Agitate: repeating kick agitation for zone event markers in auto paths.
-    // Uses voltage burst kicks (not MAXMotion) for stronger jolt. Gated on climber state
-    // so it stops during climbing/climbed.
     if (intake != null) {
-      java.util.function.BooleanSupplier climbingOrClimbed =
-          climber != null
-              ? () ->
-                  climber.getState() == Climber.ClimberState.CLIMBING
-                      || climber.getState() == Climber.ClimberState.CLIMBED
-              : () -> false;
-      NamedCommands.registerCommand("Agitate", intake.agitateCommand(climbingOrClimbed));
+      NamedCommands.registerCommand("Agitate", intake.agitateCommand(() -> false));
     }
 
     // PreClimbFlush: jostle + reverse rollers + stow (used before climb in auto)
@@ -953,41 +957,11 @@ public class RobotContainer {
               intake));
     }
 
-    // Climber: extend and climb events for auto
-    if (climber != null) {
-      NamedCommands.registerCommand("ClimberExtend", climber.extendCommand().asProxy());
-      NamedCommands.registerCommand("ClimberClimb", climber.climbCommand().asProxy());
-
-      // AutoClimb: single named command that pathfinds to nearest pole, auto-extends the climber
-      // when close enough (same as teleop), then climbs once positioned. Drop this at the end of
-      // any auto to get a full climb sequence.
-      final Climber climbRef = climber;
-      NamedCommands.registerCommand(
-          "AutoClimb",
-          Commands.runOnce(climbRef::resetToStowed)
-              .andThen(
-                  Commands.parallel(
-                      DriveCommands.pathfindToNearestPole(drive),
-                      Commands.waitUntil(
-                              () ->
-                                  drive
-                                          .getPose()
-                                          .getTranslation()
-                                          .getDistance(
-                                              DriveCommands.findNearestClimbPose(drive)
-                                                  .getTranslation())
-                                      <= Units.feetToMeters(
-                                          Constants.getRobotConfig()
-                                              .getClimberAutoExtendDistanceFeet()))
-                          .andThen(Commands.runOnce(climbRef::extend))
-                          .withName("AutoExtendClimber")))
-              .andThen(climbRef.climbCommand())
-              .asProxy());
-    } else {
-      NamedCommands.registerCommand("ClimberExtend", Commands.none());
-      NamedCommands.registerCommand("ClimberClimb", Commands.none());
-      NamedCommands.registerCommand("AutoClimb", Commands.none());
-    }
+    // Climber is no longer a climbing mechanism — stub old auto climb markers as no-ops so any
+    // existing .auto files that still reference them don't fail to parse.
+    NamedCommands.registerCommand("ClimberExtend", Commands.none());
+    NamedCommands.registerCommand("ClimberClimb", Commands.none());
+    NamedCommands.registerCommand("AutoClimb", Commands.none());
   }
 
   // Track last alliance to detect changes
