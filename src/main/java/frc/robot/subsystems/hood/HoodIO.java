@@ -35,6 +35,10 @@ public interface HoodIO {
    */
   public default void setAngle(double angleDeg) {}
 
+  /** Set the voltage of the hood
+   * */
+  public default void setHoodVolts(double volts) {}
+
   /**
    * Configure PID gains for the hood motor.
    *

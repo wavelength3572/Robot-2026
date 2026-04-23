@@ -207,6 +207,10 @@ public class Hood extends SubsystemBase {
         config.getHoodMinAngleDegrees(), Math.min(config.getHoodMaxAngleDegrees(), angleDeg));
   }
 
+   public void setHoodVolts(double volts) {
+    io.setHoodVolts(volts);
+  }
+
   // ========== Commands ==========
 
   /**
