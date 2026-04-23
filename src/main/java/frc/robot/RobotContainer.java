@@ -355,14 +355,20 @@ public class RobotContainer {
           shootingCoordinator::getCoordinatorState, shootingCoordinator::isSmartLaunchActive);
     }
 
-    // Climber (pre-feed wheel): runs at its own independent Tuning/Climber/TargetRPM whenever
-    // the spindexer is commanded to feed. Stops otherwise.
+    // Climber (pre-feed wheel): runs at spindexerTargetRPM / Tuning/Climber/SpindexerFollowRatio
+    // whenever the spindexer is commanded to feed. Stops otherwise.
     if (climber != null && spindexer != null) {
       climber.setDefaultCommand(
           Commands.run(
                   () -> {
-                    if (spindexer.getSpindexerTargetRPM() != 0.0) {
-                      climber.setClimberVelocity(Climber.getTuningVelocity().get());
+                    double spinTarget = spindexer.getSpindexerTargetRPM();
+                    if (spinTarget != 0.0) {
+                      double ratio = Climber.getSpindexerFollowRatio();
+                      if (ratio != 0.0) {
+                        climber.setClimberVelocity(spinTarget / ratio);
+                      } else {
+                        climber.stopClimber();
+                      }
                     } else {
                       climber.stopClimber();
                     }

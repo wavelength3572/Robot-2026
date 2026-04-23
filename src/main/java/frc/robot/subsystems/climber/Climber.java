@@ -30,6 +30,7 @@ public class Climber extends SubsystemBase {
   private static final LoggedTunableNumber kV;
   private static final LoggedTunableNumber toleranceRPM;
   private static final LoggedTunableNumber targetRPM;
+  private static final LoggedTunableNumber spindexerFollowRatio;
 
   static {
     RobotConfig config = Constants.getRobotConfig();
@@ -43,11 +44,19 @@ public class Climber extends SubsystemBase {
             "Tuning/Climber/ReadyToleranceRPM", config.getClimberReadyToleranceRPM());
     targetRPM =
         new LoggedTunableNumber("Tuning/Climber/TuningVelocity", config.getTuningClimberVelocity());
+    // Match path: climberRPM = spindexerTargetRPM / spindexerFollowRatio.
+    // Default 0.2292 → climber spins ~4.37x faster than the spindexer.
+    spindexerFollowRatio = new LoggedTunableNumber("Tuning/Climber/SpindexerFollowRatio", 0.2292);
   }
 
   /** Live-tunable target RPM for the climber (independent of spindexer speed). */
   public static LoggedTunableNumber getTuningVelocity() {
     return targetRPM;
+  }
+
+  /** Ratio used in match path: climberRPM = spindexerTargetRPM / ratio. */
+  public static double getSpindexerFollowRatio() {
+    return spindexerFollowRatio.get();
   }
 
   public Climber(ClimberIO io) {

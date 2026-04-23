@@ -48,7 +48,7 @@ public class ClimberIOSpark implements ClimberIO {
 
     var motorConfig = new SparkMaxConfig();
     motorConfig
-        .inverted(false)
+        .inverted(true)
         .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(config.getClimberCurrentLimit())
         .voltageCompensation(12.0);

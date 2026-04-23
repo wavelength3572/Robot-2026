@@ -182,11 +182,11 @@ public class ShootingCoordinator extends SubsystemBase {
   // Danger trench safety: near-stops the robot when hood is above safe angle in the danger zone
   // at the alliance/neutral trench boundary. Timeout relaxes limit for broken-hood escape.
   private final LoggedTunableNumber dangerTrenchSpeedLimitMps =
-      new LoggedTunableNumber("Shots/TrenchMode/DangerSpeedLimitMps", 0.3);
+      new LoggedTunableNumber("Shots/TrenchMode/DangerSpeedLimitMps", 10.0);
   private final LoggedTunableNumber dangerTrenchTimeoutSec =
       new LoggedTunableNumber("Shots/TrenchMode/DangerTimeoutSec", 2.0);
   private final LoggedTunableNumber dangerTrenchFallbackSpeedMps =
-      new LoggedTunableNumber("Shots/TrenchMode/DangerFallbackSpeedMps", 2.0);
+      new LoggedTunableNumber("Shots/TrenchMode/DangerFallbackSpeedMps", 10.0);
   private boolean dangerTrenchActive = false;
   private double dangerTrenchEntryTimestamp = 0.0;
 

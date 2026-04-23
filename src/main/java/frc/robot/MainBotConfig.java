@@ -215,6 +215,13 @@ public class MainBotConfig implements RobotConfig {
   private static final double climberGearRatio = 1.0 / 5.0; // NEO 25:1
   private static final double tuningClimberVelocity = 200.0;
   private static final int climberCurrentLimit = 40;
+  // PID + FF — placeholders. Tune kS/kV from a voltage ramp, then add kP if needed.
+  private static final double climberKp = 0.0;
+  private static final double climberKi = 0.0;
+  private static final double climberKd = 0.0;
+  private static final double climberKs = 0.24;
+  private static final double climberKv = 0.001;
+  private static final double climberReadyToleranceRPM = 100.0;
 
   // ========== Pole Alignment Tuning ==========
   private static final double poleAlignMaxDistanceFeet = 10.0; // Activation boundary
@@ -272,8 +279,8 @@ public class MainBotConfig implements RobotConfig {
 
   // ========== Shot Calculation ==========
   private static final double shotEfficiencyClose = 0.815;
-  private static final double shotEfficiencyMid = 0.76;
-  private static final double shotEfficiencyFar = 0.76;
+  private static final double shotEfficiencyMid = 0.80;
+  private static final double shotEfficiencyFar = 0.80;
   private static final double shotEfficiencyCorner = 0.77;
   private static final double shotHoodAngleFudgeClose = 0.0;
   private static final double shotHoodAngleFudgeMid = 0.0;
@@ -314,7 +321,8 @@ public class MainBotConfig implements RobotConfig {
 
   // ========== Shooting Coordinator — Trench Safety ==========
   private static final double trenchHoodMaxDeg = 18.0;
-  private static final double trenchSafetySpeedLimitMps = 2.0;
+  private static final double trenchSafetySpeedLimitMps =
+      10.0; // Effectively disabled (> max drive speed)
   private static final double trenchMovingThresholdMps = 0.6;
   private static final double trenchHoodClampSpeedMps = 0.3;
   private static final double trenchHoodUnclampSpeedMps = 0.5;
@@ -362,11 +370,11 @@ public class MainBotConfig implements RobotConfig {
 
   // ========== Shooting Commands — Feed Ratios ==========
   private static final double motivatorLauncherRatio = 0.2;
-  private static final double shootingMotivatorRPM = 1200.0;
-  private static final double passingMotivatorRPM = 1200.0;
-  private static final double spindexerCloseRPM = 350.0;
+  private static final double shootingMotivatorRPM = 1650.0;
+  private static final double passingMotivatorRPM = 2000.0;
+  private static final double spindexerCloseRPM = 500.0;
   private static final double spindexerFarRPM = 400.0;
-  private static final double spindexerPassRPM = 400.0;
+  private static final double spindexerPassRPM = 600.0;
 
   // ========== Shooting Commands — Override Defaults ==========
   private static final double overrideLauncherRPM = 2500.0;
@@ -1137,6 +1145,36 @@ public class MainBotConfig implements RobotConfig {
   @Override
   public int getClimberCurrentLimit() {
     return climberCurrentLimit;
+  }
+
+  @Override
+  public double getClimberKp() {
+    return climberKp;
+  }
+
+  @Override
+  public double getClimberKi() {
+    return climberKi;
+  }
+
+  @Override
+  public double getClimberKd() {
+    return climberKd;
+  }
+
+  @Override
+  public double getClimberKs() {
+    return climberKs;
+  }
+
+  @Override
+  public double getClimberKv() {
+    return climberKv;
+  }
+
+  @Override
+  public double getClimberReadyToleranceRPM() {
+    return climberReadyToleranceRPM;
   }
 
   // ========== Turret Tuning ==========
