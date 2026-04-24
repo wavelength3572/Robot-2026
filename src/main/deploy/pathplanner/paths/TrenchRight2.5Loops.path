@@ -202,10 +202,23 @@
     {
       "name": "Sprint Zone",
       "minWaypointRelativePos": 0,
-      "maxWaypointRelativePos": 0.7,
+      "maxWaypointRelativePos": 0.6763698630136984,
       "constraints": {
         "maxVelocity": 3.5,
         "maxAcceleration": 6.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "Pickup Zone",
+      "minWaypointRelativePos": 0.68,
+      "maxWaypointRelativePos": 1.2842465753424657,
+      "constraints": {
+        "maxVelocity": 1.0,
+        "maxAcceleration": 3.25,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
         "nominalVoltage": 12.0,
@@ -217,7 +230,7 @@
       "minWaypointRelativePos": 2.3,
       "maxWaypointRelativePos": 4.0,
       "constraints": {
-        "maxVelocity": 0.6,
+        "maxVelocity": 0.654,
         "maxAcceleration": 1.0,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
@@ -230,7 +243,7 @@
       "minWaypointRelativePos": 8.6,
       "maxWaypointRelativePos": 10.0,
       "constraints": {
-        "maxVelocity": 0.6,
+        "maxVelocity": 0.65,
         "maxAcceleration": 3.0,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
@@ -284,7 +297,7 @@
   },
   "goalEndState": {
     "velocity": 0.0,
-    "rotation": -90.0
+    "rotation": 0.0
   },
   "reversed": false,
   "folder": "TrenchRightPaths",

@@ -7,7 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "TrenchRight2LoopsClimb"
+            "pathName": "DepotOnly"
           }
         },
         {
@@ -20,6 +20,6 @@
     }
   },
   "resetOdom": true,
-  "folder": "TrenchRight",
+  "folder": "3rdRobotAutos",
   "choreoAuto": false
 }

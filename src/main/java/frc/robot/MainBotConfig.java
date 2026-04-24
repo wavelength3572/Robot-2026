@@ -135,9 +135,11 @@ public class MainBotConfig implements RobotConfig {
   // Physical dimensions
   // Turret offset from robot center (in robot-relative coordinates)
   // Positive X = forward from robot center
-  // Positive Y = left from robot center
-  private static final double TURRET_X_OFFSET = -0.085211539; // meters
-  private static final double TURRET_Y_OFFSET = 0.1819604184; // meters
+  // // Positive Y = left from robot center
+  // private static final double TURRET_X_OFFSET = -0.085211539; // meters
+  // private static final double TURRET_Y_OFFSET = 0.1819604184; // meters
+  private static final double TURRET_X_OFFSET = -0.085725; // meters (-3.375 in, behind center)
+  private static final double TURRET_Y_OFFSET = 0.180975; // meters (+7.125 in, left of center)
 
   // Launcher configuration
   private static final int launcherLeaderCanId = 58;

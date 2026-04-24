@@ -542,20 +542,17 @@ public class RobotContainer {
           Map.entry("TrenchRight2.5Loops", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("TrenchLeft2CyclesAggressive", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("TrenchLeft2CyclesSafe", AutoWrapperFactory.StartStrategy.SPRINT),
-          Map.entry("TrenchLeft2LoopsClimb", AutoWrapperFactory.StartStrategy.SPRINT),
-          Map.entry("TrenchRight2LoopsClimb", AutoWrapperFactory.StartStrategy.SPRINT),
-          Map.entry("TrenchLeftSnowblowFrontDepotClimb", AutoWrapperFactory.StartStrategy.SPRINT),
-          Map.entry("TrenchLeftSnowblowSideDepotClimb", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("TrenchLeftBumpDepot", AutoWrapperFactory.StartStrategy.SPRINT),
-          Map.entry("TrenchLeftBumpDepotClimb", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("bumpPUSHTrenchLeft", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
+          Map.entry("LeftBumpSnowblow", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
           // TrenchRight autos
           Map.entry("TrenchRightFollow", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
           Map.entry("TrenchRight2CyclesAggressive", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("TrenchRight2CyclesBulldogs", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("TrenchRight2CyclesSafe", AutoWrapperFactory.StartStrategy.SPRINT),
-          Map.entry("TrenchRightSnowblowClimb", AutoWrapperFactory.StartStrategy.SPRINT),
+          Map.entry("bumpPUSHTrenchRight", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
           // Depot autos
-          Map.entry("DepotClimb", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
+          Map.entry("DepotOnly", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
           Map.entry("DepotLeftTrench", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
           Map.entry("Depot-Outpost", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
           // Outpost autos
@@ -578,17 +575,10 @@ public class RobotContainer {
               Map.entry(
                   "TrenchLeft2CyclesAggressive", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry("TrenchLeft2CyclesSafe", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
-              Map.entry("TrenchLeft2LoopsClimb", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
-              Map.entry("TrenchRight2LoopsClimb", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
-              Map.entry(
-                  "TrenchLeftSnowblowFrontDepotClimb",
-                  AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
-              Map.entry(
-                  "TrenchLeftSnowblowSideDepotClimb",
-                  AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
               Map.entry("TrenchLeftBumpDepot", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry(
-                  "TrenchLeftBumpDepotClimb", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
+                  "bumpPUSHTrenchLeft", AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
+              Map.entry("LeftBumpSnowblow", AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
               // TrenchRight autos
               Map.entry(
                   "TrenchRightFollow", AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
@@ -598,10 +588,9 @@ public class RobotContainer {
                   "TrenchRight2CyclesBulldogs", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry("TrenchRight2CyclesSafe", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry(
-                  "TrenchRightSnowblowClimb",
-                  AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
+                  "bumpPUSHTrenchRight", AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
               // Depot autos
-              Map.entry("DepotClimb", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
+              Map.entry("DepotOnly", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH),
               Map.entry("DepotLeftTrench", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
               Map.entry("Depot-Outpost", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),
               // Outpost autos
@@ -1058,7 +1047,13 @@ public class RobotContainer {
               entry -> {
                 String rawName = entry.getKey();
                 displayToAutoName.put(rawName, rawName);
-                sendable.addOption(rawName, new PathPlannerAuto(rawName));
+                try {
+                  System.out.println("[AutoChooser] Loading auto: " + rawName);
+                  sendable.addOption(rawName, new PathPlannerAuto(rawName));
+                } catch (Exception ex) {
+                  System.err.println("[AutoChooser] FAILED to load auto '" + rawName + "': " + ex);
+                  ex.printStackTrace();
+                }
               });
       return new LoggedDashboardChooser<>("Auto Choices", sendable);
     } else {
@@ -1072,7 +1067,13 @@ public class RobotContainer {
               entry -> {
                 String rawName = entry.getKey();
                 displayToAutoName.put(rawName, rawName);
-                sendable.addOption(rawName, new PathPlannerAuto(rawName));
+                try {
+                  System.out.println("[AutoChooser] Loading auto: " + rawName);
+                  sendable.addOption(rawName, new PathPlannerAuto(rawName));
+                } catch (Exception ex) {
+                  System.err.println("[AutoChooser] FAILED to load auto '" + rawName + "': " + ex);
+                  ex.printStackTrace();
+                }
               });
 
       LoggedDashboardChooser<Command> chooser =
