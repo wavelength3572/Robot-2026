@@ -16,12 +16,12 @@
     },
     {
       "anchor": {
-        "x": 1.0106749734846971,
-        "y": 4.5648579278498564
+        "x": 2.3452419354838714,
+        "y": 7.458193548387097
       },
       "prevControl": {
-        "x": 1.0106749734846971,
-        "y": 5.164857927849856
+        "x": 2.3452419354838714,
+        "y": 8.058193548387097
       },
       "nextControl": null,
       "isLocked": false,
@@ -68,7 +68,7 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 90.0
+    "rotation": -90.0
   },
   "reversed": false,
   "folder": "TrenchLeftPaths",

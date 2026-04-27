@@ -27,7 +27,6 @@ public interface TurretIO {
   /** Set the target angle for the turret in degrees relative to robot front */
   public default void setInsideTurretAngle_ONLY_FOR_TESTING(double rotation) {}
 
-  /** Set the target angle for the turret in degrees relative to robot front */
   public default void setTurretVolts(double volts) {}
 
   /**

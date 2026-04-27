@@ -1,49 +1,73 @@
 package frc.robot.subsystems.climber;
 
-/**
- * Simulation implementation of ClimberIO. Uses a simple first-order response to track the target
- * position, matching real robot behavior for testing in sim.
- */
-public class ClimberIOSim implements ClimberIO {
-  private double currentPosition = 0.0;
-  private double targetPosition = 0.0;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.system.plant.LinearSystemId;
+import edu.wpi.first.wpilibj.simulation.FlywheelSim;
 
-  // How fast the sim climber moves toward target (reaches target in ~0.5s)
-  private static final double SIM_RESPONSE_RATE = 0.1;
+/** FlywheelSim-backed sim for the Climber pre-feed wheel, mirroring the Spindexer sim. */
+public class ClimberIOSim implements ClimberIO {
+  private final FlywheelSim sim;
+
+  private static final double MOI = 0.002;
+  private static final double SIM_RESPONSE_RATE = 0.15;
+
+  private double targetRPM = 0.0;
+  private double currentRPM = 0.0;
+  private double dutyCycle = 0.0;
+  private boolean velocityMode = false;
+  private double toleranceRPM = 100.0;
+
+  public ClimberIOSim() {
+    sim =
+        new FlywheelSim(
+            LinearSystemId.createFlywheelSystem(DCMotor.getNeo550(1), MOI, 1.0),
+            DCMotor.getNeo550(1));
+  }
 
   @Override
   public void updateInputs(ClimberIOInputs inputs) {
-    // Simple first-order response — position moves toward target each cycle
-    currentPosition += (targetPosition - currentPosition) * SIM_RESPONSE_RATE;
+    if (velocityMode) {
+      currentRPM += (targetRPM - currentRPM) * SIM_RESPONSE_RATE;
+    } else {
+      sim.setInputVoltage(dutyCycle * 12.0);
+      sim.update(0.02);
+      currentRPM = sim.getAngularVelocityRPM();
+    }
 
-    inputs.positionRotations = currentPosition;
-    inputs.appliedVolts = (targetPosition - currentPosition) * 0.5;
-    inputs.currentAmps = Math.abs(inputs.appliedVolts) * 0.5;
+    inputs.connected = true;
+    inputs.wheelRPM = currentRPM;
+    inputs.appliedVolts = velocityMode ? currentRPM * 0.002 : dutyCycle * 12.0;
+    inputs.currentAmps = Math.abs(currentRPM) * 0.005;
+    inputs.tempCelsius = 25.0;
+    inputs.targetRPM = targetRPM;
+    inputs.atSetpoint = velocityMode && Math.abs(currentRPM - targetRPM) < toleranceRPM;
   }
 
   @Override
-  public void setPosition(double motorRotations) {
-    targetPosition = motorRotations;
+  public void setClimberVelocity(double wheelVelocityRPM) {
+    velocityMode = true;
+    targetRPM = wheelVelocityRPM;
+    dutyCycle = 0.0;
   }
 
   @Override
-  public void setPosition(double motorRotations, double arbFFVolts) {
-    targetPosition = motorRotations;
+  public void setClimberVoltage(double volts) {
+    velocityMode = false;
+    targetRPM = 0.0;
+    dutyCycle = volts / 12.0;
   }
 
   @Override
-  public void stop() {
-    targetPosition = currentPosition;
+  public void stopClimber() {
+    velocityMode = false;
+    targetRPM = 0.0;
+    dutyCycle = 0.0;
+    currentRPM = 0.0;
+    sim.setInputVoltage(0.0);
   }
 
   @Override
-  public void configurePID(double kP, double climbMaxOutput) {
-    // No-op in sim
-  }
-
-  @Override
-  public void zeroEncoder() {
-    currentPosition = 0.0;
-    targetPosition = 0.0;
+  public void setVelocityTolerance(double toleranceRPM) {
+    this.toleranceRPM = toleranceRPM;
   }
 }

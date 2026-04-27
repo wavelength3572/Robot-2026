@@ -32,32 +32,32 @@
     },
     {
       "anchor": {
-        "x": 7.421516129032258,
-        "y": 2.4550645161290334
+        "x": 7.487346774193549,
+        "y": 2.9378225806451623
       },
       "prevControl": {
-        "x": 7.9211244712809785,
-        "y": 2.474850985128983
+        "x": 8.196854838709676,
+        "y": 2.9597661290322583
       },
       "nextControl": {
-        "x": 6.921907786783538,
-        "y": 2.435278047129084
+        "x": 6.987585735522016,
+        "y": 2.9223660536759404
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 6.587661290322581,
-        "y": 0.9994758064516134
+        "x": 6.492572580645161,
+        "y": 1.065306451612904
       },
       "prevControl": {
-        "x": 6.688101271656807,
-        "y": 1.228412064282434
+        "x": 6.815347178639103,
+        "y": 1.2751099403089652
       },
       "nextControl": {
-        "x": 6.3969370860927155,
-        "y": 0.5647516556291385
+        "x": 6.199991935483871,
+        "y": 0.8751290322580656
       },
       "isLocked": false,
       "linkedName": null
@@ -68,8 +68,8 @@
         "y": 0.8624089403973516
       },
       "prevControl": {
-        "x": 4.988509933774834,
-        "y": 0.3469536423841043
+        "x": 5.666032258064516,
+        "y": 0.37042741935483947
       },
       "nextControl": null,
       "isLocked": false,
@@ -86,7 +86,7 @@
       "rotationDegrees": 110.0
     },
     {
-      "waypointRelativePos": 1.326747720364736,
+      "waypointRelativePos": 1.7129109863672807,
       "rotationDegrees": 110.0
     },
     {
@@ -96,12 +96,25 @@
   ],
   "constraintZones": [
     {
-      "name": "Constraints Zone",
+      "name": "Sprint Zone",
       "minWaypointRelativePos": 0,
-      "maxWaypointRelativePos": 1.07,
+      "maxWaypointRelativePos": 1.04,
       "constraints": {
         "maxVelocity": 3.5,
         "maxAcceleration": 6.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "Pickup Zone",
+      "minWaypointRelativePos": 1.04,
+      "maxWaypointRelativePos": 1.736301369863012,
+      "constraints": {
+        "maxVelocity": 1.0,
+        "maxAcceleration": 3.0,
         "maxAngularVelocity": 540.0,
         "maxAngularAcceleration": 720.0,
         "nominalVoltage": 12.0,

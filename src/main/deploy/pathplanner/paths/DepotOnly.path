@@ -1,0 +1,105 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 3.619461995421701,
+        "y": 6.285213638520946
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 2.7329112903225816,
+        "y": 5.241895161290323
+      },
+      "isLocked": false,
+      "linkedName": "LeftBumpStart"
+    },
+    {
+      "anchor": {
+        "x": 0.7799354838709684,
+        "y": 5.139491935483871
+      },
+      "prevControl": {
+        "x": 0.8913750687994367,
+        "y": 4.782885263712774
+      },
+      "nextControl": {
+        "x": 0.6336451612903231,
+        "y": 5.607620967741935
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 0.7,
+        "y": 7.4
+      },
+      "prevControl": {
+        "x": 0.44999999999999996,
+        "y": 7.4
+      },
+      "nextControl": {
+        "x": 1.2000000000000002,
+        "y": 7.4
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 1.5845322580645167,
+        "y": 5.256524193548387
+      },
+      "prevControl": {
+        "x": 1.3541250000000005,
+        "y": 5.922145161290323
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": null
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.7481956696070576,
+      "rotationDegrees": 125.00000000000001
+    }
+  ],
+  "constraintZones": [
+    {
+      "name": "Depot Zone",
+      "minWaypointRelativePos": 0.6421232876712331,
+      "maxWaypointRelativePos": 2,
+      "constraints": {
+        "maxVelocity": 0.5,
+        "maxAcceleration": 2.5,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 1.35,
+    "maxAcceleration": 2.5,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0.0,
+    "rotation": 90.0
+  },
+  "reversed": false,
+  "folder": "AllianceZonePaths",
+  "idealStartingState": {
+    "velocity": 0.0,
+    "rotation": 180.0
+  },
+  "useDefaultConstraints": false
+}

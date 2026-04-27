@@ -3,16 +3,16 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 3.62059670125143,
-        "y": 6.251327427591535
+        "x": 3.619461995421701,
+        "y": 6.285213638520946
       },
       "prevControl": null,
       "nextControl": {
-        "x": 2.62059670125143,
-        "y": 6.251327427591535
+        "x": 2.619461995421701,
+        "y": 6.285213638520946
       },
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "LeftBumpStart"
     },
     {
       "anchor": {

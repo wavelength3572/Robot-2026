@@ -80,16 +80,16 @@
     },
     {
       "anchor": {
-        "x": 1.184491314287187,
-        "y": 5.2
+        "x": 0.9554838709677427,
+        "y": 5.03708870967742
       },
       "prevControl": {
-        "x": 1.784491314287187,
-        "y": 5.2
+        "x": 2.118491935483872,
+        "y": 5.000516129032259
       },
       "nextControl": {
-        "x": 0.7884252936998462,
-        "y": 5.2
+        "x": 0.5596135371187908,
+        "y": 5.049537462314179
       },
       "isLocked": false,
       "linkedName": null
@@ -144,12 +144,12 @@
     },
     {
       "anchor": {
-        "x": 1.0106749734846971,
-        "y": 4.5648579278498564
+        "x": 2.3452419354838714,
+        "y": 7.458193548387097
       },
       "prevControl": {
-        "x": 1.0106749734846971,
-        "y": 5.201445933268982
+        "x": 2.3452419354838714,
+        "y": 8.094781553806223
       },
       "nextControl": null,
       "isLocked": false,
@@ -174,8 +174,12 @@
       "rotationDegrees": 180.0
     },
     {
-      "waypointRelativePos": 8.237288135593232,
-      "rotationDegrees": 90.0
+      "waypointRelativePos": 4.640737770649567,
+      "rotationDegrees": 135.0
+    },
+    {
+      "waypointRelativePos": 7.910184442662359,
+      "rotationDegrees": 0.0
     }
   ],
   "constraintZones": [
@@ -232,31 +236,8 @@
       }
     }
   ],
-  "pointTowardsZones": [
-    {
-      "fieldPosition": {
-        "x": 4.625,
-        "y": 4.032
-      },
-      "rotationOffset": 180.0,
-      "minWaypointRelativePos": 4.35,
-      "maxWaypointRelativePos": 7.5,
-      "name": "Point Towards Zone"
-    }
-  ],
-  "eventMarkers": [
-    {
-      "name": "ClimberExtend",
-      "waypointRelativePos": 7.61762328213419,
-      "endWaypointRelativePos": null,
-      "command": {
-        "type": "named",
-        "data": {
-          "name": "ClimberExtend"
-        }
-      }
-    }
-  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
   "globalConstraints": {
     "maxVelocity": 2.5,
     "maxAcceleration": 2.5,
@@ -267,7 +248,7 @@
   },
   "goalEndState": {
     "velocity": 0.0,
-    "rotation": 90.0
+    "rotation": -90.0
   },
   "reversed": false,
   "folder": "TrenchLeftPaths",

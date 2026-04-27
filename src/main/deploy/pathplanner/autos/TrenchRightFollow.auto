@@ -14,6 +14,6 @@
     }
   },
   "resetOdom": true,
-  "folder": "TrenchRight",
+  "folder": "3rdRobotAutos",
   "choreoAuto": false
 }

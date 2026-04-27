@@ -6,13 +6,14 @@
     "TrenchRightPaths",
     "TrenchLeftPaths",
     "RetiredPaths",
+    "OutOnBump",
     "AllianceZonePaths"
   ],
   "autoFolders": [
     "TrenchRight",
     "TrenchLeft",
     "Retired",
-    "AllianceZone"
+    "3rdRobotAutos"
   ],
   "defaultMaxVel": 2.5,
   "defaultMaxAccel": 2.5,

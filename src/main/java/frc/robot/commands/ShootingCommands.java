@@ -732,48 +732,29 @@ public class ShootingCommands {
 
             // Motivator — always pre-spin in teleop (ready for passing or shooting).
             // In auto, idle only while collecting (open neutral/opponent zones).
-            // Reverse pulse runs on first spin-up (not on FIRING entry) to clear any
-            // ball stuck at the motivator/launcher interface during free time.
             motivator != null
                 ? Commands.run(
-                    new Runnable() {
-                      private final Timer reversePulseTimer = new Timer();
-                      private boolean reversing = false;
-                      private boolean wasIdle = true;
-                      private static final double REVERSE_PULSE_SEC = 0.2;
-
-                      @Override
-                      public void run() {
-                        boolean shouldIdle = coordinator.isAutoCollecting();
-                        if (shouldIdle) {
-                          motivator.stopMotivator();
-                          wasIdle = true;
-                          reversing = false;
-                          return;
-                        }
-
-                        // Trigger reverse pulse when transitioning from idle to spinning
-                        if (wasIdle) {
-                          wasIdle = false;
-                          reversing = true;
-                          reversePulseTimer.restart();
-                        }
-
-                        if (reversing) {
-                          if (reversePulseTimer.hasElapsed(REVERSE_PULSE_SEC)) {
-                            reversing = false;
-                          } else {
-                            motivator.setMotivatorVoltage(-1.0);
-                            return;
-                          }
-                        }
-
-                        ShotCalculator.ShotResult s = coordinator.getCurrentShot();
-                        if (s != null) {
-                          motivator.setMotivatorVelocity(getEffectiveMotivatorRPM(s));
-                        } else {
-                          motivator.stopMotivator();
-                        }
+                    () -> {
+                      if (coordinator.isAutoCollecting()) {
+                        motivator.stopMotivator();
+                        return;
+                      }
+                      // Reverse pulse on spin-up is disabled — no motor runs in reverse here.
+                      // private final Timer reversePulseTimer = new Timer();
+                      // private boolean reversing = false;
+                      // private boolean wasIdle = true;
+                      // private static final double REVERSE_PULSE_SEC = 0.2;
+                      // if (wasIdle) { wasIdle = false; reversing = true;
+                      // reversePulseTimer.restart(); }
+                      // if (reversing) {
+                      //   if (reversePulseTimer.hasElapsed(REVERSE_PULSE_SEC)) reversing = false;
+                      //   else { motivator.setMotivatorVoltage(-1.0); return; }
+                      // }
+                      ShotCalculator.ShotResult s = coordinator.getCurrentShot();
+                      if (s != null) {
+                        motivator.setMotivatorVelocity(getEffectiveMotivatorRPM(s));
+                      } else {
+                        motivator.stopMotivator();
                       }
                     },
                     motivator)
@@ -802,10 +783,22 @@ public class ShootingCommands {
                         launcher.setFeedingActive(false);
                         spindexer.stopSpindexer();
                       } else {
-                        // Motivator is reversing or spinning up — slowly back-spin
-                        // the spindexer to settle fuel away from the launcher interface
-                        launcher.setFeedingActive(false);
-                        spindexer.setSpindexerVelocity(-150);
+                        // Only back-spin while motivator is actually spinning up — keeps
+                        // balls away from the launcher interface until it's at speed.
+                        // Otherwise stop the spindexer; the old -150 ran unconditionally
+                        // whenever not FIRING (including AIMING blocked by velcomp,
+                        // SETTLING, HELD, etc.) which added ~550 RPM of reversal latency
+                        // every time the coordinator reached FIRING.
+                        // launcher.setFeedingActive(false);
+                        // if (motivator != null
+                        //     && motivator.getState()
+                        //         == Motivator.MotivatorState.SPINNING_UP) {
+                        //   spindexer.setSpindexerVelocity(-150);
+                        // } else {
+                        spindexer
+                            .stopSpindexer(); // if we arent feeding and if we arent doing something
+                        // special for auto, then the spindexer shoudl be off
+                        // }
                       }
                     },
                     spindexer)

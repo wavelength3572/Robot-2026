@@ -7,19 +7,13 @@
         {
           "type": "path",
           "data": {
-            "pathName": "DepotClimb"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "ClimberClimb"
+            "pathName": "bumpPUSHLeftCircle"
           }
         }
       ]
     }
   },
   "resetOdom": true,
-  "folder": "AllianceZone",
+  "folder": "3rdRobotAutos",
   "choreoAuto": false
 }
