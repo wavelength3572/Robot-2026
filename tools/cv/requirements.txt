@@ -1,0 +1,13 @@
+# CV pipeline dependencies. Install with:
+#     pip install -r tools/cv/requirements.txt
+#
+# Notes for new programmers:
+# - opencv-python ships precompiled binaries for Windows/Mac/Linux. No build needed.
+# - yt-dlp is the YouTube downloader. We use it for personal scouting only;
+#   we never redistribute downloaded clips.
+# - numpy is OpenCV's array library — every image is a numpy array of pixels.
+opencv-python>=4.9.0
+numpy>=1.26.0
+yt-dlp>=2024.1.0
+pillow>=10.0.0
+requests>=2.31.0
