@@ -551,6 +551,7 @@ public class RobotContainer {
           Map.entry("TrenchRight2CyclesBulldogs", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("TrenchRight2CyclesSafe", AutoWrapperFactory.StartStrategy.SPRINT),
           Map.entry("bumpPUSHTrenchRight", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
+          Map.entry("RightBumpSnowblow", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
           // Depot autos
           Map.entry("DepotOnly", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
           Map.entry("DepotLeftTrench", AutoWrapperFactory.StartStrategy.SHOOT_PRELOADS),
@@ -589,6 +590,8 @@ public class RobotContainer {
               Map.entry("TrenchRight2CyclesSafe", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry(
                   "bumpPUSHTrenchRight", AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
+              Map.entry(
+                  "RightBumpSnowblow", AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
               // Depot autos
               Map.entry("DepotOnly", AutoWrapperFactory.PathShootingStrategy.END_OF_PATH),
               Map.entry("DepotLeftTrench", AutoWrapperFactory.PathShootingStrategy.IMMEDIATE_ARM),

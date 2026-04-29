@@ -437,9 +437,9 @@ public class Intake extends SubsystemBase {
     RollerState rollerState;
     if (rollersSafetyLocked) {
       rollerState = RollerState.SAFETY_LOCKED;
-    } else if (inputs.rollerVelocityRPM > 50) {
+    } else if (inputs.rollerTargetSpeed > 0) {
       rollerState = RollerState.INTAKING;
-    } else if (inputs.rollerVelocityRPM < -50) {
+    } else if (inputs.rollerTargetSpeed < 0) {
       rollerState = RollerState.EJECTING;
     } else {
       rollerState = RollerState.IDLE;

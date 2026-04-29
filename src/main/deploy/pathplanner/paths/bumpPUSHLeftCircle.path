@@ -3,16 +3,32 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 3.3253870967741936,
-        "y": 5.585677419354839
+        "x": 3.596024193548387,
+        "y": 5.097548387096773
       },
       "prevControl": null,
       "nextControl": {
-        "x": 3.7253870967741936,
-        "y": 5.585677419354839
+        "x": 3.996024193548387,
+        "y": 5.097548387096773
       },
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "hopeLeftBumpStart"
+    },
+    {
+      "anchor": {
+        "x": 2.908459677419355,
+        "y": 5.434016129032258
+      },
+      "prevControl": {
+        "x": 2.802891617240875,
+        "y": 5.2073988643101
+      },
+      "nextControl": {
+        "x": 3.014027737597835,
+        "y": 5.660633393754416
+      },
+      "isLocked": false,
+      "linkedName": "hopeTwistPreBump"
     },
     {
       "anchor": {
@@ -94,27 +110,31 @@
   ],
   "rotationTargets": [
     {
-      "waypointRelativePos": 1.2670408981555736,
-      "rotationDegrees": 45.0
+      "waypointRelativePos": 1.3478260869565217,
+      "rotationDegrees": -45.0
     },
     {
-      "waypointRelativePos": 2.1098636728147584,
+      "waypointRelativePos": 2.2670408981555736,
+      "rotationDegrees": -45.0
+    },
+    {
+      "waypointRelativePos": 3.1098636728147584,
       "rotationDegrees": -90.0
     },
     {
-      "waypointRelativePos": 2.8027265437048916,
+      "waypointRelativePos": 3.8027265437048916,
       "rotationDegrees": -91.0
     },
     {
-      "waypointRelativePos": 4.198075380914193,
+      "waypointRelativePos": 5.198075380914193,
       "rotationDegrees": 91.0
     }
   ],
   "constraintZones": [
     {
       "name": "Bump Transit Zone",
-      "minWaypointRelativePos": 0.2515021459227458,
-      "maxWaypointRelativePos": 1.4,
+      "minWaypointRelativePos": 0.5,
+      "maxWaypointRelativePos": 2.4,
       "constraints": {
         "maxVelocity": 2.5,
         "maxAcceleration": 3.0,
@@ -126,8 +146,8 @@
     },
     {
       "name": "Snowblow Zone",
-      "minWaypointRelativePos": 1.4,
-      "maxWaypointRelativePos": 5.0,
+      "minWaypointRelativePos": 2.4,
+      "maxWaypointRelativePos": 6.0,
       "constraints": {
         "maxVelocity": 0.8,
         "maxAcceleration": 1.0,
@@ -156,7 +176,7 @@
   "folder": "OutOnBump",
   "idealStartingState": {
     "velocity": 0.0,
-    "rotation": 45.0
+    "rotation": 179.45434240658437
   },
   "useDefaultConstraints": false
 }
