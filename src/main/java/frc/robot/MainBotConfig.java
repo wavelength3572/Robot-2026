@@ -287,7 +287,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double shotEfficiencyClose = 0.815;
   private static final double shotEfficiencyMid = 0.80;
   private static final double shotEfficiencyFar = 0.80;
-  private static final double shotEfficiencyCorner = 0.77;
+  private static final double shotEfficiencyCorner = 0.79;
   private static final double shotHoodAngleFudgeClose = 0.0;
   private static final double shotHoodAngleFudgeMid = 0.0;
   private static final double shotHoodAngleFudgeFar = 0.0;
