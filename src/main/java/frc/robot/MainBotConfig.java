@@ -115,8 +115,8 @@ public class MainBotConfig implements RobotConfig {
 
   private static final int turretMotorCanId = 50;
   private static final double turretHeightMeters = 0.3597275;
-  private static final double turretInsideMaxAngleDeg = 180.0;
-  private static final double turretInsideMinAngleDeg = -180.0;
+  private static final double turretInsideMaxAngleDeg = 185.0;
+  private static final double turretInsideMinAngleDeg = -185.0;
   private static final double turretZeroOffset = 76.025; // 63.873;
   private static final double turretOutsideMaxAngleDeg = turretInsideMaxAngleDeg + turretZeroOffset;
   private static final double turretOutsideMinAngleDeg = turretInsideMinAngleDeg + turretZeroOffset;
@@ -161,7 +161,7 @@ public class MainBotConfig implements RobotConfig {
   // Previous tuned values - preserved while re-tuning with kS feedforward
   // private static final double hoodKp = 0.06;
   // private static final double hoodKd = 0;
-  private static final double hoodKp = 0.02;
+  private static final double hoodKp = 0.12;
   private static final double hoodKd = 0.0;
   private static final double hoodKs = 0.18;
 
@@ -303,7 +303,7 @@ public class MainBotConfig implements RobotConfig {
   private static final double zoneCornerDist = 5.1;
 
   // ========== Fixed Height Shot Strategy ==========
-  private static final double fixedHeightPeakHeightIn = 90.0;
+  private static final double fixedHeightPeakHeightIn = 96.0;
   private static final double fixedHeightPassThroughHeightIn = 73.0;
   private static final double fixedHeightHorizontalOffsetIn = 8.0;
   private static final double fixedHeightMinRPM = 1500.0;
