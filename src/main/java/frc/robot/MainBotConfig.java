@@ -115,8 +115,8 @@ public class MainBotConfig implements RobotConfig {
 
   private static final int turretMotorCanId = 50;
   private static final double turretHeightMeters = 0.3597275;
-  private static final double turretInsideMaxAngleDeg = 185.0;
-  private static final double turretInsideMinAngleDeg = -185.0;
+  private static final double turretInsideMaxAngleDeg = 180.0;
+  private static final double turretInsideMinAngleDeg = -180.0;
   private static final double turretZeroOffset = 76.025; // 63.873;
   private static final double turretOutsideMaxAngleDeg = turretInsideMaxAngleDeg + turretZeroOffset;
   private static final double turretOutsideMinAngleDeg = turretInsideMinAngleDeg + turretZeroOffset;
