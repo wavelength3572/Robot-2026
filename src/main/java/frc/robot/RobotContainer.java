@@ -575,7 +575,7 @@ public class RobotContainer {
       AUTO_PATH_SHOOTING_DEFAULTS =
           Map.ofEntries(
               // TrenchLeft autos
-              Map.entry("TrenchLeftFollow", AutoWrapperFactory.PathShootingStrategy.PASS_AND_SHOOT),
+              Map.entry("TrenchLeftFollow", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry("TrenchLeft1CycleDepot", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry("TrenchLeft2.5Loops", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
               Map.entry("TrenchRight2.5Loops", AutoWrapperFactory.PathShootingStrategy.NO_PASS),
