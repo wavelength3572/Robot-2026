@@ -232,6 +232,10 @@ public interface RobotConfig {
     return 0.0;
   }
 
+  default double getTurretToleranceAngleDeg() {
+    return 2.0;
+  }
+
   /** Turret feedforward gain. */
   default double getTurretKff() {
     return 0.0;
@@ -311,11 +315,6 @@ public interface RobotConfig {
   /** Launcher IZone for MAXMotion velocity control (motor RPM). */
   default double getLauncherIZone() {
     return 200.0;
-  }
-
-  /** Launcher MAXMotion max acceleration (motor RPM/s). */
-  default double getLauncherMaxAcceleration() {
-    return 10000.0;
   }
 
   // ========== Hood Configuration ==========
@@ -574,8 +573,649 @@ public interface RobotConfig {
     return 5.0;
   }
 
-  /** Hood Climber CAN ID. */
+  // ========== Climber ==========
+
+  /** Whether this robot has a climber. */
+  default boolean hasClimber() {
+    return false;
+  }
+
+  /** Climber motor CAN ID. */
   default int getClimberCanId() {
     return 0;
+  }
+
+  /** Climber motor gear ratio (motor rotations per output rotation). */
+  default double getClimberGearRatio() {
+    return 25.0;
+  }
+
+  /** Winch drum diameter in inches. */
+  default double getClimberDrumDiameterInches() {
+    return 0.75;
+  }
+
+  /** Motor rotations to extend (arm up, lined up with pole). */
+  default double getClimberExtendPosition() {
+    return 50.0;
+  }
+
+  /** Motor rotations for climb (partially retracted, off the ground). */
+  default double getClimberClimbPosition() {
+    return 10.0;
+  }
+
+  /** Climber position PID P gain. */
+  default double getClimberKp() {
+    return 0.1;
+  }
+
+  /** Climber current limit in amps. */
+  default int getClimberCurrentLimit() {
+    return 40;
+  }
+
+  /** Climber position tolerance in motor rotations. */
+  default double getClimberPositionTolerance() {
+    return 2.0;
+  }
+
+  /** Timeout for climber extend command in seconds. */
+  default double getClimberExtendTimeoutSec() {
+    return 5.0;
+  }
+
+  /** Timeout for climber climb command in seconds. */
+  default double getClimberClimbTimeoutSec() {
+    return 5.0;
+  }
+
+  /** Hold duration for B9 stow action in seconds. */
+  default double getClimberStowHoldTimeSec() {
+    return 2.0;
+  }
+
+  /** Distance from climb pose to auto-extend climber in feet. */
+  default double getClimberAutoExtendDistanceFeet() {
+    return 3.0;
+  }
+
+  // ========== Pole Alignment Tuning ==========
+
+  /** Max distance from climb pose to activate pole alignment in feet. */
+  default double getPoleAlignMaxDistanceFeet() {
+    return 10.0;
+  }
+
+  /** Waypoint offset distance from final climb pose in feet. */
+  default double getPoleAlignWaypointOffsetFeet() {
+    return 2.5;
+  }
+
+  /** Skip waypoint if closer than this to final pose in feet. */
+  default double getPoleAlignCloseThresholdFeet() {
+    return 3.0;
+  }
+
+  /** Max velocity for pole alignment approach in feet/sec. */
+  default double getPoleAlignMaxVelocityFeetPerSec() {
+    return 5.0;
+  }
+
+  /** Max acceleration for pole alignment approach in feet/sec². */
+  default double getPoleAlignMaxAccelerationFeetPerSec2() {
+    return 6.5;
+  }
+
+  /** DriveToPose speed scalar for final pole alignment (0.0-1.0). */
+  default double getPoleAlignFinalApproachSpeed() {
+    return 0.5;
+  }
+
+  // ========== Turret Tuning ==========
+
+  default double getTurretWarningZoneDeg() {
+    return 20.0;
+  }
+
+  default double getTurretEncoderWarningThresholdDeg() {
+    return 5.0;
+  }
+
+  default double getTurretEncoderErrorThresholdDeg() {
+    return 15.0;
+  }
+
+  // ========== Launcher Tuning ==========
+
+  default double getLauncherRecoveryArbFFPct() {
+    return 0.0;
+  }
+
+  default double getLauncherReadyToleranceRPM() {
+    return 100.0;
+  }
+
+  default double getLauncherRecoveryBoostThresholdRPM() {
+    return 40.0;
+  }
+
+  // ========== Hood Tuning ==========
+
+  default double getHoodReadyToleranceAngleDeg() {
+    return 1.0;
+  }
+
+  // ========== Motivator Tuning ==========
+
+  default double getMotivatorReadyToleranceRPM() {
+    return 100.0;
+  }
+
+  default double getMotivatorReadyExitToleranceRPM() {
+    return 500.0;
+  }
+
+  // ========== Spindexer Tuning ==========
+
+  default double getSpindexerUnclogRPM() {
+    return 650.0;
+  }
+
+  default double getSpindexerAutoUnclogStallCurrentAmps() {
+    return 10.0;
+  }
+
+  default double getSpindexerAutoUnclogStallRPMError() {
+    return 20.0;
+  }
+
+  default double getSpindexerAutoUnclogStallDurationSec() {
+    return 0.2;
+  }
+
+  default double getSpindexerAutoUnclogReverseDurationSec() {
+    return 0.50;
+  }
+
+  default double getSpindexerAutoUnclogMaxAttempts() {
+    return 30;
+  }
+
+  default double getSpindexerReciprocateRPM() {
+    return 50.0;
+  }
+
+  default double getSpindexerReciprocateIntervalSec() {
+    return 1.0;
+  }
+
+  default double getSpindexerReadyToleranceRPM() {
+    return 100.0;
+  }
+
+  // ========== Intake Tuning ==========
+
+  default double getIntakeDeployTolerance() {
+    return 0.02;
+  }
+
+  default double getIntakeDeployHoldTolerance() {
+    return 0.0005;
+  }
+
+  default double getIntakeDeployOutputLimit() {
+    return 0.75;
+  }
+
+  default double getIntakeDeployBrakeTimeSec() {
+    return 0.5;
+  }
+
+  default double getIntakeRetractMaxVelocity() {
+    return 30.0;
+  }
+
+  default double getIntakeRetractMaxAcceleration() {
+    return 50.0;
+  }
+
+  default double getIntakeRetractOutputLimit() {
+    return 0.5;
+  }
+
+  default double getIntakeAgitationMaxVelocity() {
+    return 25.0;
+  }
+
+  default double getIntakeAgitationMaxAcceleration() {
+    return 40.0;
+  }
+
+  default double getIntakeAgitationRetractOutputLimit() {
+    return 1.0;
+  }
+
+  default double getIntakeAgitationRetractTarget() {
+    return 0.035;
+  }
+
+  default double getIntakeAgitationTimeoutSec() {
+    return 0.6;
+  }
+
+  default double getIntakeAgitationCoastTimeSec() {
+    return 0.1;
+  }
+
+  default double getIntakeAgitationFallTimeSec() {
+    return 0.2;
+  }
+
+  default double getIntakeAgitationSpeedThresholdMps() {
+    return 0.05;
+  }
+
+  default double getIntakeAgitationStationaryDwellSec() {
+    return 2.0;
+  }
+
+  default double getIntakeRollerMinDeployPosition() {
+    return 0.05;
+  }
+
+  // ========== Shot Calculation ==========
+
+  default double getShotEfficiencyClose() {
+    return 0.7;
+  }
+
+  default double getShotEfficiencyMid() {
+    return 0.7;
+  }
+
+  default double getShotEfficiencyFar() {
+    return 0.7;
+  }
+
+  default double getShotEfficiencyCorner() {
+    return 0.69;
+  }
+
+  default double getShotHoodAngleFudgeClose() {
+    return 0.0;
+  }
+
+  default double getShotHoodAngleFudgeMid() {
+    return 0.0;
+  }
+
+  default double getShotHoodAngleFudgeFar() {
+    return 0.0;
+  }
+
+  default double getShotHoodAngleFudgeCorner() {
+    return 0.0;
+  }
+
+  default double getShotVelocityCompX() {
+    return 1.0;
+  }
+
+  default double getShotVelocityCompY() {
+    return 1.0;
+  }
+
+  // ========== Zone Boundaries ==========
+
+  default double getZoneTrenchAllianceBufferM() {
+    return 0.3;
+  }
+
+  default double getZoneCloseDist() {
+    return 2.0;
+  }
+
+  default double getZoneMidDist() {
+    return 3.5;
+  }
+
+  default double getZoneFarDist() {
+    return 4.1;
+  }
+
+  default double getZoneCornerDist() {
+    return 5.1;
+  }
+
+  // ========== Fixed Height Shot Strategy ==========
+
+  default double getFixedHeightPeakHeightIn() {
+    return 110.0;
+  }
+
+  default double getFixedHeightPassThroughHeightIn() {
+    return 72.0;
+  }
+
+  default double getFixedHeightHorizontalOffsetIn() {
+    return 10.0;
+  }
+
+  default double getFixedHeightMinRPM() {
+    return 1500.0;
+  }
+
+  default double getFixedHeightMaxRPM() {
+    return 4000.0;
+  }
+
+  // ========== Fixed Height Pass Strategy ==========
+
+  default double getFixedHeightPassPeakHeightIn() {
+    return 110.0;
+  }
+
+  default double getFixedHeightLongPassPeakHeightIn() {
+    return 150.0;
+  }
+
+  default double getFixedHeightPassMinRPM() {
+    return 1000.0;
+  }
+
+  default double getFixedHeightPassMaxRPM() {
+    return 4500.0;
+  }
+
+  default double getFixedHeightPassHoodMinDeg() {
+    return 18.0;
+  }
+
+  // ========== Waypoint Pass Strategy ==========
+
+  default double getWaypointPassPeakHeightIn() {
+    return 84.0;
+  }
+
+  default double getWaypointPassMinRPM() {
+    return 1000.0;
+  }
+
+  default double getWaypointPassMaxRPM() {
+    return 4500.0;
+  }
+
+  default double getWaypointPassHoodMinDeg() {
+    return 18.0;
+  }
+
+  /** Waypoint X position in meters (blue alliance). Mirrored for red. */
+  default double getWaypointPassBlueXM() {
+    return 4.3;
+  }
+
+  /** Waypoint Y position for the right trench waypoint (meters from field origin). */
+  default double getWaypointPassRightYM() {
+    return 1.0;
+  }
+
+  /** Waypoint Z (clearance height above ground) in meters. */
+  default double getWaypointPassHeightM() {
+    return 1.5;
+  }
+
+  // ========== Shooting Coordinator — Trench Safety ==========
+
+  default double getTrenchHoodMaxDeg() {
+    return 18.0;
+  }
+
+  default double getTrenchSafetySpeedLimitMps() {
+    return 2.0;
+  }
+
+  default double getTrenchMovingThresholdMps() {
+    return 0.6;
+  }
+
+  default double getTrenchHoodClampSpeedMps() {
+    return 0.3;
+  }
+
+  default double getTrenchHoodUnclampSpeedMps() {
+    return 0.5;
+  }
+
+  // ========== Shooting Coordinator — Smart Launch ==========
+
+  default double getSmartLaunchReadyTimeoutSec() {
+    return 3.0;
+  }
+
+  default double getShootOnTheMoveSpeedMps() {
+    return 1.25;
+  }
+
+  default double getPassSpeedMps() {
+    return 3.0;
+  }
+
+  default double getAutoPassSpeedMps() {
+    return 1.1;
+  }
+
+  default double getPassMaxRPM() {
+    return 4000.0;
+  }
+
+  // ========== Shooting Coordinator — Pass Adjustments ==========
+
+  default double getPassLeftAdjustX() {
+    return 0.0;
+  }
+
+  default double getPassLeftAdjustY() {
+    return 0.0;
+  }
+
+  default double getPassRightAdjustX() {
+    return 0.0;
+  }
+
+  default double getPassRightAdjustY() {
+    return 0.0;
+  }
+
+  default double getSymmetricArcPeakHeightMinIn() {
+    return 50.0;
+  }
+
+  default double getSymmetricArcPeakHeightMaxIn() {
+    return 58.0;
+  }
+
+  default double getSymmetricArcDistMinM() {
+    return 4.0;
+  }
+
+  default double getSymmetricArcDistMaxM() {
+    return 12.0;
+  }
+
+  default double getPassRpmPerDegCompensation() {
+    return 50.0;
+  }
+
+  default double getPassMaxRpmCompensation() {
+    return 200.0;
+  }
+
+  default double getLobNetClearanceMarginM() {
+    return 0.3;
+  }
+
+  default double getLobMaxPeakHeightM() {
+    return 5.0;
+  }
+
+  default double getLobMinHubDistM() {
+    return 4.0;
+  }
+
+  default double getLobStation1AdjustY() {
+    return 0.0;
+  }
+
+  default double getLobStation3AdjustY() {
+    return 0.0;
+  }
+
+  // ========== Shooting Commands — Preset Shots ==========
+
+  default double getHubShotLauncherRPM() {
+    return 2450.0;
+  }
+
+  default double getHubShotHoodAngleDeg() {
+    return 15.0;
+  }
+
+  default double getHubShotTurretAngleDeg() {
+    return -90.0;
+  }
+
+  default double getHubShotMotivatorRPM() {
+    return 1300.0;
+  }
+
+  default double getHubShotSpindexerRPM() {
+    return 325.0;
+  }
+
+  default double getLeftTrenchLauncherRPM() {
+    return 2650.0;
+  }
+
+  default double getLeftTrenchHoodAngleDeg() {
+    return 18.0;
+  }
+
+  default double getLeftTrenchTurretAngleDeg() {
+    return 186.5;
+  }
+
+  default double getLeftTrenchMotivatorRPM() {
+    return 1800.0;
+  }
+
+  default double getLeftTrenchSpindexerRPM() {
+    return 325.0;
+  }
+
+  default double getRightTrenchLauncherRPM() {
+    return 3169.0;
+  }
+
+  default double getRightTrenchHoodAngleDeg() {
+    return 18.0;
+  }
+
+  default double getRightTrenchTurretAngleDeg() {
+    return -4.84;
+  }
+
+  default double getRightTrenchMotivatorRPM() {
+    return 1800.0;
+  }
+
+  default double getRightTrenchSpindexerRPM() {
+    return 325.0;
+  }
+
+  // ========== Shooting Commands — Feed Ratios ==========
+
+  default double getShootingMotivatorRPM() {
+    return 1600.0;
+  }
+
+  default double getMotivatorLauncherRatio() {
+    return 0.2;
+  }
+
+  default double getPassingMotivatorRPM() {
+    return 500.0;
+  }
+
+  default double getSpindexerCloseRPM() {
+    return 300.0;
+  }
+
+  default double getSpindexerFarRPM() {
+    return 300.0;
+  }
+
+  default double getSpindexerPassRPM() {
+    return 375.0;
+  }
+
+  // ========== Shooting Commands — Override Defaults ==========
+
+  default double getOverrideLauncherRPM() {
+    return 2500.0;
+  }
+
+  default double getOverrideHoodDeg() {
+    return 25.0;
+  }
+
+  default double getOverrideMotivatorRPM() {
+    return 500.0;
+  }
+
+  default double getOverrideSpindexerRPM() {
+    return 300.0;
+  }
+
+  // ========== Dashboard Tuning Defaults ==========
+
+  default double getTuningLauncherVelocity() {
+    return 1700.0;
+  }
+
+  default double getTuningMotivatorVelocity() {
+    return 1000.0;
+  }
+
+  default double getTuningSpindexerVelocity() {
+    return 1000.0;
+  }
+
+  default double getTuningHoodAngle() {
+    return 15.0;
+  }
+
+  default double getTuningTurretOutsideAngle() {
+    return 0.0;
+  }
+
+  default double getTuningIntakeDeployedVelocity() {
+    return 2000.0;
+  }
+
+  default double getTuningIntakeRetractRollerVelocity() {
+    return 1000.0;
+  }
+
+  // ========== Drive Tuning ==========
+
+  default double getDriveSpeedLimitRampRateMps2() {
+    return 4.0;
+  }
+
+  // ========== Hub Shift ==========
+
+  default double getHubShiftPreActiveCutoffSec() {
+    return 10.0;
   }
 }

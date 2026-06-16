@@ -5,30 +5,23 @@ import org.littletonrobotics.junction.AutoLog;
 public interface ClimberIO {
   @AutoLog
   public static class ClimberIOInputs {
-    public double targetPosition = 0.0;
-    public double currentPosition = 0.0;
+    public double positionRotations = 0.0;
     public double appliedVolts = 0.0;
     public double currentAmps = 0.0;
-    public boolean climbingFinished = false;
   }
 
-  public default void setClimberVoltage(double volts) {}
-
-  public default void setServoPosition(double position) {}
-
+  /** Read sensor data into inputs. */
   public default void updateInputs(ClimberIOInputs inputs) {}
 
-  public default void deployClimber() {}
+  /** Command the motor to a target position in motor rotations. */
+  public default void setPosition(double motorRotations) {}
 
-  public default void climb() {}
+  /** Stop the motor (brake mode holds position). */
+  public default void stop() {}
 
-  public default void stopClimber() {}
+  /** Update PID gains on the motor controller. */
+  public default void configurePID(double kP) {}
 
-  public default boolean isClimberDeployed() {
-    return false;
-  }
-
-  public default boolean isClimbingFinished() {
-    return false;
-  }
+  /** Zero the encoder position (call in pit if robot rebooted with climber not stowed). */
+  public default void zeroEncoder() {}
 }

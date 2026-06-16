@@ -1,0 +1,75 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 8.297,
+        "y": 4.464973166368515
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 7.118206479825086,
+        "y": 5.476122222222221
+      },
+      "isLocked": false,
+      "linkedName": "intaked fuel blue"
+    },
+    {
+      "anchor": {
+        "x": 4.612142697377038,
+        "y": 5.576814072874166
+      },
+      "prevControl": {
+        "x": 5.7303999999999995,
+        "y": 5.405577777777778
+      },
+      "nextControl": {
+        "x": 3.5701456402726905,
+        "y": 5.736372803357187
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 2.213,
+        "y": 6.009
+      },
+      "prevControl": {
+        "x": 1.944913462136821,
+        "y": 6.037345597630654
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "bump shoot pos"
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.9,
+      "rotationDegrees": -50.0
+    }
+  ],
+  "constraintZones": [],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 3.0,
+    "maxAcceleration": 3.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": -40.599
+  },
+  "reversed": false,
+  "folder": null,
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": -90.0
+  },
+  "useDefaultConstraints": true
+}

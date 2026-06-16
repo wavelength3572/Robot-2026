@@ -16,21 +16,28 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.units.measure.LinearAcceleration;
 import java.util.Queue;
 
 /** IO implementation for Pigeon 2. */
 public class GyroIOPigeon2 implements GyroIO {
   private final Pigeon2 pigeon = new Pigeon2(pigeonCanId);
   private final StatusSignal<Angle> yaw = pigeon.getYaw();
+  private final StatusSignal<LinearAcceleration> accX = pigeon.getAccelerationX();
   private final Queue<Double> yawPositionQueue;
   private final Queue<Double> yawTimestampQueue;
   private final StatusSignal<AngularVelocity> yawVelocity = pigeon.getAngularVelocityZWorld();
+  private final StatusSignal<Angle> pitch = pigeon.getPitch();
+  private final StatusSignal<Angle> roll = pigeon.getRoll();
 
   public GyroIOPigeon2() {
     pigeon.getConfigurator().apply(new Pigeon2Configuration());
     pigeon.getConfigurator().setYaw(0.0);
     yaw.setUpdateFrequency(odometryFrequency);
     yawVelocity.setUpdateFrequency(50.0);
+    accX.setUpdateFrequency(odometryFrequency);
+    pitch.setUpdateFrequency(50.0);
+    roll.setUpdateFrequency(50.0);
     pigeon.optimizeBusUtilization();
     yawTimestampQueue = SparkOdometryThread.getInstance().makeTimestampQueue();
     var yawClone = yaw.clone(); // Status signals are not thread-safe
@@ -45,9 +52,14 @@ public class GyroIOPigeon2 implements GyroIO {
     // The yaw updates at odometryFrequency (250Hz) and yawVelocity at 50Hz automatically.
     // Blocking refreshAll() adds ~5-10ms on a congested CAN bus for no benefit,
     // since the odometry thread already reads gyro independently at 250Hz.
-    inputs.connected = yaw.getStatus().isOK() && yawVelocity.getStatus().isOK();
+    inputs.connected =
+        yaw.getStatus().isOK() && yawVelocity.getStatus().isOK() && accX.getStatus().isOK();
     inputs.yawPosition = Rotation2d.fromDegrees(yaw.getValueAsDouble());
     inputs.yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
+    inputs.pitchDeg = pitch.getValueAsDouble();
+    inputs.rollDeg = roll.getValueAsDouble();
+    accX.refresh();
+    inputs.accX = accX.getValueAsDouble();
 
     inputs.odometryYawTimestamps =
         yawTimestampQueue.stream().mapToDouble((Double value) -> value).toArray();

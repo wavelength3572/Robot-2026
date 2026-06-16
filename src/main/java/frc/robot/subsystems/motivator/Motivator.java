@@ -15,6 +15,15 @@ import org.littletonrobotics.junction.Logger;
  * </ul>
  */
 public class Motivator extends SubsystemBase {
+
+  /** Motivator operating state. */
+  public enum MotivatorState {
+    IDLE,
+    SPINNING_UP,
+    READY,
+    DISCONNECTED
+  }
+
   private final MotivatorIO io;
   private final MotorInputsAutoLogged motor1Inputs = new MotorInputsAutoLogged();
 
@@ -32,17 +41,30 @@ public class Motivator extends SubsystemBase {
     kD = new LoggedTunableNumber("Tuning/Motivator/kD", config.getMotivatorKd());
     kS = new LoggedTunableNumber("Tuning/Motivator/kS", config.getMotivatorKs());
     kV = new LoggedTunableNumber("Tuning/Motivator/kV", config.getMotivatorKv());
+    motivatorEnterToleranceRPM =
+        new LoggedTunableNumber(
+            "Tuning/Motivator/ReadyEnterToleranceRPM", config.getMotivatorReadyToleranceRPM());
+    motivatorExitToleranceRPM =
+        new LoggedTunableNumber(
+            "Tuning/Motivator/ReadyExitToleranceRPM", config.getMotivatorReadyExitToleranceRPM());
   }
 
-  // Tunable ready-gate tolerance for atSetpoint() — does NOT affect motor control
-  private static final LoggedTunableNumber motivatorToleranceRPM =
-      new LoggedTunableNumber("Tuning/Motivator/ReadyToleranceRPM", 100.0);
+  // Tunable ready-gate tolerances with hysteresis — does NOT affect motor control.
+  // Enter tolerance is tighter (must be within this to become READY);
+  // exit tolerance is wider (must exceed this to drop back to SPINNING_UP).
+  private static final LoggedTunableNumber motivatorEnterToleranceRPM;
+  private static final LoggedTunableNumber motivatorExitToleranceRPM;
+
+  // Current state — promoted from periodic() local for external readiness checks
+  private MotivatorState currentState = MotivatorState.IDLE;
+
+  private boolean motivatorRunning = false;
 
   public Motivator(MotivatorIO io) {
     this.io = io;
 
     // Push initial velocity tolerances to IO
-    io.setVelocityTolerance(motivatorToleranceRPM.get());
+    io.setVelocityTolerance(motivatorEnterToleranceRPM.get(), motivatorExitToleranceRPM.get());
   }
 
   @Override
@@ -50,12 +72,24 @@ public class Motivator extends SubsystemBase {
     io.updateInputs(motor1Inputs);
     Logger.processInputs("Motivator", motor1Inputs);
 
-    // Push tunable changes to IO
-    if (LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
+    // Compute and log state
+    if (!motor1Inputs.connected) {
+      currentState = MotivatorState.DISCONNECTED;
+    } else if (!motivatorRunning) {
+      currentState = MotivatorState.IDLE;
+    } else if (motor1Inputs.atSetpoint) {
+      currentState = MotivatorState.READY;
+    } else {
+      currentState = MotivatorState.SPINNING_UP;
+    }
+    Logger.recordOutput("Subsystems/MotivatorState", currentState.name());
+
+    // Push tunable changes to IO only when motor is running to avoid re-enabling old setpoints
+    if (motivatorRunning && LoggedTunableNumber.hasChanged(kP, kI, kD, kV, kS)) {
       io.configureMotivatorPID(kP.get(), kI.get(), kD.get(), kS.get(), kV.get());
     }
-    if (LoggedTunableNumber.hasChanged(motivatorToleranceRPM)) {
-      io.setVelocityTolerance(motivatorToleranceRPM.get());
+    if (LoggedTunableNumber.hasChanged(motivatorEnterToleranceRPM, motivatorExitToleranceRPM)) {
+      io.setVelocityTolerance(motivatorEnterToleranceRPM.get(), motivatorExitToleranceRPM.get());
     }
   }
 
@@ -67,11 +101,19 @@ public class Motivator extends SubsystemBase {
    * @param velocityRPM Target velocity in RPM
    */
   public void setMotivatorVelocity(double velocityRPM) {
+    motivatorRunning = true;
     io.setMotivatorVelocity(velocityRPM);
+  }
+
+  /** Run motivator at the specified open-loop voltage (negative = reverse). */
+  public void setMotivatorVoltage(double volts) {
+    motivatorRunning = volts != 0.0;
+    io.setMotivatorVoltage(volts);
   }
 
   /** Stop only motivator motor 1. */
   public void stopMotivator() {
+    motivatorRunning = false;
     io.stopMotivator();
   }
 
@@ -84,6 +126,15 @@ public class Motivator extends SubsystemBase {
    */
   public double getMotivatorWheelVelocity() {
     return motor1Inputs.wheelRPM;
+  }
+
+  /**
+   * Get motivator target velocity.
+   *
+   * @return Target velocity in RPM
+   */
+  public double getMotivatorTargetRPM() {
+    return motor1Inputs.targetRPM;
   }
 
   /**
@@ -102,6 +153,15 @@ public class Motivator extends SubsystemBase {
    */
   public boolean isConnected() {
     return motor1Inputs.connected;
+  }
+
+  /**
+   * Get the current motivator operating state.
+   *
+   * @return Current MotivatorState
+   */
+  public MotivatorState getState() {
+    return currentState;
   }
 
   /**

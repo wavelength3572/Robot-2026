@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bread Board - Wavelength 3572</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0e17;color:#e0e0e0;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+header{background:#111827;border-bottom:1px solid #1e3a5f;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+header h1{font-size:18px;color:#f59e0b}
+header h1 .tag{color:#6b7280;font-size:13px;font-weight:400;font-style:italic;margin-left:8px}
+.hdr-r{display:flex;gap:8px;align-items:center}
+.btn{background:#1e3a5f;color:#93c5fd;border:1px solid #2563eb;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:15px;transition:all .15s}
+.btn:hover{background:#2563eb;color:#fff}
+.btn-r{border-color:#dc2626;color:#fca5a5}.btn-r:hover{background:#dc2626;color:#fff}
+.btn-draw{border-color:#f59e0b;color:#fbbf24}.btn-draw:hover{background:#f59e0b;color:#000}
+.btn-draw.act{background:#f59e0b;color:#000}
+.main{display:flex;flex:1;overflow:hidden}
+/* Sidebar */
+.sb{width:300px;min-width:300px;background:#111827;border-right:1px solid #1e3a5f;display:flex;flex-direction:column;overflow:hidden}
+.sb-scroll{flex:1;overflow-y:auto;padding:0}
+.sb-scroll::-webkit-scrollbar{width:5px}
+.sb-scroll::-webkit-scrollbar-thumb{background:#374151;border-radius:3px}
+.sec{border-bottom:1px solid #1e3a5f}
+.sec-h{padding:8px 10px;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;background:#0d1117}
+.sec-h.red{color:#dc2626;background:#1a0505}.sec-h.blue{color:#2563eb;background:#05081a}
+/* Station slots */
+.ds{padding:4px 10px;display:flex;align-items:center;gap:6px;font-size:15px}
+.ds-label{color:#6b7280;font-weight:700;min-width:28px;font-size:14px}
+.ds-team{background:#1f2937;border:1px solid #374151;color:#e0e0e0;padding:3px 6px;border-radius:4px;font-size:15px;width:58px;text-align:center}
+.ds-team:focus{border-color:#2563eb;outline:none}
+.ds-auto{background:#1f2937;border:1px solid #374151;color:#e0e0e0;padding:3px 4px;border-radius:4px;font-size:14px;flex:1;min-width:0}
+.ds-delay{background:#1f2937;border:1px solid #374151;color:#fbbf24;padding:3px 2px;border-radius:4px;font-size:13px;width:40px;text-align:center}
+.ds-delay:focus{border-color:#f59e0b;outline:none}
+.ds-info{font-size:12px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;padding:0 10px 4px 44px}
+/* TBA row */
+.tba-row{padding:6px 10px;display:flex;gap:4px;align-items:center}
+.tba-in{background:#1f2937;border:1px solid #374151;color:#e0e0e0;padding:3px 6px;border-radius:4px;font-size:14px;min-width:0}
+.tba-in:focus{border-color:#2563eb;outline:none}
+/* Win probability */
+.wp{padding:4px 10px;font-size:14px}
+.wp-bar{height:5px;border-radius:3px;background:#374151;display:flex;overflow:hidden;margin:3px 0}
+.wp-r{background:#dc2626;height:100%}.wp-b{background:#2563eb;height:100%}
+.wp-labels{display:flex;justify-content:space-between;font-size:13px}
+/* Team roster */
+.team-item{padding:5px 10px;display:flex;align-items:center;gap:8px;font-size:15px;cursor:default}
+.team-item:hover{background:#1f2937}
+.team-num{font-weight:700;min-width:40px}.team-ct{color:#6b7280;font-size:14px}
+.team-name{color:#9ca3af;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+/* Canvas */
+.ca{flex:1;position:relative;overflow:hidden}
+canvas{display:block}
+.leg{position:absolute;top:8px;right:8px;background:rgba(17,24,39,.9);border:1px solid #1e3a5f;border-radius:6px;padding:6px 10px;font-size:14px;max-height:200px;overflow-y:auto}
+.leg:empty{display:none}
+.li{display:flex;align-items:center;gap:6px;padding:1px 0}
+.ld{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.mtt{position:absolute;background:#1f2937;border:1px solid #374151;border-radius:6px;padding:6px 10px;font-size:14px;pointer-events:none;display:none;z-index:50;white-space:nowrap}
+/* Controls */
+.ctrls{background:#111827;border-top:1px solid #1e3a5f;padding:6px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.pb{width:32px;height:32px;border-radius:50%;background:#2563eb;border:none;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pb:hover{background:#3b82f6}
+.scr{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;background:#374151;outline:none}
+.scr::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#60a5fa;cursor:pointer}
+.td{font-size:14px;color:#9ca3af;font-variant-numeric:tabular-nums;min-width:130px;text-align:center}
+.sbs{display:flex;gap:3px}
+.spb{background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:3px 7px;border-radius:4px;font-size:13px;cursor:pointer}
+.spb.act{background:#2563eb;color:#fff;border-color:#2563eb}
+/* Drop overlay */
+.dov{position:fixed;inset:0;background:rgba(37,99,235,.15);border:3px dashed #2563eb;z-index:100;display:none;align-items:center;justify-content:center;pointer-events:none}
+.dov.vis{display:flex}
+.dov span{background:#1e3a5f;color:#93c5fd;padding:20px 40px;border-radius:12px;font-size:18px;font-weight:600}
+.match-list{max-height:200px;overflow-y:auto;border:1px solid #1e3a5f;border-radius:4px;margin:0 10px 6px}
+.match-list::-webkit-scrollbar{width:5px}
+.match-list::-webkit-scrollbar-thumb{background:#374151;border-radius:3px}
+.ml-item{padding:6px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid #1f2937}
+.ml-item:hover{background:#1f2937}
+.ml-item.sel{background:#172554;border-left:3px solid #60a5fa}
+.ml-item.done{opacity:0.5}
+.ml-label{font-weight:600}
+.ml-teams{font-size:12px;color:#9ca3af;margin-top:2px}
+</style>
+</head>
+<body>
+<header>
+<h1>Bread Board<span class="tag">Let's get on the same wavelength!</span></h1>
+<div class="hdr-r">
+<label class="btn">Import Team Folder<input type="file" id="fileIn" multiple webkitdirectory style="display:none"><input type="file" id="fileInFlat" multiple accept=".auto,.path,.json" style="display:none"></label>
+<button class="btn" id="screenshotBtn">Screenshot</button>
+<button class="btn" id="saveBtn">Save</button>
+<label class="btn">Load<input type="file" id="loadIn" accept=".json" style="display:none"></label>
+<button class="btn btn-draw" id="drawBtn">Draw</button>
+<button class="btn btn-r" id="clrBtn">Clear</button>
+</div>
+</header>
+<div class="main">
+<div class="sb">
+<div class="sb-scroll">
+<!-- TBA Fetch -->
+<div class="sec">
+<div class="sec-h">Match Setup</div>
+<div class="tba-row">
+<input class="tba-in" id="tbaKey" placeholder="TBA Key" type="password" style="flex:1">
+</div>
+<div class="tba-row">
+<input class="tba-in" id="teamNumInput" placeholder="Team #" value="3572" style="width:70px">
+<button class="btn" id="loadEventsBtn" style="padding:3px 8px;font-size:14px">Load</button>
+</div>
+<div class="tba-row">
+<select class="ds-auto" id="eventPicker" style="flex:1"><option value="">— Select event —</option></select>
+</div>
+<div class="match-list" id="matchList"><div style="padding:8px;color:#6b7280;text-align:center">Load events to see matches</div>
+</div>
+</div>
+<!-- Red Alliance -->
+<div class="sec">
+<div class="sec-h red">Red Alliance</div>
+<div class="ds"><span class="ds-label">DS1</span><input class="ds-team" id="r1t" placeholder="Team"><select class="ds-auto" id="r1a"><option value="">—</option></select><span style="color:#6b7280;font-size:12px">Delay</span><input type="number" class="ds-delay" id="r1d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
+<div class="ds-info" id="r1i"></div>
+<div class="ds"><span class="ds-label">DS2</span><input class="ds-team" id="r2t" placeholder="Team"><select class="ds-auto" id="r2a"><option value="">—</option></select><span style="color:#6b7280;font-size:12px">Delay</span><input type="number" class="ds-delay" id="r2d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
+<div class="ds-info" id="r2i"></div>
+<div class="ds"><span class="ds-label">DS3</span><input class="ds-team" id="r3t" placeholder="Team"><select class="ds-auto" id="r3a"><option value="">—</option></select><span style="color:#6b7280;font-size:12px">Delay</span><input type="number" class="ds-delay" id="r3d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
+<div class="ds-info" id="r3i"></div>
+</div>
+<!-- Blue Alliance -->
+<div class="sec">
+<div class="sec-h blue">Blue Alliance</div>
+<div class="ds"><span class="ds-label">DS1</span><input class="ds-team" id="b1t" placeholder="Team"><select class="ds-auto" id="b1a"><option value="">—</option></select><span style="color:#6b7280;font-size:12px">Delay</span><input type="number" class="ds-delay" id="b1d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
+<div class="ds-info" id="b1i"></div>
+<div class="ds"><span class="ds-label">DS2</span><input class="ds-team" id="b2t" placeholder="Team"><select class="ds-auto" id="b2a"><option value="">—</option></select><span style="color:#6b7280;font-size:12px">Delay</span><input type="number" class="ds-delay" id="b2d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
+<div class="ds-info" id="b2i"></div>
+<div class="ds"><span class="ds-label">DS3</span><input class="ds-team" id="b3t" placeholder="Team"><select class="ds-auto" id="b3a"><option value="">—</option></select><span style="color:#6b7280;font-size:12px">Delay</span><input type="number" class="ds-delay" id="b3d" value="0" min="0" max="10" step="0.5" title="Delay (sec) before path starts"></div>
+<div class="ds-info" id="b3i"></div>
+</div>
+<!-- Win Probability -->
+<div class="sec">
+<div class="wp" id="wpArea" style="display:none"></div>
+</div>
+<!-- Team Roster -->
+<div class="sec">
+<div class="sec-h">Loaded Teams</div>
+<div id="teamRoster"></div>
+</div>
+</div>
+</div>
+<div class="ca" id="canvasArea">
+<canvas id="field"></canvas>
+<div class="leg" id="legend"></div>
+<div class="mtt" id="mtt"></div>
+</div>
+</div>
+<div class="ctrls">
+<button class="pb" id="restartBtn" title="Restart" style="font-size:12px">&#8634;</button>
+<button class="pb" id="playBtn" title="Play/Pause">&#9654;</button>
+<input type="range" class="scr" id="scrubber" min="0" max="1000" value="0">
+<div class="td" id="timeDisp">0.00s / 20.00s</div>
+<div class="sbs">
+<button class="spb" data-speed="0.25">0.25x</button>
+<button class="spb" data-speed="0.5">0.5x</button>
+<button class="spb act" data-speed="1">1x</button>
+<button class="spb" data-speed="2">2x</button>
+</div>
+</div>
+<div class="dov" id="dropOv"><span>Drop team folder here</span></div>
+<script>
+// ============ TEAM DATA MODEL ============
+// teams[teamNum] = { name, settings:{w,h,modules,features}, autos:{name->autoObj}, paths:{name->pathObj}, epa, record }
+const teams = {};
+const EMBEDDED_DATA = {"paths":{"Depot-Outpost-Climb":{"w":[{"x":3.6166,"y":6.2905,"nc":{"x":2.3633,"y":6.2643}},{"x":0.75,"y":6.2891,"pc":{"x":1.25,"y":6.2891},"nc":{"x":0.25,"y":6.2891}},{"x":1.1333,"y":5.8649,"pc":{"x":1.1333,"y":6.1149},"nc":{"x":1.1333,"y":5.3649}},{"x":0.75,"y":5.4901,"pc":{"x":0.25,"y":5.4901},"nc":{"x":1.1436,"y":5.4901}},{"x":2.0,"y":5.0534,"pc":{"x":2.0,"y":5.6534},"nc":{"x":2.0,"y":4.8034}},{"x":1.964,"y":1.3397,"pc":{"x":1.9583,"y":1.7397},"nc":{"x":1.9738,"y":0.6398}},{"x":0.65,"y":0.7013,"pc":{"x":0.65,"y":0.3013},"nc":{"x":0.65,"y":1.1013}},{"x":1.106,"y":1.22,"pc":{"x":1.106,"y":0.97},"nc":{"x":1.106,"y":1.563}},{"x":1.1105,"y":2.9062,"pc":{"x":1.0946,"y":2.3493}}],"mv":2.5,"ma":3.0,"em":[{"name":"ClimberExtend","pos":7.25,"cmd":"ClimberExtend"}],"cz":[{"name":"Pickup From Outpost Zone","min":0.9,"max":2.978,"maxVel":1.5},{"name":"Preload Shots Zone","min":0.1,"max":0.9,"maxVel":1.1},{"name":"Shooting Zone #1","min":3.0,"max":5.65,"maxVel":1.2},{"name":"Pickup From Outpost","min":5.65,"max":6.7,"maxVel":0.2},{"name":"Climbing Zone","min":6.7,"max":8.0,"maxVel":0.75}],"ptz":[{"name":"Point Towards Hub Zone #1","tx":4.625,"ty":4.033,"min":3.986,"max":5.0}],"rt":[{"pos":3.5,"rot":180.0},{"pos":5.462,"rot":180.0},{"pos":7.08,"rot":180.0},{"pos":7.65,"rot":-90.0}],"end":{"v":0,"r":-90.0},"start":{"v":0.0,"r":180.0}},"DepotClimb":{"w":[{"x":3.6545,"y":6.2952,"nc":{"x":2.6545,"y":6.2952}},{"x":0.5678,"y":6.2586,"pc":{"x":0.2578,"y":6.2586},"nc":{"x":0.9678,"y":6.2586}},{"x":1.4236,"y":5.9295,"pc":{"x":1.4297,"y":6.1794},"nc":{"x":1.4175,"y":5.6795}},{"x":0.5605,"y":5.6588,"pc":{"x":0.8705,"y":5.6588},"nc":{"x":0.2505,"y":5.6588}},{"x":1.5961,"y":5.512,"pc":{"x":1.5961,"y":5.812},"nc":{"x":1.5961,"y":5.212}},{"x":1.0107,"y":4.5649,"pc":{"x":1.0374,"y":5.4446}}],"mv":1.6,"ma":2.5,"em":[{"name":"ClimberExtend","pos":4.332,"cmd":"ClimberExtend"}],"cz":[{"name":"Constraints Zone","min":3.6,"max":5.0,"maxVel":0.195}],"ptz":[],"rt":[{"pos":3.662,"rot":180.0},{"pos":4.443,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0.0,"r":180.0}},"DepotLeftTrenchClimb":{"w":[{"x":3.6206,"y":6.2513,"nc":{"x":2.6206,"y":6.2513}},{"x":0.6,"y":6.2586,"pc":{"x":0.35,"y":6.2586},"nc":{"x":0.85,"y":6.2586}},{"x":1.3327,"y":5.9772,"pc":{"x":1.3388,"y":6.2271},"nc":{"x":1.3266,"y":5.7273}},{"x":0.6,"y":5.6588,"pc":{"x":0.85,"y":5.6588},"nc":{"x":0.35,"y":5.6588}},{"x":1.6752,"y":6.1705,"pc":{"x":1.5403,"y":5.6764},"nc":{"x":2.0343,"y":7.4852}},{"x":3.2173,"y":7.2824,"pc":{"x":2.6569,"y":7.1555},"nc":{"x":3.6984,"y":7.3912}},{"x":6.0751,"y":7.2851,"pc":{"x":5.7409,"y":7.3567},"nc":{"x":6.6129,"y":7.1699}},{"x":6.7265,"y":4.4249,"pc":{"x":7.2015,"y":4.4249},"nc":{"x":6.1265,"y":4.4249}},{"x":5.7697,"y":5.1641,"pc":{"x":6.0286,"y":4.6804},"nc":{"x":5.382,"y":5.8882}},{"x":6.2485,"y":7.193,"pc":{"x":6.2187,"y":5.9534},"nc":{"x":6.257,"y":7.5429}},{"x":2.976,"y":7.3,"pc":{"x":3.4235,"y":7.2722},"nc":{"x":1.504,"y":7.3913}},{"x":1.0107,"y":4.5649,"pc":{"x":1.0107,"y":5.6649}}],"mv":2.75,"ma":3.5,"em":[{"name":"CeaseFireAndStowHood","pos":4.776,"cmd":"CeaseFireAndStowHood"},{"name":"ClimberExtend","pos":10.5,"cmd":"ClimberExtend"}],"cz":[{"name":"Preload SOTM Zone","min":0,"max":0.55,"maxVel":1.2},{"name":"Depot Zone","min":0.55,"max":3.0,"maxVel":1.5},{"name":"Shooting Zone #1","min":3.9,"max":5.2,"maxVel":1.1},{"name":"Shooting Zone #2","min":9.65,"max":10.7,"maxVel":1.1},{"name":"Climbing Zone","min":10.7,"max":11.0,"maxVel":0.5}],"ptz":[{"name":"Point Toward Hub #1","tx":4.62,"ty":4.05,"min":3.9,"max":5.15},{"name":"Point Toward Hub #2","tx":4.62,"ty":4.05,"min":9.701,"max":10.6}],"rt":[{"pos":3.5,"rot":180.0},{"pos":5.3,"rot":90.0},{"pos":5.763,"rot":90.0},{"pos":6.211,"rot":0.0},{"pos":6.771,"rot":-110.0},{"pos":7.211,"rot":170.0},{"pos":7.888,"rot":130.0},{"pos":8.609,"rot":90.0},{"pos":9.6,"rot":90.0},{"pos":10.8,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0.0,"r":180.0}},"LeftTrenchToDepot":{"w":[{"x":4.4818,"y":7.1776,"nc":{"x":3.3985,"y":7.2607}},{"x":1.0857,"y":7.0922,"pc":{"x":1.6,"y":7.7668},"nc":{"x":0.6395,"y":6.507}},{"x":1.2521,"y":5.2351,"pc":{"x":0.6597,"y":5.2351},"nc":{"x":1.7028,"y":5.2351}},{"x":2.6159,"y":5.476,"pc":{"x":2.3659,"y":5.476}}],"mv":2.5,"ma":2.5,"em":[],"cz":[],"ptz":[],"rt":[{"pos":0.693,"rot":-120.0},{"pos":1.638,"rot":-110.0}],"end":{"v":0.0,"r":145.0},"start":{"v":0,"r":90.0}},"Outpost-Depot-Climb":{"w":[{"x":3.609,"y":1.775,"nc":{"x":2.2437,"y":1.5529}},{"x":1.3243,"y":0.7571,"pc":{"x":2.5495,"y":0.9422},"nc":{"x":0.8276,"y":0.682}},{"x":2.0119,"y":2.8008,"pc":{"x":2.0119,"y":2.3008},"nc":{"x":2.0119,"y":3.3008}},{"x":1.9756,"y":5.3636,"pc":{"x":1.9756,"y":4.8636},"nc":{"x":1.9756,"y":5.8636}},{"x":0.5641,"y":5.706,"pc":{"x":0.5641,"y":5.456},"nc":{"x":0.5641,"y":5.956}},{"x":1.3777,"y":5.983,"pc":{"x":1.4295,"y":5.7035},"nc":{"x":1.2865,"y":6.475}},{"x":0.6002,"y":6.4495,"pc":{"x":0.6002,"y":6.1995},"nc":{"x":0.6002,"y":6.6995}},{"x":1.8433,"y":7.2092,"pc":{"x":1.8433,"y":6.2992},"nc":{"x":1.8433,"y":7.6092}},{"x":0.6128,"y":7.245,"pc":{"x":0.6359,"y":7.6999},"nc":{"x":0.6001,"y":6.9953}},{"x":1.4838,"y":5.7882,"pc":{"x":1.4838,"y":7.1382},"nc":{"x":1.4838,"y":5.5382}},{"x":1.0107,"y":4.5649,"pc":{"x":1.198,"y":5.44}}],"mv":2.5,"ma":2.5,"em":[{"name":"ClimberExtend","pos":9.7,"cmd":"ClimberExtend"}],"cz":[{"name":"Pickup From Outpost Zone","min":0.7,"max":1.15,"maxVel":0.4},{"name":"Shooting Zone #1","min":1.0,"max":3.75,"maxVel":1.15},{"name":"Shooting Zone #2","min":7.5,"max":10.0,"maxVel":0.65}],"ptz":[{"name":"Point Towards Hub Zone #1","tx":4.625,"ty":4.033,"min":1.5,"max":3.2},{"name":"Point Towards Hub Zone #2","tx":4.625,"ty":4.033,"min":8.4,"max":8.95}],"rt":[{"pos":1.05,"rot":-170.0},{"pos":3.6,"rot":180.0},{"pos":8.1,"rot":180.0},{"pos":9.7,"rot":90.0}],"end":{"v":0,"r":90.0},"start":{"v":0.0,"r":180.0}},"OutpostRightTrenchClimb":{"w":[{"x":3.6339,"y":1.7626,"nc":{"x":2.6339,"y":1.7626}},{"x":0.6955,"y":0.6728,"pc":{"x":2.6967,"y":0.7373},"nc":{"x":0.4044,"y":0.6634}},{"x":2.3145,"y":0.8208,"pc":{"x":2.0645,"y":0.8208},"nc":{"x":2.5645,"y":0.8208}},{"x":5.6,"y":0.68,"pc":{"x":5.35,"y":0.68},"nc":{"x":5.85,"y":0.68}},{"x":8.4529,"y":1.3291,"pc":{"x":8.2993,"y":1.0438},"nc":{"x":8.5803,"y":1.5656}},{"x":8.3023,"y":3.3303,"pc":{"x":8.5067,"y":3.1258},"nc":{"x":7.9535,"y":3.6791}},{"x":6.1935,"y":3.5024,"pc":{"x":6.4991,"y":3.6553},"nc":{"x":5.096,"y":2.9537}},{"x":6.4409,"y":0.9202,"pc":{"x":6.814,"y":1.2142},"nc":{"x":6.0859,"y":0.6405}},{"x":1.5993,"y":1.0386,"pc":{"x":2.9093,"y":0.7336},"nc":{"x":1.0033,"y":1.1773}},{"x":1.1105,"y":2.9062,"pc":{"x":1.1105,"y":0.9062}}],"mv":2.6,"ma":3.5,"em":[{"name":"CeaseFireAndStowHood","pos":2.308,"cmd":"CeaseFireAndStowHood"},{"name":"ClimberExtend","pos":8.241,"cmd":"ClimberExtend"}],"cz":[{"name":"Preload SOTM Zone","min":0.0,"max":0.9,"maxVel":1.2},{"name":"Outpost Zone","min":0.9,"max":1.2,"maxVel":0.5},{"name":"Shooting Zone #1","min":1.2,"max":2.5,"maxVel":0.9},{"name":"Shooting Zone #2","min":7.65,"max":8.8,"maxVel":1.1},{"name":"Climbing Zone","min":8.8,"max":9.0,"maxVel":0.6}],"ptz":[{"name":"Point Towards Zone","tx":4.605,"ty":4.01,"min":7.714,"max":8.8}],"rt":[{"pos":1.35,"rot":180.0},{"pos":2.345,"rot":-90.0},{"pos":3.213,"rot":-90.0},{"pos":3.808,"rot":110.0},{"pos":6.323,"rot":-120.0},{"pos":7.082,"rot":-90.0},{"pos":7.609,"rot":-90.0},{"pos":8.9,"rot":-90.0}],"end":{"v":0.0,"r":-90.0},"start":{"v":0.0,"r":180.0}},"TrenchLeft2.5Loops":{"w":[{"x":4.5219,"y":7.6614,"nc":{"x":6.1425,"y":7.6848}},{"x":8.0,"y":6.55,"pc":{"x":8.0,"y":7.55},"nc":{"x":8.0,"y":5.55}},{"x":4.6274,"y":5.593,"pc":{"x":5.6274,"y":5.593},"nc":{"x":4.0274,"y":5.593}},{"x":2.5499,"y":6.4659,"pc":{"x":2.5499,"y":5.4659},"nc":{"x":2.5499,"y":7.2159}},{"x":4.0932,"y":7.3453,"pc":{"x":3.5934,"y":7.3324},"nc":{"x":4.5931,"y":7.3581}},{"x":6.4364,"y":6.6527,"pc":{"x":6.4148,"y":7.5509},"nc":{"x":6.4712,"y":5.2076}},{"x":6.0772,"y":5.0003,"pc":{"x":6.3272,"y":5.0003},"nc":{"x":5.8272,"y":5.0003}},{"x":5.3427,"y":5.7854,"pc":{"x":5.5927,"y":5.7854},"nc":{"x":5.0927,"y":5.7854}},{"x":4.6274,"y":5.593,"pc":{"x":4.9398,"y":5.593},"nc":{"x":4.0274,"y":5.593}},{"x":2.5499,"y":6.4659,"pc":{"x":2.5499,"y":5.4659},"nc":{"x":2.5499,"y":7.2159}},{"x":4.097,"y":7.3351,"pc":{"x":3.7256,"y":7.3351},"nc":{"x":4.4683,"y":7.3351}},{"x":7.2909,"y":6.827,"pc":{"x":6.6561,"y":7.5264},"nc":{"x":7.9257,"y":6.1277}},{"x":7.8735,"y":4.8538,"pc":{"x":8.4061,"y":5.7522},"nc":{"x":7.3409,"y":3.9555}},{"x":5.9568,"y":5.4391,"pc":{"x":6.6212,"y":5.0544},"nc":{"x":5.2924,"y":5.8237}},{"x":4.6334,"y":5.6112,"pc":{"x":5.1391,"y":5.6327},"nc":{"x":4.1277,"y":5.5897}},{"x":3.041,"y":5.6327,"pc":{"x":3.7192,"y":5.6327}}],"mv":2.25,"ma":3.25,"em":[{"name":"CeaseFireAndStowHood","pos":3.476,"cmd":"CeaseFireAndStowHood"},{"name":"CeaseFireAndStowHood","pos":9.449,"cmd":"CeaseFireAndStowHood"}],"cz":[{"name":"Sprint Zone","min":0,"max":0.9,"maxVel":3.5},{"name":"Shooting Zone #1","min":2.3,"max":3.7,"maxVel":1.1},{"name":"Shooting Zone #2","min":8.3,"max":9.8,"maxVel":1.1}],"ptz":[{"name":"Point Towards Zone","tx":4.62,"ty":4.03,"min":2.51,"max":3.924},{"name":"Point Towards Zone","tx":4.625,"ty":4.03,"min":8.51,"max":10.0}],"rt":[{"pos":0.581,"rot":-100.0},{"pos":1.755,"rot":135.0},{"pos":4.526,"rot":90.0},{"pos":4.872,"rot":-78.4},{"pos":6.741,"rot":135.0},{"pos":10.524,"rot":90.0},{"pos":11.151,"rot":-110.0},{"pos":13.199,"rot":135.0}],"end":{"v":0.0,"r":135.0},"start":{"v":0.0,"r":-90.0}},"TrenchLeft2LoopsClimb":{"w":[{"x":4.5219,"y":7.6614,"nc":{"x":6.1425,"y":7.6848}},{"x":8.0,"y":6.55,"pc":{"x":8.0,"y":7.55},"nc":{"x":8.0,"y":5.55}},{"x":4.6274,"y":5.593,"pc":{"x":5.6274,"y":5.593},"nc":{"x":4.0274,"y":5.593}},{"x":2.5499,"y":6.4659,"pc":{"x":2.5499,"y":5.4659},"nc":{"x":2.5499,"y":7.2159}},{"x":4.0932,"y":7.3453,"pc":{"x":3.5934,"y":7.3324},"nc":{"x":4.5931,"y":7.3581}},{"x":6.4364,"y":6.6527,"pc":{"x":6.4148,"y":7.5509},"nc":{"x":6.4712,"y":5.2076}},{"x":6.0772,"y":5.0003,"pc":{"x":6.3272,"y":5.0003},"nc":{"x":5.8272,"y":5.0003}},{"x":5.3487,"y":5.6841,"pc":{"x":5.5987,"y":5.6841},"nc":{"x":5.0987,"y":5.6841}},{"x":4.6274,"y":5.593,"pc":{"x":4.9398,"y":5.593},"nc":{"x":4.3149,"y":5.593}},{"x":0.5685,"y":5.9843,"pc":{"x":0.5685,"y":6.2343},"nc":{"x":0.5685,"y":5.7343}},{"x":1.3175,"y":5.777,"pc":{"x":1.3175,"y":6.027},"nc":{"x":1.3175,"y":5.527}},{"x":1.0107,"y":4.5649,"pc":{"x":1.0107,"y":5.8149}}],"mv":2.25,"ma":3.25,"em":[{"name":"CeaseFireAndStowHood","pos":3.39,"cmd":"CeaseFireAndStowHood"},{"name":"ClimberExtend","pos":10.355,"cmd":"ClimberExtend"}],"cz":[{"name":"Sprint Zone","min":0,"max":0.9,"maxVel":3.5},{"name":"Shooting Zone #1","min":2.3,"max":3.7,"maxVel":1.1},{"name":"Shooting Zone #2","min":8.38,"max":10.0,"maxVel":0.75},{"name":"Climbing Zone","min":10.0,"max":11.0,"maxVel":0.5}],"ptz":[{"name":"Point Towards Zone","tx":4.62,"ty":4.03,"min":2.51,"max":3.924}],"rt":[{"pos":0.581,"rot":-100.0},{"pos":1.755,"rot":135.0},{"pos":4.526,"rot":90.0},{"pos":4.872,"rot":-78.4},{"pos":6.741,"rot":135.0},{"pos":8.337,"rot":135.0},{"pos":8.749,"rot":180.0},{"pos":9.881,"rot":180.0},{"pos":10.561,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0.0,"r":-90.0}},"TrenchLeft2ndCycle":{"w":[{"x":4.4818,"y":7.1776,"nc":{"x":5.0974,"y":7.4109}},{"x":6.3243,"y":7.2095,"pc":{"x":6.2371,"y":7.4438},"nc":{"x":6.8752,"y":5.7294}},{"x":6.3243,"y":4.766,"pc":{"x":6.6962,"y":4.8059},"nc":{"x":5.5051,"y":4.6783}},{"x":5.9147,"y":5.9221,"pc":{"x":5.7506,"y":5.7335},"nc":{"x":6.4052,"y":6.4859}},{"x":6.0318,"y":7.3704,"pc":{"x":6.4301,"y":7.2846},"nc":{"x":5.6419,"y":7.4544}},{"x":4.4818,"y":7.1776,"pc":{"x":5.0248,"y":7.3963}}],"mv":2.75,"ma":3.0,"em":[],"cz":[],"ptz":[],"rt":[{"pos":0.623,"rot":90.0},{"pos":1.278,"rot":-90.0},{"pos":1.688,"rot":-110.0},{"pos":2.4,"rot":100.0}],"end":{"v":0,"r":90.0},"start":{"v":0,"r":90.0}},"TrenchLeftAggressive":{"w":[{"x":4.5219,"y":7.6614,"nc":{"x":6.6266,"y":7.3358}},{"x":8.5187,"y":7.1729,"pc":{"x":7.6897,"y":7.8958},"nc":{"x":8.7473,"y":6.9736}},{"x":8.2115,"y":5.6515,"pc":{"x":8.5681,"y":5.7804},"nc":{"x":7.3354,"y":5.3348}},{"x":5.9806,"y":7.3046,"pc":{"x":6.6651,"y":7.1319},"nc":{"x":5.2731,"y":7.4831}},{"x":4.4899,"y":7.164,"pc":{"x":4.8029,"y":7.29}}],"mv":2.5,"ma":3.0,"em":[],"cz":[],"ptz":[],"rt":[{"pos":0.5,"rot":-90.0},{"pos":0.849,"rot":-110.0},{"pos":1.222,"rot":-110.0},{"pos":2.419,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0.0,"r":-90.0}},"TrenchLeftAggressiveEndAtStart":{"w":[{"x":4.5219,"y":7.6614,"nc":{"x":6.6266,"y":7.3358}},{"x":8.5187,"y":7.1729,"pc":{"x":7.7136,"y":7.6255},"nc":{"x":8.7831,"y":7.0243}},{"x":8.2053,"y":5.9435,"pc":{"x":8.5086,"y":6.1709},"nc":{"x":7.6787,"y":5.5485}},{"x":6.3536,"y":7.1949,"pc":{"x":7.7196,"y":6.8946},"nc":{"x":5.688,"y":7.3412}},{"x":4.4818,"y":7.1776,"pc":{"x":4.8614,"y":7.3924}}],"mv":2.5,"ma":3.0,"em":[],"cz":[{"name":"Constraints Zone","min":0,"max":1.332,"maxVel":3.0}],"ptz":[],"rt":[{"pos":0.5,"rot":-90.0},{"pos":0.849,"rot":-110.0},{"pos":1.222,"rot":-110.0},{"pos":2.514,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0.0,"r":-90.0}},"TrenchLeftDepotClimb":{"w":[{"x":4.5219,"y":7.6614,"nc":{"x":5.2699,"y":7.6057}},{"x":8.6065,"y":7.1364,"pc":{"x":8.2919,"y":7.525},"nc":{"x":8.8552,"y":6.8291}},{"x":8.2261,"y":4.6567,"pc":{"x":8.6796,"y":4.6421},"nc":{"x":7.3634,"y":4.6846}},{"x":7.48,"y":7.1876,"pc":{"x":8.0058,"y":6.9068},"nc":{"x":6.7266,"y":7.5899}},{"x":4.6859,"y":7.4582,"pc":{"x":5.1859,"y":7.4582},"nc":{"x":4.1859,"y":7.4582}},{"x":0.7872,"y":7.3265,"pc":{"x":0.5481,"y":7.3995},"nc":{"x":1.2188,"y":7.1949}},{"x":1.3944,"y":6.3537,"pc":{"x":1.5699,"y":6.5658},"nc":{"x":1.0756,"y":5.9685}},{"x":0.6336,"y":6.0026,"pc":{"x":1.1236,"y":6.0166},"nc":{"x":0.3776,"y":5.9953}},{"x":1.38,"y":5.6421,"pc":{"x":1.6791,"y":5.7816},"nc":{"x":1.051,"y":5.4888}},{"x":1.0107,"y":4.5649,"pc":{"x":1.0107,"y":5.2014}}],"mv":2.75,"ma":3.1,"em":[{"name":"ClimberExtend","pos":7.856,"cmd":"ClimberExtend"}],"cz":[{"name":"Shoot on the Move Zone","min":4.23,"max":7.5,"maxVel":1.2},{"name":"Passing Zone","min":1.27,"max":2.46,"maxVel":1.0},{"name":"Sprint Zone","min":0,"max":1.27,"maxVel":3.5},{"name":"Climbing Zone","min":7.5,"max":9.0,"maxVel":0.4}],"ptz":[],"rt":[{"pos":1.626,"rot":-91.0},{"pos":2.286,"rot":90.0},{"pos":3.464,"rot":180.0},{"pos":7.551,"rot":180.0},{"pos":8.237,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0,"r":-90.0}},"TrenchLeftFollow":{"w":[{"x":3.5044,"y":7.1963,"nc":{"x":4.2523,"y":7.1406}},{"x":8.5114,"y":7.129,"pc":{"x":8.1968,"y":7.5177},"nc":{"x":8.7601,"y":6.8218}},{"x":8.2919,"y":4.569,"pc":{"x":8.7454,"y":4.5543},"nc":{"x":7.4292,"y":4.5968}},{"x":7.2752,"y":6.3464,"pc":{"x":7.8711,"y":6.3326},"nc":{"x":6.3243,"y":6.3683}},{"x":6.1342,"y":4.5104,"pc":{"x":6.8638,"y":3.8405},"nc":{"x":4.8834,"y":5.6588}},{"x":5.8708,"y":7.3046,"pc":{"x":7.0914,"y":6.6196},"nc":{"x":5.3816,"y":7.5792}},{"x":4.4228,"y":7.1831,"pc":{"x":5.242,"y":7.3074}}],"mv":2.75,"ma":3.1,"em":[],"cz":[{"name":"Passing Zone","min":1.27,"max":4.21,"maxVel":0.75},{"name":"Follower Zone","min":0,"max":1.27,"maxVel":1.85}],"ptz":[],"rt":[{"pos":1.705,"rot":-110.0},{"pos":2.312,"rot":90.0},{"pos":2.708,"rot":90.0},{"pos":3.251,"rot":-91.0},{"pos":3.556,"rot":-95.0},{"pos":4.071,"rot":110.0},{"pos":4.888,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0.0,"r":90.0}},"TrenchLeftSafe":{"w":[{"x":4.0838,"y":7.6614,"nc":{"x":5.3143,"y":7.3623}},{"x":7.5532,"y":7.0413,"pc":{"x":7.0398,"y":7.501},"nc":{"x":8.49,"y":6.2022}},{"x":7.7136,"y":5.6717,"pc":{"x":8.1769,"y":5.5941},"nc":{"x":6.8489,"y":5.8166}},{"x":6.851,"y":6.9754,"pc":{"x":7.0907,"y":6.7274},"nc":{"x":6.2897,"y":7.5563}},{"x":4.4818,"y":7.1776,"pc":{"x":5.1174,"y":7.2388}}],"mv":2.5,"ma":3.0,"em":[],"cz":[{"name":"Constraints Zone","min":0,"max":1.068,"maxVel":3.0}],"ptz":[],"rt":[{"pos":0.5,"rot":-90.0},{"pos":1.076,"rot":-110.0},{"pos":1.315,"rot":-110.0},{"pos":2.611,"rot":90.0}],"end":{"v":0.0,"r":90.0},"start":{"v":0,"r":-90.0}},"TrenchRight2.5Loops":{"w":[{"x":4.5219,"y":0.3906,"nc":{"x":6.1425,"y":0.3672}},{"x":8.0,"y":1.502,"pc":{"x":8.0,"y":0.502},"nc":{"x":8.0,"y":2.502}},{"x":4.6274,"y":2.459,"pc":{"x":5.6274,"y":2.459},"nc":{"x":4.0274,"y":2.459}},{"x":2.5499,"y":1.5861,"pc":{"x":2.5499,"y":2.5861},"nc":{"x":2.5499,"y":0.8361}},{"x":4.0932,"y":0.7067,"pc":{"x":3.5934,"y":0.7196},"nc":{"x":4.5931,"y":0.6939}},{"x":6.4364,"y":1.3993,"pc":{"x":6.4148,"y":0.5011},"nc":{"x":6.4712,"y":2.8444}},{"x":6.0772,"y":3.0517,"pc":{"x":6.3272,"y":3.0517},"nc":{"x":5.8272,"y":3.0517}},{"x":5.3427,"y":2.2666,"pc":{"x":5.5927,"y":2.2666},"nc":{"x":5.0927,"y":2.2666}},{"x":4.6274,"y":2.459,"pc":{"x":4.9398,"y":2.459},"nc":{"x":4.0274,"y":2.459}},{"x":2.5499,"y":1.5861,"pc":{"x":2.5499,"y":2.5861},"nc":{"x":2.5499,"y":0.8361}},{"x":4.097,"y":0.7169,"pc":{"x":3.7256,"y":0.7169},"nc":{"x":4.4683,"y":0.7169}},{"x":7.2909,"y":1.225,"pc":{"x":6.6561,"y":0.5256},"nc":{"x":7.9257,"y":1.9243}},{"x":7.8735,"y":3.1982,"pc":{"x":8.4061,"y":2.2998},"nc":{"x":7.3409,"y":4.0965}},{"x":5.9568,"y":2.6129,"pc":{"x":6.6212,"y":2.9976},"nc":{"x":5.2924,"y":2.2283}},{"x":4.6334,"y":2.4408,"pc":{"x":5.1391,"y":2.4193},"nc":{"x":4.1277,"y":2.4623}},{"x":3.041,"y":2.4193,"pc":{"x":3.7192,"y":2.4193}}],"mv":2.25,"ma":3.25,"em":[{"name":"CeaseFireAndStowHood","pos":3.476,"cmd":"CeaseFireAndStowHood"},{"name":"CeaseFireAndStowHood","pos":9.449,"cmd":"CeaseFireAndStowHood"}],"cz":[{"name":"Sprint Zone","min":0,"max":0.9,"maxVel":3.5},{"name":"Shooting Zone #1","min":2.3,"max":3.7,"maxVel":1.1},{"name":"Shooting Zone #2","min":8.3,"max":9.8,"maxVel":1.1}],"ptz":[{"name":"Point Towards Zone","tx":4.62,"ty":4.03,"min":2.51,"max":3.924},{"name":"Point Towards Zone","tx":4.625,"ty":4.03,"min":8.51,"max":10.0}],"rt":[{"pos":0.581,"rot":100.0},{"pos":1.755,"rot":-135.0},{"pos":4.526,"rot":-90.0},{"pos":4.872,"rot":78.4},{"pos":6.741,"rot":-135.0},{"pos":10.524,"rot":-90.0},{"pos":11.151,"rot":110.0},{"pos":13.199,"rot":-135.0}],"end":{"v":0.0,"r":-135.0},"start":{"v":0.0,"r":90.0}},"TrenchRight2LoopsClimb":{"w":[{"x":4.5219,"y":0.3906,"nc":{"x":6.1425,"y":0.3672}},{"x":8.0,"y":1.502,"pc":{"x":8.0,"y":0.502},"nc":{"x":8.0,"y":2.502}},{"x":4.6274,"y":2.459,"pc":{"x":5.6274,"y":2.459},"nc":{"x":4.0274,"y":2.459}},{"x":2.5499,"y":1.5861,"pc":{"x":2.5499,"y":2.5861},"nc":{"x":2.5499,"y":0.8361}},{"x":4.0932,"y":0.7067,"pc":{"x":3.5934,"y":0.7196},"nc":{"x":4.5931,"y":0.6939}},{"x":6.4364,"y":1.3993,"pc":{"x":6.4148,"y":0.5011},"nc":{"x":6.4712,"y":2.8444}},{"x":6.0772,"y":3.0517,"pc":{"x":6.3272,"y":3.0517},"nc":{"x":5.8272,"y":3.0517}},{"x":5.3487,"y":2.3679,"pc":{"x":5.5987,"y":2.3679},"nc":{"x":5.0987,"y":2.3679}},{"x":4.6274,"y":2.459,"pc":{"x":4.9398,"y":2.459},"nc":{"x":4.3149,"y":2.459}},{"x":2.2802,"y":2.4566,"pc":{"x":2.5302,"y":2.4566},"nc":{"x":2.0302,"y":2.4566}},{"x":1.1105,"y":2.9062,"pc":{"x":1.1105,"y":1.6562}}],"mv":2.25,"ma":3.25,"em":[{"name":"CeaseFireAndStowHood","pos":3.39,"cmd":"CeaseFireAndStowHood"},{"name":"ClimberExtend","pos":9.7,"cmd":"ClimberExtend"}],"cz":[{"name":"Sprint Zone","min":0,"max":0.9,"maxVel":3.5},{"name":"Shooting Zone #1","min":2.3,"max":3.7,"maxVel":1.1},{"name":"Shooting Zone #2","min":8.38,"max":9.5,"maxVel":0.75},{"name":"Climbing Zone","min":9.5,"max":10.0,"maxVel":0.5}],"ptz":[{"name":"Point Towards Zone","tx":4.62,"ty":4.03,"min":2.51,"max":3.924}],"rt":[{"pos":0.581,"rot":100.0},{"pos":1.755,"rot":-135.0},{"pos":4.526,"rot":-90.0},{"pos":4.872,"rot":78.4},{"pos":6.741,"rot":-135.0},{"pos":8.337,"rot":-135.0},{"pos":9.8,"rot":-90.0}],"end":{"v":0.0,"r":-90.0},"start":{"v":0.0,"r":90.0}},"TrenchRight2ndCycle":{"w":[{"x":3.9905,"y":0.8733,"nc":{"x":5.1293,"y":0.7665}},{"x":6.968,"y":1.6212,"pc":{"x":6.7077,"y":0.5452},"nc":{"x":7.0382,"y":1.9113}},{"x":6.2904,"y":2.9934,"pc":{"x":6.7904,"y":2.9934},"nc":{"x":5.7904,"y":2.9934}},{"x":5.747,"y":2.2171,"pc":{"x":5.742,"y":2.6123},"nc":{"x":5.7543,"y":1.6393}},{"x":6.1415,"y":0.7874,"pc":{"x":6.3705,"y":1.0164},"nc":{"x":5.7472,"y":0.3932}},{"x":3.9905,"y":0.8733,"pc":{"x":4.546,"y":0.8841}}],"mv":2.6,"ma":3.6,"em":[{"name":"","pos":0,"cmd":""}],"cz":[],"ptz":[],"rt":[{"pos":0.486,"rot":-90.0},{"pos":0.953,"rot":80.0},{"pos":1.491,"rot":100.0},{"pos":2.733,"rot":-90.0}],"end":{"v":0,"r":-90.0},"start":{"v":0,"r":-90.0}},"TrenchRightAggressive":{"w":[{"x":4.5219,"y":0.3906,"nc":{"x":5.5638,"y":0.5429}},{"x":8.665,"y":1.1458,"pc":{"x":8.665,"y":0.2785},"nc":{"x":8.665,"y":1.965}},{"x":8.1603,"y":2.6599,"pc":{"x":8.6978,"y":2.6374},"nc":{"x":6.5567,"y":2.727}},{"x":6.3902,"y":0.78,"pc":{"x":7.095,"y":1.0363},"nc":{"x":5.7513,"y":0.5477}},{"x":3.9905,"y":0.8733,"pc":{"x":4.7507,"y":0.632}}],"mv":2.5,"ma":3.0,"em":[],"cz":[{"name":"Constraints Zone","min":0.034,"max":0.825,"maxVel":2.8}],"ptz":[],"rt":[{"pos":0.849,"rot":110.0},{"pos":1.307,"rot":110.0},{"pos":2.402,"rot":-90.0}],"end":{"v":0,"r":-90.0},"start":{"v":0.0,"r":90.0}},"TrenchRightBulldogOne":{"w":[{"x":4.4738,"y":0.3997,"nc":{"x":5.3141,"y":0.4911}},{"x":6.9231,"y":0.8733,"pc":{"x":6.1957,"y":0.7508},"nc":{"x":7.6619,"y":0.9976}},{"x":7.192,"y":2.5578,"pc":{"x":7.6916,"y":2.5776},"nc":{"x":6.6924,"y":2.538}},{"x":6.1686,"y":1.0573,"pc":{"x":6.3162,"y":1.2591},"nc":{"x":5.7656,"y":0.5067}},{"x":3.9905,"y":0.8733,"pc":{"x":5.6733,"y":0.6484}}],"mv":2.5,"ma":3.0,"em":[],"cz":[],"ptz":[],"rt":[{"pos":0.5,"rot":90.0},{"pos":1.076,"rot":110.0},{"pos":1.327,"rot":110.0},{"pos":2.544,"rot":-90.0}],"end":{"v":0.0,"r":-90.0},"start":{"v":0,"r":90.0}},"TrenchRightBulldogTwo":{"w":[{"x":3.9905,"y":0.8733,"nc":{"x":4.6201,"y":0.5752}},{"x":6.968,"y":1.6212,"pc":{"x":6.8071,"y":0.3997},"nc":{"x":7.0333,"y":2.1169}},{"x":6.2645,"y":2.877,"pc":{"x":6.7645,"y":2.877},"nc":{"x":5.7645,"y":2.877}},{"x":5.8246,"y":2.1654,"pc":{"x":5.8505,"y":2.5923},"nc":{"x":5.7896,"y":1.5885}},{"x":6.1415,"y":0.7874,"pc":{"x":6.3463,"y":1.2847},"nc":{"x":6.0463,"y":0.5562}},{"x":3.9905,"y":0.8733,"pc":{"x":4.4057,"y":0.6018}}],"mv":2.5,"ma":3.5,"em":[{"name":"","pos":0,"cmd":""}],"cz":[],"ptz":[],"rt":[{"pos":0.486,"rot":-90.0},{"pos":0.953,"rot":80.0},{"pos":1.491,"rot":100.0},{"pos":2.733,"rot":-90.0}],"end":{"v":0,"r":-90.0},"start":{"v":0,"r":-90.0}},"TrenchRightFollow":{"w":[{"x":3.4967,"y":0.8747,"nc":{"x":4.3403,"y":0.6628}},{"x":8.6504,"y":0.9775,"pc":{"x":8.1433,"y":0.6858},"nc":{"x":9.1017,"y":1.2371}},{"x":8.2993,"y":3.5522,"pc":{"x":8.5391,"y":3.6228},"nc":{"x":7.8025,"y":3.406}},{"x":7.2606,"y":1.6944,"pc":{"x":7.4975,"y":1.5975},"nc":{"x":6.7728,"y":1.8937}},{"x":6.3536,"y":3.6473,"pc":{"x":6.6968,"y":3.6658},"nc":{"x":5.9328,"y":3.6247}},{"x":5.6368,"y":2.5282,"pc":{"x":5.4796,"y":2.8343},"nc":{"x":5.7816,"y":2.2462}},{"x":5.9367,"y":0.7581,"pc":{"x":6.805,"y":1.2491},"nc":{"x":5.5402,"y":0.5339}},{"x":3.8888,"y":0.8516,"pc":{"x":4.2359,"y":0.7059}}],"mv":2.5,"ma":3.0,"em":[],"cz":[{"name":"Passing Zone","min":1.27,"max":5.15,"maxVel":1.0},{"name":"Follower Zone","min":0,"max":1.27,"maxVel":1.5}],"ptz":[],"rt":[{"pos":0.423,"rot":-90.0},{"pos":0.976,"rot":110.0},{"pos":1.682,"rot":110.0},{"pos":2.271,"rot":-110.0},{"pos":2.626,"rot":-110.0},{"pos":3.237,"rot":95.0},{"pos":3.688,"rot":95.0},{"pos":4.303,"rot":-130.0},{"pos":5.75,"rot":-90.0}],"end":{"v":0.0,"r":-90.0},"start":{"v":0.0,"r":-90.0}},"TrenchRightSafe":{"w":[{"x":4.4738,"y":0.3997,"nc":{"x":5.3141,"y":0.4911}},{"x":7.4288,"y":0.8459,"pc":{"x":6.7015,"y":0.7234},"nc":{"x":8.1676,"y":0.9702}},{"x":7.4215,"y":2.4551,"pc":{"x":7.9211,"y":2.4749},"nc":{"x":6.9219,"y":2.4353}},{"x":6.5877,"y":0.9995,"pc":{"x":6.7353,"y":1.2012},"nc":{"x":6.1847,"y":0.4488}},{"x":3.9905,"y":0.8733,"pc":{"x":5.6733,"y":0.6484}}],"mv":2.5,"ma":3.0,"em":[],"cz":[],"ptz":[],"rt":[{"pos":0.5,"rot":90.0},{"pos":1.076,"rot":110.0},{"pos":1.327,"rot":110.0},{"pos":2.544,"rot":-90.0}],"end":{"v":0.0,"r":-90.0},"start":{"v":0,"r":90.0}},"TrenchRightSnowBlowSafe":{"w":[{"x":4.4738,"y":0.3997,"nc":{"x":5.5178,"y":0.3591}},{"x":7.4932,"y":0.7971,"pc":{"x":6.092,"y":0.4341},"nc":{"x":8.2192,"y":0.9852}},{"x":7.6602,"y":3.2074,"pc":{"x":8.2353,"y":3.2035},"nc":{"x":5.257,"y":3.2234}},{"x":6.8419,"y":0.5629,"pc":{"x":7.539,"y":0.5525},"nc":{"x":6.3414,"y":0.5704}},{"x":0.6691,"y":0.5629,"pc":{"x":2.0585,"y":0.5629}}],"mv":2.5,"ma":3.0,"em":[],"cz":[{"name":"Constraints Zone","min":3.415,"max":4.0,"maxVel":0.49},{"name":"Constraints Zone","min":1.385,"max":2.516,"maxVel":1.0}],"ptz":[],"rt":[{"pos":0.5,"rot":90.0},{"pos":0.534,"rot":90.0},{"pos":0.935,"rot":110.0},{"pos":1.612,"rot":110.0},{"pos":2.415,"rot":-90.0},{"pos":2.91,"rot":180.0}],"end":{"v":0,"r":180.0},"start":{"v":0,"r":90.0}},"TrenchRightSnowblowClimb":{"w":[{"x":4.4738,"y":0.3997,"nc":{"x":5.6733,"y":0.4801}},{"x":8.1091,"y":0.7581,"pc":{"x":7.6912,"y":0.3219},"nc":{"x":8.8282,"y":1.5089}},{"x":8.2261,"y":3.3328,"pc":{"x":8.8775,"y":3.3328},"nc":{"x":5.3024,"y":3.3328}},{"x":6.0794,"y":0.5673,"pc":{"x":6.9339,"y":0.5673},"nc":{"x":3.0794,"y":0.5673}},{"x":1.5,"y":0.952,"pc":{"x":1.8447,"y":0.6627},"nc":{"x":1.117,"y":1.2734}},{"x":1.1105,"y":2.9062,"pc":{"x":0.9912,"y":1.7208}}],"mv":2.5,"ma":3.0,"em":[{"name":"ClimberExtend","pos":4.421,"cmd":"ClimberExtend"}],"cz":[{"name":"SoTM","min":3.4,"max":5.0,"maxVel":0.5},{"name":"Passing Zone","min":1.326,"max":2.332,"maxVel":0.75},{"name":"Sprint Zone","min":0,"max":1.249,"maxVel":3.5}],"ptz":[{"name":"Point Towards Zone","tx":4.62,"ty":4.01,"min":3.9,"max":4.691}],"rt":[{"pos":0.5,"rot":90.0},{"pos":1.076,"rot":100.0},{"pos":1.428,"rot":110.0},{"pos":2.209,"rot":-115.0},{"pos":2.933,"rot":180.0},{"pos":3.323,"rot":180.0},{"pos":4.794,"rot":-90.0}],"end":{"v":0.0,"r":-90.0},"start":{"v":0,"r":90.0}}},"autos":{"Depot-Outpost-Climb":{"folder":"AllianceZone","paths":["Depot-Outpost-Climb"],"cmds":["ClimberClimb"],"waits":[]},"DepotClimb":{"folder":"AllianceZone","paths":["DepotClimb"],"cmds":["ClimberClimb"],"waits":[]},"DepotLeftTrenchClimb":{"folder":"AllianceZone","paths":["DepotLeftTrenchClimb"],"cmds":["ClimberClimb"],"waits":[]},"Outpost-Depot-Climb":{"folder":"AllianceZone","paths":["Outpost-Depot-Climb"],"cmds":["ClimberClimb"],"waits":[]},"OutpostRightTrenchClimb":{"folder":"AllianceZone","paths":["OutpostRightTrenchClimb"],"cmds":["ClimberClimb"],"waits":[]},"TrenchLeft1CycleDepot":{"folder":"TrenchLeft","paths":["TrenchLeftSafe","LeftTrenchToDepot"],"cmds":["Agitate"],"waits":[5.0]},"TrenchLeft2.5Loops":{"folder":"TrenchLeft","paths":["TrenchLeft2.5Loops"],"cmds":[],"waits":[]},"TrenchLeft2CyclesAggressive":{"folder":"TrenchLeft","paths":["TrenchLeftAggressiveEndAtStart","TrenchLeft2ndCycle"],"cmds":["Agitate","CeaseFireAndStowHood"],"waits":[6.25]},"TrenchLeft2CyclesSafe":{"folder":"TrenchLeft","paths":["TrenchLeftSafe","TrenchLeft2ndCycle"],"cmds":["Agitate","CeaseFireAndStowHood"],"waits":[6.25]},"TrenchLeft2LoopsClimb":{"folder":"TrenchLeft","paths":["TrenchLeft2LoopsClimb"],"cmds":["ClimberClimb"],"waits":[]},"TrenchLeftAggressive":{"folder":"Retired","paths":["TrenchLeftAggressive"],"cmds":[],"waits":[]},"TrenchLeftFollow":{"folder":"TrenchLeft","paths":["TrenchLeftFollow"],"cmds":[],"waits":[]},"TrenchLeftSafe":{"folder":"Retired","paths":["TrenchLeftSafe"],"cmds":[],"waits":[]},"TrenchLeftSnowblowClimb":{"folder":"TrenchLeft","paths":["TrenchLeftDepotClimb"],"cmds":["ClimberClimb"],"waits":[]},"TrenchRight2.5Loops":{"folder":"TrenchRight","paths":["TrenchRight2.5Loops"],"cmds":[],"waits":[]},"TrenchRight2CyclesAggressive":{"folder":"TrenchRight","paths":["TrenchRightAggressive","TrenchRight2ndCycle"],"cmds":["Agitate","CeaseFireAndStowHood"],"waits":[5.5]},"TrenchRight2CyclesBulldogs":{"folder":"TrenchRight","paths":["TrenchRightBulldogOne","TrenchRightBulldogTwo"],"cmds":["Agitate"],"waits":[5.5]},"TrenchRight2CyclesSafe":{"folder":"TrenchRight","paths":["TrenchRightSafe","TrenchRight2ndCycle"],"cmds":["Agitate","CeaseFireAndStowHood"],"waits":[5.5]},"TrenchRight2LoopsClimb":{"folder":"TrenchRight","paths":["TrenchRight2LoopsClimb"],"cmds":["ClimberClimb"],"waits":[]},"TrenchRightAggressive":{"folder":"Retired","paths":["TrenchRightAggressive"],"cmds":[],"waits":[]},"TrenchRightFollow":{"folder":"TrenchRight","paths":["TrenchRightFollow"],"cmds":[],"waits":[]},"TrenchRightSafe":{"folder":"Retired","paths":["TrenchRightSafe"],"cmds":[],"waits":[]},"TrenchRightSnowblowClimb":{"folder":"TrenchRight","paths":["TrenchRightSnowblowClimb"],"cmds":["ClimberClimb"],"waits":[]}}};
+
+// Default robot config (for teams without settings.json)
+// Default robot is a square (no config from partner)
+const DEFAULT_ROBOT = {w:0.838,h:0.838,modules:[],features:[]};
+
+// Initialize team 3572 from embedded data
+teams['3572'] = {
+  name: 'Wavelength',
+  settings: {
+    w:0.978, h:0.787,
+    modules:[{x:0.232,y:0.327},{x:0.232,y:-0.327},{x:-0.232,y:0.327},{x:-0.232,y:-0.327}],
+    features:[
+      {name:'Turret',type:'circle',cx:-0.083,cy:0.18415,radius:0.075,strokeWidth:0.01,filled:false},
+      {name:'Intake',type:'rounded_rect',cx:0.451,cy:0.0,width:0.7874,length:0.305,borderRadius:0.015,strokeWidth:0.02,filled:false},
+      {name:'Climber',type:'rounded_rect',cx:-0.35,cy:-0.048,width:0.05,length:0.05,borderRadius:0.0,strokeWidth:0.02,filled:false}
+    ]
+  },
+  autos: EMBEDDED_DATA.autos,
+  paths: EMBEDDED_DATA.paths,
+  epa: null, record: ''
+};
+
+// ============ CONSTANTS ============
+const PP_MARGIN = 0.5, PP_PPM = 200, PP_IMG_W = 3508, PP_IMG_H = 1814;
+const FIELD_W = PP_IMG_W / PP_PPM - 2 * PP_MARGIN;
+const FIELD_H = PP_IMG_H / PP_PPM - 2 * PP_MARGIN;
+const FIELD_IMG_URL = 'https://raw.githubusercontent.com/mjansen4857/pathplanner/main/images/field26.png';
+let fieldImg = null, fieldImgLoaded = false;
+const _img = new Image(); _img.crossOrigin='anonymous';
+_img.onload=()=>{fieldImg=_img;fieldImgLoaded=true;draw();}; _img.src=FIELD_IMG_URL;
+
+const MARKER_ICONS = {
+  ClimberExtend:'\u2b06',ClimberClimb:'\u2b06',CeaseFire:'\u26d4',CeaseFireAndStowHood:'\u26d4',
+  Agitate:'\u2940',StowHood:'\u2b07',SmartLaunch:'\u2b50',holdFire:'\u23f8',releaseFire:'\u25b6'
+};
+const ZONE_COLORS = {
+  'Sprint Zone':'rgba(34,197,94,0.25)','Shoot on the Move Zone':'rgba(249,115,22,0.25)',
+  'Shooting Zone':'rgba(239,68,68,0.25)','Shooting Zone #1':'rgba(239,68,68,0.25)',
+  'Shooting Zone #2':'rgba(239,68,68,0.2)','Depot Zone':'rgba(168,85,247,0.25)',
+  'Passing Zone':'rgba(6,182,212,0.25)','Follower Zone':'rgba(99,102,241,0.25)',
+  'SoTM':'rgba(249,115,22,0.25)','Preload SOTM Zone':'rgba(251,191,36,0.25)',
+  'Climbing Zone':'rgba(168,85,247,0.2)','Constraints Zone':'rgba(156,163,175,0.15)',
+  'Preload Shots Zone':'rgba(239,68,68,0.2)','Pickup From Outpost Zone':'rgba(6,182,212,0.2)',
+  'Pickup From Outpost':'rgba(6,182,212,0.2)','Outpost Zone':'rgba(168,85,247,0.2)'
+};
+
+// ============ STATE ============
+// 6 driver station slots: r1,r2,r3,b1,b2,b3
+const SLOTS = ['r1','r2','r3','b1','b2','b3'];
+let slotData = {}; // slot -> {teamNum, autoName, color}
+SLOTS.forEach(s => slotData[s] = {teamNum:'',autoName:'',color: s[0]==='r' ? '#dc2626' : '#2563eb'});
+
+let playing=false, animTime=0, animSpeed=1, totalTime=20, lastFrame=0;
+let pathSamples = {};
+let drawMode=false, drawActive=false, drawStrokes=[];
+let camX=0, camY=0, camScale=1;
+
+// ============ CANVAS SETUP ============
+const canvas=document.getElementById('field'), ctx=canvas.getContext('2d'), area=document.getElementById('canvasArea');
+
+function fitToScreen(){
+  const tw=FIELD_W+2*PP_MARGIN, th=FIELD_H+2*PP_MARGIN;
+  camScale=Math.min(canvas.width/tw, canvas.height/th);
+  camX=(canvas.width-tw*camScale)/2; camY=(canvas.height-th*camScale)/2;
+}
+function resize(){
+  canvas.width=area.clientWidth*devicePixelRatio; canvas.height=area.clientHeight*devicePixelRatio;
+  canvas.style.width=area.clientWidth+'px'; canvas.style.height=area.clientHeight+'px';
+  fitToScreen(); draw();
+}
+window.addEventListener('resize',resize);
+
+function fieldToCanvas(fx,fy){
+  return[(fx+PP_MARGIN)*camScale+camX, camY+(FIELD_H+PP_MARGIN-fy)*camScale];
+}
+// Flip a blue-origin point to red-origin (mirror across field center)
+function flipPt(x,y){return{x:FIELD_W-x,y:FIELD_H-y};}
+// kRotational flip: rotation - 180 (NOT 180 - rotation)
+function flipRot(deg){let r=deg-180;while(r>180)r-=360;while(r<-180)r+=360;return r;}
+function flipWaypoints(wp){return wp.map(w=>{
+  const f={x:FIELD_W-w.x,y:FIELD_H-w.y};
+  if(w.nc)f.nc={x:FIELD_W-w.nc.x,y:FIELD_H-w.nc.y};
+  if(w.pc)f.pc={x:FIELD_W-w.pc.x,y:FIELD_H-w.pc.y};
+  return f;
+});}
+function canvasToField(cx,cy){
+  return[(cx-camX)/camScale-PP_MARGIN, FIELD_H+PP_MARGIN-(cy-camY)/camScale];
+}
+
+// ============ BEZIER MATH ============
+function cubicBezier(p0,p1,p2,p3,t){
+  const u=1-t;
+  return{x:u*u*u*p0.x+3*u*u*t*p1.x+3*u*t*t*p2.x+t*t*t*p3.x, y:u*u*u*p0.y+3*u*u*t*p1.y+3*u*t*t*p2.y+t*t*t*p3.y};
+}
+function lerp2(a,b,t){return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t};}
+function getSegPts(wp,s){
+  const p0={x:wp[s].x,y:wp[s].y}, p3={x:wp[s+1].x,y:wp[s+1].y};
+  const p1=wp[s].nc?{x:wp[s].nc.x,y:wp[s].nc.y}:lerp2(p0,p3,1/3);
+  const p2=wp[s+1].pc?{x:wp[s+1].pc.x,y:wp[s+1].pc.y}:lerp2(p0,p3,2/3);
+  return{p0,p1,p2,p3};
+}
+function ptAtPos(wp,pos){
+  const n=wp.length-1; if(n<=0)return wp[0]?{x:wp[0].x,y:wp[0].y}:{x:0,y:0};
+  let s=Math.floor(pos),t=pos-s; if(s>=n){s=n-1;t=1;} if(s<0){s=0;t=0;}
+  const{p0,p1,p2,p3}=getSegPts(wp,s); return cubicBezier(p0,p1,p2,p3,t);
+}
+function samplePath(pd){
+  const wp=pd.w,n=wp.length-1; if(n<=0)return[{pt:{x:wp[0].x,y:wp[0].y},pos:0,dist:0}];
+  const samples=[]; let td=0; const sps=40;
+  for(let s=0;s<n;s++){const{p0,p1,p2,p3}=getSegPts(wp,s);
+    for(let i=0;i<=sps;i++){if(s>0&&i===0)continue;const t=i/sps;const pt=cubicBezier(p0,p1,p2,p3,t);
+      if(samples.length>0){const prev=samples[samples.length-1].pt;td+=Math.hypot(pt.x-prev.x,pt.y-prev.y);}
+      samples.push({pt,pos:s+t,dist:td});}} return samples;
+}
+function velAtPos(pd,pos){
+  let v=pd.mv||2; for(const c of(pd.cz||[]))if(pos>=c.min&&pos<=c.max)v=Math.min(v,c.maxVel); return Math.max(v,0.05);
+}
+function buildAnimData(pName,teamNum){
+  let pd=null; for(const t of Object.values(teams))if(t.paths[pName]){pd=t.paths[pName];break;}
+  if(!pd||!pd.w||pd.w.length<2)return null;
+  const samples=samplePath(pd); if(samples.length<2)return null;
+  let t=0; const timed=[{...samples[0],time:0}];
+  for(let i=1;i<samples.length;i++){const ds=samples[i].dist-samples[i-1].dist;t+=ds/velAtPos(pd,samples[i].pos);timed.push({...samples[i],time:t});}
+  return timed;
+}
+function posAtTime(ad,t){
+  if(!ad||!ad.length)return{x:0,y:0,pos:0};
+  if(t<=0)return{x:ad[0].pt.x,y:ad[0].pt.y,pos:ad[0].pos};
+  const last=ad[ad.length-1]; if(t>=last.time)return{x:last.pt.x,y:last.pt.y,pos:last.pos};
+  let lo=0,hi=ad.length-1; while(lo<hi-1){const m=(lo+hi)>>1;if(ad[m].time<=t)lo=m;else hi=m;}
+  const a=ad[lo],b=ad[hi],f=(t-a.time)/(b.time-a.time);
+  return{x:a.pt.x+(b.pt.x-a.pt.x)*f,y:a.pt.y+(b.pt.y-a.pt.y)*f,pos:a.pos+(b.pos-a.pos)*f};
+}
+function getRotAtPos(pd,pos){
+  const rts=pd.rt||[]; if(!rts.length)return pd.start?pd.start.r:0;
+  let bef=null,aft=null; for(const r of rts){if(r.pos<=pos)bef=r;if(r.pos>=pos&&!aft)aft=r;}
+  if(!bef&&!aft)return pd.start?pd.start.r:0; if(!bef)return aft.rot; if(!aft)return bef.rot;
+  if(bef.pos===aft.pos)return bef.rot;
+  const f=(pos-bef.pos)/(aft.pos-bef.pos); let d=aft.rot-bef.rot;
+  while(d>180)d-=360;while(d<-180)d+=360; return bef.rot+d*f;
+}
+
+// ============ ROBOT DRAWING ============
+function drawRobotBumper(fx,fy,rotDeg,color,alpha,bot,label){
+  bot=bot||DEFAULT_ROBOT;
+  const[cx,cy]=fieldToCanvas(fx,fy);
+  // PathPlanner: 0=facing +X (right), positive=CCW. Canvas: Y is flipped.
+  // Robot front is drawn at -Y in local frame. We need -Y to point in heading direction.
+  // Rotate so local -Y (front of robot) points in heading direction on canvas
+  // Canvas: +X=right, +Y=down. Heading: 0=right, 90=up (canvas -Y)
+  const canvasRad=(90-rotDeg)*Math.PI/180;
+  // hw = left-right half (robotWidth), hl = front-back half (robotLength)
+  const hw=bot.w/2*camScale, hl=bot.h/2*camScale, cr=Math.min(hw,hl)*0.15;
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(canvasRad); ctx.globalAlpha=alpha;
+  // Features
+  for(const f of(bot.features||[])){
+    const sw=Math.max(1,f.strokeWidth*camScale); ctx.lineWidth=sw;
+    const fcx=-f.cy*camScale, fcy=-f.cx*camScale;
+    if(f.type==='circle'){const r=f.radius*camScale;ctx.beginPath();ctx.arc(fcx,fcy,r,0,Math.PI*2);ctx.strokeStyle=color;ctx.stroke();}
+    else if(f.type==='rounded_rect'){const rw=f.width*camScale,rl=f.length*camScale,br=f.borderRadius*camScale;ctx.beginPath();ctx.roundRect(fcx-rw/2,fcy-rl/2,rw,rl,br);ctx.strokeStyle=color;ctx.stroke();}
+  }
+  // Modules
+  ctx.fillStyle='rgba(255,255,255,0.4)';
+  for(const m of(bot.modules||[])){const mx=-m.y*camScale,my=-m.x*camScale;ctx.fillRect(mx-0.02*camScale,my-0.03*camScale,0.04*camScale,0.06*camScale);}
+  // Bumper
+  ctx.strokeStyle=color;ctx.lineWidth=2*devicePixelRatio;ctx.beginPath();ctx.roundRect(-hw,-hl,hw*2,hl*2,cr);ctx.stroke();
+  // Front dot
+  const dr=Math.max(3,hw*0.12);ctx.beginPath();ctx.arc(0,-hl+dr+1,dr,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.stroke();
+  // Team label
+  if(label){ctx.fillStyle='#fff';ctx.strokeStyle='rgba(0,0,0,0.7)';ctx.lineWidth=3*devicePixelRatio;
+    ctx.font=`bold ${Math.max(10,hw*0.55)}px sans-serif`;ctx.textAlign='center';
+    ctx.strokeText(label,0,hl*0.25);ctx.fillText(label,0,hl*0.25);}
+  ctx.globalAlpha=1;ctx.restore();
+}
+
+// ============ MAIN DRAW ============
+function draw(){
+  const w=canvas.width,h=canvas.height; ctx.clearRect(0,0,w,h);
+  // Field image
+  if(fieldImgLoaded&&fieldImg){
+    const tw=(FIELD_W+2*PP_MARGIN)*camScale,th=(FIELD_H+2*PP_MARGIN)*camScale;
+    ctx.globalAlpha=0.7;ctx.drawImage(fieldImg,camX,camY,tw,th);ctx.globalAlpha=1;
+  }else{
+    const[fx0,fy0]=fieldToCanvas(0,0),[fx1,fy1]=fieldToCanvas(FIELD_W,FIELD_H);
+    ctx.fillStyle='#1a2332';ctx.fillRect(Math.min(fx0,fx1),Math.min(fy0,fy1),Math.abs(fx1-fx0),Math.abs(fy1-fy0));
+  }
+  // Draw active autos from station slots
+  for(const slot of SLOTS){
+    const sd=slotData[slot]; if(!sd.teamNum||!sd.autoName)continue;
+    const team=teams[sd.teamNum]; if(!team)continue;
+    const auto=team.autos[sd.autoName]; if(!auto)continue;
+    const color=sd.color;
+    const isRed=slot[0]==='r';
+    for(const pName of auto.paths){
+      const pd=team.paths[pName]; if(!pd||!pd.w||pd.w.length<2)continue;
+      const wp=isRed?flipWaypoints(pd.w):pd.w;
+      // Constraint zones
+      for(const cz of(pd.cz||[])){
+        const zc=ZONE_COLORS[cz.name]||'rgba(156,163,175,0.15)';
+        drawSegRange(wp,cz.min,cz.max,zc,12*devicePixelRatio);
+      }
+      // Path line
+      ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=3*devicePixelRatio;ctx.globalAlpha=0.85;
+      const[sx,sy]=fieldToCanvas(wp[0].x,wp[0].y);ctx.moveTo(sx,sy);
+      for(let s=0;s<wp.length-1;s++){const{p0,p1,p2,p3}=getSegPts(wp,s);
+        const[c1x,c1y]=fieldToCanvas(p1.x,p1.y),[c2x,c2y]=fieldToCanvas(p2.x,p2.y),[ex,ey]=fieldToCanvas(p3.x,p3.y);
+        ctx.bezierCurveTo(c1x,c1y,c2x,c2y,ex,ey);}
+      ctx.stroke();ctx.globalAlpha=1;
+      // Start/end bumpers
+      const sr=isRed?flipRot(pd.start?pd.start.r:0):(pd.start?pd.start.r:0);
+      const er=isRed?flipRot(pd.end?pd.end.r:0):(pd.end?pd.end.r:0);
+      drawRobotBumper(wp[0].x,wp[0].y,sr,color,0.4,team.settings,sd.teamNum);
+      drawRobotBumper(wp[wp.length-1].x,wp[wp.length-1].y,er,color,0.25,team.settings);
+      // Event markers
+      for(const em of(pd.em||[])){
+        if(!em.name&&!em.cmd)continue;const pt=ptAtPos(wp,em.pos);const[mx,my]=fieldToCanvas(pt.x,pt.y);
+        ctx.beginPath();ctx.arc(mx,my,9*devicePixelRatio,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fill();
+        ctx.strokeStyle=color;ctx.lineWidth=2*devicePixelRatio;ctx.stroke();
+        ctx.fillStyle='#fff';ctx.font=`${10*devicePixelRatio}px sans-serif`;ctx.textAlign='center';
+        ctx.fillText(MARKER_ICONS[em.cmd||em.name]||'\u2b24',mx,my+3*devicePixelRatio);
+        ctx.fillStyle=color;ctx.font=`bold ${8*devicePixelRatio}px sans-serif`;ctx.fillText(em.cmd||em.name,mx,my-12*devicePixelRatio);
+      }
+      // Rotation arrows
+      for(const rt of(pd.rt||[])){
+        const pt=ptAtPos(wp,rt.pos);const[rx,ry]=fieldToCanvas(pt.x,pt.y);
+        const ra=(rt.rot)*Math.PI/180;const al=7*devicePixelRatio;
+        ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(rx+Math.cos(ra)*al,ry-Math.sin(ra)*al);
+        ctx.strokeStyle=color;ctx.globalAlpha=0.3;ctx.lineWidth=1.5*devicePixelRatio;ctx.stroke();ctx.globalAlpha=1;
+      }
+      // Point-towards zones
+      for(const ptz of(pd.ptz||[])){
+        const mp=(ptz.min+ptz.max)/2;const pt=ptAtPos(wp,mp);const[px,py]=fieldToCanvas(pt.x,pt.y),[tx,ty]=fieldToCanvas(ptz.tx,ptz.ty);
+        ctx.beginPath();ctx.setLineDash([4,4]);ctx.moveTo(px,py);ctx.lineTo(tx,ty);
+        ctx.strokeStyle=color;ctx.globalAlpha=0.3;ctx.lineWidth=1.5*devicePixelRatio;ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+      }
+    }
+  }
+  // Animated robots
+  if(playing||animTime>0) drawAnimRobots();
+  // Draw strokes
+  for(const stroke of drawStrokes){
+    ctx.beginPath();ctx.strokeStyle=stroke.color;ctx.lineWidth=3*devicePixelRatio;ctx.globalAlpha=0.8;
+    const[sx,sy]=fieldToCanvas(stroke.pts[0].x,stroke.pts[0].y);ctx.moveTo(sx,sy);
+    for(let i=1;i<stroke.pts.length;i++){const[px,py]=fieldToCanvas(stroke.pts[i].x,stroke.pts[i].y);ctx.lineTo(px,py);}
+    ctx.stroke();ctx.globalAlpha=1;
+  }
+  // Active draw stroke
+  if(drawActive&&drawPts.length>1){
+    ctx.beginPath();ctx.strokeStyle='#f59e0b';ctx.lineWidth=3*devicePixelRatio;ctx.globalAlpha=0.8;
+    const[sx,sy]=fieldToCanvas(drawPts[0].x,drawPts[0].y);ctx.moveTo(sx,sy);
+    for(let i=1;i<drawPts.length;i++){const[px,py]=fieldToCanvas(drawPts[i].x,drawPts[i].y);ctx.lineTo(px,py);}
+    ctx.stroke();ctx.globalAlpha=1;
+  }
+}
+
+function drawSegRange(wp,min,max,color,width){
+  const cm=Math.max(0,min),cx=Math.min(wp.length-1,max);if(cx<=cm)return;
+  ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=width;
+  for(let i=0;i<=30;i++){const pos=cm+(cx-cm)*(i/30);const pt=ptAtPos(wp,pos);const[x,y]=fieldToCanvas(pt.x,pt.y);
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();
+}
+
+function drawAnimRobots(){
+  const robots=[];
+  for(const slot of SLOTS){
+    const sd=slotData[slot];if(!sd.teamNum||!sd.autoName)continue;
+    const team=teams[sd.teamNum];if(!team)continue;
+    const auto=team.autos[sd.autoName];if(!auto)continue;
+    let elapsed=getSlotDelay(slot);
+    let lastPos=null;
+    const pathList=auto.paths, waitList=auto.waits||[];
+    for(let pi=0;pi<pathList.length;pi++){
+      const pName=pathList[pi];
+      const key=sd.teamNum+'_'+pName;
+      if(!pathSamples[key])pathSamples[key]=buildAnimData(pName,sd.teamNum);
+      const ad=pathSamples[key];if(!ad||!ad.length)continue;
+      const dur=ad[ad.length-1].time,lt=animTime-elapsed;
+      const pd=team.paths[pName];
+      const isRed=slot[0]==='r';
+      if(lt>=0&&lt<=dur){
+        const p=posAtTime(ad,lt);
+        let rot=pd?getRotAtPos(pd,p.pos):0;
+        let rx=p.x,ry=p.y;
+        if(isRed){const fp=flipPt(p.x,p.y);rx=fp.x;ry=fp.y;rot=flipRot(rot);}
+        robots.push({x:rx,y:ry,rot,color:sd.color,teamNum:sd.teamNum,bot:team.settings,pd,pos:p.pos,isRed});
+        lastPos=null;
+      } else if(lt>dur){
+        // Path finished - use goalEndState rotation
+        const p=posAtTime(ad,dur);
+        let rot=pd&&pd.end?pd.end.r:(pd?getRotAtPos(pd,p.pos):0);
+        let rx=p.x,ry=p.y;
+        if(isRed){const fp=flipPt(p.x,p.y);rx=fp.x;ry=fp.y;rot=flipRot(rot);}
+        lastPos={x:rx,y:ry,rot,color:sd.color,teamNum:sd.teamNum,bot:team.settings,isRed};
+      }
+      elapsed+=dur;
+      // Add wait time between paths (from auto command tree)
+      if(pi<waitList.length)elapsed+=waitList[pi];
+    }
+    if(lastPos&&animTime>0)robots.push(lastPos);
+  }
+  // Draw robots
+  for(const r of robots){
+    drawRobotBumper(r.x,r.y,r.rot,r.color,0.85,r.bot,r.teamNum);
+    // Flash event markers
+    if(r.pd)for(const em of(r.pd.em||[])){
+      if(Math.abs(r.pos-em.pos)<0.15){let ept=ptAtPos(r.pd.w,em.pos);if(r.isRed)ept=flipPt(ept.x,ept.y);const[mx,my]=fieldToCanvas(ept.x,ept.y);
+        ctx.beginPath();ctx.arc(mx,my,16*devicePixelRatio,0,Math.PI*2);ctx.fillStyle=r.color;
+        ctx.globalAlpha=0.3+0.3*Math.sin(Date.now()/100);ctx.fill();ctx.globalAlpha=1;}}
+  }
+  // Collision detection
+  const cr=Math.max(0.978,0.787)*0.6;
+  for(let i=0;i<robots.length;i++)for(let j=i+1;j<robots.length;j++){
+    const a=robots[i],b=robots[j];if(Math.hypot(a.x-b.x,a.y-b.y)<cr){
+      const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;const[cx,cy]=fieldToCanvas(mx,my);const wr=cr*0.5*camScale;
+      ctx.globalAlpha=0.6+0.3*Math.sin(Date.now()/150);ctx.beginPath();ctx.arc(cx,cy,wr,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,23,68,0.25)';ctx.fill();ctx.strokeStyle='#FF1744';ctx.lineWidth=3*devicePixelRatio;ctx.stroke();
+      ctx.fillStyle='#FF1744';ctx.font=`bold ${9*devicePixelRatio}px sans-serif`;ctx.textAlign='center';
+      ctx.fillText('COLLISION',cx,cy+wr+12*devicePixelRatio);ctx.globalAlpha=1;}}
+}
+
+// ============ STATION SLOT WIRING ============
+function updateSlot(slot){
+  const teamEl=document.getElementById(slot+'t'), autoEl=document.getElementById(slot+'a'), infoEl=document.getElementById(slot+'i');
+  const num=teamEl.value.trim(); slotData[slot].teamNum=num;
+  // Remember current selection before rebuilding dropdown
+  const prevAuto=autoEl.value||slotData[slot].autoName||'';
+  // Populate auto dropdown
+  autoEl.innerHTML='<option value="">—</option>';
+  if(num&&teams[num]){
+    const autos=Object.keys(teams[num].autos).sort();
+    for(const a of autos){autoEl.innerHTML+=`<option value="${a}">${a}</option>`;}
+    // Restore previous selection if it still exists in the new list
+    if(prevAuto&&autos.includes(prevAuto)){autoEl.value=prevAuto;slotData[slot].autoName=prevAuto;}
+    else{slotData[slot].autoName='';}
+    const t=teams[num];
+    infoEl.textContent=t.name+(t.epa?` | EPA: ${t.epa}`:'')+(t.autoEpa!=null?` | Auto: ${t.autoEpa.toFixed(1)}`:'')+(t.record?` | ${t.record}`:'');
+  }else if(num){
+    slotData[slot].autoName='';
+    infoEl.textContent='Team not loaded';
+  }else{slotData[slot].autoName='';infoEl.textContent='';}
+  updateLegend();draw();
+}
+function onAutoSelect(slot){
+  slotData[slot].autoName=document.getElementById(slot+'a').value;
+  pathSamples={};updateTotalTime();updateLegend();draw();
+  autoSaveMatchState();
+}
+// Wire all slots
+SLOTS.forEach(s=>{
+  document.getElementById(s+'t').onchange=()=>{updateSlot(s);lookupEpa(s);autoSaveMatchState();};
+  document.getElementById(s+'a').onchange=()=>onAutoSelect(s);
+  document.getElementById(s+'d').onchange=()=>{updateTotalTime();draw();autoSaveMatchState();};
+});
+
+// ============ AUTO-SAVE/RESTORE PER MATCH ============
+function getMatchStateKey(){return selectedMatchKey?'bb_match_'+selectedMatchKey:'bb_match_last';}
+
+function autoSaveMatchState(){
+  const state={};
+  SLOTS.forEach(s=>{state[s]={auto:document.getElementById(s+'a').value,delay:parseFloat(document.getElementById(s+'d').value)||0};});
+  state.strokes=drawStrokes;
+  try{localStorage.setItem(getMatchStateKey(),JSON.stringify(state));}catch(e){}
+  // Also save which match is selected
+  try{localStorage.setItem('bb_selectedMatch',selectedMatchKey);localStorage.setItem('bb_currentEvent',currentEvent);}catch(e){}
+}
+
+function autoRestoreMatchState(){
+  try{
+    const saved=localStorage.getItem(getMatchStateKey());
+    if(!saved)return;
+    const state=JSON.parse(saved);
+    SLOTS.forEach(s=>{
+      if(state[s]){
+        if(state[s].auto){document.getElementById(s+'a').value=state[s].auto;onAutoSelect(s);}
+        if(state[s].delay!=null)document.getElementById(s+'d').value=state[s].delay;
+      }
+    });
+    if(state.strokes)drawStrokes=state.strokes;
+    pathSamples={};updateTotalTime();updateLegend();draw();
+  }catch(e){}
+}
+
+function updateLegend(){
+  const leg=document.getElementById('legend');leg.innerHTML='';
+  for(const s of SLOTS){const sd=slotData[s];if(!sd.teamNum||!sd.autoName)continue;
+    leg.innerHTML+=`<div class="li"><div class="ld" style="background:${sd.color}"></div>${sd.teamNum}: ${sd.autoName}</div>`;}
+}
+// Per-station delay from the delay input
+function getSlotDelay(slot){return parseFloat(document.getElementById(slot+'d')?.value||0)||0;}
+
+function updateTotalTime(){
+  totalTime=0;
+  for(const s of SLOTS){const sd=slotData[s];if(!sd.teamNum||!sd.autoName)continue;
+    const team=teams[sd.teamNum];if(!team)continue;const auto=team.autos[sd.autoName];if(!auto)continue;
+    let t=getSlotDelay(s);
+    for(const pn of auto.paths){const k=sd.teamNum+'_'+pn;if(!pathSamples[k])pathSamples[k]=buildAnimData(pn);
+      const ad=pathSamples[k];if(ad&&ad.length)t+=ad[ad.length-1].time;}
+    for(const w of(auto.waits||[]))t+=w; totalTime=Math.max(totalTime,t);}
+  totalTime=Math.max(totalTime,20); // 2026 auto period is 20s
+  document.getElementById('timeDisp').textContent=`0.00s / ${totalTime.toFixed(2)}s`;
+}
+
+// ============ TBA FETCH ============
+const savedKey=localStorage.getItem('tba_key');if(savedKey)document.getElementById('tbaKey').value=savedKey;
+document.getElementById('tbaKey').onchange=e=>localStorage.setItem('tba_key',e.target.value);
+const savedTeamNum=localStorage.getItem('tba_team');if(savedTeamNum)document.getElementById('teamNumInput').value=savedTeamNum;
+document.getElementById('teamNumInput').onchange=e=>localStorage.setItem('tba_team',e.target.value);
+
+let allEvents=[], allMatches=[], currentEvent='';
+
+// Step 1: Enter team # + TBA key, hit Load -> populates event dropdown
+document.getElementById('loadEventsBtn').onclick=async()=>{
+  const key=document.getElementById('tbaKey').value.trim();
+  const teamNum=document.getElementById('teamNumInput').value.trim();
+  if(!key||!teamNum)return alert('Enter TBA key and team number');
+  localStorage.setItem('tba_key',key);
+  localStorage.setItem('tba_team',teamNum);
+  const evPicker=document.getElementById('eventPicker');
+  evPicker.innerHTML='<option value="">Loading events...</option>';
+  document.getElementById('matchList').innerHTML='<div style="padding:8px;color:#6b7280;text-align:center">Select an event</div>';
+  try{
+    const r=await fetch(`https://www.thebluealliance.com/api/v3/team/frc${teamNum}/events/2026/simple`,{headers:{'X-TBA-Auth-Key':key}});
+    if(!r.ok)throw new Error('TBA: '+r.status);
+    allEvents=await r.json();
+    allEvents.sort((a,b)=>(a.start_date||'').localeCompare(b.start_date||''));
+    evPicker.innerHTML='<option value="">— Select event —</option>';
+    for(const ev of allEvents){
+      const dates=ev.start_date?` (${ev.start_date})`:'';
+      evPicker.innerHTML+=`<option value="${ev.key}">${ev.name}${dates}</option>`;
+    }
+  }catch(e){evPicker.innerHTML='<option value="">Failed to load</option>';alert('Failed: '+e.message);}
+};
+
+// Step 2: Pick event -> populates match dropdown
+document.getElementById('eventPicker').onchange=async()=>{
+  currentEvent=document.getElementById('eventPicker').value;
+  if(!currentEvent)return;
+  const key=document.getElementById('tbaKey').value.trim();
+  const teamNum=document.getElementById('teamNumInput').value.trim();
+  const list=document.getElementById('matchList');
+  list.innerHTML='<div style="padding:8px;color:#6b7280;text-align:center">Loading matches...</div>';
+  try{
+    const r=await fetch(`https://www.thebluealliance.com/api/v3/team/frc${teamNum}/event/${currentEvent}/matches/simple`,{headers:{'X-TBA-Auth-Key':key}});
+    if(!r.ok)throw new Error('TBA: '+r.status);
+    allMatches=await r.json();
+    allMatches.sort((a,b)=>{
+      const ord={qm:0,sf:1,f:2};
+      const at=a.comp_level||'qm',bt=b.comp_level||'qm';
+      if(at!==bt)return(ord[at]||0)-(ord[bt]||0);
+      if(a.set_number!==b.set_number)return a.set_number-b.set_number;
+      return a.match_number-b.match_number;
+    });
+    renderMatchList(teamNum);
+  }catch(e){list.innerHTML='<div style="padding:8px;color:#fca5a5;text-align:center">Failed to load matches</div>';}
+};
+
+function matchLabel(m){
+  const lvl=m.comp_level||'qm';
+  if(lvl==='qm')return`Qual ${m.match_number}`;
+  if(lvl==='sf')return`SF${m.set_number}-${m.match_number}`;
+  if(lvl==='f')return`Final ${m.match_number}`;
+  return m.key;
+}
+
+let selectedMatchKey='';
+
+function renderMatchList(teamNum){
+  const list=document.getElementById('matchList');
+  list.innerHTML='';
+  if(!allMatches.length){list.innerHTML='<div style="padding:8px;color:#6b7280;text-align:center">No matches found</div>';return;}
+  for(const m of allMatches){
+    const red=(m.alliances?.red?.team_keys||[]).map(k=>k.replace('frc',''));
+    const blue=(m.alliances?.blue?.team_keys||[]).map(k=>k.replace('frc',''));
+    const isRed=red.includes(teamNum);
+    const played=m.alliances?.red?.score>=0&&m.alliances?.blue?.score>=0;
+    const score=played?`${m.alliances.red.score}-${m.alliances.blue.score}`:'';
+    const el=document.createElement('div');
+    el.className='ml-item'+(m.key===selectedMatchKey?' sel':'')+(played?' done':'');
+    el.dataset.key=m.key;
+    el.innerHTML=`<div>
+      <div class="ml-label">${matchLabel(m)}${score?' <span style="color:#6b7280">('+score+')</span>':' <span style="color:#22c55e">Upcoming</span>'}</div>
+      <div class="ml-teams"><span style="color:${isRed?'#fca5a5':'#93c5fd'};font-weight:600">${isRed?'Red':'Blue'}</span>: ${isRed?red.join(', '):blue.join(', ')} vs ${isRed?blue.join(', '):red.join(', ')}</div>
+    </div>`;
+    el.onclick=()=>selectMatch(m.key,teamNum);
+    list.appendChild(el);
+  }
+  // Scroll to first upcoming match
+  const upcoming=list.querySelector('.ml-item:not(.done)');
+  if(upcoming)upcoming.scrollIntoView({block:'nearest'});
+}
+
+function selectMatch(key,teamNum){
+  // Save current match state before switching
+  autoSaveMatchState();
+  selectedMatchKey=key;
+  const m=allMatches.find(x=>x.key===key);
+  if(!m)return;
+  // Highlight selected
+  document.querySelectorAll('.ml-item').forEach(el=>el.classList.toggle('sel',el.dataset.key===key));
+  // Fill teams from TBA
+  const red=(m.alliances?.red?.team_keys||[]).map(k=>k.replace('frc',''));
+  const blue=(m.alliances?.blue?.team_keys||[]).map(k=>k.replace('frc',''));
+  ['r1','r2','r3'].forEach((s,i)=>{document.getElementById(s+'t').value=red[i]||'';updateSlot(s);});
+  ['b1','b2','b3'].forEach((s,i)=>{document.getElementById(s+'t').value=blue[i]||'';updateSlot(s);});
+  // Restore saved state first, THEN lookup EPAs (which won't clobber dropdowns)
+  autoRestoreMatchState();
+  // EPA lookups are async - they update info text but won't rebuild dropdowns now
+  Promise.all(SLOTS.map(s=>lookupEpa(s))).then(()=>autoRestoreMatchState());
+}
+
+// ============ STATBOTICS EPA ============
+async function lookupEpa(slot){
+  const num=slotData[slot].teamNum;if(!num)return;
+  try{
+    const r=await fetch(`https://api.statbotics.io/v3/team/${num}`);if(!r.ok)return;
+    const d=await r.json();
+    if(!teams[num]){teams[num]={name:d.name||'',settings:DEFAULT_ROBOT,autos:{},paths:{},epa:null,record:'',autoEpa:null};addDefaultsToTeam(teams[num]);}
+    teams[num].name=d.name||teams[num].name; teams[num].epa=d.norm_epa?.current||0;
+    teams[num].record=`${d.wins||0}-${d.losses||0}`;
+    // Try event-specific stats for auto EPA breakdown
+    const ev=currentEvent;
+    if(ev){
+      try{
+        const r2=await fetch(`https://api.statbotics.io/v3/team_event/${num}/${ev}`);
+        if(r2.ok){
+          const d2=await r2.json();
+          teams[num].autoEpa=d2.epa?.auto_points||d2.epa?.breakdown?.auto_points||null;
+          if(d2.record)teams[num].record=`${d2.record.wins||0}-${d2.record.losses||0}-${d2.record.ties||0}`;
+        }
+      }catch(e2){}
+    }
+    updateSlot(slot);updateRoster();computeWinProb();
+  }catch(e){}
+}
+function computeWinProb(){
+  let re=0,rc=0,be=0,bc=0;
+  ['r1','r2','r3'].forEach(s=>{const n=slotData[s].teamNum;if(n&&teams[n]&&teams[n].epa){re+=teams[n].epa;rc++;}});
+  ['b1','b2','b3'].forEach(s=>{const n=slotData[s].teamNum;if(n&&teams[n]&&teams[n].epa){be+=teams[n].epa;bc++;}});
+  const wp=document.getElementById('wpArea');
+  if(rc>0&&bc>0){
+    const ra=re/rc,ba=be/bc,rp=1/(1+Math.exp(-(ra-ba)/50));
+    wp.style.display='block';
+    wp.innerHTML=`<div class="wp-labels"><span style="color:#dc2626;font-weight:700">RED ${(rp*100).toFixed(0)}%</span><span style="color:#2563eb;font-weight:700">${((1-rp)*100).toFixed(0)}% BLUE</span></div>
+      <div class="wp-bar"><div class="wp-r" style="width:${rp*100}%"></div><div class="wp-b" style="width:${(1-rp)*100}%"></div></div>
+      <div class="wp-labels"><span style="color:#6b7280">Avg EPA: ${ra.toFixed(0)}</span><span style="color:#6b7280">Avg EPA: ${ba.toFixed(0)}</span></div>`;
+  }else{wp.style.display='none';}
+}
+
+// ============ TEAM ROSTER ============
+function updateRoster(){
+  const el=document.getElementById('teamRoster');el.innerHTML='';
+  for(const[num,t]of Object.entries(teams).sort((a,b)=>a[0]-b[0])){
+    const ac=Object.keys(t.autos).length;
+    el.innerHTML+=`<div class="team-item"><span class="team-num">${num}</span><span class="team-name">${t.name||''}</span><span class="team-ct">${ac} autos</span></div>`;
+  }
+}
+
+// ============ FOLDER IMPORT ============
+function parseSettingsJson(data){
+  return{
+    w:data.robotWidth||0.9, h:data.robotLength||0.8,
+    modules:[{x:data.flModuleX||0,y:data.flModuleY||0},{x:data.frModuleX||0,y:data.frModuleY||0},{x:data.blModuleX||0,y:data.blModuleY||0},{x:data.brModuleX||0,y:data.brModuleY||0}],
+    features:(data.robotFeatures||[]).map(raw=>{
+      const f=typeof raw==='string'?JSON.parse(raw):raw;const d=f.data||{};
+      if(f.type==='circle')return{name:f.name||'',type:'circle',cx:d.center?.x||0,cy:d.center?.y||0,radius:d.radius||0,strokeWidth:d.strokeWidth||0.01,filled:!!d.filled};
+      return{name:f.name||'',type:'rounded_rect',cx:d.center?.x||0,cy:d.center?.y||0,width:d.size?.width||0,length:d.size?.length||0,borderRadius:d.borderRadius||0,strokeWidth:d.strokeWidth||0.02,filled:!!d.filled};
+    })
+  };
+}
+function parsePath(data){
+  const wp=(data.waypoints||[]).map(w=>{const e={x:w.anchor.x,y:w.anchor.y};if(w.nextControl)e.nc={x:w.nextControl.x,y:w.nextControl.y};if(w.prevControl)e.pc={x:w.prevControl.x,y:w.prevControl.y};return e;});
+  const gc=data.globalConstraints||{};
+  const em=(data.eventMarkers||[]).map(m=>({name:m.name||'',pos:m.waypointRelativePos||0,cmd:m.command?.data?.name||''}));
+  const cz=(data.constraintZones||[]).map(z=>({name:z.name||'',min:z.minWaypointRelativePos||0,max:z.maxWaypointRelativePos||0,maxVel:z.constraints?.maxVelocity||2}));
+  const ptz=(data.pointTowardsZones||[]).map(p=>({name:p.name||'',tx:p.fieldPosition?.x||0,ty:p.fieldPosition?.y||0,min:p.minWaypointRelativePos||0,max:p.maxWaypointRelativePos||0}));
+  const rt=(data.rotationTargets||[]).map(r=>({pos:r.waypointRelativePos||0,rot:r.rotationDegrees||0}));
+  const gs=data.goalEndState||{},is=data.idealStartingState||{};
+  return{w:wp,mv:gc.maxVelocity||2,ma:gc.maxAcceleration||3,em,cz,ptz,rt,end:{v:gs.velocity||0,r:gs.rotation||0},start:{v:is.velocity||0,r:is.rotation||0}};
+}
+function parseAuto(data){
+  const paths=[],cmds=[],waits=[];
+  const walk=cmd=>{const t=cmd.type||'',d=cmd.data||{};
+    if(t==='path')paths.push(d.pathName||'');else if(t==='named')cmds.push(d.name||'');else if(t==='wait')waits.push(d.waitTime||0);
+    for(const s of(d.commands||[]))walk(s);};
+  walk(data.command||{});
+  return{folder:data.folder||'',paths,cmds,waits};
+}
+
+// Handle folder upload via webkitdirectory
+document.getElementById('fileIn').onchange=e=>handleFolderFiles(e.target.files);
+// Handle flat file upload
+document.getElementById('fileInFlat').onchange=e=>{
+  const num=prompt('Team number for these files:');if(!num)return;
+  importFilesForTeam(num,[...e.target.files]);
+};
+
+function handleFolderFiles(fileList){
+  // Group by top-level folder (team number)
+  const byTeam={};
+  for(const f of fileList){
+    const parts=f.webkitRelativePath.split('/');
+    const teamNum=parts[0]||'unknown';
+    if(!byTeam[teamNum])byTeam[teamNum]=[];
+    byTeam[teamNum].push(f);
+  }
+  for(const[num,files]of Object.entries(byTeam))importFilesForTeam(num,files);
+}
+
+async function importFilesForTeam(teamNum,files){
+  if(!teams[teamNum]){teams[teamNum]={name:'',settings:{...DEFAULT_ROBOT},autos:{},paths:{},epa:null,record:''};addDefaultsToTeam(teams[teamNum]);}
+  const t=teams[teamNum];
+  for(const f of files){
+    try{
+      const text=await f.text();const data=JSON.parse(text);const name=f.name.replace(/\.(auto|path|json)$/,'');
+      if(f.name==='settings.json'||f.name.endsWith('settings.json')){t.settings=parseSettingsJson(data);}
+      else if(f.name.endsWith('.path')){t.paths[name]=parsePath(data);}
+      else if(f.name.endsWith('.auto')){t.autos[name]=parseAuto(data);}
+    }catch(e){console.warn('Skip',f.name,e);}
+  }
+  pathSamples={};updateRoster();
+  // Refresh any slot that has this team
+  SLOTS.forEach(s=>{if(slotData[s].teamNum===teamNum)updateSlot(s);});
+  draw();
+}
+
+// Drag and drop
+let dragCt=0;const dropOv=document.getElementById('dropOv');
+document.addEventListener('dragenter',e=>{e.preventDefault();dragCt++;dropOv.classList.add('vis');});
+document.addEventListener('dragleave',e=>{e.preventDefault();dragCt--;if(dragCt<=0){dropOv.classList.remove('vis');dragCt=0;}});
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',async e=>{
+  e.preventDefault();dropOv.classList.remove('vis');dragCt=0;
+  // Try to read as folder entries
+  const items=[...e.dataTransfer.items];
+  const folderEntries=[];
+  for(const item of items){
+    const entry=item.webkitGetAsEntry&&item.webkitGetAsEntry();
+    if(entry&&entry.isDirectory)folderEntries.push(entry);
+  }
+  if(folderEntries.length>0){
+    for(const dir of folderEntries){
+      const files=await readDirRecursive(dir);
+      importFilesForTeam(dir.name,files);
+    }
+  }else{
+    // Flat files - ask for team number
+    const files=[...e.dataTransfer.files];
+    if(files.length>0){const num=prompt('Team number for these files:');if(num)importFilesForTeam(num,files);}
+  }
+});
+
+function readDirRecursive(dirEntry){
+  return new Promise(resolve=>{
+    const files=[];
+    const reader=dirEntry.createReader();
+    const readBatch=()=>{
+      reader.readEntries(async entries=>{
+        if(entries.length===0){resolve(files);return;}
+        for(const entry of entries){
+          if(entry.isFile){const f=await new Promise(r=>entry.file(r));files.push(f);}
+          else if(entry.isDirectory){const sub=await readDirRecursive(entry);files.push(...sub);}
+        }
+        readBatch();
+      });
+    };
+    readBatch();
+  });
+}
+
+// ============ PENCIL DRAWING ============
+let drawPts=[];
+document.getElementById('drawBtn').onclick=()=>{drawMode=!drawMode;document.getElementById('drawBtn').classList.toggle('act',drawMode);canvas.style.cursor=drawMode?'crosshair':'default';};
+canvas.addEventListener('mousedown',e=>{if(!drawMode||e.button!==0)return;e.preventDefault();drawActive=true;
+  const[fx,fy]=canvasToField(e.offsetX*devicePixelRatio,e.offsetY*devicePixelRatio);drawPts=[{x:fx,y:fy}];});
+canvas.addEventListener('mousemove',e=>{if(!drawActive)return;
+  const[fx,fy]=canvasToField(e.offsetX*devicePixelRatio,e.offsetY*devicePixelRatio);
+  const last=drawPts[drawPts.length-1];if(Math.hypot(fx-last.x,fy-last.y)>0.05){drawPts.push({x:fx,y:fy});draw();}});
+canvas.addEventListener('mouseup',()=>{if(!drawActive)return;drawActive=false;
+  if(drawPts.length>2){drawStrokes.push({pts:[...drawPts],color:'#f59e0b'});autoSaveMatchState();}drawPts=[];draw();});
+
+document.getElementById('clrBtn').onclick=()=>{
+  drawStrokes=[];SLOTS.forEach(s=>{slotData[s].autoName='';document.getElementById(s+'a').value='';});
+  animTime=0;playing=false;document.getElementById('playBtn').innerHTML='&#9654;';
+  pathSamples={};updateLegend();draw();
+};
+
+// ============ HOVER TOOLTIPS ============
+canvas.addEventListener('mousemove',e=>{
+  if(drawActive)return;
+  const mx=e.offsetX*devicePixelRatio,my=e.offsetY*devicePixelRatio;const tt=document.getElementById('mtt');let found=false;
+  for(const slot of SLOTS){const sd=slotData[slot];if(!sd.teamNum||!sd.autoName)continue;
+    const team=teams[sd.teamNum];if(!team)continue;const auto=team.autos[sd.autoName];if(!auto)continue;
+    for(const pn of auto.paths){const pd=team.paths[pn];if(!pd)continue;
+      for(const em of(pd.em||[])){if(!em.name&&!em.cmd)continue;const pt=ptAtPos(pd.w,em.pos);const[cx,cy]=fieldToCanvas(pt.x,pt.y);
+        if(Math.hypot(mx-cx,my-cy)<14*devicePixelRatio){tt.style.display='block';tt.style.left=(e.clientX+12)+'px';tt.style.top=(e.clientY-10)+'px';
+          tt.textContent=`${em.cmd||em.name} (${pn} @ ${em.pos.toFixed(2)})`;found=true;break;}}
+      if(found)break;}if(found)break;}
+  if(!found)tt.style.display='none';
+});
+
+// ============ ANIMATION ============
+function animate(ts){
+  if(playing){if(lastFrame===0)lastFrame=ts;const dt=(ts-lastFrame)/1000*animSpeed;animTime+=dt;
+    if(animTime>totalTime)animTime=0;lastFrame=ts;
+    document.getElementById('scrubber').value=(animTime/totalTime)*1000;
+    document.getElementById('timeDisp').textContent=`${animTime.toFixed(2)}s / ${totalTime.toFixed(2)}s`;draw();}
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+document.getElementById('restartBtn').onclick=()=>{animTime=0;lastFrame=0;
+  document.getElementById('scrubber').value=0;
+  document.getElementById('timeDisp').textContent=`0.00s / ${totalTime.toFixed(2)}s`;draw();};
+document.getElementById('playBtn').onclick=()=>{playing=!playing;lastFrame=0;
+  document.getElementById('playBtn').innerHTML=playing?'&#9646;&#9646;':'&#9654;';};
+document.getElementById('scrubber').oninput=e=>{animTime=(e.target.value/1000)*totalTime;
+  document.getElementById('timeDisp').textContent=`${animTime.toFixed(2)}s / ${totalTime.toFixed(2)}s`;draw();};
+document.querySelectorAll('.spb').forEach(b=>{b.onclick=()=>{document.querySelectorAll('.spb').forEach(x=>x.classList.remove('act'));b.classList.add('act');animSpeed=parseFloat(b.dataset.speed);};});
+
+// ============ SCREENSHOT ============
+document.getElementById('screenshotBtn').onclick=()=>{
+  draw(); // ensure canvas is current
+  const link=document.createElement('a');
+  const ev=currentEvent;
+  const mk=selectedMatchKey;
+  const name=mk?`breadboard-${mk}.png`:(ev?`breadboard-${ev}.png`:'breadboard.png');
+  link.download=name;link.href=canvas.toDataURL('image/png');link.click();
+};
+
+// ============ SAVE/LOAD CONFIG ============
+document.getElementById('saveBtn').onclick=()=>{
+  const config={
+    event:currentEvent,
+    matchKey:selectedMatchKey,
+    slots:{},
+    strokes:drawStrokes
+  };
+  SLOTS.forEach(s=>{config.slots[s]={team:slotData[s].teamNum,auto:slotData[s].autoName,delay:getSlotDelay(s)};});
+  const blob=new Blob([JSON.stringify(config,null,2)],{type:'application/json'});
+  const link=document.createElement('a');
+  const ev=config.event||'match';
+  link.download=`breadboard-${ev}-config.json`;link.href=URL.createObjectURL(blob);link.click();
+  URL.revokeObjectURL(link.href);
+};
+document.querySelector('#loadIn').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const config=JSON.parse(await f.text());
+    if(config.event)currentEvent=config.event;
+    if(config.strokes)drawStrokes=config.strokes;
+    if(config.slots){
+      SLOTS.forEach(s=>{
+        if(config.slots[s]){
+          document.getElementById(s+'t').value=config.slots[s].team||'';
+          if(config.slots[s].delay!=null)document.getElementById(s+'d').value=config.slots[s].delay;
+          updateSlot(s);
+          if(config.slots[s].auto){
+            document.getElementById(s+'a').value=config.slots[s].auto;
+            onAutoSelect(s);
+          }
+        }
+      });
+    }
+    pathSamples={};updateTotalTime();updateLegend();draw();
+  }catch(err){alert('Failed to load config: '+err.message);}
+  e.target.value='';
+};
+
+// ============ TOUCH SUPPORT ============
+function touchToField(touch){
+  const rect=canvas.getBoundingClientRect();
+  const cx=(touch.clientX-rect.left)*devicePixelRatio;
+  const cy=(touch.clientY-rect.top)*devicePixelRatio;
+  return canvasToField(cx,cy);
+}
+canvas.addEventListener('touchstart',e=>{
+  if(!drawMode)return;e.preventDefault();
+  drawActive=true;const[fx,fy]=touchToField(e.touches[0]);drawPts=[{x:fx,y:fy}];
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  if(!drawActive)return;e.preventDefault();
+  const[fx,fy]=touchToField(e.touches[0]);
+  const last=drawPts[drawPts.length-1];
+  if(Math.hypot(fx-last.x,fy-last.y)>0.05){drawPts.push({x:fx,y:fy});draw();}
+},{passive:false});
+canvas.addEventListener('touchend',e=>{
+  if(!drawActive)return;e.preventDefault();drawActive=false;
+  if(drawPts.length>2){drawStrokes.push({pts:[...drawPts],color:'#f59e0b'});autoSaveMatchState();}drawPts=[];draw();
+},{passive:false});
+
+// ============ DEFAULT STARTING POSITIONS ============
+// Preset "autos" that just place the robot at common starting spots
+// These are available for any team that doesn't have PathPlanner files
+const DEFAULT_STARTS = {
+  'Default: Hub':           {folder:'Presets', paths:['_def_hub'],  cmds:[], waits:[]},
+  'Default: Left Trench':   {folder:'Presets', paths:['_def_lt'],   cmds:[], waits:[]},
+  'Default: Right Trench':  {folder:'Presets', paths:['_def_rt'],   cmds:[], waits:[]},
+};
+// Same start and end point so robot stays put. Facing toward hub (0 deg = +X toward red wall)
+const DEFAULT_PATHS = {
+  '_def_hub': {w:[{x:3.6,y:4.05},{x:3.6,y:4.05}], mv:0.1, ma:1, em:[], cz:[], ptz:[], rt:[], start:{v:0,r:0}, end:{v:0,r:0}},
+  '_def_lt':  {w:[{x:4.5,y:7.5},{x:4.5,y:7.5}],   mv:0.1, ma:1, em:[], cz:[], ptz:[], rt:[], start:{v:0,r:0}, end:{v:0,r:0}},
+  '_def_rt':  {w:[{x:4.5,y:0.5},{x:4.5,y:0.5}],   mv:0.1, ma:1, em:[], cz:[], ptz:[], rt:[], start:{v:0,r:0}, end:{v:0,r:0}},
+};
+
+// Only add defaults to teams with no real autos
+function addDefaultsToTeam(team){
+  // Count real autos (not defaults)
+  const realAutos=Object.keys(team.autos).filter(n=>!n.startsWith('Default: ')).length;
+  if(realAutos>0){
+    // Has real autos - remove any defaults that might have been added
+    for(const name of Object.keys(DEFAULT_STARTS))delete team.autos[name];
+    for(const name of Object.keys(DEFAULT_PATHS))delete team.paths[name];
+    return;
+  }
+  for(const[name,auto] of Object.entries(DEFAULT_STARTS))team.autos[name]=auto;
+  for(const[name,path] of Object.entries(DEFAULT_PATHS))team.paths[name]=path;
+}
+// Add to existing teams
+for(const t of Object.values(teams))addDefaultsToTeam(t);
+
+// ============ INIT ============
+updateRoster();
+resize();
+// Restore last session state
+try{
+  const lastMatch=localStorage.getItem('bb_selectedMatch');
+  const lastEvent=localStorage.getItem('bb_currentEvent');
+  if(lastEvent)currentEvent=lastEvent;
+  if(lastMatch)selectedMatchKey=lastMatch;
+  autoRestoreMatchState();
+}catch(e){}
+</script>
+</body>
+</html>

@@ -16,6 +16,7 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.math.filter.Debouncer;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
+import frc.robot.util.LoggedTunableNumber;
 import frc.robot.util.SparkConnection;
 import java.util.function.DoubleSupplier;
 
@@ -62,6 +63,10 @@ public class TurretIOSparkMax implements TurretIO {
 
   private double currentInsideAngleDegrees;
   private double currentOutsideAngleDegrees;
+  private static double constCurrentOutputLimit = 0.3;
+
+  private static final LoggedTunableNumber turretOutputLimit =
+      new LoggedTunableNumber("Tuning/Turret/outputLimit", constCurrentOutputLimit);
 
   public TurretIOSparkMax() {
     config = Constants.getRobotConfig();
@@ -100,7 +105,7 @@ public class TurretIOSparkMax implements TurretIO {
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pid(config.getTurretKp(), 0.0, config.getTurretKd())
-        .outputRange(-0.25, 0.25);
+        .outputRange(-constCurrentOutputLimit, constCurrentOutputLimit);
 
     // ========== HARDWARE SOFT LIMITS (Critical Safety Feature) ==========
     // These limits are enforced by the SparkMax itself, providing protection even
@@ -191,6 +196,9 @@ public class TurretIOSparkMax implements TurretIO {
 
   @Override
   public void updateInputs(TurretIOInputs inputs) {
+    if (LoggedTunableNumber.hasChanged(turretOutputLimit)) {
+      changeLimits(turretOutputLimit.get());
+    }
     // Update target angle (always, even if motor is disconnected)
     inputs.targetInsideAngleDeg = targetInsideDeg;
     inputs.targetOutsideAngleDeg = targetOutsideDeg;
@@ -215,10 +223,13 @@ public class TurretIOSparkMax implements TurretIO {
       ifOk(motorSpark, motorSpark::getOutputCurrent, (value) -> inputs.currentAmps = value);
       boolean motorOk = motorConnectedDebounce.calculate(!sparkStickyFault);
       motorConnection.update(motorOk);
+      inputs.connected = motorOk;
 
       if (!motorOk) {
         System.err.println("[TurretIOSparkMax] Spark Max disconnected!");
       }
+    } else {
+      inputs.connected = false;
     }
   }
 
@@ -249,20 +260,15 @@ public class TurretIOSparkMax implements TurretIO {
   }
 
   @Override
-  public double getOutsideTargetAngle() {
-    return targetOutsideDeg;
-  }
-
-  @Override
-  public double getOutsideCurrentAngle() {
-    return currentOutsideAngleDegrees;
-  }
-
-  @Override
   public void setTurretVolts(double volts) {
     if (volts > .5) volts = .5;
     // Convert degrees to motor rotations for the PID controller
     motorController.setSetpoint(volts, ControlType.kVoltage);
+  }
+
+  @Override
+  public void stop() {
+    motorSpark.stopMotor();
   }
 
   // --- Conversion helpers ---
@@ -276,5 +282,16 @@ public class TurretIOSparkMax implements TurretIO {
   /** Convert motor rotations to turret degrees */
   private double motorRotationsToDegrees(double rotations) {
     return rotations * 360.0 / totalGearRatio;
+  }
+
+  private void changeLimits(double outputTurretLimit) {
+    var motorConfig = new SparkMaxConfig();
+    motorConfig.closedLoop.outputRange(-outputTurretLimit, outputTurretLimit);
+    tryUntilOk(
+        motorSpark,
+        5,
+        () ->
+            motorSpark.configure(
+                motorConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters));
   }
 }

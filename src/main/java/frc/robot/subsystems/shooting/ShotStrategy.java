@@ -1,42 +1,31 @@
 package frc.robot.subsystems.shooting;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-
 /**
- * Strategy interface for computing hub shot parameters. Implementations provide different ways to
- * determine RPM, hood angle, and turret angle — from physics equations (Parametric), empirical
- * lookup tables (LUT), or a blend of both (Hybrid).
+ * Strategy interface for computing shot parameters. Implementations provide different ways to
+ * determine launcher RPM, hood angle, motivator RPM, and spindexer RPM for a given distance.
  *
- * <p>All strategies receive the same inputs and produce a {@link ShotCalculator.ShotResult}.
+ * <p>Strategies are pure distance→commands functions. Velocity compensation, turret alignment, and
+ * target selection are handled by the coordinator.
  */
 public interface ShotStrategy {
 
   /**
-   * Calculate shot parameters to hit the given target.
+   * Calculate shot parameters for a target at the given distance.
    *
-   * @param robotPose Current robot field pose
-   * @param fieldSpeeds Field-relative chassis speeds (for velocity compensation)
-   * @param target 3D target position (hub center)
-   * @param config Turret geometry config
-   * @param currentTurretAngleDeg Current turret angle for wrap optimization
-   * @param effectiveMinDeg Turret min angle limit
-   * @param effectiveMaxDeg Turret max angle limit
-   * @param hoodMinAngleDeg Hood min angle limit
-   * @param hoodMaxAngleDeg Hood max angle limit
-   * @return Shot result with RPM, hood angle, turret angle, etc.
+   * @param distanceM Horizontal distance from turret to target in meters
+   * @return Shot result with the 4 mechanical commands
    */
-  ShotCalculator.ShotResult calculateShot(
-      Pose2d robotPose,
-      ChassisSpeeds fieldSpeeds,
-      Translation3d target,
-      ShotCalculator.TurretConfig config,
-      double currentTurretAngleDeg,
-      double effectiveMinDeg,
-      double effectiveMaxDeg,
-      double hoodMinAngleDeg,
-      double hoodMaxAngleDeg);
+  ShotCalculator.ShotResult calculateShot(double distanceM);
+
+  /**
+   * Estimate the ball exit velocity for a given launcher RPM at a given distance. Used by the
+   * coordinator for velocity compensation (time-of-flight estimation).
+   *
+   * @param launcherRPM Launcher wheel RPM
+   * @param distanceM Horizontal distance to target in meters
+   * @return Estimated exit velocity in m/s
+   */
+  double estimateExitVelocity(double launcherRPM, double distanceM);
 
   /** Human-readable name for logging/dashboard. */
   String getName();

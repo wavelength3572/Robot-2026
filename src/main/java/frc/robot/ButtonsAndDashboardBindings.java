@@ -3,6 +3,8 @@ package frc.robot;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -11,6 +13,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OperatorInterface;
+import frc.robot.subsystems.climber.Climber;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.intake.Intake;
@@ -18,15 +21,14 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.motivator.Motivator;
 import frc.robot.subsystems.shooting.ShootingCoordinator;
 import frc.robot.subsystems.shooting.ShotCalculator;
-import frc.robot.subsystems.shooting.ShotVisualizer;
 import frc.robot.subsystems.spindexer.Spindexer;
 import frc.robot.subsystems.turret.Turret;
 import frc.robot.subsystems.vision.Vision;
-import frc.robot.util.BenchTestMetrics;
 import frc.robot.util.FuelSim;
 import frc.robot.util.LoggedTunableNumber;
 import java.util.HashSet;
 import java.util.Set;
+import org.littletonrobotics.junction.Logger;
 
 public class ButtonsAndDashboardBindings {
 
@@ -39,38 +41,36 @@ public class ButtonsAndDashboardBindings {
   private static Motivator motivator;
   private static Spindexer spindexer;
   private static Hood hood;
+  private static Climber climber;
   private static ShootingCoordinator shootingCoordinator;
-
-  // Intake bench test tunables
-  private static final LoggedTunableNumber testIntakeSpeed =
-      new LoggedTunableNumber("BenchTest/IntakePowerControl/Power", 0.8);
-  private static final LoggedTunableNumber testIntakeRPM =
-      new LoggedTunableNumber(
-          "BenchTest/IntakeVelocityControl/RollerRPM", Intake.ROLLER_INTAKE_RPM_DEPLOYED);
 
   // Per-subsystem tuning setpoints
   private static final LoggedTunableNumber tuningLauncherVelocity =
-      new LoggedTunableNumber("Tuning/Launcher/TuningVelocity", 1700.0);
+      new LoggedTunableNumber(
+          "Tuning/Launcher/TuningVelocity", Constants.getRobotConfig().getTuningLauncherVelocity());
   private static final LoggedTunableNumber tuningMotivatorVelocity =
-      new LoggedTunableNumber("Tuning/Motivator/TuningVelocity", 1000.0);
+      new LoggedTunableNumber(
+          "Tuning/Motivator/TuningVelocity",
+          Constants.getRobotConfig().getTuningMotivatorVelocity());
   private static final LoggedTunableNumber tuningSpindexerVelocity =
-      new LoggedTunableNumber("Tuning/Spindexer/TuningVelocity", 1000.0);
+      new LoggedTunableNumber(
+          "Tuning/Spindexer/TuningVelocity",
+          Constants.getRobotConfig().getTuningSpindexerVelocity());
   private static final LoggedTunableNumber tuningHoodAngle =
-      new LoggedTunableNumber("Tuning/Hood/TuningAngle", 15.0);
+      new LoggedTunableNumber(
+          "Tuning/Hood/TuningAngle", Constants.getRobotConfig().getTuningHoodAngle());
   private static final LoggedTunableNumber outsideTuningAngle =
-      new LoggedTunableNumber("Tuning/Turret/OutsideTuningAngle", 0.0);
+      new LoggedTunableNumber(
+          "Tuning/Turret/OutsideTuningAngle",
+          Constants.getRobotConfig().getTuningTurretOutsideAngle());
   private static final LoggedTunableNumber tuningIntakeDeployedVelocity =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/DeployedVelocity", 2000.0);
+      new LoggedTunableNumber(
+          "Tuning/Intake/IntakeRollers/DeployedVelocity",
+          Constants.getRobotConfig().getTuningIntakeDeployedVelocity());
   private static final LoggedTunableNumber tuningIntakeRetractRollerVelocity =
-      new LoggedTunableNumber("Tuning/Intake/IntakeRollers/RetractRollerVelocity", 1000.0);
-
-  // Preset field positions for simulation (label, x_meters, y_meters, rotation_degrees)
-  private static final String[][] PRESET_POSITIONS = {
-    {"DepotStart", "3.50", "6.00", "180.0"},
-    {"HPStart", "3.56", "0.65", "180.0"},
-    {"TrenchLeft", "3.52", "7.54", "-90.28"},
-    {"TrenchRight", "3.53", "0.58", "90.0"},
-  };
+      new LoggedTunableNumber(
+          "Tuning/Intake/IntakeRollers/RetractRollerVelocity",
+          Constants.getRobotConfig().getTuningIntakeRetractRollerVelocity());
 
   public ButtonsAndDashboardBindings() {}
 
@@ -90,7 +90,8 @@ public class ButtonsAndDashboardBindings {
       Motivator motivator,
       Spindexer spindexer,
       Hood hood,
-      ShootingCoordinator shootingCoordinator) {
+      ShootingCoordinator shootingCoordinator,
+      Climber climber) {
     ButtonsAndDashboardBindings.oi = operatorInterface;
     ButtonsAndDashboardBindings.drive = drive;
     ButtonsAndDashboardBindings.vision = vision;
@@ -101,6 +102,7 @@ public class ButtonsAndDashboardBindings {
     ButtonsAndDashboardBindings.spindexer = spindexer;
     ButtonsAndDashboardBindings.hood = hood;
     ButtonsAndDashboardBindings.shootingCoordinator = shootingCoordinator;
+    ButtonsAndDashboardBindings.climber = climber;
 
     configureDriverButtonBindings();
     configureOperatorButtonBindings();
@@ -127,11 +129,6 @@ public class ButtonsAndDashboardBindings {
               .withName("Toggle Vision"));
     }
 
-    // Intake bench test area
-    if (intake != null) {
-      configureIntakeBenchTest();
-    }
-
     // Simulation fuel management (available for any robot with a coordinator)
     if (shootingCoordinator != null) {
       SmartDashboard.putData(
@@ -145,10 +142,59 @@ public class ButtonsAndDashboardBindings {
               .withName("Toggle Outpost Barriers"));
     }
 
+    // Climber dashboard buttons (mirrors button box)
+    if (climber != null) {
+      SmartDashboard.putData(
+          "Sim/ClimberExtend", Commands.runOnce(climber::extend).withName("Climber Extend"));
+      SmartDashboard.putData(
+          "Sim/ClimberStow", Commands.runOnce(climber::stow).withName("Climber Stow"));
+      SmartDashboard.putData(
+          "Sim/ClimberClimb", Commands.runOnce(climber::climb).withName("Climber Climb"));
+    }
+
+    // Launcher RPM trim buttons (mirrors button box axis knob positions)
+    SmartDashboard.putData(
+        "Trim/SetMinus50",
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(-50.0))
+            .ignoringDisable(true)
+            .withName("Trim -50"));
+    SmartDashboard.putData(
+        "Trim/SetZero",
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(0.0))
+            .ignoringDisable(true)
+            .withName("Trim 0"));
+    SmartDashboard.putData(
+        "Trim/SetPlus75",
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(75.0))
+            .ignoringDisable(true)
+            .withName("Trim +75"));
+    SmartDashboard.putData(
+        "Trim/SetPlus150",
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(150.0))
+            .ignoringDisable(true)
+            .withName("Trim +150"));
+
+    // Turret angle trim buttons — nudge aim left/right by 0.5 deg, max +/- 3 deg
+    SmartDashboard.putData(
+        "Trim/TurretLeft",
+        Commands.runOnce(() -> ShootingCoordinator.trimLeft())
+            .ignoringDisable(true)
+            .withName("Turret Trim Left"));
+    SmartDashboard.putData(
+        "Trim/TurretRight",
+        Commands.runOnce(() -> ShootingCoordinator.trimRight())
+            .ignoringDisable(true)
+            .withName("Turret Trim Right"));
+    SmartDashboard.putData(
+        "Trim/TurretReset",
+        Commands.runOnce(() -> ShootingCoordinator.resetTurretTrim())
+            .ignoringDisable(true)
+            .withName("Turret Trim Reset"));
+    SmartDashboard.putNumber("Trim/TurretDeg", ShootingCoordinator.getTurretTrimDeg());
+
     // Coordinated shooting controls (requires coordinator and launcher)
     if (shootingCoordinator != null && launcher != null) {
       configureShootingControls();
-      configureLUTDevControls();
     }
 
     // Per-subsystem tuning run buttons (always, for all robot types)
@@ -166,12 +212,6 @@ public class ButtonsAndDashboardBindings {
     // immediately
     ShootingCommands.initTunables();
 
-    // === Auto Launch Command ===
-    // Auto-calculated trajectory - works for both sim and physical
-    SmartDashboard.putData(
-        "Match/SmartLaunch",
-        ShootingCommands.launchCommand(launcher, shootingCoordinator, motivator));
-
     // === Shot Preset Fire Buttons (mirrors button box, usable from dashboard) ===
     if (turret != null) {
       SmartDashboard.putData(
@@ -186,14 +226,69 @@ public class ButtonsAndDashboardBindings {
           "Shots/RightTrench/Fire",
           ShootingCommands.rightTrenchShotCommand(
               launcher, shootingCoordinator, motivator, turret, hood, spindexer));
-      SmartDashboard.putData(
-          "Shots/SmartLaunch/Fire",
-          ShootingCommands.smartLaunchCommand(
-              launcher, shootingCoordinator, motivator, turret, hood, spindexer));
-      SmartDashboard.putBoolean("Shots/SmartLaunch/SpeedLimitMode", false);
+      {
+        Set<Subsystem> dashSmartLaunchReqs = new HashSet<>();
+        dashSmartLaunchReqs.add(launcher);
+        dashSmartLaunchReqs.add(turret);
+        if (hood != null) dashSmartLaunchReqs.add(hood);
+        if (motivator != null) dashSmartLaunchReqs.add(motivator);
+        if (spindexer != null) dashSmartLaunchReqs.add(spindexer);
+        SmartDashboard.putData(
+            "Shots/SmartLaunch/Fire",
+            Commands.defer(
+                () ->
+                    ShootingCommands.smartLaunchDangerousCommand(
+                        launcher, shootingCoordinator, motivator, turret, hood, spindexer),
+                dashSmartLaunchReqs));
+      }
+      // Auto-track: toggle works while disabled; turret default command checks the flag
+      // TODO: Only enable auto-tracking when we are in the alliance zone AND we have
+      //       completed at least one smart launch. This avoids unnecessary turret movement
+      //       during intake cycles across the field.
+      SmartDashboard.setDefaultBoolean("Shots/AutoTrack/Enabled", false);
       SmartDashboard.putData(
           "Shots/AutoTrack/Toggle",
-          ShootingCommands.autoTrackCommand(shootingCoordinator, turret, hood));
+          Commands.runOnce(
+                  () -> {
+                    boolean current = SmartDashboard.getBoolean("Shots/AutoTrack/Enabled", false);
+                    SmartDashboard.putBoolean("Shots/AutoTrack/Enabled", !current);
+                  })
+              .ignoringDisable(true)
+              .withName("Toggle AutoTrack"));
+
+      // Turret default command: auto-track when flag is enabled, otherwise idle
+      turret.setDefaultCommand(
+          Commands.run(
+                  () -> {
+                    if (SmartDashboard.getBoolean("Shots/AutoTrack/Enabled", false)) {
+                      turret.setActivelyCommanded(true);
+                      if (shootingCoordinator.getCurrentShot() != null) {
+                        turret.setOutsideTurretAngle(
+                            shootingCoordinator.getCurrentTurretAngleDeg());
+                        boolean turretReady = turret.atTarget();
+                        boolean achievable = shootingCoordinator.isCurrentShotAchievable();
+                        boolean aimReady = turretReady && achievable;
+                        Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", aimReady);
+                        SmartDashboard.putString(
+                            "Match/Status/AutoTrackAimMode",
+                            achievable ? "Tracking" : "Out of Range");
+                        SmartDashboard.putBoolean("Match/Status/AutoTrackAimReady", aimReady);
+                      } else {
+                        Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", false);
+                      }
+                      Logger.recordOutput("SmartLaunch/AutoTrack/Active", true);
+                      SmartDashboard.putBoolean("Match/Status/AutoTracking", true);
+                    } else {
+                      turret.setActivelyCommanded(false);
+                      Logger.recordOutput("SmartLaunch/AutoTrack/Active", false);
+                      Logger.recordOutput("SmartLaunch/AutoTrack/AimReady", false);
+                      SmartDashboard.putBoolean("Match/Status/AutoTracking", false);
+                      SmartDashboard.putBoolean("Match/Status/AutoTrackAimReady", false);
+                      SmartDashboard.putString("Match/Status/AutoTrackAimMode", "Off");
+                    }
+                  },
+                  turret)
+              .withName("AutoTrackDefault"));
     }
 
     // Set fuel stored to 8 (works while disabled)
@@ -207,13 +302,6 @@ public class ButtonsAndDashboardBindings {
                 })
             .ignoringDisable(true)
             .withName("Set Fuel 8"));
-
-    // Reset metrics button (works while disabled)
-    SmartDashboard.putData(
-        "BenchTest/Shooting/ResetMetrics",
-        Commands.runOnce(() -> BenchTestMetrics.getInstance().reset())
-            .ignoringDisable(true)
-            .withName("Reset BenchTest Metrics"));
 
     System.out.println("[Shooting] Shooting controls configured on SmartDashboard");
   }
@@ -272,101 +360,7 @@ public class ButtonsAndDashboardBindings {
               .finallyDo(intake::stopRollers)
               .withName("Intake: Run at Tuning Velocity"));
     }
-
-    // Turret BenchTest buttons (kept separate from Tuning/)
-    if (turret != null) {
-      ShootingCommands.initTunables();
-      SmartDashboard.putData(
-          "BenchTest/Turret/SetOutsideAngle",
-          Commands.run(
-                  () ->
-                      turret.setOutsideTurretAngle(
-                          turret.flipOutsideAngle(
-                              ShootingCommands.getOutsideTurretAngleDeg().get())),
-                  turret)
-              .withName("Turret Outside SetAngle"));
-    }
-
-    if (turret != null) {
-      SmartDashboard.putData(
-          "BenchTest/Turret/HoldOutsideAngle",
-          Commands.run(
-                  () ->
-                      turret.holdOutsideTurretAngle(
-                          ShootingCommands.getOutsideTurretAngleDeg().get(),
-                          drive.getPose().getRotation().getDegrees()),
-                  turret)
-              .withName("Turret Outside SetAngle"));
-    }
-
-    if (turret != null) {
-      SmartDashboard.putData(
-          "BenchTest/Turret/SetInsideAngle",
-          Commands.run(
-                  () ->
-                      turret.setInsideTurretAngle_ONLY_FOR_TESTING(
-                          ShootingCommands.getInsideTurretAngleDeg().get()),
-                  turret)
-              .withName("Turret Inside SetAngle"));
-    }
-
-    if (turret != null) {
-      SmartDashboard.putData(
-          "BenchTest/Turret/SetVolts",
-          Commands.run(
-                  () -> turret.setTurretVolts(ShootingCommands.getTestTurretVolts().get()), turret)
-              .withName("Turret Set Volts"));
-    }
   }
-
-  /** Configure BenchTest intake areas: deploy, power control, and velocity control. */
-  private static void configureIntakeBenchTest() {
-    // Deploy/Retract
-    SmartDashboard.putData(
-        "BenchTest/Intake/Deploy",
-        Commands.runOnce(intake::deploy, intake).withName("Deploy Intake"));
-    SmartDashboard.putData(
-        "BenchTest/Intake/Retract",
-        Commands.runOnce(intake::retract, intake).withName("Retract Intake"));
-    SmartDashboard.putData("BenchTest/Intake/STOP", intake.stopAllCommand());
-
-    // Open-loop power control (hold to run, release to stop)
-    // Run button reads the Power slider live — adjust slider while running to
-    // change speed
-    SmartDashboard.putData(
-        "BenchTest/IntakePowerControl/Run",
-        Commands.run(() -> intake.setRollerSpeed(testIntakeSpeed.get()), intake)
-            .finallyDo(intake::stopRollers)
-            .withName("Run at Power"));
-    SmartDashboard.putData(
-        "BenchTest/IntakePowerControl/Run80%",
-        Commands.run(() -> intake.setRollerSpeed(Intake.ROLLER_INTAKE_SPEED), intake)
-            .finallyDo(intake::stopRollers)
-            .withName("Run 80% Power"));
-    SmartDashboard.putData(
-        "BenchTest/IntakePowerControl/Reverse60%",
-        Commands.run(() -> intake.setRollerSpeed(Intake.ROLLER_EJECT_SPEED), intake)
-            .finallyDo(intake::stopRollers)
-            .withName("Reverse 60%"));
-    SmartDashboard.putData(
-        "BenchTest/IntakePowerControl/HoldSlow10%",
-        Commands.run(() -> intake.setRollerSpeed(Intake.ROLLER_HOLD_SPEED), intake)
-            .finallyDo(intake::stopRollers)
-            .withName("Hold Slow 10%"));
-
-    // Closed-loop velocity control (hold to run, release to stop)
-    SmartDashboard.putData(
-        "BenchTest/IntakeVelocityControl/Run",
-        Commands.run(() -> intake.setRollerVelocity(testIntakeRPM.get()), intake)
-            .finallyDo(intake::stopRollers)
-            .withName("Run Velocity Control"));
-    SmartDashboard.putData(
-        "BenchTest/IntakeVelocityControl/DeployAndRun",
-        intake.deployAndRunCommand(testIntakeRPM::get));
-  }
-
-  /** Whether the what-if trajectory arc is currently displayed. */
-  private static boolean whatIfVisible = false;
 
   /**
    * Configure trajectory calculator controls on the dashboard. Two independent tools:
@@ -378,33 +372,6 @@ public class ButtonsAndDashboardBindings {
    * loop auto-computes the optimized trajectory, then read back the resulting RPM and hood angle.
    */
   private static void configureShotCalculator() {
-    // === What-If: hypothetical trajectory for arbitrary RPM + hood angle ===
-    SmartDashboard.putNumber("TrajectoryCalculators/WhatIf/RPM", 2500.0);
-    SmartDashboard.putNumber("TrajectoryCalculators/WhatIf/HoodAngleDeg", 13);
-
-    SmartDashboard.putData(
-        "TrajectoryCalculators/WhatIf/Toggle",
-        Commands.runOnce(
-                () -> {
-                  ShotVisualizer vis = shootingCoordinator.getVisualizer();
-                  if (vis == null) return;
-                  whatIfVisible = !whatIfVisible;
-                  if (whatIfVisible) {
-                    double rpm =
-                        SmartDashboard.getNumber("TrajectoryCalculators/WhatIf/RPM", 2500.0);
-                    double angleDeg =
-                        SmartDashboard.getNumber("TrajectoryCalculators/WhatIf/HoodAngleDeg", 45.0);
-                    double exitVelocity = ShotCalculator.calculateExitVelocityFromRPM(rpm);
-                    double launchAngleRad = Math.toRadians(angleDeg);
-                    double azimuth = vis.getCurrentAzimuthAngle();
-                    vis.updateWhatIfTrajectory(exitVelocity, launchAngleRad, azimuth);
-                  } else {
-                    vis.clearWhatIfTrajectory();
-                  }
-                })
-            .ignoringDisable(true)
-            .withName("Toggle What-If"));
-
     // === Distance: move robot to a distance from hub, read back the optimized shot
     // ===
     SmartDashboard.putNumber("TrajectoryCalculators/Distance/Inches", 118.0);
@@ -446,47 +413,6 @@ public class ButtonsAndDashboardBindings {
             .withName("Read Optimized Shot"));
   }
 
-  /** Configure LUT development mode controls for data collection. */
-  private static void configureLUTDevControls() {
-    // Record batch buttons — mark a hopper of fuel as success or miss
-    SmartDashboard.putData(
-        "LUTDev/RecordSuccess",
-        ShootingCommands.recordBatchCommand(shootingCoordinator, launcher, turret, hood, true));
-    SmartDashboard.putData(
-        "LUTDev/RecordMiss",
-        ShootingCommands.recordBatchCommand(shootingCoordinator, launcher, turret, hood, false));
-
-    // Override toggle — use manual RPM/hood values instead of auto-calculated
-    SmartDashboard.putBoolean("LUTDev/UseOverrides", false);
-
-    // Seed overrides from current physics-calculated shot (start tuning from the physics answer)
-    SmartDashboard.putData(
-        "LUTDev/SeedFromCalculated",
-        ShootingCommands.seedOverridesFromCalculatedCommand(shootingCoordinator));
-
-    // Data management
-    SmartDashboard.putData(
-        "LUTDev/ReloadLUT", ShootingCommands.reloadLUTCommand(shootingCoordinator));
-    SmartDashboard.putData(
-        "LUTDev/ClearData", ShootingCommands.clearLUTDataCommand(shootingCoordinator));
-    SmartDashboard.putData(
-        "LUTDev/UndoLast", ShootingCommands.undoLastLUTEntryCommand(shootingCoordinator));
-    SmartDashboard.putNumber("LUTDev/RemoveIndex", -1);
-    SmartDashboard.putData(
-        "LUTDev/RemoveEntry", ShootingCommands.removeLUTEntryCommand(shootingCoordinator));
-
-    // LUT dev mode continuous logging (toggle on/off)
-    if (turret != null) {
-      SmartDashboard.putData(
-          "LUTDev/DevMode", ShootingCommands.lutDevModeCommand(shootingCoordinator, turret));
-    }
-
-    // TODO: Re-record deleted LUT entry:
-    // 2.32m | RPM=2500 | Hood=16.8° | TOF=1.200s | Mot=1550 | Spx=325
-
-    System.out.println("[LUTDev] LUT development controls configured on SmartDashboard");
-  }
-
   /****************************** */
   /*** DRIVER BINDINGS ****** */
   /****************************** */
@@ -505,6 +431,47 @@ public class ButtonsAndDashboardBindings {
         .toggleOnTrue(
             DriveCommands.joystickDriveAtAngle(
                 drive, oi::getTranslateX, oi::getTranslateY, () -> Rotation2d.fromDegrees(90.0)));
+
+    // Pathfind to nearest tower pole — hold to follow path, release to stop.
+    // Re-pressing recalculates from current position.
+    // Auto-extends climber if operator hasn't already (within 1m, runs in parallel with driving).
+    // Gated on isNearAllianceTower so it only activates within 3m of a climb pose.
+    // Buttons 23 (left slider) and 24 (right slider) below the right axis, plus button 25.
+    Command poleAlignWithAutoExtend =
+        climber != null
+            ? Commands.parallel(
+                DriveCommands.pathfindToNearestPole(drive),
+                Commands.waitUntil(
+                        () ->
+                            drive
+                                    .getPose()
+                                    .getTranslation()
+                                    .getDistance(
+                                        DriveCommands.findNearestClimbPose(drive).getTranslation())
+                                <= Units.feetToMeters(
+                                    Constants.getRobotConfig().getClimberAutoExtendDistanceFeet()))
+                    .andThen(Commands.runOnce(climber::extend))
+                    .withName("AutoExtendClimber"))
+            : DriveCommands.pathfindToNearestPole(drive);
+    oi.getRightJoyLeftButton()
+        .and(() -> DriveCommands.isNearAllianceTower(drive))
+        .whileTrue(poleAlignWithAutoExtend);
+    oi.getRightJoyRightButton()
+        .and(() -> DriveCommands.isNearAllianceTower(drive))
+        .whileTrue(poleAlignWithAutoExtend);
+    oi.getRightJoyDownButton()
+        .and(() -> DriveCommands.isNearAllianceTower(drive))
+        .whileTrue(poleAlignWithAutoExtend);
+
+    // X-stance button (interlink button 13): while held, lock wheels in X pattern.
+    // Only activates when robot speed is below 1 m/s to prevent skidding.
+    oi.getLockWheels()
+        .and(
+            () -> {
+              ChassisSpeeds speeds = drive.getChassisSpeeds();
+              return Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond) < 1.0;
+            })
+        .whileTrue(Commands.run(() -> drive.stopWithX(), drive).withName("XStance"));
   }
 
   /****************************** */
@@ -515,19 +482,24 @@ public class ButtonsAndDashboardBindings {
     // Intake controls
     if (intake != null) {
       // Button 4: Deploy and run rollers while held; on release, stop rollers but stay deployed.
-      // Only commands deploy motion if not already deployed (avoids re-deploying causing a
-      // retract-then-extend glitch when the intake is already out).
+      // Also reciprocates the spindexer to keep fuel loose while intaking.
+      // Bound as separate commands so shooting can interrupt the spindexer without killing intake.
       oi.getButtonBox1Button4()
           .whileTrue(
               Commands.startEnd(
                   () -> {
-                    if (!intake.isAtOrPastDeployed()) {
-                      intake.deploy();
-                    }
+                    intake.deploy();
                     intake.setRollerVelocityWhenDeployed(tuningIntakeDeployedVelocity.get());
                   },
                   intake::stopRollers,
                   intake));
+      if (spindexer != null) {
+        // Only reciprocate spindexer when smart launch (Button 12) is NOT held,
+        // otherwise Button 4 steals the spindexer subsystem and cancels smart launch.
+        oi.getButtonBox1Button4()
+            .and(oi.getButtonBox1Button12().negate())
+            .whileTrue(spindexer.reciprocateCommand());
+      }
 
       // Button 3: Retract and run rollers while held; on release, stop rollers but stay retracted
       oi.getButtonBox1Button3()
@@ -552,15 +524,26 @@ public class ButtonsAndDashboardBindings {
       Command smartLaunchCmd =
           Commands.defer(
               () ->
-                  SmartDashboard.getBoolean("Shots/SmartLaunch/SpeedLimitMode", false)
-                      ? ShootingCommands.smartLaunchWithSpeedLimitCommand(
-                          launcher, shootingCoordinator, motivator, turret, hood, spindexer)
-                      : ShootingCommands.smartLaunchCommand(
-                          launcher, shootingCoordinator, motivator, turret, hood, spindexer),
+                  ShootingCommands.smartLaunchDangerousCommand(
+                      launcher, shootingCoordinator, motivator, turret, hood, spindexer),
               smartLaunchReqs);
       if (intake != null) {
-        smartLaunchCmd =
-            smartLaunchCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
+        // Rollers spin in all zones when intake is deployed (safety interlock handles retracted
+        // state)
+        Command rollerCmd =
+            intake.smartLaunchRollerCommand(
+                tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean);
+
+        // Agitation only in alliance zones — no need to jostle balls when passing
+        Command zoneGatedAgitation =
+            Commands.waitUntil(shootingCoordinator::isInAllianceZone)
+                .andThen(
+                    intake.agitateCommand(
+                        tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean))
+                .onlyWhile(shootingCoordinator::isInAllianceZone)
+                .repeatedly();
+
+        smartLaunchCmd = smartLaunchCmd.alongWith(zoneGatedAgitation, rollerCmd);
       }
       oi.getButtonBox1Button12().whileTrue(smartLaunchCmd);
 
@@ -570,11 +553,28 @@ public class ButtonsAndDashboardBindings {
       oi.getButtonBox1Button2().onFalse(Commands.runOnce(spindexer::deactivateUnclog));
     }
 
-    // Auto-tracking toggle: APAC right — turret/hood continuously track target
-    if (shootingCoordinator != null && turret != null) {
-      oi.getButtonBox1XAxisPositive()
-          .toggleOnTrue(ShootingCommands.autoTrackCommand(shootingCoordinator, turret, hood));
-    }
+    // Launcher RPM trim — button box 1 axis knob (4 positions)
+    // Axis values: -50 = (0,1), neutral = (0,-1), +50 = (-1,1), +100 = (1,1)
+    // Three positions share Y+=1, so we use combo triggers to distinguish them.
+    Trigger yPos = oi.getButtonBox1YAxisPositive(); // -50
+    Trigger yNeg = oi.getButtonBox1YAxisNegative(); // +75
+    Trigger xNeg = oi.getButtonBox1XAxisNegative(); // 0 spot
+    Trigger xPos = oi.getButtonBox1XAxisPositive(); // +125
+
+    // -50 RPM: Y+
+    yPos.onTrue(
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(-50.0)).ignoringDisable(true));
+    // X-
+    xNeg.onTrue(
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(0.0)).ignoringDisable(true));
+
+    // Y-
+    yNeg.onTrue(
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(75.0)).ignoringDisable(true));
+
+    // X+
+    xPos.onTrue(
+        Commands.runOnce(() -> ShootingCommands.setLauncherTrimRPM(125.0)).ignoringDisable(true));
 
     // Hub shot: Button 8 — fixed position launch for close-range hub shots
     if (launcher != null && turret != null) {
@@ -582,7 +582,12 @@ public class ButtonsAndDashboardBindings {
           ShootingCommands.hubShotCommand(
               launcher, shootingCoordinator, motivator, turret, hood, spindexer);
       if (intake != null) {
-        hubShotCmd = hubShotCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
+        hubShotCmd =
+            hubShotCmd.alongWith(
+                intake.agitateCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean),
+                intake.smartLaunchRollerCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
       oi.getButtonBox1Button8().whileTrue(hubShotCmd);
 
@@ -592,7 +597,11 @@ public class ButtonsAndDashboardBindings {
               launcher, shootingCoordinator, motivator, turret, hood, spindexer);
       if (intake != null) {
         leftTrenchCmd =
-            leftTrenchCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
+            leftTrenchCmd.alongWith(
+                intake.agitateCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean),
+                intake.smartLaunchRollerCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
       oi.getButtonBox1Button5().whileTrue(leftTrenchCmd);
 
@@ -602,9 +611,24 @@ public class ButtonsAndDashboardBindings {
               launcher, shootingCoordinator, motivator, turret, hood, spindexer);
       if (intake != null) {
         rightTrenchCmd =
-            rightTrenchCmd.alongWith(intake.agitateCommand(tuningIntakeDeployedVelocity::get));
+            rightTrenchCmd.alongWith(
+                intake.agitateCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean),
+                intake.smartLaunchRollerCommand(
+                    tuningIntakeDeployedVelocity::get, oi.getButtonBox1Button4()::getAsBoolean));
       }
       oi.getButtonBox1Button6().whileTrue(rightTrenchCmd);
+    }
+
+    // Turret lock — hold button 1 to lock turret in place (brake mode, no movement commands)
+    // Also check initial state so a held button at boot immediately locks the turret.
+    if (turret != null) {
+      Trigger turretLockTrigger = oi.getButtonBox1Button1();
+      turretLockTrigger.onTrue(Commands.runOnce(turret::lock));
+      turretLockTrigger.onFalse(Commands.runOnce(turret::unlock));
+      if (turretLockTrigger.getAsBoolean()) {
+        turret.lock();
+      }
     }
 
     // Spindexer feeding suppress - operator can hold to prevent feeding/launching.
@@ -613,17 +637,41 @@ public class ButtonsAndDashboardBindings {
       Trigger suppressTrigger = oi.getButtonBox1Button11();
       suppressTrigger.onTrue(Commands.runOnce(spindexer::suppressFeeding));
       suppressTrigger.onFalse(Commands.runOnce(spindexer::unsuppressFeeding));
+
+      // Auto-unclog toggle — off by default, enable from dashboard if needed
+      SmartDashboard.putBoolean("Tuning/Spindexer/AutoUnclog/Enabled", false);
+      SmartDashboard.putData(
+          "Tuning/Spindexer/AutoUnclog/Toggle",
+          Commands.runOnce(
+                  () -> {
+                    if (spindexer.isAutoUnclogEnabled()) {
+                      spindexer.disableAutoUnclog();
+                    } else {
+                      spindexer.enableAutoUnclog();
+                    }
+                    SmartDashboard.putBoolean(
+                        "Tuning/Spindexer/AutoUnclog/Enabled", spindexer.isAutoUnclogEnabled());
+                  })
+              .ignoringDisable(true)
+              .withName("Toggle AutoUnclog"));
     }
-    ;
+
+    // Turret aim trim — nudge aim CCW/CW by 0.5 deg per press, max +/- 3 deg
+    oi.getButtonBox1Button7()
+        .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimLeft()).ignoringDisable(true));
+    oi.getButtonBox1Button10()
+        .onTrue(Commands.runOnce(() -> ShootingCoordinator.trimRight()).ignoringDisable(true));
+
+    // Climber controls — no subsystem requirement to avoid canceling driver auto-align
+    // B9 tap: extend (from STOWED or CLIMBED, no-op if already extended)
+    // B9 hold 2s: stow (from EXTENDED only, deliberate action)
+    // B2-1: climb (from EXTENDED only)
+    if (climber != null) {
+      oi.getButtonBox1Button9().onTrue(Commands.runOnce(climber::extend));
+      oi.getButtonBox1Button9()
+          .debounce(Constants.getRobotConfig().getClimberStowHoldTimeSec())
+          .onTrue(Commands.runOnce(climber::stow));
+      oi.getButtonBox2Button1().onTrue(Commands.runOnce(climber::climb));
+    }
   }
-
-  /**
-   * Runs intake rollers at shooting RPM while a shooting command is active, but only when the
-   * intake is retracted. If the intake is deployed, does nothing so the normal roller speed is not
-   * interrupted.
-   */
-
-  // Climb Extend: button 7
-  // Climb(retract) : button 10
-  // Turret Lock: button 1
 }

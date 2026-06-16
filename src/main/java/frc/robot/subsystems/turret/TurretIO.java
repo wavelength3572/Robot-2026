@@ -15,6 +15,7 @@ public interface TurretIO {
     public double currentAmps = 0.0;
     public double motorPosition = 0.0;
     public double absEncoder = 0.0;
+    public boolean connected = true;
   }
 
   /** Updates the set of loggable inputs. */
@@ -26,14 +27,6 @@ public interface TurretIO {
   /** Set the target angle for the turret in degrees relative to robot front */
   public default void setInsideTurretAngle_ONLY_FOR_TESTING(double rotation) {}
 
-  public default double getOutsideTargetAngle() {
-    return 0.0;
-  }
-
-  public default double getOutsideCurrentAngle() {
-    return 0.0;
-  }
-
   /** Set the target angle for the turret in degrees relative to robot front */
   public default void setTurretVolts(double volts) {}
 
@@ -44,4 +37,7 @@ public interface TurretIO {
    * @param kD Derivative gain
    */
   public default void configurePID(double kP, double kD) {}
+
+  /** Stop motor output. Motor idle mode (brake) will hold position passively. */
+  public default void stop() {}
 }

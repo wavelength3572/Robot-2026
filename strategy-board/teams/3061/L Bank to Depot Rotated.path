@@ -1,0 +1,59 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 3.210984308131241,
+        "y": 7.41845934379458
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 2.150014265335235,
+        "y": 5.723495007132667
+      },
+      "isLocked": false,
+      "linkedName": "Left Bank 90 degrees"
+    },
+    {
+      "anchor": {
+        "x": 1.2,
+        "y": 6.0
+      },
+      "prevControl": {
+        "x": 2.2221540656205425,
+        "y": 6.0
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "Depot"
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.75,
+      "rotationDegrees": 180.0
+    }
+  ],
+  "constraintZones": [],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 3.5,
+    "maxAcceleration": 7.5,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 180.0
+  },
+  "reversed": false,
+  "folder": "[Unused] Depot Paths",
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": 0.0
+  },
+  "useDefaultConstraints": true
+}

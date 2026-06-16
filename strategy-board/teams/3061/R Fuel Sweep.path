@@ -1,0 +1,130 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 4.439727164887308,
+        "y": 0.6189561091340454
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 6.322586002372481,
+        "y": 0.6619928825622776
+      },
+      "isLocked": false,
+      "linkedName": "Right Starting Point"
+    },
+    {
+      "anchor": {
+        "x": 8.61429418742586,
+        "y": 3.351791221826809
+      },
+      "prevControl": {
+        "x": 9.30509272467903,
+        "y": 0.289258202567761
+      },
+      "nextControl": {
+        "x": 8.32232902535312,
+        "y": 4.646167079767273
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 7.3513552068473595,
+        "y": 3.1616405135520687
+      },
+      "prevControl": {
+        "x": 7.3513552068473595,
+        "y": 3.692125534950072
+      },
+      "nextControl": {
+        "x": 7.3513552068473595,
+        "y": 1.1174552213723898
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 3.188614457831325,
+        "y": 0.5599879518072293
+      },
+      "prevControl": {
+        "x": 6.758180219672991,
+        "y": 0.249628966253632
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "Right Bank"
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.2,
+      "rotationDegrees": 90.0
+    },
+    {
+      "waypointRelativePos": 1.0,
+      "rotationDegrees": 120.80700000000002
+    },
+    {
+      "waypointRelativePos": 2.0,
+      "rotationDegrees": 120.96375653207372
+    },
+    {
+      "waypointRelativePos": 2.7,
+      "rotationDegrees": 90.0
+    }
+  ],
+  "constraintZones": [
+    {
+      "name": "slow down to pickup",
+      "minWaypointRelativePos": 0.65,
+      "maxWaypointRelativePos": 1.2,
+      "constraints": {
+        "maxVelocity": 1.5,
+        "maxAcceleration": 7.5,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    },
+    {
+      "name": "slow down on the way back",
+      "minWaypointRelativePos": 2.25,
+      "maxWaypointRelativePos": 3.0,
+      "constraints": {
+        "maxVelocity": 2.5,
+        "maxAcceleration": 7.5,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 3.5,
+    "maxAcceleration": 7.5,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 90.0
+  },
+  "reversed": false,
+  "folder": "[UNUSED] Right Sweep",
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": 90.0
+  },
+  "useDefaultConstraints": true
+}

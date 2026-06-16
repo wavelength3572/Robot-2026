@@ -1,0 +1,127 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Right Over Bump"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "INTAKE"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Intake Fuel Right Blue"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "INTAKESTOP"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "SPINUP"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "UNCLOGAUTO"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Go to shoot right Blue"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 0.25
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "SHOOT"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 2.5
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "STOPSHOOT"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Shimmy Right"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 0.25
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "SHOOT"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 1.5
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "STOPSHOOT"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 0.25
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "SPINDOWN"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Go to outpost after right shoot"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": null,
+  "choreoAuto": false
+}

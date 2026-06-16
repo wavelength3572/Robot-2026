@@ -112,9 +112,10 @@ public final class VisionConstants {
   // Positions measured from robot center origin, converted inches → meters (×0.0254)
 
   // Center Rear camera (forward facing) - mounted at rear center, looking forward
+  // Moved 1.5" forward (toward intake) to clear climber
   public static Transform3d mainBotToCenterRearCam =
       new Transform3d(
-          -0.26538, // X: 10.448" to rear
+          -0.22728, // X: 8.948" to rear (was 10.448", shifted 1.5" forward for climber)
           -0.04445, // Y: 1.750" to the right
           0.52093, // Z: 20.509" up
           new Rotation3d(
@@ -122,9 +123,7 @@ public final class VisionConstants {
               Rotation2d.fromDegrees(-10).getRadians(), // Pitch 10° up from horizontal
               Rotation2d.fromDegrees(0).getRadians())); // Yaw: facing forward
 
-  // Right Front camera (rightward facing) - mounted at front right
-  // TODO: PDF says -83° yaw (7° toward front), but we changed to -97° (7° toward rear / inward)
-  //   to mirror LeftRear's inward offset. Confirm new mount angle with CAD person.
+  // Right Front camera (rightward facing) - mounted at front right, -97° yaw (7° inward)
   public static Transform3d mainBotToRightFrontCam =
       new Transform3d(
           0.23904, // X: 9.411" to front
@@ -145,6 +144,7 @@ public final class VisionConstants {
               0.0,
               Rotation2d.fromDegrees(-21).getRadians(), // Pitch 21° up from horizontal
               Rotation2d.fromDegrees(83).getRadians())); // Yaw: 83° left (7° toward front)
+  // NOTE: Yaw of 120° may be better for climbing visibility
 
   // Right Rear camera (rearward facing) - mounted at rear right
   public static Transform3d mainBotToRightRearCam =
@@ -156,6 +156,7 @@ public final class VisionConstants {
               0.0,
               Rotation2d.fromDegrees(-10).getRadians(), // Pitch 10° up from horizontal
               Rotation2d.fromDegrees(180).getRadians())); // Yaw: facing rearward
+  // NOTE: Yaw of 210° may be better for climbing visibility
 
   private VisionConstants() {}
 }

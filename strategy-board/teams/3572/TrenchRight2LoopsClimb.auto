@@ -1,0 +1,25 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "path",
+          "data": {
+            "pathName": "TrenchRight2LoopsClimb"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "ClimberClimb"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": "TrenchRight",
+  "choreoAuto": false
+}

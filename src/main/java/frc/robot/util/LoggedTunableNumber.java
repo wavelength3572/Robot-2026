@@ -127,7 +127,8 @@ public class LoggedTunableNumber {
   private static boolean isTuningMode() {
     // Enable tuning in REAL and SIM modes, but could be disabled for competition
     return Constants.currentMode == Constants.Mode.REAL
-        || Constants.currentMode == Constants.Mode.SIM;
+        || Constants.currentMode == Constants.Mode.SIM
+        || Constants.currentMode == Constants.Mode.PIT;
   }
 
   /** Gets the key for this tunable number. */

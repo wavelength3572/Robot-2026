@@ -1,0 +1,68 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 6.057489300998572,
+        "y": 3.6144935805991443
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 6.976516372714303,
+        "y": 1.1112894404098048
+      },
+      "isLocked": false,
+      "linkedName": "R Sweep Collect"
+    },
+    {
+      "anchor": {
+        "x": 3.188614457831325,
+        "y": 0.5599879518072293
+      },
+      "prevControl": {
+        "x": 7.172217309544603,
+        "y": 0.5084021474233895
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "Right Bank"
+    }
+  ],
+  "rotationTargets": [],
+  "constraintZones": [
+    {
+      "name": "slow down on the way back",
+      "minWaypointRelativePos": 0.4,
+      "maxWaypointRelativePos": 1,
+      "constraints": {
+        "maxVelocity": 2.5,
+        "maxAcceleration": 6.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 3.5,
+    "maxAcceleration": 7.5,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 90.0
+  },
+  "reversed": false,
+  "folder": "[UNUSED] Right Sweep",
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": 90.0
+  },
+  "useDefaultConstraints": true
+}
