@@ -284,10 +284,10 @@ public class ModuleIOSparkKraken implements ModuleIO {
             && driveVelocity.getStatus().isOK()
             && driveAppliedVoltsSignal.getStatus().isOK()
             && driveCurrentSignal.getStatus().isOK();
-    inputs.drivePositionRad = drivePosition.getValueAsDouble() * 2.0 * Math.PI;
-    inputs.driveVelocityRadPerSec = driveVelocity.getValueAsDouble() * 2.0 * Math.PI;
-    inputs.driveAppliedVolts = driveAppliedVoltsSignal.getValueAsDouble();
-    inputs.driveCurrentAmps = driveCurrentSignal.getValueAsDouble();
+    inputs.drivePositionRad = drivePosition.refresh().getValueAsDouble() * 2.0 * Math.PI;
+    inputs.driveVelocityRadPerSec = driveVelocity.refresh().getValueAsDouble() * 2.0 * Math.PI;
+    inputs.driveAppliedVolts = driveAppliedVoltsSignal.refresh().getValueAsDouble();
+    inputs.driveCurrentAmps = driveCurrentSignal.refresh().getValueAsDouble();
     inputs.driveConnected = driveConnectedDebounce.calculate(driveSignalsOk);
 
     // Update turn inputs (skip reads if motor is disconnected to prevent timeout delays)

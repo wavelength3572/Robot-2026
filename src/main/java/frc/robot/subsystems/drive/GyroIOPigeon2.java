@@ -54,12 +54,11 @@ public class GyroIOPigeon2 implements GyroIO {
     // since the odometry thread already reads gyro independently at 250Hz.
     inputs.connected =
         yaw.getStatus().isOK() && yawVelocity.getStatus().isOK() && accX.getStatus().isOK();
-    inputs.yawPosition = Rotation2d.fromDegrees(yaw.getValueAsDouble());
-    inputs.yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
-    inputs.pitchDeg = pitch.getValueAsDouble();
-    inputs.rollDeg = roll.getValueAsDouble();
-    accX.refresh();
-    inputs.accX = accX.getValueAsDouble();
+    inputs.yawPosition = Rotation2d.fromDegrees(yaw.refresh().getValueAsDouble());
+    inputs.yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.refresh().getValueAsDouble());
+    inputs.pitchDeg = pitch.refresh().getValueAsDouble();
+    inputs.rollDeg = roll.refresh().getValueAsDouble();
+    inputs.accX = accX.refresh().getValueAsDouble();
 
     inputs.odometryYawTimestamps =
         yawTimestampQueue.stream().mapToDouble((Double value) -> value).toArray();

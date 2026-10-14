@@ -28,7 +28,7 @@ import frc.robot.subsystems.drive.GyroIO;
 import frc.robot.subsystems.drive.GyroIOPigeon2;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
-import frc.robot.subsystems.drive.ModuleIOSpark;
+import frc.robot.subsystems.drive.ModuleIOSparkKraken;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.hood.HoodIO;
 import frc.robot.subsystems.hood.HoodIOSim;
@@ -120,10 +120,10 @@ public class RobotContainer {
             config.hasDrive()
                 ? new Drive(
                     new GyroIOPigeon2(),
-                    new ModuleIOSpark(0),
-                    new ModuleIOSpark(1),
-                    new ModuleIOSpark(2),
-                    new ModuleIOSpark(3),
+                    new ModuleIOSparkKraken(0),
+                    new ModuleIOSparkKraken(1),
+                    new ModuleIOSparkKraken(2),
+                    new ModuleIOSparkKraken(3),
                     turret)
                 : new Drive(
                     new GyroIO() {},

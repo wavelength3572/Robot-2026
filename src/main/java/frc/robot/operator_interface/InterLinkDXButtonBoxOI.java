@@ -46,7 +46,7 @@ public class InterLinkDXButtonBoxOI implements OperatorInterface {
 
   @Override
   public double getTranslateY() {
-    return -interLinkJoystick.getRawAxis(0);
+    return interLinkJoystick.getRawAxis(0);
   }
 
   @Override
