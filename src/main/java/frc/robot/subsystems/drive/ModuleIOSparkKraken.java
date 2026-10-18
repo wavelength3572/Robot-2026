@@ -161,7 +161,7 @@ public class ModuleIOSparkKraken implements ModuleIO {
     // TalonFX's own closed loop) report/operate directly in wheel rotations, so driveKp/driveKd
     // (tuned in volts per wheel-rad/sec on the Spark implementation) are scaled by 2*PI here.
     driveKrakenConfig = new TalonFXConfiguration();
-    driveKrakenConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
+    driveKrakenConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
     driveKrakenConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
     driveKrakenConfig.CurrentLimits.SupplyCurrentLimit = driveMotorCurrentLimit;
     driveKrakenConfig.CurrentLimits.SupplyCurrentLimitEnable = true;

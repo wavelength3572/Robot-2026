@@ -42,10 +42,10 @@ public class MainBotConfig implements RobotConfig {
 
   // CAN IDs
   private static final int pigeonCanId = 19;
-  private static final int frontLeftDriveCanId = 11;
-  private static final int frontRightDriveCanId = 21;
-  private static final int backLeftDriveCanId = 31;
-  private static final int backRightDriveCanId = 41;
+  private static final int frontLeftDriveCanId = 21;
+  private static final int frontRightDriveCanId = 11;
+  private static final int backLeftDriveCanId = 41;
+  private static final int backRightDriveCanId = 31;
   private static final int frontLeftTurnCanId = 12;
   private static final int frontRightTurnCanId = 22;
   private static final int backLeftTurnCanId = 32;
