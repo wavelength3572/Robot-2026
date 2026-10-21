@@ -16,6 +16,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.commands.AutoWrapperFactory;
+import frc.robot.commands.DriveCommands;
 import frc.robot.commands.ShootingCommands;
 import frc.robot.operator_interface.OISelector;
 import frc.robot.operator_interface.OperatorInterface;
@@ -1060,6 +1061,9 @@ public class RobotContainer {
     if (competitionMode) {
       SendableChooser<Command> sendable = new SendableChooser<>();
       sendable.setDefaultOption("None", Commands.none());
+      sendable.addOption(
+          "[Util] Drive Simple FF Characterization",
+          DriveCommands.feedforwardCharacterizationDrive(drive));
       autoFolderMap.entrySet().stream()
           .filter(e -> !"Retired".equals(e.getValue()))
           // .filter(e -> !e.getKey().toLowerCase().contains("climb"))
@@ -1081,6 +1085,9 @@ public class RobotContainer {
       // Practice mode: include all autos (retired included and properly wrapped)
       SendableChooser<Command> sendable = new SendableChooser<>();
       sendable.setDefaultOption("None", Commands.none());
+      sendable.addOption(
+          "[Util] Drive Simple FF Characterization",
+          DriveCommands.feedforwardCharacterizationDrive(drive));
       autoFolderMap.entrySet().stream()
           // .filter(e -> !e.getKey().toLowerCase().contains("climb"))
           .sorted(Map.Entry.comparingByKey())
@@ -1100,26 +1107,11 @@ public class RobotContainer {
       LoggedDashboardChooser<Command> chooser =
           new LoggedDashboardChooser<>("Auto Choices", sendable);
 
+      chooser.addOption(
+          "[Util] Drive Simple FF Characterization",
+          DriveCommands.feedforwardCharacterizationDrive(drive));
+
       // Add SysId routines only on real robot (not in simulation)
-      // if (Constants.currentMode != Constants.Mode.SIM) {
-      // chooser.addOption(
-      //     "[Util] Drive Wheel Radius Characterization",
-      //     DriveCommands.wheelRadiusCharacterization(drive));
-      // chooser.addOption(
-      //     "[Util] Drive Simple FF Characterization",
-      //     DriveCommands.feedforwardCharacterizationDrive(drive));
-      // //   chooser.addOption(
-      //       "[Util] Drive SysId (Quasistatic Forward)",
-      //       drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
-      //   chooser.addOption(
-      //       "[Util] Drive SysId (Quasistatic Reverse)",
-      //       drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
-      //   chooser.addOption(
-      //       "[Util] Drive SysId (Dynamic Forward)",
-      //       drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
-      //   chooser.addOption(
-      //       "[Util] Drive SysId (Dynamic Reverse)",
-      //       drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
       //   if (launcher != null) {
       //     chooser.addOption(
