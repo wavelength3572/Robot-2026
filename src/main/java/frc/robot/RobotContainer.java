@@ -499,34 +499,35 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     Command selectedAuto = autoChooser.get();
-    if (selectedAuto == null) return null;
+    return selectedAuto;
+    // if (selectedAuto == null) return null;
 
-    String displayName = autoChooser.getSendableChooser().getSelected();
-    if (displayName == null) return selectedAuto;
+    // String displayName = autoChooser.getSendableChooser().getSelected();
+    // if (displayName == null) return selectedAuto;
 
-    // Resolve display name → raw auto name for PathPlanner lookup
-    String rawName = displayToAutoName.getOrDefault(displayName, displayName);
-    edu.wpi.first.math.geometry.Pose2d startingPose = resolveStartingPose(rawName);
+    // // Resolve display name → raw auto name for PathPlanner lookup
+    // String rawName = displayToAutoName.getOrDefault(displayName, displayName);
+    // edu.wpi.first.math.geometry.Pose2d startingPose = resolveStartingPose(rawName);
 
-    // Read strategies directly — choosers always have concrete values
-    AutoWrapperFactory.StartStrategy startStrategy = startStrategyChooser.getSelected();
-    AutoWrapperFactory.PathShootingStrategy pathStrategy = pathShootingChooser.getSelected();
-    if (startStrategy == null) startStrategy = defaultStartStrategy(rawName);
-    if (pathStrategy == null) pathStrategy = defaultPathShootingStrategy(rawName);
+    // // Read strategies directly — choosers always have concrete values
+    // AutoWrapperFactory.StartStrategy startStrategy = startStrategyChooser.getSelected();
+    // AutoWrapperFactory.PathShootingStrategy pathStrategy = pathShootingChooser.getSelected();
+    // if (startStrategy == null) startStrategy = defaultStartStrategy(rawName);
+    // if (pathStrategy == null) pathStrategy = defaultPathShootingStrategy(rawName);
 
-    return AutoWrapperFactory.compWrapped(
-        selectedAuto,
-        startingPose,
-        startStrategy,
-        pathStrategy,
-        drive,
-        intake,
-        launcher,
-        shootingCoordinator,
-        motivator,
-        turret,
-        hood,
-        spindexer);
+    // return AutoWrapperFactory.compWrapped(
+    //     selectedAuto,
+    //     startingPose,
+    //     startStrategy,
+    //     pathStrategy,
+    //     drive,
+    //     intake,
+    //     launcher,
+    //     shootingCoordinator,
+    //     motivator,
+    //     turret,
+    //     hood,
+    //     spindexer);
   }
 
   /**

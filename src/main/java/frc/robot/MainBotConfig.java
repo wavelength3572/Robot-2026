@@ -35,10 +35,10 @@ public class MainBotConfig implements RobotConfig {
       };
 
   // Module zero rotations (needs calibration for MainBot)
-  private static final Rotation2d frontLeftZeroRotation = new Rotation2d(1.756408);
-  private static final Rotation2d frontRightZeroRotation = new Rotation2d(1.282408);
-  private static final Rotation2d backLeftZeroRotation = new Rotation2d(1.337631);
-  private static final Rotation2d backRightZeroRotation = new Rotation2d(1.969631);
+  private static final Rotation2d frontLeftZeroRotation = new Rotation2d(1.769);
+  private static final Rotation2d frontRightZeroRotation = new Rotation2d(1.299);
+  private static final Rotation2d backLeftZeroRotation = new Rotation2d(1.292);
+  private static final Rotation2d backRightZeroRotation = new Rotation2d(1.965);
 
   // CAN IDs
   private static final int pigeonCanId = 19;
@@ -71,8 +71,8 @@ public class MainBotConfig implements RobotConfig {
   // Drive PID configuration
   private static final double driveKp = 0.0;
   private static final double driveKd = 0.0;
-  private static final double driveKs = 0.15679;
-  private static final double driveKv = 0.13069;
+  private static final double driveKs = 0.15400;
+  private static final double driveKv = 0.12365;
   private static final double driveSimP = 0.05;
   private static final double driveSimD = 0.0;
   private static final double driveSimKs = 0.04307;
