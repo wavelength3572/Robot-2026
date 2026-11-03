@@ -1,17 +1,20 @@
 package frc.robot.subsystems.intake;
 
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.util.Color;
+import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.RobotConfig;
 import frc.robot.util.LoggedTunableNumber;
+import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
-import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.mechanism.LoggedMechanism2d;
+import org.littletonrobotics.junction.mechanism.LoggedMechanismLigament2d;
+import org.littletonrobotics.junction.mechanism.LoggedMechanismRoot2d;
 
 // TODO might need some sort of deploy sequence or intelligence to fix the backlash with respect to
 // deploy
@@ -36,18 +39,19 @@ public class Intake extends SubsystemBase {
   private static final LoggedTunableNumber deployExtendedPos;
   private static final LoggedTunableNumber deployRetractedPos;
   private static final LoggedTunableNumber deployTolerance;
+  private static final LoggedTunableNumber holdTolerance;
 
   // Tunable feedforward gains for deploy MAXMotion
   private static final LoggedTunableNumber deployKS;
   private static final LoggedTunableNumber deployKV;
 
-  // Tunable MAXMotion parameters for smooth deploy/retract
+  // Tunable MAXMotion parameters — separate sets for deploy vs retract
   private static final LoggedTunableNumber deployMaxVelocity;
   private static final LoggedTunableNumber deployMaxAcceleration;
+  private static final LoggedTunableNumber retractMaxVelocity;
+  private static final LoggedTunableNumber retractMaxAcceleration;
 
-  // Tunable output range limits (caps deploy PID duty cycle for safe tuning)
-  // Separate limits for deploy (forward) and retract (reverse) allow asymmetric control
-  // to account for gravity effects on the arm
+  // Output range safety limits (caps deploy PID duty cycle)
   private static final LoggedTunableNumber deployOutputLimit;
   private static final LoggedTunableNumber retractOutputLimit;
 
@@ -60,8 +64,13 @@ public class Intake extends SubsystemBase {
   // Agitation tunables
   private static final LoggedTunableNumber agitationFallTime;
   private static final LoggedTunableNumber agitationSpeedThreshold;
-  private static final LoggedTunableNumber agitationBurstPower;
-  private static final LoggedTunableNumber agitationBurstTime;
+  private static final LoggedTunableNumber agitationRetractTarget;
+  private static final LoggedTunableNumber agitationTimeoutSec;
+  private static final LoggedTunableNumber agitationCoastTimeSec;
+  private static final LoggedTunableNumber agitationRetractOutputLimit;
+  private static final LoggedTunableNumber agitationMaxVelocity;
+  private static final LoggedTunableNumber agitationMaxAcceleration;
+  private static final LoggedTunableNumber agitationStationaryDwellSec;
 
   static {
     RobotConfig config = Constants.getRobotConfig();
@@ -80,6 +89,7 @@ public class Intake extends SubsystemBase {
             "Tuning/Intake/IntakeDeploy/RetractedPosition",
             config.getIntakeDeployRetractedPosition());
     deployTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/Tolerance", 0.02);
+    holdTolerance = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/HoldTolerance", 0.0005);
     rollerKP =
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kP", config.getIntakeRollerKp());
     rollerKI =
@@ -90,27 +100,37 @@ public class Intake extends SubsystemBase {
         new LoggedTunableNumber("Tuning/Intake/IntakeRollers/kFF", config.getIntakeRollerKff());
     deployKS = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kS", config.getIntakeDeployKs());
     deployKV = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/kV", config.getIntakeDeployKv());
+    // Deploy motion profile
     deployMaxVelocity =
         new LoggedTunableNumber(
-            "Tuning/Intake/IntakeDeploy/MaxVelocity", config.getIntakeDeployMaxVelocity());
+            "Tuning/Intake/Deploy/MaxVelocity", config.getIntakeDeployMaxVelocity());
     deployMaxAcceleration =
         new LoggedTunableNumber(
-            "Tuning/Intake/IntakeDeploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
-    deployOutputLimit =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/DeployOutputLimit", 0.10);
-    retractOutputLimit =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RetractOutputLimit", .5);
-    rollerMinDeployPosition =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", 0.15);
-    deployBrakeTime = new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/BrakeTimeSec", 0.5);
-    agitationFallTime =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationFallTimeSec", 0.6);
+            "Tuning/Intake/Deploy/MaxAcceleration", config.getIntakeDeployMaxAcceleration());
+    deployOutputLimit = new LoggedTunableNumber("Tuning/Intake/Deploy/OutputLimit", 0.75);
+    deployBrakeTime = new LoggedTunableNumber("Tuning/Intake/Deploy/BrakeTimeSec", 0.5);
+    // Retract motion profile
+    retractMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Retract/MaxVelocity", 30);
+    retractMaxAcceleration = new LoggedTunableNumber("Tuning/Intake/Retract/MaxAcceleration", 50);
+    retractOutputLimit = new LoggedTunableNumber("Tuning/Intake/Retract/OutputLimit", .5);
+    // Agitation motion profile
+    agitationMaxVelocity = new LoggedTunableNumber("Tuning/Intake/Agitation/MaxVelocity", 25);
+    agitationMaxAcceleration =
+        new LoggedTunableNumber("Tuning/Intake/Agitation/MaxAcceleration", 40);
+    agitationRetractOutputLimit =
+        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractOutputLimit", 1.0);
+    agitationRetractTarget =
+        new LoggedTunableNumber("Tuning/Intake/Agitation/RetractTarget", 0.035);
+    agitationTimeoutSec = new LoggedTunableNumber("Tuning/Intake/Agitation/TimeoutSec", 0.6);
+    agitationCoastTimeSec = new LoggedTunableNumber("Tuning/Intake/Agitation/CoastTimeSec", 0.1);
+    agitationFallTime = new LoggedTunableNumber("Tuning/Intake/Agitation/FallTimeSec", 0.2);
     agitationSpeedThreshold =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationSpeedThresholdMps", 0.3);
-    agitationBurstPower =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationBurstPower", -0.3);
-    agitationBurstTime =
-        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/AgitationBurstTimeSec", 0.15);
+        new LoggedTunableNumber("Tuning/Intake/Agitation/SpeedThresholdMps", 0.05);
+    agitationStationaryDwellSec =
+        new LoggedTunableNumber("Tuning/Intake/Agitation/StationaryDwellSec", 2.0);
+    // Shared
+    rollerMinDeployPosition =
+        new LoggedTunableNumber("Tuning/Intake/IntakeDeploy/RollerMinDeployPosition", 0.05);
   }
 
   // Deploy positions (from config, used for soft limit init)
@@ -118,20 +138,64 @@ public class Intake extends SubsystemBase {
   private final double deployRetractedPosition;
   private final double deployExtendedPosition;
 
-  // Tracks whether we've commanded deploy (true) or retract (false)
+  // Tracks whether we've commanded deploy (true) or retract (false) — used for roller RPM selection
   private boolean deployCommanded = false;
+  private boolean movingFirstCycle =
+      false; // Skip deployAtTarget check on first cycle (stale inputs)
 
-  // Deploy settle state machine
+  // Deploy state machine
   private enum DeployState {
-    IDLE, // No motion in progress
-    MOVING, // PID driving to target
-    BRAKING, // At target, brake mode on for settling (deploy only)
-    HOLDING, // Retract: brake + small hold voltage; Deploy: coast, fully settled
-    AGITATE_SETTLING // Post-agitate: brake for fall time, then coast
+    RETRACTED,
+    DEPLOYING,
+    DEPLOY_SETTLING,
+    DEPLOYED,
+    RETRACTING,
+    AGITATING,
+    AGITATE_SETTLING
   }
 
-  private DeployState deployState = DeployState.IDLE;
+  /** Roller operating state. */
+  public enum RollerState {
+    IDLE,
+    INTAKING,
+    EJECTING,
+    SAFETY_LOCKED
+  }
+
+  private DeployState deployState = DeployState.RETRACTED;
   private final Timer brakeTimer = new Timer();
+  // ========== MECHANISM 2D VISUALIZATION ==========
+  // Canvas dimensions (meters) — side view of robot
+  private static final double MECH_CANVAS_WIDTH = 1.0;
+  private static final double MECH_CANVAS_HEIGHT = 0.6;
+  // Pivot at right edge of robot body (front bumper)
+  private static final double MECH_PIVOT_X = 0.50;
+  private static final double MECH_PIVOT_Z = 0.20;
+  // Visual arm length (meters) — extends past bumper when horizontal
+  private static final double MECH_ARM_LENGTH = 0.30;
+  private static final double MECH_ARM_LINE_WIDTH = 8.0;
+  private static final double MECH_ROLLER_LENGTH = 0.06;
+  private static final double MECH_ROLLER_LINE_WIDTH = 12.0;
+  // Robot body reference line (static, extends leftward from pivot)
+  private static final double MECH_BODY_LENGTH = 0.40;
+  private static final double MECH_BODY_LINE_WIDTH = 6.0;
+
+  private final LoggedMechanism2d mechanism;
+  private final LoggedMechanismLigament2d armLigament;
+  private final LoggedMechanismLigament2d rollerLigament;
+
+  // Color palette
+  private static final Color8Bit COLOR_RETRACTED = new Color8Bit(Color.kGray);
+  private static final Color8Bit COLOR_DEPLOYING = new Color8Bit(Color.kOrange);
+  private static final Color8Bit COLOR_DEPLOYED = new Color8Bit(Color.kGreen);
+  private static final Color8Bit COLOR_RETRACTING = new Color8Bit(Color.kOrange);
+  private static final Color8Bit COLOR_AGITATING = new Color8Bit(Color.kYellow);
+  private static final Color8Bit COLOR_SETTLING = new Color8Bit(Color.kCyan);
+  private static final Color8Bit COLOR_ROLLER_INTAKE = new Color8Bit(Color.kLimeGreen);
+  private static final Color8Bit COLOR_ROLLER_EJECT = new Color8Bit(Color.kRed);
+  private static final Color8Bit COLOR_ROLLER_IDLE = new Color8Bit(Color.kDarkGray);
+  private static final Color8Bit COLOR_ROLLER_LOCKED = new Color8Bit(Color.kDarkRed);
+  private static final Color8Bit COLOR_BODY = new Color8Bit(Color.kDimGray);
 
   // Operational constants (not robot-specific)
   public static final double ROLLER_INTAKE_SPEED = 0.8;
@@ -144,6 +208,8 @@ public class Intake extends SubsystemBase {
   // Pending roller velocity — set when deploy is commanded, applied once position threshold is met
   private boolean rollersPending = false;
   private double pendingRollerRPM = 0.0;
+  private boolean rollersActivelyCommanded = false;
+  private double activeRollerRPM = 0.0;
 
   // Velocity control toggle (default: velocity control on)
   private boolean useVelocityControl = true;
@@ -163,6 +229,33 @@ public class Intake extends SubsystemBase {
     deployStowedPosition = config.getIntakeDeployStowedPosition();
     deployRetractedPosition = config.getIntakeDeployRetractedPosition();
     deployExtendedPosition = config.getIntakeDeployExtendedPosition();
+
+    // Command stowed position at startup so SparkMax has an active hold target
+    applyRetractMotionConfig();
+    io.setDeployBrakeMode(true);
+    io.setDeployPosition(deployStowedPosition);
+
+    // Initialize Mechanism2d side-view visualization
+    mechanism = new LoggedMechanism2d(MECH_CANVAS_WIDTH, MECH_CANVAS_HEIGHT);
+
+    // Robot body reference line — horizontal bar extending backward from pivot
+    LoggedMechanismRoot2d bodyRoot = mechanism.getRoot("Body", MECH_PIVOT_X, MECH_PIVOT_Z);
+    bodyRoot.append(
+        new LoggedMechanismLigament2d(
+            "RobotBody", MECH_BODY_LENGTH, 180, MECH_BODY_LINE_WIDTH, COLOR_BODY));
+
+    // Intake arm — rotates from pivot; 90° = straight up (retracted), tilts forward when deployed
+    LoggedMechanismRoot2d pivotRoot = mechanism.getRoot("IntakePivot", MECH_PIVOT_X, MECH_PIVOT_Z);
+    armLigament =
+        pivotRoot.append(
+            new LoggedMechanismLigament2d(
+                "IntakeArm", MECH_ARM_LENGTH, 90, MECH_ARM_LINE_WIDTH, COLOR_RETRACTED));
+
+    // Roller indicator at the tip of the arm
+    rollerLigament =
+        armLigament.append(
+            new LoggedMechanismLigament2d(
+                "Roller", MECH_ROLLER_LENGTH, 0, MECH_ROLLER_LINE_WIDTH, COLOR_ROLLER_IDLE));
   }
 
   /**
@@ -189,53 +282,61 @@ public class Intake extends SubsystemBase {
     if (LoggedTunableNumber.hasChanged(rollerKP, rollerKI, rollerKD, rollerKFF)) {
       io.configureRollerPID(rollerKP.get(), rollerKI.get(), rollerKD.get(), rollerKFF.get());
     }
-    if (LoggedTunableNumber.hasChanged(deployMaxVelocity, deployMaxAcceleration)) {
-      io.configureDeployMaxMotion(
-          deployMaxVelocity.get(), deployMaxAcceleration.get(), deployTolerance.get());
-    }
     if (LoggedTunableNumber.hasChanged(deployOutputLimit, retractOutputLimit)) {
       io.configureDeployOutputRange(
           -Math.abs(retractOutputLimit.get()), Math.abs(deployOutputLimit.get()));
     }
 
-    // Deploy settle state machine
+    // Deploy state machine
     switch (deployState) {
-      case MOVING:
+      case DEPLOYING:
+        // Skip first cycle — inputs.deployTargetPosition is stale from before the command
+        if (movingFirstCycle) {
+          movingFirstCycle = false;
+          break;
+        }
         if (deployAtTarget()) {
-          // Arrived at target — kill PID, switch to brake mode to settle
+          // At extended position — brake to settle, then coast
           io.disableDeploy();
           io.setDeployBrakeMode(true);
-          if (deployCommanded) {
-            // Deploy: brake for 1 second then coast
-            brakeTimer.restart();
-            deployState = DeployState.BRAKING;
-          } else {
-            // Retract: just brake, no active hold needed at target
-            deployState = DeployState.HOLDING;
-          }
+          brakeTimer.restart();
+          deployState = DeployState.DEPLOY_SETTLING;
         }
         break;
-      case BRAKING:
-        // Deploy only: after brake time elapses, switch to coast and go idle
+      case RETRACTING:
+        // Skip first cycle — inputs.deployTargetPosition is stale from before the command
+        if (movingFirstCycle) {
+          movingFirstCycle = false;
+          break;
+        }
+        if (retractAtTarget()) {
+          // At retracted position — MAXMotion continues holding, brake mode already set
+          deployState = DeployState.RETRACTED;
+        }
+        break;
+      case DEPLOY_SETTLING:
+        // At deployed position: after brake time elapses, switch to coast
         if (brakeTimer.hasElapsed(deployBrakeTime.get())) {
           brakeTimer.stop();
           io.disableDeploy();
           io.setDeployBrakeMode(false);
-          deployState = DeployState.IDLE;
+          deployState = DeployState.DEPLOYED;
         }
         break;
-      case HOLDING:
-        // Retract hold: brake mode only. If knocked out, driver can re-press retract.
+      case RETRACTED:
+        // Brake mode + MAXMotion maintains position via onboard 1kHz PID — no action needed
+        break;
+      case AGITATING:
+        // Agitate command owns motor control — no action needed from state machine
         break;
       case AGITATE_SETTLING:
-        // Post-agitate: brake for fall duration, then switch to coast
+        // Post-agitate: brake briefly, then return to deployed position
         if (brakeTimer.hasElapsed(agitationFallTime.get())) {
           brakeTimer.stop();
-          io.setDeployBrakeMode(false);
-          deployState = DeployState.IDLE;
+          deploy();
         }
         break;
-      case IDLE:
+      case DEPLOYED:
       default:
         break;
     }
@@ -246,43 +347,110 @@ public class Intake extends SubsystemBase {
       rollersPending = false;
     }
 
-    // Safety interlock: force rollers off when deploy is too close to stowed
+    // Safety interlock: force rollers off when deploy is too close to stowed.
+    // If rollers were actively running (rollersActivelyCommanded == true), re-pend them
+    // so they automatically restart when the arm recovers past rollerMinDeployPosition.
+    // This relies on callers (runIntake, setRollerVelocityWhenDeployed) setting
+    // rollersActivelyCommanded = true — see runIntake() fix for details.
     boolean rollersSafetyLocked = inputs.deployPositionRotations < rollerMinDeployPosition.get();
     if (rollersSafetyLocked) {
-      io.setRollerDutyCycle(0.0);
-      rollersPending = false;
+      if (rollersActivelyCommanded && !rollersPending) {
+        pendingRollerRPM = activeRollerRPM;
+        rollersPending = true;
+      }
+      io.stopRollerMotor();
     }
 
-    // Log deploy state machine
-    Logger.recordOutput("Intake/DeployState", deployState.name());
-    Logger.recordOutput("Intake/RollersSafetyLocked", rollersSafetyLocked);
+    // ---- Update Mechanism2d visualization ----
+    // Map deploy position to visual angle:
+    //   position 0 (stowed)    → 90° (straight up)
+    //   position extended      → 0°  (horizontal, pointing forward past bumper)
+    double deployFraction = inputs.deployPositionRotations / deployExtendedPos.get();
+    double armAngleDeg = 90.0 * (1.0 - Math.min(deployFraction, 1.0));
+    armLigament.setAngle(armAngleDeg);
+
+    // Arm color based on deploy state
+    switch (deployState) {
+      case RETRACTED -> armLigament.setColor(COLOR_RETRACTED);
+      case DEPLOYING -> armLigament.setColor(COLOR_DEPLOYING);
+      case DEPLOY_SETTLING -> armLigament.setColor(COLOR_SETTLING);
+      case DEPLOYED -> armLigament.setColor(COLOR_DEPLOYED);
+      case RETRACTING -> armLigament.setColor(COLOR_RETRACTING);
+      case AGITATING -> armLigament.setColor(COLOR_AGITATING);
+      case AGITATE_SETTLING -> armLigament.setColor(COLOR_SETTLING);
+    }
+
+    // Roller color based on roller state
+    if (rollersSafetyLocked) {
+      rollerLigament.setColor(COLOR_ROLLER_LOCKED);
+    } else if (inputs.rollerVelocityRPM > 50) {
+      rollerLigament.setColor(COLOR_ROLLER_INTAKE);
+    } else if (inputs.rollerVelocityRPM < -50) {
+      rollerLigament.setColor(COLOR_ROLLER_EJECT);
+    } else {
+      rollerLigament.setColor(COLOR_ROLLER_IDLE);
+    }
+
+    Logger.recordOutput("Visualizations/Intake2d", mechanism);
+
+    // Log state machines
+    Logger.recordOutput("Subsystems/IntakeDeployState", deployState.name());
+
+    RollerState rollerState;
+    if (rollersSafetyLocked) {
+      rollerState = RollerState.SAFETY_LOCKED;
+    } else if (inputs.rollerVelocityRPM > 50) {
+      rollerState = RollerState.INTAKING;
+    } else if (inputs.rollerVelocityRPM < -50) {
+      rollerState = RollerState.EJECTING;
+    } else {
+      rollerState = RollerState.IDLE;
+    }
+    Logger.recordOutput("Subsystems/IntakeRollerState", rollerState.name());
   }
 
   // ========== DEPLOY CONTROL ==========
 
+  /** Apply deploy (extend) MAXMotion profile to the motor. */
+  private void applyDeployMotionConfig() {
+    io.configureDeployMaxMotion(
+        deployMaxVelocity.get(), deployMaxAcceleration.get(), deployTolerance.get());
+  }
+
+  /** Apply retract/stow MAXMotion profile to the motor. */
+  private void applyRetractMotionConfig() {
+    io.configureDeployMaxMotion(
+        retractMaxVelocity.get(), retractMaxAcceleration.get(), deployTolerance.get());
+  }
+
   /** Deploy the intake (extend). Stops motor first for clean retarget. */
   public void deploy() {
-    // Skip motion if already at or past the deployed position
-    if (isAtOrPastDeployed()) {
-      deployCommanded = true;
-      deployState = DeployState.IDLE;
-      io.setDeployBrakeMode(false);
+    // Already deployed or deploying — don't restart the sequence
+    if (deployState == DeployState.DEPLOYING
+        || deployState == DeployState.DEPLOY_SETTLING
+        || deployState == DeployState.DEPLOYED) {
       return;
     }
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
-    io.setDeployBrakeMode(false); // Coast mode while PID is driving
+    io.setDeployBrakeMode(true); // Brake mode while PID is driving
+    applyDeployMotionConfig();
     deployCommanded = true;
-    deployState = DeployState.MOVING;
+    movingFirstCycle = true;
+    deployState = DeployState.DEPLOYING;
     io.setDeployPosition(deployExtendedPos.get());
   }
 
   /** Retract the intake. Stops motor first for clean retarget. */
   public void retract() {
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
-    io.setDeployBrakeMode(false); // Coast mode while PID is driving
+    io.setDeployBrakeMode(
+        true); // Brake mode for retract — provides backstop during and after motion
+    applyRetractMotionConfig();
     deployCommanded = false;
     rollersPending = false;
-    deployState = DeployState.MOVING;
+    rollersActivelyCommanded = false;
+    movingFirstCycle = true;
+    deployState = DeployState.RETRACTING;
     io.setDeployPosition(deployRetractedPos.get());
   }
 
@@ -292,9 +460,11 @@ public class Intake extends SubsystemBase {
    */
   public void stow() {
     io.stopDeploy(); // Cancel any in-progress motion before commanding new target
-    io.setDeployBrakeMode(false); // Coast mode while PID is driving
+    io.setDeployBrakeMode(true); // Brake mode for stow — provides backstop during and after motion
+    applyRetractMotionConfig();
     deployCommanded = false;
-    deployState = DeployState.MOVING;
+    movingFirstCycle = true;
+    deployState = DeployState.RETRACTING;
     io.setDeployPosition(deployStowedPos.get());
   }
 
@@ -304,7 +474,8 @@ public class Intake extends SubsystemBase {
     io.setDeployBrakeMode(true);
     deployCommanded = false;
     rollersPending = false;
-    deployState = DeployState.IDLE;
+    rollersActivelyCommanded = false;
+    deployState = DeployState.RETRACTED;
     brakeTimer.stop();
   }
 
@@ -332,28 +503,18 @@ public class Intake extends SubsystemBase {
     io.setDeployPosition(positionRotations);
   }
 
-  /** Check if the intake is fully deployed. */
-  @AutoLogOutput(key = "Intake/IsDeployed")
+  /** Check if the intake is at or past the deployed position (accepts overshoot from gravity). */
   public boolean isDeployed() {
-    return Math.abs(inputs.deployPositionRotations - deployExtendedPos.get())
-        <= deployTolerance.get();
-  }
-
-  /** Check if the intake is at or past the deployed position (handles overshoot). */
-  @AutoLogOutput(key = "Intake/IsAtOrPastDeployed")
-  public boolean isAtOrPastDeployed() {
     return inputs.deployPositionRotations >= deployExtendedPos.get() - deployTolerance.get();
   }
 
   /** Check if the intake is fully retracted. */
-  @AutoLogOutput(key = "Intake/IsRetracted")
   public boolean isRetracted() {
     return Math.abs(inputs.deployPositionRotations - deployRetractedPos.get())
         <= deployTolerance.get();
   }
 
   /** Check if the intake is fully stowed. */
-  @AutoLogOutput(key = "Intake/IsStowed")
   public boolean isStowed() {
     return Math.abs(inputs.deployPositionRotations - deployStowedPos.get())
         <= deployTolerance.get();
@@ -361,6 +522,11 @@ public class Intake extends SubsystemBase {
 
   /** Check if the deploy mechanism is at target. */
   public boolean deployAtTarget() {
+    return inputs.deployPositionRotations >= inputs.deployTargetPosition;
+  }
+
+  /** Check if the deploy mechanism is at target. */
+  public boolean retractAtTarget() {
     return Math.abs(inputs.deployPositionRotations - inputs.deployTargetPosition)
         <= deployTolerance.get();
   }
@@ -378,7 +544,6 @@ public class Intake extends SubsystemBase {
   }
 
   /** Returns whether velocity control is active. */
-  @AutoLogOutput(key = "Intake/UseVelocityControl")
   public boolean isVelocityControlEnabled() {
     return useVelocityControl;
   }
@@ -398,11 +563,34 @@ public class Intake extends SubsystemBase {
     return runOnce(this::toggleVelocityControl).withName("Intake: Toggle Velocity Control");
   }
 
-  /** Run rollers to intake game pieces. RPM varies based on deploy state. */
+  /**
+   * Run rollers to intake game pieces. RPM varies based on deploy state.
+   *
+   * <p>FIX: Previously, this method did not set rollersActivelyCommanded or activeRollerRPM. This
+   * caused rollers to permanently stop during auto if the safety interlock triggered (arm dipping
+   * below rollerMinDeployPosition). The safety re-pend logic in periodic() checks
+   * rollersActivelyCommanded to decide whether to re-pend stopped rollers — without it being set,
+   * rollers would never restart after a momentary safety lock. Now we set both fields up front so
+   * the safety interlock can properly re-pend and restart the rollers.
+   */
   public void runIntake() {
-    if (isRollerSafetyLocked()) return;
+    double rpm = deployCommanded ? ROLLER_INTAKE_RPM_DEPLOYED : ROLLER_INTAKE_RPM_RETRACTED;
+
+    // Mark rollers as actively commanded so the safety interlock in periodic() can
+    // re-pend them if the arm temporarily dips below the safe position threshold.
+    // Without this, a momentary safety lock during auto would kill rollers permanently.
+    activeRollerRPM = rpm;
+    rollersActivelyCommanded = true;
+
+    if (isRollerSafetyLocked()) {
+      // Arm is still too close to stowed — defer roller start until deploy reaches safe position
+      if (useVelocityControl) {
+        pendingRollerRPM = rpm;
+        rollersPending = true;
+      }
+      return;
+    }
     if (useVelocityControl) {
-      double rpm = deployCommanded ? ROLLER_INTAKE_RPM_DEPLOYED : ROLLER_INTAKE_RPM_RETRACTED;
       io.setRollerVelocity(rpm);
     } else {
       io.setRollerDutyCycle(ROLLER_INTAKE_SPEED);
@@ -422,7 +610,8 @@ public class Intake extends SubsystemBase {
   /** Stop the rollers. */
   public void stopRollers() {
     rollersPending = false;
-    io.setRollerDutyCycle(0.0);
+    rollersActivelyCommanded = false;
+    io.stopRollerMotor();
   }
 
   /**
@@ -452,7 +641,8 @@ public class Intake extends SubsystemBase {
    * @param rpm Target roller velocity in RPM
    */
   public void setRollerVelocityWhenDeployed(double rpm) {
-    if (isRollerSafetyLocked()) return;
+    activeRollerRPM = rpm;
+    rollersActivelyCommanded = true;
     if (inputs.deployPositionRotations >= rollerMinDeployPosition.get()) {
       io.setRollerVelocity(rpm);
       rollersPending = false;
@@ -487,9 +677,9 @@ public class Intake extends SubsystemBase {
     return inputs.rollerCurrentAmps;
   }
 
-  /** Check if the deploy state machine is idle (no motion in progress). */
-  public boolean isDeployIdle() {
-    return deployState == DeployState.IDLE;
+  /** Check if the deploy is settled (deployed or retracted, no motion in progress). */
+  public boolean isDeploySettled() {
+    return deployState == DeployState.DEPLOYED || deployState == DeployState.RETRACTED;
   }
 
   /**
@@ -501,36 +691,132 @@ public class Intake extends SubsystemBase {
    * @param rollerRPM Supplier for roller velocity in RPM
    * @return Command that agitates until cancelled
    */
-  public Command agitateCommand(DoubleSupplier rollerRPM) {
-    return Commands.waitUntil(
-            () -> inputs.deployPositionRotations >= deployExtendedPos.get() - deployTolerance.get())
+  /** Apply agitation-specific output range and acceleration to the deploy motor. */
+  private void applyAgitationConfig() {
+    io.configureDeployOutputRange(
+        -Math.abs(agitationRetractOutputLimit.get()), Math.abs(deployOutputLimit.get()));
+    io.configureDeployMaxMotion(
+        agitationMaxVelocity.get(), agitationMaxAcceleration.get(), deployTolerance.get());
+  }
+
+  /** Restore normal output range after agitation. */
+  private void restoreNormalDeployConfig() {
+    io.configureDeployOutputRange(
+        -Math.abs(retractOutputLimit.get()), Math.abs(deployOutputLimit.get()));
+  }
+
+  /**
+   * @param rollerRPM Supplier for roller velocity in RPM
+   * @param intakeActive Supplier that returns true when the deploy button is held (actively
+   *     intaking). While true, agitation is suppressed — the arm stays put and only rollers run.
+   * @return Command that agitates until cancelled
+   */
+  public Command agitateCommand(DoubleSupplier rollerRPM, BooleanSupplier intakeActive) {
+    Timer agitationTimer = new Timer();
+    Timer stationaryTimer = new Timer();
+    // Remember pre-agitation state so we can restore it when done
+    boolean[] wasDeployed = {false};
+    // NOTE: This command intentionally does NOT require the intake subsystem
+    // (uses Commands.runOnce/run instead of this.runOnce/run) so it can coexist
+    // with Button 4's deploy+roller command. When intakeActive is true, this
+    // command idles in Phase 1 without touching any motors, letting Button 4
+    // retain full control. When intakeActive becomes false, this command takes
+    // over the deploy motor for agitation.
+    return Commands.runOnce(
+            () -> {
+              wasDeployed[0] = deployCommanded;
+              stationaryTimer.restart();
+            })
         .andThen(
-            Commands.sequence(
-                    runOnce(
-                        () -> {
-                          io.setDeployDutyCycle(
-                              Math.max(-0.35, Math.min(0.35, agitationBurstPower.get())));
-                          deployState = DeployState.IDLE;
-                          setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
-                        }),
-                    Commands.waitSeconds(agitationBurstTime.get()),
-                    runOnce(
-                        () -> {
-                          io.disableDeploy();
-                          io.setDeployBrakeMode(true);
-                        }),
-                    Commands.waitSeconds(agitationFallTime.get()))
-                .repeatedly()
-                .onlyWhile(
-                    () -> robotVelocitySupplier.getAsDouble() < agitationSpeedThreshold.get())
-                .repeatedly())
+            Commands.waitUntil(
+                    () ->
+                        inputs.deployPositionRotations
+                            >= deployExtendedPos.get() - deployTolerance.get())
+                .andThen(
+                    Commands.sequence(
+                            // Phase 1: Wait until intake button is released AND robot has been
+                            // stationary for the dwell period. Any movement or active intaking
+                            // resets the timer.
+                            Commands.runOnce(stationaryTimer::restart),
+                            Commands.run(
+                                    () -> {
+                                      if (intakeActive.getAsBoolean()
+                                          || Math.abs(robotVelocitySupplier.getAsDouble())
+                                              >= agitationSpeedThreshold.get()) {
+                                        stationaryTimer.restart();
+                                      }
+                                    })
+                                .until(
+                                    () ->
+                                        stationaryTimer.hasElapsed(
+                                            agitationStationaryDwellSec.get())),
+                            // Phase 2: Agitation cycles — run while stationary and not intaking
+                            Commands.sequence(
+                                    // UP phase: MAXMotion position control retracts against gravity
+                                    Commands.runOnce(
+                                        () -> {
+                                          applyAgitationConfig();
+                                          io.setDeployBrakeMode(false);
+                                          io.setDeployPosition(agitationRetractTarget.get());
+                                          deployState = DeployState.AGITATING;
+                                          setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
+                                          agitationTimer.restart();
+                                        }),
+                                    Commands.waitUntil(
+                                        () ->
+                                            Math.abs(
+                                                        inputs.deployPositionRotations
+                                                            - agitationRetractTarget.get())
+                                                    <= deployTolerance.get()
+                                                || agitationTimer.hasElapsed(
+                                                    agitationTimeoutSec.get())),
+                                    // DOWN phase — coast: motor off, coast mode, gravity pulls arm
+                                    Commands.runOnce(
+                                        () -> {
+                                          restoreNormalDeployConfig();
+                                          io.disableDeploy();
+                                          io.setDeployBrakeMode(false);
+                                        }),
+                                    Commands.waitSeconds(agitationCoastTimeSec.get()),
+                                    // DOWN phase — brake: back-EMF braking decelerates the arm
+                                    Commands.runOnce(() -> io.setDeployBrakeMode(true)),
+                                    Commands.waitSeconds(
+                                        Math.max(
+                                            0,
+                                            agitationFallTime.get() - agitationCoastTimeSec.get())))
+                                .repeatedly()
+                                .onlyWhile(
+                                    () ->
+                                        !intakeActive.getAsBoolean()
+                                            && Math.abs(robotVelocitySupplier.getAsDouble())
+                                                < agitationSpeedThreshold.get())
+                                .finallyDo(
+                                    () -> {
+                                      // Agitation interrupted — send arm back to deployed position
+                                      // so it's not left dangling mid-cycle
+                                      restoreNormalDeployConfig();
+                                      deploy();
+                                    }))
+                        // Repeat: if robot moves or intake button pressed mid-agitation,
+                        // go back to waiting for release + full stationary dwell
+                        .repeatedly()))
         .finallyDo(
             () -> {
-              io.disableDeploy();
+              restoreNormalDeployConfig();
+              io.stopDeploy(); // Anchor target to current pos before configure() calls
               io.setDeployBrakeMode(true);
-              stopRollers();
-              brakeTimer.restart();
-              deployState = DeployState.AGITATE_SETTLING;
+              if (wasDeployed[0]) {
+                // Was deployed before agitation — resume rollers so the next path can intake
+                runIntake();
+                brakeTimer.restart();
+                deployState = DeployState.AGITATE_SETTLING;
+              } else {
+                // Was retracted before agitation — go straight to retract hold
+                stopRollers();
+                applyRetractMotionConfig();
+                io.setDeployPosition(deployStowedPosition);
+                deployState = DeployState.RETRACTED;
+              }
             })
         .withName("Intake: Agitate");
   }
@@ -555,34 +841,36 @@ public class Intake extends SubsystemBase {
         .withName("Intake: Deploy & Run");
   }
 
+  /**
+   * Command that runs intake rollers during SmartLaunch. Does NOT deploy or retract the intake —
+   * rollers only spin when the arm is already deployed (via the existing safety interlock in {@link
+   * #setRollerVelocityWhenDeployed}). Does NOT require the intake subsystem so it coexists with
+   * Button 4's deploy+roller command.
+   *
+   * @param rollerRPM Supplier for roller velocity in RPM
+   * @param intakeActive Supplier that returns true when Button 4 is held (yields roller control)
+   * @return Command that runs rollers until cancelled
+   */
+  public Command smartLaunchRollerCommand(DoubleSupplier rollerRPM, BooleanSupplier intakeActive) {
+    return Commands.run(
+            () -> {
+              if (!intakeActive.getAsBoolean()) {
+                setRollerVelocityWhenDeployed(rollerRPM.getAsDouble());
+              }
+            })
+        .finallyDo(
+            () -> {
+              if (!intakeActive.getAsBoolean()) {
+                stopRollers();
+              }
+            })
+        .withName("Intake: SmartLaunch Rollers");
+  }
+
   // ========== GENERAL CONTROL ==========
 
   /** Stop all motors. */
   public void stop() {
     io.stop();
-  }
-
-  // ========== 3D VISUALIZATION ==========
-
-  // Intake pivot point relative to robot center (meters)
-  // X = forward, Y = left, Z = up
-  // Adjust PIVOT_X to match your robot's front bumper location
-  private static final double PIVOT_X = 0.43; // At front bumper (frame edge + bumper thickness)
-  private static final double PIVOT_Y = 0.0; // Centered left-right
-  private static final double PIVOT_Z = 0.20; // Pivot height above ground
-
-  /**
-   * Returns the 3D pose of the intake arm for AdvantageScope visualization. When retracted (0
-   * rotations), arm points backward into robot. When deployed (0.5 rotations), arm points forward
-   * over bumper.
-   */
-  @AutoLogOutput(key = "Odometry/Intake")
-  public Pose3d getPose() {
-    // Convert deploy position to pitch angle
-    // 0 rotations = 90° pitch (pointing up/back into robot)
-    // 0.5 rotations = -90° pitch (pointing down/forward over bumper)
-    double pitchRadians = Math.PI / 2 - (inputs.deployPositionRotations * 2 * Math.PI);
-
-    return new Pose3d(PIVOT_X, PIVOT_Y, PIVOT_Z, new Rotation3d(0, pitchRadians, 0));
   }
 }

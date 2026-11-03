@@ -21,7 +21,7 @@ public class SpindexerCommands {
    *
    * <p>This command should only be used in voltage control mode.
    */
-  public static Command feedforwardCharacterization(Spindexer spindexer) {
+  public static Command spindexerCharacterization(Spindexer spindexer) {
     List<Double> velocitySamples = new LinkedList<>();
     List<Double> voltageSamples = new LinkedList<>();
     Timer timer = new Timer();

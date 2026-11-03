@@ -122,9 +122,7 @@ public final class VisionConstants {
               Rotation2d.fromDegrees(-10).getRadians(), // Pitch 10° up from horizontal
               Rotation2d.fromDegrees(0).getRadians())); // Yaw: facing forward
 
-  // Right Front camera (rightward facing) - mounted at front right
-  // TODO: PDF says -83° yaw (7° toward front), but we changed to -97° (7° toward rear / inward)
-  //   to mirror LeftRear's inward offset. Confirm new mount angle with CAD person.
+  // Right Front camera (rightward facing) - mounted at front right, -97° yaw (7° inward)
   public static Transform3d mainBotToRightFrontCam =
       new Transform3d(
           0.23904, // X: 9.411" to front

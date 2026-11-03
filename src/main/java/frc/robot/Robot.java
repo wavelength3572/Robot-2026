@@ -8,7 +8,6 @@
 package frc.robot;
 
 import com.revrobotics.util.StatusLogger;
-import edu.wpi.first.hal.AllianceStationID;
 import edu.wpi.first.wpilibj.IterativeRobotBase;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Watchdog;
@@ -19,6 +18,8 @@ import frc.robot.commands.DriveCommands;
 import frc.robot.util.FuelSim;
 import frc.robot.util.HubShiftUtil;
 import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.Map;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -40,7 +41,6 @@ public class Robot extends LoggedRobot {
   private RobotContainer robotContainer;
   private final Timer startupTimer = new Timer();
   private Watchdog watchdog;
-  private int hubShiftLogCounter = 0;
 
   public Robot() {
     super(0.02);
@@ -74,7 +74,8 @@ public class Robot extends LoggedRobot {
     // Set up data receivers & replay source
     switch (Constants.currentMode) {
       case REAL:
-        // Running on a real robot, log to a USB stick ("/U/logs")
+      case PIT:
+        // Running on a real robot (or pit mode), log to a USB stick ("/U/logs")
         Logger.addDataReceiver(new WPILOGWriter());
         Logger.addDataReceiver(new NT4Publisher());
         break;
@@ -94,11 +95,34 @@ public class Robot extends LoggedRobot {
     }
 
     // Initialize URCL
-    Logger.registerURCL(URCL.startExternal());
+    // Build the CAN ID alias map
+    Map<Integer, String> canAliases = new HashMap<>();
+    canAliases.put(11, "FL Drive");
+    canAliases.put(12, "FL Turn");
+    canAliases.put(21, "FR Drive");
+    canAliases.put(22, "FR Turn");
+    canAliases.put(30, "Climber");
+    canAliases.put(31, "BL Drive");
+    canAliases.put(32, "BL Turn");
+    canAliases.put(41, "BR Drive");
+    canAliases.put(42, "BR Turn");
+    canAliases.put(45, "Intake Deploy");
+    canAliases.put(46, "Intake Rolelr");
+    canAliases.put(50, "Turret");
+    canAliases.put(55, "Spindexer");
+    canAliases.put(56, "Motivator");
+    canAliases.put(58, "Launcher Leader");
+    canAliases.put(59, "Launcher Follower");
+    canAliases.put(60, "Hood");
+
+    Logger.registerURCL(URCL.startExternal(canAliases));
     StatusLogger.disableAutoLogging(); // Disable REVLib's built-in logging
 
     // Start AdvantageKit logger
     Logger.start();
+
+    // Log zone boundaries for AdvantageScope field visualization
+    FieldConstants.logZoneBoundaries();
 
     // Instantiate our RobotContainer. This will perform all our button bindings,
     // and put our autonomous chooser on the dashboard.
@@ -106,6 +130,9 @@ public class Robot extends LoggedRobot {
 
     // Suppress CommandScheduler's own loop overrun warnings during startup
     CommandScheduler.getInstance().setPeriod(Double.MAX_VALUE);
+
+    // DEBUG: Active command logging removed — was running every cycle for every command,
+    // contributing to loop overruns via string allocation + NT traffic.
 
     // Print all buffered startup messages together
     frc.robot.util.StartupLogger.flush();
@@ -120,8 +147,8 @@ public class Robot extends LoggedRobot {
 
     // Re-enable loop overrun warnings after startup settles
     if (watchdog != null && startupTimer.hasElapsed(STARTUP_SUPPRESSION_SECONDS)) {
-      watchdog.setTimeout(0.02); // Restore IterativeRobotBase 20ms overrun detection
-      CommandScheduler.getInstance().setPeriod(0.02); // Restore CommandScheduler overrun detection
+      watchdog.setTimeout(0.025); // Allow 25ms before warning (5ms headroom over 20ms period)
+      CommandScheduler.getInstance().setPeriod(0.025); // Match watchdog tolerance
       startupTimer.stop();
       watchdog = null; // Skip this check on future loops
       System.out.println("[Robot] Loop overrun warnings re-enabled");
@@ -141,16 +168,12 @@ public class Robot extends LoggedRobot {
     // Update fuel simulation (only runs in SIM mode)
     robotContainer.updateFuelSim();
 
-    // Log hub shift info (throttled to every 50 cycles / ~1s — shift timing changes slowly)
-    hubShiftLogCounter++;
-    if (hubShiftLogCounter >= 50) {
-      hubShiftLogCounter = 0;
-      HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getOfficialShiftInfo();
-      Logger.recordOutput("HubShift/CurrentShift", shiftInfo.currentShift().toString());
-      Logger.recordOutput("HubShift/Active", shiftInfo.active());
-      Logger.recordOutput("HubShift/ElapsedTime", shiftInfo.elapsedTime());
-      Logger.recordOutput("HubShift/RemainingTime", shiftInfo.remainingTime());
-    }
+    // Log hub shift info
+    HubShiftUtil.ShiftInfo shiftInfo = HubShiftUtil.getOfficialShiftInfo();
+    Logger.recordOutput("HubShift/CurrentShift", shiftInfo.currentShift().toString());
+    Logger.recordOutput("HubShift/Active", shiftInfo.active());
+    Logger.recordOutput("HubShift/ElapsedTime", shiftInfo.elapsedTime());
+    Logger.recordOutput("HubShift/RemainingTime", shiftInfo.remainingTime());
 
     // Return to non-RT thread priority (do not modify the first argument)
     // Threads.setCurrentThreadPriority(false, 10);
@@ -180,6 +203,11 @@ public class Robot extends LoggedRobot {
       robotContainer.getShootingCoordinator().resetShotCounts();
     }
 
+    // Enable auto-unclog so jams are cleared automatically (no driver available in auto)
+    if (robotContainer.getSpindexer() != null) {
+      robotContainer.getSpindexer().enableAutoUnclog();
+    }
+
     autonomousCommand = robotContainer.getAutonomousCommand();
 
     // schedule the autonomous command (example)
@@ -197,17 +225,14 @@ public class Robot extends LoggedRobot {
   public void teleopInit() {
     HubShiftUtil.initialize(); // Start the match phase tracker at the beginning of teleop
 
+    robotContainer.getDrive().setDriveMotorCurrentLimits(46.0);
+
     // This makes sure that the autonomous stops running when
     // teleop starts running. If you want the autonomous to
     // continue until interrupted by another command, remove
     // this line or comment it out.
     if (autonomousCommand != null) {
       autonomousCommand.cancel();
-    }
-
-    // Disable auto-shoot when entering teleop (safety: prevent autonomous firing)
-    if (robotContainer.getShootingCoordinator() != null) {
-      robotContainer.getShootingCoordinator().disableAutoShoot();
     }
 
     // Clear any stale speed limit from a previous command that didn't end cleanly
@@ -238,7 +263,6 @@ public class Robot extends LoggedRobot {
   @Override
   public void simulationInit() {
     DriverStationSim.setDsAttached(true);
-    DriverStationSim.setAllianceStationId(AllianceStationID.Blue1);
     DriverStationSim.notifyNewData();
   }
 

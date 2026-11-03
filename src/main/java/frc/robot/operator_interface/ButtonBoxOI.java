@@ -63,6 +63,11 @@ public class ButtonBoxOI implements OperatorInterface {
   }
 
   @Override
+  public Trigger getButtonBox1Button10() {
+    return Box1Buttons[10]; //
+  }
+
+  @Override
   public Trigger getLeftJoyRightButton() {
     return Box1Buttons[2]; //
   }

@@ -2,6 +2,7 @@ package frc.robot.subsystems.shooting;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.util.ZoneDetector;
 
 /**
  * Read-only snapshot of shooting state passed from ShootingCoordinator (control) to ShotVisualizer
@@ -20,4 +21,14 @@ public record ShotSnapshot(
     ShotCalculator.ShotResult currentShot,
     double turretHeightMeters,
     double turretXOffset,
-    double turretYOffset) {}
+    double turretYOffset,
+    TrajectoryReadiness trajectoryReadiness,
+    ZoneDetector.Zone currentZone) {
+
+  /** Trajectory color based on actual shot readiness gating. */
+  public enum TrajectoryReadiness {
+    NOT_ACTIVE, // Red — no shot calculated
+    NOT_READY, // Yellow — shot exists but one or more subsystems not ready
+    READY // Green — all subsystems ready, would fire if triggered
+  }
+}

@@ -44,6 +44,14 @@ public class VisionIOPhotonVision implements VisionIO {
   public void updateInputs(VisionIOInputs inputs) {
     inputs.connected = camera.isConnected();
 
+    // Skip processing entirely when camera is disconnected to avoid blocking
+    // network calls that stall the command loop
+    if (!inputs.connected) {
+      inputs.poseObservations = new PoseObservation[0];
+      inputs.tagIds = new int[0];
+      return;
+    }
+
     // Read new camera observations
     Set<Short> tagIds = new HashSet<>();
     List<PoseObservation> poseObservations = new LinkedList<>();

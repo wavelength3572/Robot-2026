@@ -43,14 +43,11 @@ public class MotivatorIOSim implements MotivatorIO {
 
   @Override
   public void updateInputs(MotorInputs motor1Inputs) {
-    // Update motivator 1 simulation
-    if (motivatorVelocityMode) {
-      motivatorCurrentRPM += (motivatorTargetRPM - motivatorCurrentRPM) * SIM_RESPONSE_RATE;
-    } else {
-      motivator1Sim.setInputVoltage(motivatorDutyCycle * 12.0);
-      motivator1Sim.update(0.02);
-      motivatorCurrentRPM = motivator1Sim.getAngularVelocityRPM();
-    }
+    // Update motivator 1 simulation — simple first-order response for both modes.
+    // Voltage mode targets an RPM proportional to duty cycle (scaled by a nominal max RPM).
+    double effectiveTarget =
+        motivatorVelocityMode ? motivatorTargetRPM : motivatorDutyCycle * 6000.0;
+    motivatorCurrentRPM += (effectiveTarget - motivatorCurrentRPM) * SIM_RESPONSE_RATE;
 
     // Motivator 1 data
     motor1Inputs.connected = true;
@@ -64,6 +61,15 @@ public class MotivatorIOSim implements MotivatorIO {
     motor1Inputs.atSetpoint =
         motivatorVelocityMode
             && Math.abs(motivatorCurrentRPM - motivatorTargetRPM) < motivatorToleranceRPM;
+  }
+
+  // ========== Voltage Control ==========
+
+  @Override
+  public void setMotivatorVoltage(double volts) {
+    motivatorVelocityMode = false;
+    motivatorTargetRPM = 0.0;
+    motivatorDutyCycle = volts / 12.0;
   }
 
   // ========== Velocity Control ==========

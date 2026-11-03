@@ -64,12 +64,12 @@
     },
     {
       "anchor": {
-        "x": 3.044,
-        "y": 0.5
+        "x": 3.990492957746479,
+        "y": 0.8732746478873241
       },
       "prevControl": {
-        "x": 4.3529659090909085,
-        "y": 0.13926136363636377
+        "x": 5.299458866837388,
+        "y": 0.5125360115236879
       },
       "nextControl": null,
       "isLocked": false,
@@ -133,7 +133,7 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 0.0
+    "rotation": -90.0
   },
   "reversed": false,
   "folder": "Auto Paths",

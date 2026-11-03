@@ -14,8 +14,8 @@ import java.util.List;
  * Records LUT data collection sessions. Writes two files:
  *
  * <ul>
- *   <li><b>lut-data.json</b> — Clean LUT entries: distance, RPM, hood angle, TOF, feed speeds. Only
- *       successful batches. Review these after practice and promote good values to {@link
+ *   <li><b>lut-data.json</b> — Clean LUT entries: distance, RPM, hood angle, TOF. Only successful
+ *       batches. Review these after practice and promote good values to {@link
  *       ShotTableConstants#BASELINE_TABLE}.
  *   <li><b>shot-log.json</b> — Full batch records for analysis: timestamp, position, params, fuel
  *       count, success/fail. All batches included.
@@ -38,8 +38,6 @@ public class StationaryShotBatchRecorder {
       double hoodAngleDeg,
       double timeOfFlightTheoreticalS,
       double timeOfFlightMeasuredS,
-      double motivatorRPM,
-      double spindexerRPM,
       double timestamp) {
 
     /** Returns measured TOF if available (> 0), otherwise theoretical. */
@@ -59,8 +57,6 @@ public class StationaryShotBatchRecorder {
       double turretAngleDeg,
       double timeOfFlightTheoreticalS,
       double timeOfFlightMeasuredS,
-      double motivatorRPM,
-      double spindexerRPM,
       int fuelFired,
       boolean successful) {}
 
@@ -76,8 +72,6 @@ public class StationaryShotBatchRecorder {
   // Cached shot parameters — updated during firing so they survive SmartLaunch cleanup
   private double cachedRPM = 0.0;
   private double cachedHoodAngleDeg = 0.0;
-  private double cachedMotivatorRPM = 0.0;
-  private double cachedSpindexerRPM = 0.0;
 
   public StationaryShotBatchRecorder() {
     File dir = new File(Filesystem.getOperatingDirectory(), DATA_DIR);
@@ -100,12 +94,9 @@ public class StationaryShotBatchRecorder {
    * Cache the current shot parameters during firing. Call this every cycle while SmartLaunch is
    * active so that the values survive after the command ends.
    */
-  public void cacheParams(
-      double rpm, double hoodAngleDeg, double motivatorRPM, double spindexerRPM) {
+  public void cacheParams(double rpm, double hoodAngleDeg) {
     this.cachedRPM = rpm;
     this.cachedHoodAngleDeg = hoodAngleDeg;
-    this.cachedMotivatorRPM = motivatorRPM;
-    this.cachedSpindexerRPM = spindexerRPM;
   }
 
   public double getCachedRPM() {
@@ -114,14 +105,6 @@ public class StationaryShotBatchRecorder {
 
   public double getCachedHoodAngleDeg() {
     return cachedHoodAngleDeg;
-  }
-
-  public double getCachedMotivatorRPM() {
-    return cachedMotivatorRPM;
-  }
-
-  public double getCachedSpindexerRPM() {
-    return cachedSpindexerRPM;
   }
 
   public void startBatch(int currentFuelCount) {
@@ -146,8 +129,6 @@ public class StationaryShotBatchRecorder {
       double turretAngleDeg,
       double timeOfFlightTheoreticalS,
       double timeOfFlightMeasuredS,
-      double motivatorRPM,
-      double spindexerRPM,
       int currentFuelCount,
       boolean successful) {
 
@@ -170,8 +151,6 @@ public class StationaryShotBatchRecorder {
             turretAngleDeg,
             timeOfFlightTheoreticalS,
             timeOfFlightMeasuredS,
-            motivatorRPM,
-            spindexerRPM,
             fuelFired,
             successful);
     batchRecords.add(record);
@@ -186,8 +165,6 @@ public class StationaryShotBatchRecorder {
               hoodAngleDeg,
               timeOfFlightTheoreticalS,
               timeOfFlightMeasuredS,
-              motivatorRPM,
-              spindexerRPM,
               timestamp));
       saveLUTToFile();
     }
@@ -248,14 +225,8 @@ public class StationaryShotBatchRecorder {
       LUTEntry e = lutEntries.get(origIdx);
       summaries[i] =
           String.format(
-              "[%d] %.2fm | RPM=%.0f | Hood=%.1f° | TOF=%.3fs | Mot=%.0f | Spx=%.0f",
-              origIdx,
-              e.distanceM(),
-              e.rpm(),
-              e.hoodAngleDeg(),
-              e.getEffectiveTOF(),
-              e.motivatorRPM(),
-              e.spindexerRPM());
+              "[%d] %.2fm | RPM=%.0f | Hood=%.1f° | TOF=%.3fs",
+              origIdx, e.distanceM(), e.rpm(), e.hoodAngleDeg(), e.getEffectiveTOF());
     }
     return summaries;
   }
@@ -338,8 +309,6 @@ public class StationaryShotBatchRecorder {
         w.print(",\"hoodAngleDeg\":" + e.hoodAngleDeg());
         w.print(",\"timeOfFlightTheoreticalS\":" + e.timeOfFlightTheoreticalS());
         w.print(",\"timeOfFlightMeasuredS\":" + e.timeOfFlightMeasuredS());
-        w.print(",\"motivatorRPM\":" + e.motivatorRPM());
-        w.print(",\"spindexerRPM\":" + e.spindexerRPM());
         w.print(",\"timestamp\":" + e.timestamp());
         w.print("}");
         if (i < lutEntries.size() - 1) w.print(",");
@@ -384,8 +353,6 @@ public class StationaryShotBatchRecorder {
                 getDouble(obj, "hoodAngleDeg"),
                 theoreticalTOF,
                 measuredTOF,
-                getDouble(obj, "motivatorRPM"),
-                getDouble(obj, "spindexerRPM"),
                 getDouble(obj, "timestamp")));
       } catch (Exception e) {
         System.err.println(
@@ -411,8 +378,6 @@ public class StationaryShotBatchRecorder {
         w.print(",\"turretAngleDeg\":" + b.turretAngleDeg());
         w.print(",\"timeOfFlightTheoreticalS\":" + b.timeOfFlightTheoreticalS());
         w.print(",\"timeOfFlightMeasuredS\":" + b.timeOfFlightMeasuredS());
-        w.print(",\"motivatorRPM\":" + b.motivatorRPM());
-        w.print(",\"spindexerRPM\":" + b.spindexerRPM());
         w.print(",\"fuelFired\":" + b.fuelFired());
         w.print(",\"successful\":" + b.successful());
         w.print("}");
@@ -461,8 +426,6 @@ public class StationaryShotBatchRecorder {
                 getDouble(obj, "turretAngleDeg"),
                 theoreticalTOF,
                 measuredTOF,
-                getDouble(obj, "motivatorRPM"),
-                getDouble(obj, "spindexerRPM"),
                 getInt(obj, "fuelFired"),
                 getBoolean(obj, "successful")));
       } catch (Exception e) {

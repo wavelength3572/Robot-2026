@@ -275,6 +275,11 @@ public class InterLinkDXButtonBoxOI implements OperatorInterface {
   }
 
   @Override
+  public Trigger getLockWheels() {
+    return interLinkJoystickJoystickButtons[13]; // Round Push Button on Top Left of Controller
+  }
+
+  @Override
   public Trigger getButtonDPosition0() {
     return interLinkJoystickJoystickButtons[6]; // Button D top left of front face - Up position
   }

@@ -33,7 +33,7 @@ public class TrajectoryOptimizer {
   // PRIMARY TUNABLE: Descent angle (angle of line from hub edge to hub center)
   // Tune this to match the hub wall angle visually (60° matches well)
   private static final LoggedTunableNumber descentAngleDeg =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/DescentAngleDeg", 48.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/DescentAngleDeg", 45.0);
 
   // Minimum descent angle for fallback. When the preferred angle requires a hood position
   // below the mechanical limit (too close to hub), the optimizer steps down in 1° increments
@@ -44,7 +44,7 @@ public class TrajectoryOptimizer {
   // Clearance constraints (inches above the lip)
   private static final LoggedTunableNumber minClearanceInches =
       new LoggedTunableNumber(
-          "Shots/SmartLaunch/Trajectory/MinClearanceInches", 1.5); // Safety margin
+          "Shots/SmartLaunch/Trajectory/MinClearanceInches", 2); // Safety margin
   private static final LoggedTunableNumber maxClearanceInches =
       new LoggedTunableNumber(
           "Shots/SmartLaunch/Trajectory/MaxClearanceInches", 22.0); // Sanity check
@@ -53,9 +53,41 @@ public class TrajectoryOptimizer {
   private static final LoggedTunableNumber minRPM =
       new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MinRPM", 1500.0);
   private static final LoggedTunableNumber maxRPM =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxRPM", 5000.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxRPM", 4000.0);
   private static final LoggedTunableNumber maxPeakHeightFt =
-      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxPeakHeightFt", 10.0);
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/MaxPeakHeightFt", 12.0);
+
+  // Relaxed constraint tunables for fallback Level 2
+  private static final LoggedTunableNumber relaxedMinRPM =
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/RelaxedMinRPM", 1300.0);
+  private static final LoggedTunableNumber relaxedMaxRPM =
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/RelaxedMaxRPM", 4500.0);
+  private static final LoggedTunableNumber relaxedMaxPeakHeightFt =
+      new LoggedTunableNumber("Shots/SmartLaunch/Trajectory/RelaxedMaxPeakHeightFt", 15.0);
+
+  /** Which level of fallback was used to find an achievable shot. */
+  public enum FallbackLevel {
+    /** Normal parametric solver succeeded. */
+    NORMAL,
+    /** Fixed-hood parametric (clamped to hood limit, solved for RPM). */
+    FIXED_HOOD,
+    /** Relaxed constraints (wider RPM range, higher peak height). */
+    RELAXED,
+    /** All parametric attempts failed. */
+    FAILED
+  }
+
+  /** Encapsulates RPM and peak height constraints for trajectory validation. */
+  private record ShotConstraints(double minRPM, double maxRPM, double maxPeakHeightM) {}
+
+  private static ShotConstraints normalConstraints() {
+    return new ShotConstraints(minRPM.get(), maxRPM.get(), maxPeakHeightFt.get() * 0.3048);
+  }
+
+  private static ShotConstraints relaxedConstraints() {
+    return new ShotConstraints(
+        relaxedMinRPM.get(), relaxedMaxRPM.get(), relaxedMaxPeakHeightFt.get() * 0.3048);
+  }
 
   /** Result of trajectory optimization. */
   public static class OptimalShot {
@@ -67,6 +99,7 @@ public class TrajectoryOptimizer {
     public final double descentAngleDeg;
     public final boolean achievable;
     public final String notes;
+    public final FallbackLevel fallbackLevel;
 
     public OptimalShot(
         double rpm,
@@ -77,6 +110,28 @@ public class TrajectoryOptimizer {
         double descentAngleDeg,
         boolean achievable,
         String notes) {
+      this(
+          rpm,
+          launchAngleDeg,
+          hoodAngleDeg,
+          exitVelocityMps,
+          peakHeightM,
+          descentAngleDeg,
+          achievable,
+          notes,
+          FallbackLevel.NORMAL);
+    }
+
+    public OptimalShot(
+        double rpm,
+        double launchAngleDeg,
+        double hoodAngleDeg,
+        double exitVelocityMps,
+        double peakHeightM,
+        double descentAngleDeg,
+        boolean achievable,
+        String notes,
+        FallbackLevel fallbackLevel) {
       this.rpm = rpm;
       this.launchAngleDeg = launchAngleDeg;
       this.hoodAngleDeg = hoodAngleDeg;
@@ -85,6 +140,7 @@ public class TrajectoryOptimizer {
       this.descentAngleDeg = descentAngleDeg;
       this.achievable = achievable;
       this.notes = notes;
+      this.fallbackLevel = fallbackLevel;
     }
   }
 
@@ -119,38 +175,189 @@ public class TrajectoryOptimizer {
     double R = HUB_ENTRY_RADIUS;
     double D_edge = D - R; // Distance to hub edge
 
-    // Log distance info (constant across attempts)
-    Logger.recordOutput("Match/Trajectory/Input/HorizontalDistanceM", D);
-    Logger.recordOutput("Match/Trajectory/Input/TurretHeightM", turretHeightM);
-    Logger.recordOutput("Match/Trajectory/Input/HubEdgeDistanceM", D_edge);
-
-    // Try preferred descent angle first, then step down if hood limits prevent the shot
+    // Try preferred descent angle first, then step down if hood limits prevent the shot.
+    // If preferred < min, clamp min down so the loop always executes at least once.
     double preferredDescent = descentAngleDeg.get();
-    double minDescent = minDescentAngleDeg.get();
+    double minDescent = Math.min(minDescentAngleDeg.get(), preferredDescent);
     OptimalShot lastFailure = null;
+
+    ShotConstraints constraints = normalConstraints();
 
     for (double descent = preferredDescent; descent >= minDescent; descent -= 1.0) {
       OptimalShot shot =
-          tryDescentAngle(descent, D, D_edge, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg);
+          tryDescentAngle(
+              descent, D, D_edge, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg, constraints);
 
       if (shot.achievable) {
-        // Log the descent angle actually used (may differ from preferred)
-        Logger.recordOutput("Match/Trajectory/Input/DescentAngleDeg", descent);
-        Logger.recordOutput("Match/Trajectory/Input/PreferredDescentDeg", preferredDescent);
-        Logger.recordOutput("Match/Trajectory/Input/DescentWasReduced", descent < preferredDescent);
-        logResult(shot);
+        logDiagnostics(preferredDescent, shot);
         return shot;
       }
 
       lastFailure = shot;
     }
 
-    // No descent angle worked — return the last failure
-    Logger.recordOutput("Match/Trajectory/Input/DescentAngleDeg", minDescent);
-    Logger.recordOutput("Match/Trajectory/Input/PreferredDescentDeg", preferredDescent);
-    Logger.recordOutput("Match/Trajectory/Input/DescentWasReduced", true);
-    logResult(lastFailure);
+    // No descent angle worked — return the last failure (should never be null now, but guard)
+    if (lastFailure == null) {
+      lastFailure =
+          new OptimalShot(0, 0, 0, 0, 0, preferredDescent, false, "No descent angles attempted");
+    }
+    logDiagnostics(preferredDescent, lastFailure);
     return lastFailure;
+  }
+
+  /**
+   * Calculate optimal shot with a procedural fallback chain. Tries progressively more relaxed
+   * strategies to find an achievable shot:
+   *
+   * <ul>
+   *   <li>Level 0: Normal parametric optimization
+   *   <li>Level 1: Fixed-hood at nearest mechanical limit, then the other limit
+   *   <li>Level 2: Relaxed constraints (wider RPM range, higher peak, broader descent sweep)
+   * </ul>
+   *
+   * @param turretPosition 3D position of turret on field
+   * @param target 3D hub center target
+   * @param hoodMinAngleDeg Minimum hood angle from Hood subsystem
+   * @param hoodMaxAngleDeg Maximum hood angle from Hood subsystem
+   * @return OptimalShot with fallbackLevel indicating which strategy succeeded (FAILED if none)
+   */
+  public static OptimalShot calculateOptimalShotWithFallback(
+      Translation3d turretPosition,
+      Translation3d target,
+      double hoodMinAngleDeg,
+      double hoodMaxAngleDeg) {
+
+    // Level 0: Normal parametric
+    OptimalShot result =
+        calculateOptimalShot(turretPosition, target, hoodMinAngleDeg, hoodMaxAngleDeg);
+    if (result.achievable) {
+      Logger.recordOutput("SmartLaunch/Parametric/FallbackLevel", FallbackLevel.NORMAL.name());
+      Logger.recordOutput("SmartLaunch/Parametric/FallbackChain", "");
+      return result;
+    }
+    String chain = "NORMAL: " + result.notes;
+
+    // Level 1: Fixed-hood at nearest limit, then try the other limit
+    double nearestLimit =
+        (result.hoodAngleDeg < hoodMinAngleDeg) ? hoodMinAngleDeg : hoodMaxAngleDeg;
+    OptimalShot fixedResult = calculateFixedHoodShot(turretPosition, target, nearestLimit);
+    if (fixedResult.achievable) {
+      Logger.recordOutput("SmartLaunch/Parametric/FallbackLevel", FallbackLevel.FIXED_HOOD.name());
+      Logger.recordOutput("SmartLaunch/Parametric/FallbackChain", chain);
+      return new OptimalShot(
+          fixedResult.rpm,
+          fixedResult.launchAngleDeg,
+          fixedResult.hoodAngleDeg,
+          fixedResult.exitVelocityMps,
+          fixedResult.peakHeightM,
+          fixedResult.descentAngleDeg,
+          true,
+          "FIXED_HOOD (hood at " + nearestLimit + "°): " + fixedResult.notes,
+          FallbackLevel.FIXED_HOOD);
+    }
+    chain += " | FIXED_HOOD(" + nearestLimit + "°): " + fixedResult.notes;
+
+    double otherLimit = (nearestLimit == hoodMaxAngleDeg) ? hoodMinAngleDeg : hoodMaxAngleDeg;
+    OptimalShot altResult = calculateFixedHoodShot(turretPosition, target, otherLimit);
+    if (altResult.achievable) {
+      Logger.recordOutput("SmartLaunch/Parametric/FallbackLevel", FallbackLevel.FIXED_HOOD.name());
+      Logger.recordOutput("SmartLaunch/Parametric/FallbackChain", chain);
+      return new OptimalShot(
+          altResult.rpm,
+          altResult.launchAngleDeg,
+          altResult.hoodAngleDeg,
+          altResult.exitVelocityMps,
+          altResult.peakHeightM,
+          altResult.descentAngleDeg,
+          true,
+          "FIXED_HOOD (hood at " + otherLimit + "°): " + altResult.notes,
+          FallbackLevel.FIXED_HOOD);
+    }
+    chain += " | FIXED_HOOD(" + otherLimit + "°): " + altResult.notes;
+
+    // Level 2: Relaxed constraints (wider RPM, higher peak, broader descent sweep)
+    OptimalShot relaxedResult =
+        calculateWithRelaxedConstraints(turretPosition, target, hoodMinAngleDeg, hoodMaxAngleDeg);
+    if (relaxedResult.achievable) {
+      Logger.recordOutput("SmartLaunch/Parametric/FallbackLevel", FallbackLevel.RELAXED.name());
+      Logger.recordOutput("SmartLaunch/Parametric/FallbackChain", chain);
+      return relaxedResult; // already has fallbackLevel=RELAXED
+    }
+    chain += " | RELAXED: " + relaxedResult.notes;
+
+    // All parametric attempts failed
+    Logger.recordOutput("SmartLaunch/Parametric/FallbackLevel", FallbackLevel.FAILED.name());
+    Logger.recordOutput("SmartLaunch/Parametric/FallbackChain", chain);
+    return result; // return original failure
+  }
+
+  /**
+   * Calculate a shot with relaxed constraints: wider RPM range, higher peak height limit, and
+   * broader descent angle sweep. Used as Level 2 fallback.
+   */
+  private static OptimalShot calculateWithRelaxedConstraints(
+      Translation3d turretPosition,
+      Translation3d target,
+      double hoodMinAngleDeg,
+      double hoodMaxAngleDeg) {
+    double dx = target.getX() - turretPosition.getX();
+    double dy = target.getY() - turretPosition.getY();
+    double D = Math.sqrt(dx * dx + dy * dy);
+    double turretHeightM = turretPosition.getZ();
+
+    double R = HUB_ENTRY_RADIUS;
+    double D_edge = D - R;
+
+    // Broader sweep: extend 10° beyond normal bounds in both directions
+    double maxDescent = descentAngleDeg.get() + 10.0;
+    double minDescent = minDescentAngleDeg.get() - 10.0;
+    ShotConstraints constraints = relaxedConstraints();
+    OptimalShot lastFailure = null;
+
+    for (double descent = maxDescent; descent >= minDescent; descent -= 1.0) {
+      OptimalShot shot =
+          tryDescentAngle(
+              descent, D, D_edge, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg, constraints);
+
+      if (shot.achievable) {
+        // Wrap result with fallbackLevel=2 and annotated notes
+        return new OptimalShot(
+            shot.rpm,
+            shot.launchAngleDeg,
+            shot.hoodAngleDeg,
+            shot.exitVelocityMps,
+            shot.peakHeightM,
+            shot.descentAngleDeg,
+            true,
+            "RELAXED: " + shot.notes,
+            FallbackLevel.RELAXED);
+      }
+
+      lastFailure = shot;
+    }
+
+    if (lastFailure == null) {
+      lastFailure =
+          new OptimalShot(
+              0,
+              0,
+              0,
+              0,
+              0,
+              maxDescent,
+              false,
+              "Relaxed: no descent angles attempted",
+              FallbackLevel.RELAXED);
+    }
+    return lastFailure;
+  }
+
+  private static void logDiagnostics(double requestedDescentDeg, OptimalShot shot) {
+    String prefix = "SmartLaunch/Parametric/";
+    Logger.recordOutput(prefix + "RequestedDescentDeg", requestedDescentDeg);
+    Logger.recordOutput(prefix + "ActualDescentDeg", shot.descentAngleDeg);
+    Logger.recordOutput(prefix + "PeakHeightM", shot.peakHeightM);
+    Logger.recordOutput(prefix + "ClearanceNotes", shot.notes);
   }
 
   /**
@@ -162,6 +369,7 @@ public class TrajectoryOptimizer {
    * @param turretHeightM Turret height in meters
    * @param hoodMinAngleDeg Minimum hood angle from Hood subsystem
    * @param hoodMaxAngleDeg Maximum hood angle from Hood subsystem
+   * @param constraints RPM and peak height constraints to apply
    * @return OptimalShot result (check achievable flag)
    */
   private static OptimalShot tryDescentAngle(
@@ -170,7 +378,8 @@ public class TrajectoryOptimizer {
       double D_edge,
       double turretHeightM,
       double hoodMinAngleDeg,
-      double hoodMaxAngleDeg) {
+      double hoodMaxAngleDeg,
+      ShotConstraints constraints) {
     double descentRad = Math.toRadians(descent);
     double heightDrop = HUB_ENTRY_RADIUS * Math.tan(descentRad);
     double heightAtEdge = HUB_CENTER_HEIGHT + heightDrop;
@@ -178,9 +387,6 @@ public class TrajectoryOptimizer {
     // Calculate clearance and check bounds
     double clearanceM = heightAtEdge - HUB_LIP_HEIGHT;
     double clearanceInchesComputed = clearanceM / 0.0254;
-
-    Logger.recordOutput("Match/Trajectory/Input/HeightAtEdgeM", heightAtEdge);
-    Logger.recordOutput("Match/Trajectory/Input/ClearanceInches", clearanceInchesComputed);
 
     if (clearanceInchesComputed < minClearanceInches.get()) {
       return new OptimalShot(
@@ -214,7 +420,15 @@ public class TrajectoryOptimizer {
     double H_target = HUB_CENTER_HEIGHT - turretHeightM;
 
     return calculateTrajectoryThroughTwoPoints(
-        D_edge, H_edge, D, H_target, turretHeightM, hoodMinAngleDeg, hoodMaxAngleDeg, D);
+        D_edge,
+        H_edge,
+        D,
+        H_target,
+        turretHeightM,
+        hoodMinAngleDeg,
+        hoodMaxAngleDeg,
+        D,
+        constraints);
   }
 
   /**
@@ -240,7 +454,8 @@ public class TrajectoryOptimizer {
       double turretHeightM,
       double hoodMinAngleDeg,
       double hoodMaxAngleDeg,
-      double horizontalDistanceM) {
+      double horizontalDistanceM,
+      ShotConstraints constraints) {
 
     // Compute descent angle for this trajectory (angle of line from point A to point B)
     double heightAtEdge = turretHeightM + y1;
@@ -297,11 +512,11 @@ public class TrajectoryOptimizer {
     }
     double velocity = Math.sqrt(vSquared);
 
-    // Convert exit velocity to RPM using distance-dependent efficiency
+    // Convert exit velocity to RPM using launch efficiency
     double rpm = ShotCalculator.calculateRPMForVelocity(velocity, horizontalDistanceM);
 
     // Check RPM limits
-    if (rpm < minRPM.get() || rpm > maxRPM.get()) {
+    if (rpm < constraints.minRPM || rpm > constraints.maxRPM) {
       return new OptimalShot(
           rpm,
           thetaDeg,
@@ -310,7 +525,8 @@ public class TrajectoryOptimizer {
           0,
           descentAngleDeg,
           false,
-          String.format("RPM %.0f outside range [%.0f-%.0f]", rpm, minRPM.get(), maxRPM.get()));
+          String.format(
+              "RPM %.0f outside range [%.0f-%.0f]", rpm, constraints.minRPM, constraints.maxRPM));
     }
 
     // Calculate peak height
@@ -319,8 +535,7 @@ public class TrajectoryOptimizer {
     double peakHeight = turretHeightM + (vy0 * vy0) / (2 * GRAVITY);
 
     // Check peak height limit
-    double maxPeakHeightM = maxPeakHeightFt.get() * 0.3048;
-    if (peakHeight > maxPeakHeightM) {
+    if (peakHeight > constraints.maxPeakHeightM) {
       return new OptimalShot(
           rpm,
           thetaDeg,
@@ -330,7 +545,8 @@ public class TrajectoryOptimizer {
           descentAngleDeg,
           false,
           String.format(
-              "Peak %.1fft exceeds max %.1fft", peakHeight / 0.3048, maxPeakHeightFt.get()));
+              "Peak %.1fft exceeds max %.1fft",
+              peakHeight / 0.3048, constraints.maxPeakHeightM / 0.3048));
     }
 
     // Check that peak is before hub edge (ball should be descending at point A)
@@ -364,15 +580,124 @@ public class TrajectoryOptimizer {
             "OK - clearance %.1f in, descent %.1f deg", clearanceM / 0.0254, descentAngleDeg));
   }
 
-  private static void logResult(OptimalShot shot) {
-    Logger.recordOutput("Match/Trajectory/Ideal/RPM", shot.rpm);
-    Logger.recordOutput("Match/Trajectory/Ideal/HoodAngleDeg", shot.hoodAngleDeg);
-    Logger.recordOutput("Match/Trajectory/Ideal/LaunchAngleDeg", shot.launchAngleDeg);
-    Logger.recordOutput("Match/Trajectory/Ideal/ExitVelocityMps", shot.exitVelocityMps);
-    Logger.recordOutput("Match/Trajectory/Ideal/PeakHeightM", shot.peakHeightM);
-    Logger.recordOutput("Match/Trajectory/Ideal/DescentAngleDeg", shot.descentAngleDeg);
-    Logger.recordOutput("Match/Trajectory/Ideal/Achievable", shot.achievable);
-    Logger.recordOutput("Match/Trajectory/Ideal/Notes", shot.notes);
+  /**
+   * Calculate a shot with a fixed (locked) hood angle, solving only for RPM. Used in trench mode
+   * where the hood angle is constrained to a single value and we need to find the velocity that
+   * lands the ball in the hub center.
+   *
+   * <p>Math: given launch angle θ = 90° - hoodAngle and target at (D, H), solve projectile equation
+   * for velocity: v² = g·D² / (2·cos²(θ)·(D·tan(θ) - H))
+   *
+   * @param turretPosition 3D position of turret on field
+   * @param target 3D hub center target
+   * @param fixedHoodAngleDeg The locked hood angle to use
+   * @return OptimalShot with the computed RPM (check achievable flag)
+   */
+  public static OptimalShot calculateFixedHoodShot(
+      Translation3d turretPosition, Translation3d target, double fixedHoodAngleDeg) {
+
+    double dx = target.getX() - turretPosition.getX();
+    double dy = target.getY() - turretPosition.getY();
+    double D = Math.sqrt(dx * dx + dy * dy); // Horizontal distance to hub center
+    double turretHeightM = turretPosition.getZ();
+    double H = HUB_CENTER_HEIGHT - turretHeightM; // Height delta to hub center
+
+    double launchAngleDeg = 90.0 - fixedHoodAngleDeg;
+    double theta = Math.toRadians(launchAngleDeg);
+    double cosTheta = Math.cos(theta);
+    double sinTheta = Math.sin(theta);
+    double tanTheta = Math.tan(theta);
+
+    // Solve: v² = g·D² / (2·cos²(θ)·(D·tan(θ) - H))
+    double denominator = 2.0 * cosTheta * cosTheta * (D * tanTheta - H);
+    if (denominator <= 0) {
+      return new OptimalShot(
+          0,
+          launchAngleDeg,
+          fixedHoodAngleDeg,
+          0,
+          0,
+          0,
+          false,
+          String.format(
+              "Trench fixed-hood: unreachable (denom=%.3f, D=%.2fm, H=%.2fm)", denominator, D, H));
+    }
+
+    double vSquared = GRAVITY * D * D / denominator;
+    double velocity = Math.sqrt(vSquared);
+
+    // Convert to RPM
+    double rpm = ShotCalculator.calculateRPMForVelocity(velocity, D);
+
+    // Check RPM limits
+    if (rpm < minRPM.get() || rpm > maxRPM.get()) {
+      return new OptimalShot(
+          rpm,
+          launchAngleDeg,
+          fixedHoodAngleDeg,
+          velocity,
+          0,
+          0,
+          false,
+          String.format(
+              "Trench fixed-hood: RPM %.0f outside [%.0f-%.0f]", rpm, minRPM.get(), maxRPM.get()));
+    }
+
+    // Calculate peak height
+    double vy0 = velocity * sinTheta;
+    double peakHeight = turretHeightM + (vy0 * vy0) / (2 * GRAVITY);
+
+    // Check peak height limit
+    double maxPeakHeightM = maxPeakHeightFt.get() * 0.3048;
+    if (peakHeight > maxPeakHeightM) {
+      return new OptimalShot(
+          rpm,
+          launchAngleDeg,
+          fixedHoodAngleDeg,
+          velocity,
+          peakHeight,
+          0,
+          false,
+          String.format(
+              "Trench fixed-hood: peak %.1fft > max %.1fft",
+              peakHeight / 0.3048, maxPeakHeightFt.get()));
+    }
+
+    // Compute where the ball is at the hub edge (D - R) to check clearance
+    double D_edge = D - HUB_ENTRY_RADIUS;
+    double vx = velocity * cosTheta;
+    if (vx > 0) {
+      double t_edge = D_edge / vx;
+      double y_edge = turretHeightM + vy0 * t_edge - 0.5 * GRAVITY * t_edge * t_edge;
+      double clearanceM = y_edge - HUB_LIP_HEIGHT;
+      double clearanceInches = clearanceM / 0.0254;
+
+      // Compute descent angle at hub entry for logging
+      double vy_edge = vy0 - GRAVITY * t_edge;
+      double descentAngle = Math.toDegrees(Math.atan2(-vy_edge, vx));
+
+      Logger.recordOutput("SmartLaunch/TrenchParametric/ClearanceInches", clearanceInches);
+      Logger.recordOutput("SmartLaunch/TrenchParametric/DescentAngleDeg", descentAngle);
+      Logger.recordOutput("SmartLaunch/TrenchParametric/RPM", rpm);
+      Logger.recordOutput("SmartLaunch/TrenchParametric/HoodAngleDeg", fixedHoodAngleDeg);
+      Logger.recordOutput("SmartLaunch/TrenchParametric/DistanceM", D);
+      Logger.recordOutput("SmartLaunch/TrenchParametric/PeakHeightM", peakHeight);
+
+      return new OptimalShot(
+          rpm,
+          launchAngleDeg,
+          fixedHoodAngleDeg,
+          velocity,
+          peakHeight,
+          descentAngle,
+          true,
+          String.format(
+              "Trench fixed-hood OK - clearance %.1f in, descent %.1f deg",
+              clearanceInches, descentAngle));
+    }
+
+    return new OptimalShot(
+        0, launchAngleDeg, fixedHoodAngleDeg, 0, 0, 0, false, "Trench fixed-hood: vx <= 0");
   }
 
   /** Get the current descent angle setting in degrees. */

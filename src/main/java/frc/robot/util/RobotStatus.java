@@ -59,13 +59,21 @@ public class RobotStatus {
   /**
    * Refresh the cached alliance from DriverStation. Call once per loop cycle (e.g., in
    * Robot.robotPeriodic) rather than from every subsystem.
+   *
+   * <p>The alliance is only locked in once FMS is attached and reports a value, since the
+   * DriverStation software may default to Blue before FMS assigns the correct station. Without FMS,
+   * we keep refreshing every cycle so manual DS station changes take effect immediately.
    */
   public static void refreshAlliance() {
-    // Only re-query until resolved, then lock in
-    if (!allianceResolved) {
-      var optional = DriverStation.getAlliance();
-      if (optional.isPresent()) {
-        cachedAlliance = optional.get();
+    if (allianceResolved) {
+      return;
+    }
+    var optional = DriverStation.getAlliance();
+    if (optional.isPresent()) {
+      cachedAlliance = optional.get();
+      // Only lock in when FMS is attached — without FMS, keep refreshing so the
+      // driver can change the DS station selector at any time before a match.
+      if (DriverStation.isFMSAttached()) {
         allianceResolved = true;
       }
     }

@@ -21,6 +21,7 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import frc.robot.Constants;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.DriveConstants;
 import frc.robot.util.LoggedTunableNumber;
@@ -50,8 +51,10 @@ public class DriveCommands {
   private static final LoggedTunableNumber speedLimitRampRateMps2 =
       new LoggedTunableNumber("Drive/SpeedLimit/RampRateMps2", 4.0);
 
-  private static double speedLimitTargetMps = Double.MAX_VALUE;
-  private static double effectiveSpeedLimitMps = Double.MAX_VALUE;
+  private static final double NO_SPEED_LIMIT = Constants.getRobotConfig().getMaxSpeedMetersPerSec();
+
+  private static double speedLimitTargetMps = NO_SPEED_LIMIT;
+  private static double effectiveSpeedLimitMps = NO_SPEED_LIMIT;
   private static double lastRampTimestamp = 0.0;
 
   /** Set the drive speed limit (m/s). Takes effect instantly (no ramp on the way down). */
@@ -63,7 +66,7 @@ public class DriveCommands {
 
   /** Clear the drive speed limit. Speed ramps back up at the configured rate. */
   public static void clearSpeedLimit() {
-    speedLimitTargetMps = Double.MAX_VALUE;
+    speedLimitTargetMps = NO_SPEED_LIMIT;
     lastRampTimestamp = Timer.getFPGATimestamp();
     // effectiveSpeedLimitMps is NOT snapped up — it ramps in joystickDrive
   }
@@ -91,11 +94,6 @@ public class DriveCommands {
     double clampedLimit = Math.min(effectiveSpeedLimitMps, maxSpeedMps);
     double scale =
         (maxSpeedMps > 0.0 && clampedLimit < maxSpeedMps) ? clampedLimit / maxSpeedMps : 1.0;
-
-    Logger.recordOutput("SpeedLimit/EffectiveMps", Math.min(effectiveSpeedLimitMps, maxSpeedMps));
-    Logger.recordOutput("SpeedLimit/TargetMps", Math.min(speedLimitTargetMps, maxSpeedMps));
-    Logger.recordOutput("SpeedLimit/Scale", scale);
-    Logger.recordOutput("SpeedLimit/Ramping", effectiveSpeedLimitMps < speedLimitTargetMps);
 
     return scale;
   }

@@ -4,51 +4,63 @@ package frc.robot.subsystems.shooting;
  * Hardcoded baseline LUT entries — the "known-good" shot parameters for each distance.
  *
  * <p>Edit this file directly to tune shots. Each row is one distance:
- *
- * <pre>{distance_m, rpm, hood_angle_deg, motivator_rpm, spindexer_rpm, measured_tof_s}</pre>
- *
- * <p>At startup, these are loaded into the LUT as the sole source of shot data. To update shots,
- * use the batch recorder during practice, review the data offline, then promote good values here
- * and redeploy.
- *
- * <p>TOF (time of flight) values are critical for accurate velocity compensation
- * (shoot-on-the-move). These should be measured from real shots when possible — the batch recorder
- * captures them.
- *
- * <p>Hood angle reference: lower number = more vertical launch, higher = flatter. Our range is
- * roughly 16-46 degrees mechanical.
  */
 public final class ShotTableConstants {
 
   private ShotTableConstants() {}
 
   // ===== BASELINE SHOT TABLE =====
-  // Sorted by distance. Edit these values, push code, and they take effect immediately.
-  //
-  // Format: {distance_m, rpm, hood_angle_deg, motivator_rpm, spindexer_rpm, measured_tof_s}
-  //
-  // clang-format off
-  // Motivator speed ratio: motivator RPM = launcher RPM × 0.565
-  // (derived from fitted practice data 2026-03-12). The ratio tunable in ShootingCommands takes
-  // priority at runtime; these values are fallback-only.
-  public static final double MOTIVATOR_SPEED_RATIO = 0.565;
-
+  // Format: {distance_m, rpm, hood_angle_deg, measured_tof_s}
   public static final double[][] BASELINE_TABLE = {
-    // Close range                                           // TOF source
-    {1.16, 2372, 13.0, 1340, 325, 1.05}, // measured
-    {1.75, 2558, 14.1, 1445, 325, 1.15}, // smoothed (measured 1.25)
+    // Close range
+    {1.300, 2450, 15.0, 1.070}, // hub shot fixed shot
+    // {1.750, 2500, 16.0, 1.150},
+    // {1.880, 2550, 17.0, 1.160},
 
     // Mid range
-    {2.818, 2894, 15.5, 1635, 325, 1.19}, // interpolated
-    {3.07, 2974, 16.0, 1680, 325, 1.22}, // measured
-    {3.25, 3031, 16.5, 1712, 325, 1.23}, // smoothed (measured 1.133)
+    // {1.963, 2575, 15.5, 1.160},
+    {2.200, 2650, 18.0, 1.161}, // left trench fixed shot
+    // {2.500, 2750, 15.5, 1.175},
+    // {2.818, 2850, 15.5, 1.190},
+    // {2.900, 2625, 18.0, 1.210},
+    // {3.008, 2900, 18.0, 1.220}, // was L2650, short when trimmed to 2811, so going to 2900
+    // {3.300, 3100, 18.0, 1.220}, // new point to edge us above linear
+    // {3.586, 3175, 18.0, 1.230},
+    // {3.700, 3350, 18.0, 1.240}, // was 3225, perfect distance with 125 trim so upping permanently
+    // {3.750, 3375, 18.0, 1.240}, // was 3225
+    // Long range*
+    {3.7, 3260, 21.5, 1.28},
+    {4.03, 3300, 22.0, 1.28},
+    // bumping 250 and 2 degrees
+    // {4.152, 3300, 34.0, 1.33}, // tested - okay
+    {4.887, 3650, 42.0, 1.38}, // tried to make this a little lobbier +1deg +100RPM untested
+  };
+
+  // ===== ALTERNATE LUT TABLE =====
+  // Format: {distance_m, rpm, hood_angle_deg, measured_tof_s}
+  public static final double[][] ALTERNATE_TABLE = {
+    // Close range
+    {1.160, 2372, 13.0, 1.050},
+    {1.250, 2372, 13.0, 1.070},
+    {1.750, 2550, 13.5, 1.150},
+    {1.880, 2550, 14.5, 1.160},
+
+    // Mid range
+    {1.963, 2575, 15.5, 1.160},
+    {2.200, 2600, 15.5, 1.161},
+    {2.500, 2750, 15.5, 1.175},
+    {2.818, 2850, 15.5, 1.190},
+    {3.111, 2875, 15.5, 1.220},
+    {3.250, 2984, 16.5, 1.230},
 
     // Long range
-    {3.63, 3150, 18.0, 1780, 325, 1.26}, // smoothed (measured 1.509)
-    {3.85, 3220, 20.0, 1819, 275, 1.28}, // smoothed (measured 1.127)
-    {5.347, 3692, 39.0, 2086, 225, 1.41}, // measured
+    {3.630, 3200, 17.0, 1.26},
+    {3.900, 2950, 20.0, 1.28},
+    {4.280, 2950, 25.0, 1.33},
+    {4.615, 3000, 29.0, 1.35},
+    {5.025, 3000, 35.0, 1.38},
+    {5.355, 3000, 38.0, 1.41},
   };
-  // clang-format on
 
   /**
    * Load baseline entries into a lookup table. Call this before overlaying field-recorded data.
@@ -57,16 +69,28 @@ public final class ShotTableConstants {
    * @return Number of entries added
    */
   public static int loadBaseline(ShotLookupTable table) {
-    for (double[] row : BASELINE_TABLE) {
+    return loadTable(table, BASELINE_TABLE);
+  }
+
+  /**
+   * Load alternate LUT entries into a lookup table. Use for venue-specific tuning.
+   *
+   * @param table The lookup table to populate
+   * @return Number of entries added
+   */
+  public static int loadAlternate(ShotLookupTable table) {
+    return loadTable(table, ALTERNATE_TABLE);
+  }
+
+  private static int loadTable(ShotLookupTable table, double[][] data) {
+    for (double[] row : data) {
       double distance = row[0];
       double rpm = row[1];
       double hoodAngle = row[2];
-      double motivatorRPM = row[3];
-      double spindexerRPM = row[4];
-      double measuredTOF = row[5];
+      double measuredTOF = row[3];
 
-      table.addEntry(distance, rpm, hoodAngle, 0.0, measuredTOF, motivatorRPM, spindexerRPM);
+      table.addEntry(distance, rpm, hoodAngle, 0.0, measuredTOF);
     }
-    return BASELINE_TABLE.length;
+    return data.length;
   }
 }

@@ -51,6 +51,11 @@ public class HubShiftUtil {
   private static final boolean[] inactiveSchedule = {true, false, true, false, true, true};
   private static final double timeResetThreshold = 3.0;
   private static double shiftTimerOffset = 0.0;
+
+  /** Seconds before shifted active window to suppress all feeding (passing + shooting). */
+  public static final LoggedTunableNumber preActiveCutoffSeconds =
+      new LoggedTunableNumber("HubShift/PreActiveCutoffSec", 10.0);
+
   @Setter private static Supplier<Optional<Boolean>> allianceWinOverride = () -> Optional.empty();
 
   public static Optional<Boolean> getAllianceWinOverride() {

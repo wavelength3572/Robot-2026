@@ -12,145 +12,137 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import frc.robot.Constants;
 import frc.robot.FieldConstants;
 
-/** Helper class for turret aiming calculations. */
+/**
+ * Helper class for turret aiming calculations.
+ *
+ * <p>Delegates zone detection to {@link ZoneDetector} and maps zones to aim modes:
+ *
+ * <ul>
+ *   <li>ALLIANCE → SHOOT_ON_THE_MOVE (aim at hub, fire while driving)
+ *   <li>ALLIANCE_TRENCH → SHOOT_ON_THE_MOVE (aim at hub, fire while driving)
+ *   <li>NEUTRAL → PASS (aim at pass target)
+ *   <li>OPPONENT → LONG_PASS (aggressive pass back to alliance zone)
+ *   <li>NEUTRAL_TRENCH / BUMP → NONE (suppress shooting, keep last aim target)
+ * </ul>
+ */
 public class TurretAimingHelper {
 
   /** Aiming mode based on robot position. */
   public enum AimMode {
-    /** In alliance zone — aim at hub and shoot. */
-    SHOOT,
-    /** In pass zone — aim at pass target and fire. */
+    /** Aim at hub and shoot while moving (alliance zone, open field, trench). */
+    SHOOT_ON_THE_MOVE,
+    /** Aim at pass target and fire (neutral zone). */
     PASS,
-    /** Near bumps/trenches — pre-aim but hold fire. */
-    HOLDFIRE
+    /** Aggressive pass from opponent zone — longer distance, steeper trajectory. */
+    LONG_PASS,
+    /** Suppress shooting — over bump or transiting through far trench. */
+    NONE
   }
 
   /** Result of aim target calculation. */
-  public record AimResult(Translation2d target, AimMode mode) {}
+  public record AimResult(Translation2d target, AimMode mode, ZoneDetector.Zone zone) {}
 
-  /** Hysteresis buffer to prevent rapid mode switching at zone boundaries (meters). */
-  private static final double HYSTERESIS_BUFFER = 0.5;
-
-  /**
-   * How far past the alliance zone line (into neutral zone) the SHOOT zone extends (meters). Larger
-   * values mean the robot aims at the hub longer when leaving and switches to hub aiming sooner
-   * when returning. Tunable at Tuning/Turret/ShootZoneExtensionMeters.
-   */
-  private static final LoggedTunableNumber shootZoneExtension =
-      new LoggedTunableNumber("Tuning/Turret/ShootZoneExtensionMeters", 1.5);
+  /** Last computed aim result, used to keep a stable aim target during NONE mode. */
+  private static AimResult lastResult = null;
 
   /**
-   * How far on either side of a hub center X to extend the holdfire zone (meters). The
-   * bumps/trenches are physical obstacles near each hub, so we suppress firing in this band.
-   */
-  private static final double HOLDFIRE_RADIUS = 2.0;
-
-  /** Current aim mode with hysteresis applied. */
-  private static AimMode currentMode = AimMode.SHOOT;
-
-  /**
-   * Get the aim target based on robot position and alliance with hysteresis.
+   * Get the aim target based on robot position and alliance.
+   *
+   * <p>Zone detection (including robot-size margins and hysteresis) is handled by {@link
+   * ZoneDetector}. This method maps the zone to an aim mode and target.
    *
    * @param robotX Robot X position in meters
    * @param robotY Robot Y position in meters
    * @param alliance Current alliance
-   * @return AimResult containing target coordinates and aim mode
+   * @return AimResult containing target coordinates, aim mode, and zone
    */
   public static AimResult getAimTarget(double robotX, double robotY, Alliance alliance) {
-    // Update mode with hysteresis
-    currentMode = calculateModeWithHysteresis(robotX, alliance);
-
-    if (currentMode == AimMode.SHOOT) {
-      double targetX =
-          (alliance == Alliance.Blue)
-              ? FieldConstants.Hub.innerCenterPoint.getX()
-              : FieldConstants.Hub.oppInnerCenterPoint.getX();
-      double targetY =
-          (alliance == Alliance.Blue)
-              ? FieldConstants.Hub.innerCenterPoint.getY()
-              : FieldConstants.Hub.oppInnerCenterPoint.getY();
-      return new AimResult(new Translation2d(targetX, targetY), AimMode.SHOOT);
-    } else if (currentMode == AimMode.PASS) {
-      double targetX =
-          (alliance == Alliance.Blue)
-              ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
-              : Constants.StrategyConstants.RED_PASS_TARGET_X;
-      double targetY = ZoneDetector.getPassTargetY(robotY);
-      return new AimResult(new Translation2d(targetX, targetY), AimMode.PASS);
-    } else {
-      // HOLDFIRE — pre-aim at pass target but don't fire
-      double targetX =
-          (alliance == Alliance.Blue)
-              ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
-              : Constants.StrategyConstants.RED_PASS_TARGET_X;
-      double targetY = ZoneDetector.getPassTargetY(robotY);
-      return new AimResult(new Translation2d(targetX, targetY), AimMode.HOLDFIRE);
-    }
+    return getAimTarget(robotX, robotY, alliance, 0.0);
   }
 
   /**
-   * Check if the robot is inside a holdfire zone (near bumps/trenches at either hub).
+   * Get the aim target based on robot position, alliance, and gyro pitch.
    *
    * @param robotX Robot X position in meters
-   * @return true if the robot is within HOLDFIRE_RADIUS of either hub center
-   */
-  private static boolean isInHoldfireZone(double robotX) {
-    double allianceHub = FieldConstants.LinesVertical.hubCenter;
-    double opponentHub = FieldConstants.LinesVertical.oppHubCenter;
-    return Math.abs(robotX - allianceHub) < HOLDFIRE_RADIUS
-        || Math.abs(robotX - opponentHub) < HOLDFIRE_RADIUS;
-  }
-
-  /**
-   * Calculate the aim mode with hysteresis to prevent rapid switching.
-   *
-   * <p>Field layout for Blue (mirrored for Red):
-   *
-   * <pre>
-   * SHOOT | HOLDFIRE (near hub) | PASS | HOLDFIRE (near opp hub) | no firing
-   * </pre>
-   *
-   * @param robotX Robot X position in meters
+   * @param robotY Robot Y position in meters
    * @param alliance Current alliance
-   * @return The aim mode after applying hysteresis
+   * @param robotPitchDeg Gyro pitch in degrees for bump confirmation
+   * @return AimResult containing target coordinates, aim mode, and zone
    */
-  private static AimMode calculateModeWithHysteresis(double robotX, Alliance alliance) {
-    double allianceZoneEnd = FieldConstants.LinesVertical.allianceZone;
-    double fieldLength = FieldConstants.fieldLength;
-    boolean inHoldfire = isInHoldfireZone(robotX);
+  public static AimResult getAimTarget(
+      double robotX, double robotY, Alliance alliance, double robotPitchDeg) {
+    return getAimTarget(robotX, robotY, alliance, robotPitchDeg, robotX, robotY);
+  }
 
-    double extension = shootZoneExtension.get();
+  /**
+   * Get the aim target using turret field position for trench detection.
+   *
+   * @param robotX Robot X position in meters
+   * @param robotY Robot Y position in meters
+   * @param alliance Current alliance
+   * @param robotPitchDeg Gyro pitch in degrees for bump confirmation
+   * @param turretX Turret X position in field coords
+   * @param turretY Turret Y position in field coords
+   * @return AimResult containing target coordinates, aim mode, and zone
+   */
+  public static AimResult getAimTarget(
+      double robotX,
+      double robotY,
+      Alliance alliance,
+      double robotPitchDeg,
+      double turretX,
+      double turretY) {
+    ZoneDetector.Zone zone =
+        ZoneDetector.getCurrentZone(robotX, robotY, alliance, robotPitchDeg, turretX, turretY);
 
-    if (alliance == Alliance.Blue) {
-      double shootBoundary = allianceZoneEnd + extension;
-      if (robotX < shootBoundary - HYSTERESIS_BUFFER && currentMode != AimMode.SHOOT) {
-        return AimMode.SHOOT;
-      } else if (robotX > shootBoundary + HYSTERESIS_BUFFER && currentMode == AimMode.SHOOT) {
-        // Left shoot zone — go to HOLDFIRE or PASS depending on bump proximity
-        return inHoldfire ? AimMode.HOLDFIRE : AimMode.PASS;
-      }
-      // Outside alliance zone: toggle between PASS and HOLDFIRE based on bump proximity
-      if (currentMode == AimMode.HOLDFIRE && !inHoldfire) {
-        return AimMode.PASS;
-      } else if (currentMode == AimMode.PASS && inHoldfire) {
-        return AimMode.HOLDFIRE;
-      }
-    } else {
-      double redShootBoundary = fieldLength - allianceZoneEnd - extension;
+    AimResult result =
+        switch (zone) {
+          case ALLIANCE_CLOSE, ALLIANCE_MID, ALLIANCE_FAR -> {
+            Translation2d hubTarget =
+                (alliance == Alliance.Blue)
+                    ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()
+                    : FieldConstants.Hub.oppInnerCenterPoint.toTranslation2d();
+            yield new AimResult(hubTarget, AimMode.SHOOT_ON_THE_MOVE, zone);
+          }
+          case ALLIANCE_TRENCH -> {
+            Translation2d hubTarget =
+                (alliance == Alliance.Blue)
+                    ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()
+                    : FieldConstants.Hub.oppInnerCenterPoint.toTranslation2d();
+            yield new AimResult(hubTarget, AimMode.SHOOT_ON_THE_MOVE, zone);
+          }
+          case NEUTRAL -> {
+            double targetX =
+                (alliance == Alliance.Blue)
+                    ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
+                    : Constants.StrategyConstants.RED_PASS_TARGET_X;
+            double targetY = ZoneDetector.getPassTargetY(robotY);
+            yield new AimResult(new Translation2d(targetX, targetY), AimMode.PASS, zone);
+          }
+          case OPPONENT -> {
+            // Long pass — same target area but will use more aggressive shot parameters
+            double targetX =
+                (alliance == Alliance.Blue)
+                    ? Constants.StrategyConstants.BLUE_PASS_TARGET_X
+                    : Constants.StrategyConstants.RED_PASS_TARGET_X;
+            double targetY = ZoneDetector.getPassTargetY(robotY);
+            yield new AimResult(new Translation2d(targetX, targetY), AimMode.LONG_PASS, zone);
+          }
+          case NEUTRAL_TRENCH, BUMP -> {
+            // Keep last aim target for smooth turret motion, but suppress firing
+            if (lastResult != null) {
+              yield new AimResult(lastResult.target(), AimMode.NONE, zone);
+            }
+            // Fallback: aim at hub
+            Translation2d fallback =
+                (alliance == Alliance.Blue)
+                    ? FieldConstants.Hub.innerCenterPoint.toTranslation2d()
+                    : FieldConstants.Hub.oppInnerCenterPoint.toTranslation2d();
+            yield new AimResult(fallback, AimMode.NONE, zone);
+          }
+        };
 
-      if (robotX > redShootBoundary + HYSTERESIS_BUFFER && currentMode != AimMode.SHOOT) {
-        return AimMode.SHOOT;
-      } else if (robotX < redShootBoundary - HYSTERESIS_BUFFER && currentMode == AimMode.SHOOT) {
-        return inHoldfire ? AimMode.HOLDFIRE : AimMode.PASS;
-      }
-      // Outside alliance zone: toggle between PASS and HOLDFIRE based on bump proximity
-      if (currentMode == AimMode.HOLDFIRE && !inHoldfire) {
-        return AimMode.PASS;
-      } else if (currentMode == AimMode.PASS && inHoldfire) {
-        return AimMode.HOLDFIRE;
-      }
-    }
-
-    return currentMode;
+    lastResult = result;
+    return result;
   }
 }

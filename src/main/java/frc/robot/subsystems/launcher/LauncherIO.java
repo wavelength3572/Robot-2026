@@ -16,45 +16,40 @@ public interface LauncherIO {
     // Leader motor data (motor RPM, before gear ratio)
     public double leaderVelocityRPM = 0.0;
     public double leaderAppliedVolts = 0.0;
+    public double leaderAppliedOutput = 0.0;
+    public double leaderBusVoltage = 0.0;
     public double leaderCurrentAmps = 0.0;
-    public double leaderPdhCurrentAmps = 0.0;
     public double leaderTempCelsius = 0.0;
+    public double iAccum = 0.0;
 
     // Follower motor data (for monitoring even in follower mode)
     public double followerVelocityRPM = 0.0;
     public double followerAppliedVolts = 0.0;
+    public double followerAppliedOutput = 0.0;
+    public double followerBusVoltage = 0.0;
     public double followerCurrentAmps = 0.0;
-    public double followerPdhCurrentAmps = 0.0;
     public double followerTempCelsius = 0.0;
 
     // Wheel velocity (after gear ratio conversion)
     public double wheelVelocityRPM = 0.0;
 
-    // PDH voltage
-    public double pdhVoltage = 0.0;
-
     // Control state
     public double targetVelocityRPM = 0.0;
+    public double leaderTargetRPM = 0.0;
     public boolean atSetpoint = false;
   }
 
   /** Updates the set of loggable inputs. */
   public default void updateInputs(LauncherIOInputs inputs) {}
 
-  /** Set the target velocity in wheel RPM. */
-  public default void setVelocity(double velocityRPM) {}
-
   /**
-   * Set the target velocity with recovery boost parameters.
+   * Set the target velocity in wheel RPM.
    *
    * @param velocityRPM Target velocity in wheel RPM
-   * @param boostVolts Extra feedforward voltage to add during recovery
-   * @param recoveryActive True to use recovery PID gains (higher P for faster response)
+   * @param recoveryActive True to use recovery PID gains (higher kP for faster response)
    */
-  public default void setVelocityWithBoost(
-      double velocityRPM, double boostVolts, boolean recoveryActive) {
-    setVelocity(velocityRPM);
-  }
+  public default void setVelocity(
+      double velocityRPM, boolean recoveryActive, double recoveryArbFF) {}
 
   /** Run the launcher at the specified voltage (for characterization). */
   public default void setLauncherVoltage(double volts) {}
@@ -69,14 +64,10 @@ public interface LauncherIO {
   public default void notifyBallFired() {}
 
   /** Configure PID gains and IZone for velocity control. */
-  default void configurePID(
-      double kP, double kI, double kD, double recoveryKpBoost, double iZone) {}
+  default void configurePID(double kP, double kI, double kD, double iZone) {}
 
   /** Configure feedforward gains for velocity control. */
-  default void configureFeedforward(double kS, double kV, double kA) {}
-
-  /** Configure MAXMotion acceleration limit. */
-  default void configureMaxMotion(double maxAcceleration) {}
+  default void configureFeedforward(double kS, double kV) {}
 
   /** Set the velocity tolerance for atSetpoint checks. */
   default void setVelocityTolerance(double toleranceRPM) {}
